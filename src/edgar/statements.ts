@@ -57,7 +57,8 @@
  * no environment. The companyfacts JSON comes from src/providers/edgar.ts.
  */
 
-import { filedRevenueLines, preferredRevenueLine } from "./revenuePresentation";
+import { ADDITIONAL_OPERATING_COST_TAGS, completeOperatingBridge, filedRevenueLines, preferredRevenueLine } from "./revenuePresentation";
+import { filedCashFlowTtm, filedWindowFlow } from "./financialEnrichment";
 import { memoize } from "@/edgar/computationContext";
 import type { FiledIncomeLine, EquityMethodIncomePlacement, FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
@@ -69,6 +70,7 @@ import {
   filingRepresented,
   firstReportedOrder,
   isAmendment,
+  movedBeyond,
   oneBasisPair,
   representationLabelled,
   type LabelCopy,
@@ -902,6 +904,9 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   ...Object.fromEntries(DISCONTINUED_ELEMENT_FIELDS.map((element) => [element.field, element.spec])),
 };
 
+/** P1: only monetary flows are additive; EPS and weighted share counts are not. */
+export const ADDITIVE_INCOME_FIELDS = Object.entries(INCOME_CHAINS).filter(([, spec]) => spec.unit === "money").map(([field]) => field);
+
 /**
  * The derived-EBIT disclosure, worded from what the subtraction pass could and
  * could not remove. An adjustment the filer did not tag is an error band on the
@@ -1431,6 +1436,7 @@ const NEEDED_US_GAAP_TAGS: ReadonlySet<string> = (() => {
   // substituting gross interest income or cash interest paid.
   tags.add(NET_INTEREST_NONOPERATING_TAG);
   for (const tag of TOTAL_INCOME_EXPENSE_TAGS) tags.add(tag);
+  for (const tag of ADDITIONAL_OPERATING_COST_TAGS) tags.add(tag);
   // Not in any chain: the share-count fallback below reads it directly.
   tags.add(BALANCE_SHEET_SHARES_TAG);
   for (const table of [INCOME_CHAINS, BALANCE_CHAINS, CASHFLOW_CHAINS]) {
@@ -1678,6 +1684,7 @@ interface Resolved {
    */
   original?: OriginalValue;
   evidencePoints?: FactPoint[];
+  flowOperands?: StatementFieldProvenance["flowOperands"];
   /**
    * Set only on a floor probe (`magnitudeOnly: { against }`): whether, in a filing that carries both tags for a
    * period the candidate nets, the candidate sits below this floor tag. Undefined when no filing carries both.
@@ -1840,6 +1847,8 @@ function combine(value: number, parts: Resolved[]): Resolved {
     evidencePoints: parts.flatMap((p) => p.evidencePoints ?? [p.point]), ...(head.periodStart === undefined ? {} : { periodStart: head.periodStart }) };
   if (derived !== undefined) out.derivation = derived.derivation;
   if (derivedFrom.length > 0) out.derivedFrom = derivedFrom;
+  const flowOperands = parts.flatMap(p => p.flowOperands ?? []);
+  if (flowOperands.length) out.flowOperands = flowOperands;
   return out;
 }
 
@@ -1870,6 +1879,7 @@ function filedIncomeLine(r: Resolved, observedAt: string): FiledIncomeLine {
   return { value: r.value, proof: { source: "edgar", unit: r.unit, periodStart: r.periodStart ?? r.point.start ?? null,
     periodEnd: r.point.end, observedAt, tags: r.tags.map(tag => `us-gaap/${tag}`),
     filings: [...new Map((r.evidencePoints ?? [r.point]).map(p => [`${p.accn}|${p.filed}`, filingRef(p)])).values()],
+    ...(r.flowOperands ? { flowOperands: r.flowOperands } : {}),
     ...(r.derivation ? { derivation: r.derivation } : {}) } };
 }
 
@@ -2742,6 +2752,7 @@ function quarterResolver(
           derivation: "fy-minus-ytd",
           derivedFrom: [describePoint(tag, choice.minuend), describePoint(tag, ytdPrev)],
           evidencePoints: [choice.minuend, ytdPrev],
+          flowOperands: [{ tag: `us-gaap/${tag}`, points: [choice.minuend, ytdPrev] }],
           periodStart: new Date(dateMs(ytdPrev.end) + DAY_MS).toISOString().slice(0, 10),
         };
       }
@@ -2757,6 +2768,7 @@ function quarterResolver(
         derivation: "fy-minus-quarters",
         derivedFrom: [describePoint(tag, choice.minuend), ...choice.subtrahends.map((p) => describePoint(tag, p))],
         evidencePoints: [choice.minuend, ...choice.subtrahends],
+        flowOperands: [{ tag: `us-gaap/${tag}`, points: [choice.minuend, ...choice.subtrahends] }],
         periodStart: new Date(dateMs(choice.subtrahends[0]!.end) + DAY_MS).toISOString().slice(0, 10),
       };
     }
@@ -2781,6 +2793,7 @@ function quarterResolver(
       derivation: "ytd-difference",
       derivedFrom: [describePoint(tag, choice.minuend), describePoint(tag, prior)],
       evidencePoints: [choice.minuend, prior],
+      flowOperands: [{ tag: `us-gaap/${tag}`, points: [choice.minuend, prior] }],
       periodStart: new Date(dateMs(prior.end) + DAY_MS).toISOString().slice(0, 10),
     };
   };
@@ -3722,6 +3735,7 @@ function buildStatementRows<TRow>(
       const filings = [...new Map((resolved.evidencePoints ?? [resolved.point]).map((p) => [`${p.accn}|${p.filed}`, filingRef(p)])).values()];
       fieldProvenance[field] = { source: "edgar", unit: resolved.unit, periodStart: resolved.periodStart ?? resolved.point.start ?? null,
         periodEnd: resolved.point.end, observedAt: opts.factsObservedAt ?? "", tags: resolved.tags.map((tag) => `us-gaap/${tag}`), filings,
+        ...(resolved.flowOperands ? { flowOperands: resolved.flowOperands } : {}),
         ...(resolved.derivation !== undefined ? { derivation: resolved.derivation } : {}) };
     }
     for (const [alias, source] of Object.entries(def.aliases)) {
@@ -3748,7 +3762,7 @@ function buildStatementRows<TRow>(
       const lines: Record<string, FiledIncomeLine> = {};
       for (const tag of [...REVENUE_TAGS, ...REVENUE_COMPONENT_TAGS, ...tagsFor("grossProfit"), ...GROSS_PROFIT_COST_TAGS,
         ...TOTAL_INCOME_EXPENSE_TAGS, NONSERVICE_BENEFIT_EXPENSE_TAG, ...tagsFor("operatingIncome"), ...tagsFor("operatingExpenses"), ...tagsFor("interestExpense"),
-      ...tagsFor("sellingGeneralAndAdministrativeExpenses"), ...tagsFor("researchAndDevelopmentExpenses"), NET_INTEREST_NONOPERATING_TAG,
+      ...tagsFor("sellingGeneralAndAdministrativeExpenses"), ...tagsFor("researchAndDevelopmentExpenses"), ...ADDITIONAL_OPERATING_COST_TAGS, NET_INTEREST_NONOPERATING_TAG,
         ...EBIT_NON_OPERATING_ADJUSTMENTS.flatMap(a => a.tags),
         // D-257 (P7): the two components of a bank's total net revenue, each with its own
         // period and filings, so the income classification can tie the filed total to them.
@@ -4296,6 +4310,74 @@ function standInEpsFromContinuingOperations(rows: FmpIncomeStatementRow[], notes
  */
 export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: StatementBuildOptions): BuiltStatements {
   return memoize("statements", facts, opts, () => buildStatementsUncached(facts, opts));
+}
+
+/** D-260 (P1): the same income chains on one exact monetary window. No EPS
+ * or share-count identity is inferred. The shared filed-window owner retains
+ * FY + current YTD - prior-year YTD and every underlying observation. */
+export function buildIncomeWindowFromCompanyFacts(facts: CompanyFacts, opts: StatementBuildOptions, unit: string, start: string, end: string): StatementRowsResult<FmpIncomeStatementRow> {
+  return memoize("income-window", facts, { opts, unit, start, end }, () => {
+    const notes = createNoteSink();
+    const resolve: TagResolver = (tag, kind, currency) => {
+      if (kind !== "money" || currency && currency !== unit) return null;
+      const flow = filedWindowFlow(facts, tag, unit, start, end, opts.asOf);
+      if (!flow) return null;
+      const point = flow.points.find(p => p.end === end)!;
+      return { value: flow.value, point, reporter: point, unit, tags: [tag], periodStart: start,
+        evidencePoints: flow.points, flowOperands: [{ tag: `us-gaap/${tag}`, points: flow.points }] };
+    };
+    const state: BuildState = { filesTwentyF: false, filesForm20F: false,
+      balanceRefusals: new Map(), temporaryEquityPeriods: new Set(), nciZeroPeriods: new Set() };
+    const bank = opts.bankRevenue ?? looksLikeBankTagging(facts);
+    const result = buildStatementRows<FmpIncomeStatementRow>(INCOME_DEF(bank),
+      [{ date: end, resolve, quarter: null }], "annual", opts, state, notes);
+    const row = result.rows[0];
+    if (!row || bank) return result;
+    // Compose each operating total in its own filing before differencing.
+    // Independently rounded children can move more than the already-reconciled
+    // operating total. Compatibility is judged on that total, never by adding
+    // an allowance to a failed component or treating a missing child as zero.
+    const index = buildFactIndex(facts, { splits: discoverStockSplits(facts, { asOf: opts.asOf, vendor: opts.vendorSplits }),
+      day: opts.asOf, withheld: [] }, opts.asOf, []);
+    const revenueTag = row.fieldProvenance?.revenue?.tags.find(t => REVENUE_TAGS.includes(t.replace(/^us-gaap\//, "")))?.replace(/^us-gaap\//, "");
+    const flow = revenueTag ? filedCashFlowTtm(facts, revenueTag, unit, end, opts.asOf) : null;
+    if (!flow || flow.start !== start || flow.points.length !== 3) return result;
+    const interval = (p: FactPoint): { point: FactPoint; proof: StatementFieldProvenance } | null => {
+      const exact: TagResolver = (tag, kind, currency) => {
+        if (kind !== "money" || currency && currency !== unit) return null;
+        const up = pickUnitPoints(index, tag, kind, unit);
+        const ps = up?.all.filter(x => x.start === p.start && x.end === p.end && x.accn === p.accn && x.filed === p.filed && x.form === p.form) ?? [];
+        if (!up || !ps.length || ps.some(x => x.val !== ps[0]!.val)) return null;
+        return { ...resolvedPoint(tag, up, ps[0]!, ps[0]!.val), flowOperands: [{ tag: `us-gaap/${tag}`, points: [ps[0]!] }] };
+      };
+      const r = buildStatementRows<FmpIncomeStatementRow>(INCOME_DEF(false), [{ date: p.end, resolve: exact, quarter: null }], "annual", opts, state, createNoteSink()).rows[0];
+      if (!r?.fieldProvenance?.revenue || !r.fieldProvenance.incomeBeforeTax || !isNum(r.revenue) || !isNum(r.incomeBeforeTax)) return null;
+      const bridge = completeOperatingBridge({ value: r.revenue, proof: r.fieldProvenance.revenue },
+        { value: r.incomeBeforeTax, proof: r.fieldProvenance.incomeBeforeTax }, r.filedIncomeLines ?? {});
+      return bridge ? { point: { ...p, val: bridge.value }, proof: bridge.proof } : null;
+    };
+    const totals = flow.points.map(interval);
+    if (totals.some(t => t === null)) return result;
+    const [annual, current, prior] = totals as NonNullable<ReturnType<typeof interval>>[];
+    const copies = pickUnitPoints(index, revenueTag!, "money", unit)!.all.filter(p =>
+      (p.start === annual!.point.start && p.end === annual!.point.end) || (p.start === prior!.point.start && p.end === prior!.point.end))
+      .flatMap(p => { const t = interval(p); return t ? [t.point] : []; });
+    const oldPrior = [...copies].filter(p => p.start === prior!.point.start && p.end === prior!.point.end && p.filed <= annual!.point.filed)
+      .sort((a, b) => b.filed.localeCompare(a.filed))[0];
+    if (annual!.point.accn !== prior!.point.accn && (!oldPrior || movedBeyond(oldPrior, prior!.point, 0))) return result;
+    const pair = oneBasisPair(copies, annual!.point, () => oldPrior ? [oldPrior] : [prior!.point], RESTATEMENT_THRESHOLD_PCT,
+      p => representationLabelled(labelCopiesOf(index), p, RESTATEMENT_THRESHOLD_PCT));
+    if (pair.kind !== "pair" || pair.minuend.accn !== annual!.point.accn || pair.minuend.val !== annual!.point.val) return result;
+    const proof: StatementFieldProvenance = { ...row.fieldProvenance!.revenue!, calculation: "complete-operating-reconciliation",
+      tags: [...new Set(totals.flatMap(t => t!.proof.tags))], flowOperands: [
+        { tag: "calculation/complete-operating-reconciliation", points: totals.map(t => t!.point) },
+        ...totals.flatMap(t => t!.proof.flowOperands ?? []),
+      ] };
+    row.operatingIncome = annual!.point.val + current!.point.val - prior!.point.val;
+    row.ebit = row.operatingIncome;
+    row.fieldProvenance = { ...row.fieldProvenance, operatingIncome: proof, ebit: { ...proof, calculation: "operating-income-as-ebit" } };
+    return result;
+  });
 }
 
 /** The statement builder itself, never cached (tests compare it with the cached path). */

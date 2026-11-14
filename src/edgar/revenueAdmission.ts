@@ -234,7 +234,9 @@ export function admitRevenue(row: FmpIncomeStatementRow, current: FmpIncomeState
     latestFiling(later) > latestFiling(line)));
   const unchanged = { row, evidence: current, handled: false, gaps: [] };
   const boundRegulatedTotal = vendor !== null && candidates.some(c => c.line.proof.tags.includes(`us-gaap/${REGULATED_OPERATING_REVENUE_TAG}`) && vendorAgreesWithFiled(vendor, c.line.value));
-  if (row.filingDate && !originals.length && !boundRegulatedTotal && !candidates.some(c => c.line.proof.filings.some(f => f.filed === row.filingDate))) return unchanged;
+  const reconstructedMatch = scope === "quarter" && vendor !== null && candidates.some(c =>
+    c.line.proof.derivation && vendorAgreesWithFiled(vendor, c.line.value));
+  if (row.filingDate && !originals.length && !boundRegulatedTotal && !reconstructedMatch && !candidates.some(c => c.line.proof.filings.some(f => f.filed === row.filingDate))) return unchanged;
   if (!candidates.length || !reconsiderable(row.fieldConflicts?.revenue, candidates.map(c => c.line))) return unchanged;
   const eligible = policy?.sales ? candidates.filter(c=>c.line.role==="operating-sales" ||
     c.line.proof.tags.some(t=>policy.salesTags.includes(t.replace(/^us-gaap\//,"")))) : candidates;

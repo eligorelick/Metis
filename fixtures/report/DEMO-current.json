@@ -21,9 +21,10 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.76.0",
+    "specVersion": "1.77.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.75.0",
+    "pipelineVersion": "1.77.0",
+    "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8501742160278746,
     "provenanceCoverage": {
@@ -1592,7 +1593,7 @@
         ]
       },
       {
-        "label": "FCF conversion (FCF after SBC / net income)",
+        "label": "FCF conversion (FCF after SBC / consolidated net income, including noncontrolling interests' share)",
         "values": [
           {
             "period": "2023-12-31",
@@ -1635,7 +1636,7 @@
         ]
       },
       {
-        "label": "FCF conversion (FCF before SBC / net income)",
+        "label": "FCF conversion (FCF before SBC / consolidated net income)",
         "values": [
           {
             "period": "2023-12-31",
@@ -9607,7 +9608,7 @@
           }
         ],
         "notApplicableReason": null,
-        "note": "Financial strength on ttm flows and the corresponding balance date 2026-03-31.  Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
+        "note": "Financial strength on ttm flows and the corresponding balance date 2026-03-31.  Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over consolidated net income (including noncontrolling interests' share) — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
       },
       "moat": {
         "score": 86.5,

@@ -11,6 +11,1029 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-260 - Complete filed operating costs and exact additive income windows (2026-11-13)
+
+Principles: P1 (exact additive periods), P2 (compatible current filings), P7
+(compose within a filing), P8 (filed beats vendor), P10/P11 (explicit gaps and
+independent refusals), P20/P21/P27 (retained operands, immutable reports, stamps).
+The owner's Breadth instruction makes LLY the example, rather than a ticker or
+industry exception. This revises the bounded admission of D-203 and extends the
+exact-window evidence of D-240; both entries are marked above.
+
+The SEC quarter resolver already computes FY minus YTD and YTD differences for
+monetary income fields. LLY's historical operating bridges failed later: the
+complete reconciliation did not retain acquired in-process research expense or
+restructuring/special charges, and it did not recognize research excluding
+acquired costs as a disjoint component. The retained primary-table path could
+prove the latest 10-Q's three-month columns and annual statements, hiding this
+omission for those periods only. The fix retains these concepts in the same
+statement index and uses them once in the complete pretax reconciliation.
+A research aggregate owns its children; conflicting totals refuse proof. Cash
+acquisition payments are not research expense. No residual or vendor agreement
+establishes an operating total.
+
+The Q4-2024 leak was not an annual admission indexed solely by year-end. Its
+provider filing date no longer appeared in the canonical derived SEC revenue
+pair. With no original quarterly candidate, revenue admission returned early,
+leaving both provider numbers without a mixed-source review; the provider's own
+gross-profit/expense bridge then passed. A positively reconstructed, matching
+quarter now enters review despite that date mismatch. Its exact interval still
+comes from the filed operands. Q4-2025 had a matching filing and did enter the
+review. The same general rule covers every reconstructed quarter.
+
+All missing additive monetary income fields now use the statement owner's
+annual/quarterly chains, with provenance and the reconstruction retained. The
+trailing assembly can use those same chains over an independently proved exact
+window: FY + current YTD - prior-year YTD, or a directly stated exact window.
+The two YTD operands must be in one current core filing. A newer comparative
+cannot silently recast the annual's presentation. Every concept, amount,
+interval, unit and filing remains in flowOperands and in the manifest reason.
+For operating income, each full interval is first independently reconciled;
+compatibility is tested on these complete operating totals, before subtraction.
+This matters for LLY: the prior-year nonoperating child changed by 0.7 million
+between printed precisions, while the fully reconciled operating total changed
+by 0.5 million. The existing presentation re-rounding rule admits the total;
+no tolerance was added for that child. The exact trailing identity supersedes
+an already corroborated quarter sum only within the existing filed-operand
+rounding allowance, and names both totals.
+
+The three aggregate operands enter that rounding comparison once; their retained
+component receipts do not widen it. Missing trailing revenue still goes through
+admitRevenue and the company's sales policy, rather than accepting a taxonomy
+label alone. Its completeness entry is now compute.ttmIncome.revenue, allowing
+the exact same field's suppression to clear on new window evidence. A missing
+EBIT cannot evade an independent operating-income refusal. Separate red/green
+controls cover both of these breadth boundaries.
+
+The existing quarter resolver now retains each original operand's amount,
+interval and filing in the same flowOperands receipt, including FY-minus-YTD,
+FY-minus-quarters and YTD differences. The currency-label and completed-sale
+readers use the same exact trailing-window owner as the final computation.
+Once a completed operating sale has been removed from recurring income, raw
+filed-window operating totals cannot restore it. Additional failing controls
+pin the quarter receipts, currency window and normalized-sale boundary.
+
+Scope and sibling search:
+
+- The quarter owner already handles every additive chain. Its missing-field
+  transport now covers annual and quarterly income, including interest, tax,
+  depreciation, consolidated/common profit and equity-method income. Direct
+  OperatingIncomeLoss observations are retained. Per-share EPS and weighted
+  average shares are excluded by the owner's unit classification.
+- The TTM completeness gates in compute.ts were checked field by field. Revenue,
+  operating income/EBIT, depreciation, interest, pretax, tax, gross profit and
+  directly tagged consolidated profit can use exact-window evidence. Parent,
+  common and NCI allocation still pass their own ownership constructors; a
+  monetary identity cannot establish an ownership scope or a common allocation.
+- financialEnrichment.ts:filedWindowFlow is the existing exact-window owner.
+  Its annual/comparative compatibility check now also protects the existing
+  filedSingleProfitWindow consumer. The cash-flow-specific CFO, capex and SBC
+  methods keep their definitions; balance instants do not use flow arithmetic.
+- US-GAAP 20-F/40-F annual and exact-window observations use the same chains;
+  tests cover both foreign annual forms, a direct-tag issuer, a disjoint-cost
+  issuer and refusal shapes. Unsupported IFRS taxonomy mapping and 6-K interim
+  evidence remain gaps, rather than newly guessed foreign quarters. Banks and
+  securities firms keep their separate revenue chain and require their filed
+  operating tag. Insurer, REIT and utility additive evidence is admitted on the
+  same exact-period rule where its tag and entity scope are established.
+
+Rejected: restoring a vendor subtotal because it agrees with itself; treating
+acquisition cash paid as an expense; summing a partial TTM; annual-as-TTM;
+adding interest already inside the aggregate; inferring EPS or share counts;
+changing tolerances, growth guards, valuation methods, scoring bands or weights.
+
+### Approved report changes
+
+All 17 regression cases were rebuilt on pinned main
+cf3eb2875deddcf92ed3e7685cda4912ce7505d1 and on this tree, offline.
+All 17 change the report/payload stamp and resulting fingerprints or rendered
+identity hashes. Ten cases (nine issuers) also change evidence, disclosure or
+financial leaves; seven are stamp-only controls. No directly tagged operating
+amount or score changes in the regression set. O has a previously unreviewed,
+unproved quarterly margin withdrawn; DUK gains consolidated FCF conversion.
+
+The following table accounts for every changed JSON path from golden:diff.
+Counts include array-position shifts when an admission replaces an old gap or
+construction note. Paths under gaps/notes and report appendix carry exactly the
+source admissions below; sourceFactSummary adds the same filed fields and their
+registry counts. meta.specVersion is the version bump in every case. The text,
+Markdown and two HTML outputs render these same changes; payload fingerprints
+and HTML report-identity hashes follow their changed content.
+
+| Case | Stage B changed paths | Report changed paths | Approved cause |
+| --- | ---: | ---: | --- |
+| amzn-data-only | 27 | 35 | Equity-method amounts and their source records; admission notes only. |
+| figr-data-only | 175 | 101 | Exact common-income and equity-method inputs move admission earlier; the existing common total is unchanged. |
+| meta-data-only | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+| mu-data-only | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+| nvda-data-only | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+| qcom-data-only | 27 | 29 | Same-period equity-method inputs and source records; admission notes only. |
+| jpm-data-only | 185 | 71 | Filed common earnings move admission earlier; the bank revenue chain, common total and all scores remain unchanged. |
+| pgr-data-only | 78 | 44 | FY common earnings are admitted earlier; the existing redeemed-preferred disclosure moves with that proof. No value changes. |
+| o-data-only | 328 | 121 | Filed common/consolidated/equity-method evidence; unsupported Q4-2024 GP, expenses and operating margin are withheld by the same reconstructed-quarter review. |
+| duk-data-only | 195 | 101 | Filed consolidated trailing profit restores the FCF-conversion denominator; common/NCI/equity-method facts gain evidence. |
+| tsm-data-only | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+| rivn-data-only | 229 | 106 | Filed common loss and equity-method income move admission earlier; common trailing loss and scores are unchanged. |
+| vktx-data-only | 31 | 22 | Exact filed consolidated loss is read directly; the same numeric conversion denominator keeps consolidated scope; duplicate single-profit bridge is retired. |
+| amzn-fixed-analyst | 27 | 39 | Same AMZN inputs; fixed analyst appendix/source registry follows them. |
+| meta-fixed-analyst | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+| mu-fixed-analyst | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+| nvda-fixed-analyst | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+
+Filed inputs behind those regression deltas (USD millions unless stated):
+
+- AMZN: IncomeLossFromEquityMethodInvestments, FY2025 -554 from 10-K
+  0001018724-26-000004 (2026-02-06), Q3-2025 -73 from 10-Q
+  0001018724-25-000123 (2025-10-31), Q1/Q2-2026 -19/-11 from 10-Q
+  0001018724-26-000014 (2026-04-30) / 0001018724-26-000026 (2026-07-31).
+  The seven sourceFactSummary paths add these observations/registry counts;
+  no financial Stage B value changes in either AMZN case.
+- FIGR: NetIncomeLossAvailableToCommonStockholdersBasic for Q3/Q4-2025 and
+  Q1/Q2-2026 is 43.784/23.027/44.945/87.446. Q4 uses FY minus nine months
+  (10-K 0002064124-26-000009, 2026-03-16; 10-Q 0002064124-25-000032,
+  2025-11-13). Current quarters are in 0002064124-26-000029 (2026-05-15)
+  and 0001628280-26-057061 (2026-08-14). The existing 199.202 common total
+  is unchanged; its later construction note is replaced by earlier admissions.
+  Equity-method FY2025/Q1-2026 -1.246/-0.417 use those same filings.
+- QCOM: equity-method Q1/Q2 calendar-2026 44/66, from 10-Q
+  0000804328-26-000061 (2026-04-29) / 0000804328-26-000086 (2026-07-29).
+  Only the associated source fact and disclosure paths change.
+- JPM: the common tag above supplies Q4-2025 12,690 (FY minus YTD), and
+  Q1/Q2/Q3-2026 16,148/20,752/14,936: 10-K 0001628280-26-008131
+  (2026-02-13), prior 10-Q 0001628280-25-048859 (2025-11-04), and
+  10-Qs 0001628280-26-029344/-054343/-069523 (2026-05-01/08-06/11-03).
+  The existing 64,526 total, routing, bank revenue and scores are unchanged.
+- PGR: the same common tag supplies FY2025 11,308, 10-K
+  0000080661-26-000086 (2026-03-02). The D-251 preferred-redemption
+  completion already produced this amount; earlier general admission now
+  supplies it, changing only its evidence wording and gap positions.
+- O: equity-method FY2025 and Q1/Q2/Q3-2026 13.330/2.669/2.204/2.927,
+  10-K 0000726728-26-000011 (2026-02-25) and 10-Qs
+  0000726728-26-000030/-000048/-000059 (2026-05-07/08-06/11-03).
+  Filed common Q1/Q3-2026 311.766/403.942 use those quarters. Q4-2020
+  ProfitLoss 118.150 is in 10-K 0000726728-21-000043 (2021-02-23).
+  The 15 filingDisclosures paths are note-position changes plus the three
+  unsupported Q4-2024 trend cells: unproved gross margin, expenses
+  and operating margin become unavailable. Its retained vendor row
+  has no corroborated same-basis numerator/complete expense or GP proof under
+  the reconstructed-quarter review. Current direct operating values stay.
+- DUK: ProfitLoss TTM = 5,071 + 4,372 - 3,865 = 5,578, 10-K
+  0001326160-26-000014 (2026-02-26), and both nine-month columns of 10-Q
+  0001326160-26-000051 (2026-11-05). This restores capital.current.netIncome
+  and fcfConversionBeforeSbc, null to -0.9254212979562567, and changes its
+  cashBridge definition. The two report balanceSheet paths render that
+  conversion and scope. This is directly consolidated profit; the still
+  incomplete NCI quarter series does not block it or become a fabricated zero.
+  Equity-method FY2025/Q1/Q2/Q3-2026 51/7/10/22, common Q1/Q2/Q3
+  1,536/1,077/1,551, and Q1 NCI 27/consolidated 1,577 use that 10-K and
+  10-Qs 0001326160-26-000026/-000040/-000051 (2026-05-05/08-04/11-05).
+  Q4-2023 common 991/consolidated 996 use 0001326160-24-000037
+  (2024-02-23). Their sourceFactSummary paths add those exact fields.
+- RIVN: common Q4-2025 and Q1/Q2/Q3-2026 -811/-416/-833/-913, 10-K
+  0001874178-26-000008 (2026-02-12), prior 10-Q
+  0001874178-25-000052 (2025-11-04), and 10-Qs
+  0001874178-26-000035/-000054/-000066 (2026-04-30/07-30/10-29).
+  Equity-method Q1-2026 506 uses that same quarter. The existing -2,973
+  common total and every score remain unchanged; earlier admissions replace
+  the later construction disclosure.
+- VKTX: directly consolidated ProfitLoss TTM = -359.639 -469.533
+  +201.977 = -627.195, 10-K 0001193125-26-046876 (2026-02-11) and
+  10-Q 0001193125-26-436432 (2026-10-29). Q4-2025 -157.662 uses that
+  annual and prior 10-Q 0001193125-25-247059 (2025-10-23); Q1-2026
+  -158.325 uses 0001193125-26-193315 (2026-04-30). The denominator was
+  already numerically established by the single-profit fallback. Its direct
+  consolidated evidence now replaces the duplicate filedCashFlows.netIncome
+  fallback record and changes cashBridge/report commentary only. No amount
+  or score changes.
+
+For these ten cases, every remaining Stage B path is under gaps or notes.
+Every remaining report path is under appendix, sourceFactSummary or
+meta.specVersion. The only exceptions are the O trend cells/notes and the
+DUK/VKTX capital/report paths enumerated above. The seven stamp-only cases are
+META (both), MU (both), NVDA (both) and TSM. No unidentified financial leaf is
+approved by this entry.
+
+LLY evidence and before/after:
+
+| Figure | Before | After |
+| --- | --- | --- |
+| Q4-2025 operating income | withheld | 8,374.5 (8,375 rounded to millions) |
+| Q1-2026 operating income | withheld | 8,915 |
+| Q2-2026 operating income | withheld | 8,978 |
+| Q3-2026 operating income | 8,608 | 8,608 |
+| TTM operating income | withheld (1/4 quarters) | 34,876; 40.33679535518493% of 86,462 revenue |
+| Q4-2024 operating margin / expenses | unproved vendor observations | both withheld |
+| DCF statement basis | FY2025, 2025-12-31; dated reference 518.37/share | rolling 2025-10-01 to 2026-09-30; current 662.08/share |
+| Valuation score / evidence | unscored / 0% | 33.98 / 100% |
+| Balance-sheet score / evidence | 68.44 / 41.17647058823529% | 74.37 / 100% |
+| Composite | 63.74 | 63.05 |
+| EBITDA / net debt to EBITDA | unavailable / unavailable | 37,049.7 / 1.204274258630974x |
+| Trailing interest coverage / EV to EBITDA | unavailable / unavailable | 29.606112054329373x / 37.8568087595851x |
+
+The Q4-2025 exact retained FY-minus-YTD operands give 8,374.5, not an invented
+8,375. The latest comparative full operating totals give the exact TTM 34,876
+(26,302 + 26,501 - 17,927), versus a 34,875.5 quarter sum. That 0.5 difference
+is explicitly disclosed. Operands are the complete operating reconciliation to
+IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest
+less NonoperatingIncomeExpense. The annual is 10-K 0000059478-26-000013
+(2026-02-12); both latest nine-month columns are 10-Q
+0000059478-26-000108 (2026-10-29). Q1/Q2-2026 are supported by
+0000059478-26-000045 (2026-04-30) / 0000059478-26-000081 (2026-08-05).
+The quarter reconstruction retains the original annual and nine-month filing
+references; it does not relabel the later comparative as an original quarter.
+Q4-2024 filed 12,899 - 7,750.2 = 5,148.8 exists, but its complete bridge on
+the retained rounded provider revenue is unproved under the unchanged exact
+reconciliation check, so the report withholds the margin/expenses. The acceptance
+allows withholding; it never shows the unsupported provider margin again.
+
+The same disjoint bridge also establishes FY2021 operating income 6,357.1
+(22.448655291259392%), from the 2024-02-21 10-K
+0000059478-24-000065, and strengthens FY2022's unchanged 7,127.3 proof
+(0000059478-25-000067, 2025-02-19). FY2020 and older unsupported margins
+remain gaps. Historical operating quarters with newly complete component proof
+are admitted, while their provider expense subsets remain withheld.
+The growth slope moves from 5.584457438255553 to 3.947779023363034 pp/year;
+forensic evaluated years rise from four to five, with the three flagged years
+unchanged. FY2021 ROIC remains refused by its independent debt/lease mismatch.
+
+The LLY Stage B changed-path inventory is identical in both rebuild cases:
+capital 4; fairValue 10; forensics 2; gaps 164; growth 2; projections 623;
+returns 20; scenarioTargets 11; scores 120; valuation 350 (1,306 total).
+The four capital paths are the restored EBIT/EBITDA/coverage/leverage above.
+Fair value, valuation and scenario paths re-run the unchanged model from the
+admitted trailing seed and current statement date: forecast periods, consensus
+alignment, taxes, margins, discounting, sensitivities, EV/EBITDA, reverse growth
+and target availability inherit the new inputs. Reverse growth is available
+(45.2587890625%); scenarios are available. Neither the growth guard nor any
+method, band or weight changed. Projections inherit those forward periods and
+the larger admitted historical margin sample; their dispersion/correlation and
+unchanged scenario cap rule naturally recompute. Returns reflect restored
+operating proof and its current coverage/date, while the independent FY2021
+capital refusal remains. Scores change only as these signals become available
+and their period/evidence fractions propagate into assessments, drivers,
+factor exposure and qualifications. Only balanceSheet and valuation evidence
+fractions change; all other aspect scores and fractions remain the same.
+
+The data-only LLY report has 1,233 changed paths: appendix 97, balanceSheet 24,
+fairValue 10, filingDisclosures 28, fundamentals 22, meta 1, projections 623,
+quality 1, scenarioPresentation 4, scenarioTargets 11, scores 120, thesisTriggers
+1, valuation 261 and verdict 30. These render the same input/model changes;
+filingDisclosures adds the admitted quarter margins and replaces Q4-2024's two
+unsupported cells with gaps. The fixed-analyst report has 6,463 changed paths:
+appendix 4,987; balanceSheet 18; fairValue 10; filingDisclosures 28;
+fundamentals 2; meta 14; projections 983; scenarioPresentation 4;
+scenarioTargets 11; scores 122; thesisTriggers 1; valuation 267; verdict 16.
+Its unchanged stored analyst prose is revalidated against the new deterministic
+figures, so contradictory/stale claims and their consistency/provenance records
+are updated rather than rewriting or regenerating that prose. The 13 additional
+meta paths are the corresponding period/unit check counts, factual/judgment/
+numeric coverage and verification rate (0.9854651162790697 to
+0.9777158774373259). Those appendix/registry/claim changes, including array
+position shifts, explain the larger count. No model was called.
+
+All changed file hashes and every JSON path are accounted for by the scopes
+above. Local golden diff approvals close all 129 golden and 16 LLY file/manifest
+differences; they are technical intentional-delta receipts, not merge approval.
+The raw outputs and exact path/value receipts remain local and uncommitted.
+
+P27 controls: the explicit freeze:refresh protocol under D-260 records only six
+Stage C stamp/header hash leaves and two DEMO report-stamp/digest leaves. Both
+frozen controls retain every financial figure, registry, score and projection.
+The append-only refresh log identifies the exact scopes and before/after hashes.
+
+The current fictional visitor sample is regenerated by sample:build. Its six
+changed leaves are meta.specVersion and meta.pipelineVersion, the already-current
+meta.evidenceContract, the two consolidated FCF-conversion series labels, and the
+balance-sheet scoring note's consolidated-profit label. This synchronizes existing
+source wording while refreshing the current stamp; no fictional amount, score,
+projection, chart, claim verification or authored narrative changes. The legacy
+DEMO-sample fixture and all stored reports remain byte-identical.
+
+Remaining sibling boundaries: compute.ts:1397 retains the separate diluted-EPS
+quarter-sum convention; common/parent/NCI flows at :1402-1404 retain their scope
+constructors; cash-flow completeness at :1649 uses its own CFO/capital-spending
+owners and definitions; xbrl.ts:80 excludes 6-K and :432 reads US-GAAP rather
+than mapping IFRS income concepts. These are different evidence/definition questions, not a reason to
+substitute annual, parent or cash-payment figures for missing income flows.
+
+
+### Resumed check and exact changed-figure ledger (2026-11-14)
+
+Normal merge of pinned main cf3eb2875deddcf92ed3e7685cda4912ce7505d1 includes D-264 presentation. Report spec 1.77.0 avoids D-263's reserved 1.76.0; payload 1.95.0 and Stage B FILED_INCOME_WINDOWS_69 remain this package's stamps. All 19 cases completed offline. The case/path counts above remain identical on this new baseline.
+
+The following exact figures supplement the filing receipts above. Amounts use the raw JSON units (currency amounts are base units, ratios and percentages as named). Each path is an exact changed leaf. Repeated before/after pairs are grouped; Stage B is identical between both LLY modes. Derived model figures are recalculations from the filed operating seed and historical operating proof, under unchanged methods; they are not numbers purportedly printed in a filing. Unsupported provider observations are identified without committing their values.
+
+LLY proof key L: pretax minus NonoperatingIncomeExpense within each filing; FY2025 10-K 0000059478-26-000013, 2026-02-12; nine-month 2026 and comparative 2025 10-Q 0000059478-26-000108, 2026-10-29; quarters in 0000059478-26-000045 / -000081; FY2021 0000059478-24-000065. These filed operands and the exact intervals above support the restored operating amounts and all downstream model changes. DUK proof key D: ProfitLoss FY2025 0001326160-26-000014 plus both 9M columns in 0001326160-26-000051. O proof key O: reconstructed-quarter review withdraws an unsupported numerator/expense basis, rather than asserting an alternative number.
+
+Last five LLY operating quarters (USD millions): Q3-2025 7,365 -> 7,365 (current filing comparative); Q4-2025 withheld -> 8,374.5; Q1-2026 withheld -> 8,915; Q2-2026 withheld -> 8,978; Q3-2026 8,608 -> 8,608. Q4 uses the original FY/YTD pair; the current exact TTM uses the latest compatible comparative.
+
+
+amzn-data-only: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+figr-data-only: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+meta-data-only: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+mu-data-only: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+nvda-data-only: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+qcom-data-only: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+jpm-data-only: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+pgr-data-only: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+o-data-only: exact changed numeric figures below.
+
+| Before | After | Exact paths | Filed proof / derivation |
+| --- | --- | --- | --- |
+| unproved provider observation | unavailable | `report.filingDisclosures.quarterlyTrend.7.grossMarginPct`, `report.filingDisclosures.quarterlyTrend.7.operatingExpenses`, `report.filingDisclosures.quarterlyTrend.7.operatingMarginPct` | O; withheld |
+
+duk-data-only: exact changed numeric figures below.
+
+| Before | After | Exact paths | Filed proof / derivation |
+| --- | --- | --- | --- |
+| unavailable | -0.9254212979562567 | `stageB.capital.current.fcfConversionBeforeSbc` | D; FCF / consolidated profit |
+| unavailable | 5578000000 | `stageB.capital.current.netIncome` | D; FCF / consolidated profit |
+
+tsm-data-only: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+rivn-data-only: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+vktx-data-only: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+amzn-fixed-analyst: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+meta-fixed-analyst: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+mu-fixed-analyst: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+nvda-fixed-analyst: no financial figure changes; only the documented evidence/disclosure or stamp changes.
+
+
+lly-data-only: exact changed numeric figures below.
+
+| Before | After | Exact paths | Filed proof / derivation |
+| --- | --- | --- | --- |
+| unavailable | 34876000000 | `stageB.capital.current.ebit` | L; unchanged downstream method |
+| unavailable | 37049700000 | `stageB.capital.current.ebitda` | L; unchanged downstream method |
+| unavailable | 29.606112054329373 | `stageB.capital.current.interestCoverage` | L; unchanged downstream method |
+| unavailable | 1.204274258630974 | `stageB.capital.current.netDebtToEbitda` | L; unchanged downstream method |
+| unavailable | -54.13370280568064 | `stageB.fairValue.upsidePct`, `report.fairValue.upsidePct`, `report.valuation.dcf.upsidePct` | L; unchanged downstream method |
+| 4 | 5 | `stageB.forensics.flags.2.metrics.evaluatedYears` | L; unchanged downstream method |
+| unavailable | 22.448655291259392 | `stageB.growth.margins.operating.series.5.pct` | L; unchanged downstream method |
+| 5.584457438255553 | 3.947779023363034 | `stageB.growth.margins.operating.slopePctPtsPerYear`, `stageB.scores.aspects.fundamentals.drivers.1.value`, `stageB.scores.aspects.fundamentals.signals.1.raw`, `report.fundamentals.graded.keyNumbers.1.value`, `report.scores.aspects.fundamentals.drivers.1.value`, `report.scores.aspects.fundamentals.signals.1.raw`, `report.verdict.gradeStrip.fundamentals.keyNumbers.1.value` | L; unchanged downstream method |
+| 0.732999567072001 | 0.7505345142474684 | `stageB.projections.scenarioAssumptions.growthMarginCorrelation`, `report.projections.scenarioAssumptions.growthMarginCorrelation` | L; unchanged downstream method |
+| 0 | 0.6078503590840754 | `stageB.projections.scenarioAssumptions.scenarios.0.effectiveMarginDeltaPp`, `report.projections.scenarioAssumptions.scenarios.0.effectiveMarginDeltaPp` | L; unchanged downstream method |
+| 6.615918772517394 | 6.17828533713081 | `stageB.projections.scenarioAssumptions.scenarios.0.marginDeltaPp`, `report.projections.scenarioAssumptions.scenarios.0.marginDeltaPp` | L; unchanged downstream method |
+| -6.615918772517394 | -6.17828533713081 | `stageB.projections.scenarioAssumptions.scenarios.2.marginDeltaPp`, `report.projections.scenarioAssumptions.scenarios.2.marginDeltaPp` | L; unchanged downstream method |
+| 81473750000 | 99507131372.11 | `stageB.projections.series.0.base.0.value.value`, `stageB.projections.series.0.weighted.0.value.value`, `report.projections.series.0.base.0.value.value`, `report.projections.series.0.weighted.0.value.value` | L; unchanged downstream method |
+| 95464551504.81 | 115632534663.73 | `stageB.projections.series.0.base.1.value.value`, `report.projections.series.0.base.1.value.value` | L; unchanged downstream method |
+| 106379439100.81 | 127304782290.48 | `stageB.projections.series.0.base.2.value.value`, `report.projections.series.0.base.2.value.value` | L; unchanged downstream method |
+| 116580176485.93 | 138234153769.96 | `stageB.projections.series.0.base.3.value.value`, `report.projections.series.0.base.3.value.value` | L; unchanged downstream method |
+| 126139879474.69 | 147788026682.4 | `stageB.projections.series.0.base.4.value.value`, `report.projections.series.0.base.4.value.value` | L; unchanged downstream method |
+| 71092714008.07 | 85736359590.8 | `stageB.projections.series.0.bear.0.value.value`, `report.projections.series.0.bear.0.value.value` | L; unchanged downstream method |
+| 74647568571.69 | 89194469926.04 | `stageB.projections.series.0.bear.1.value.value`, `report.projections.series.0.bear.1.value.value` | L; unchanged downstream method |
+| 76321189862.46 | 89999756838.55 | `stageB.projections.series.0.bear.2.value.value`, `report.projections.series.0.bear.2.value.value` | L; unchanged downstream method |
+| 78430074385.53 | 91583175869.14 | `stageB.projections.series.0.bear.3.value.value`, `report.projections.series.0.bear.3.value.value` | L; unchanged downstream method |
+| 80980483312.75 | 93381030815.83 | `stageB.projections.series.0.bear.4.value.value`, `report.projections.series.0.bear.4.value.value` | L; unchanged downstream method |
+| 91854785991.93 | 113277903153.42 | `stageB.projections.series.0.bull.0.value.value`, `report.projections.series.0.bull.0.value.value` | L; unchanged downstream method |
+| 118808662835.2 | 145422914955.29 | `stageB.projections.series.0.bull.1.value.value`, `report.projections.series.0.bull.1.value.value` | L; unchanged downstream method |
+| 143312784068.08 | 173468704492.38 | `stageB.projections.series.0.bull.2.value.value`, `report.projections.series.0.bull.2.value.value` | L; unchanged downstream method |
+| 166837368320.91 | 200202040832.48 | `stageB.projections.series.0.bull.3.value.value`, `report.projections.series.0.bull.3.value.value` | L; unchanged downstream method |
+| 188773804971 | 223945310912.45 | `stageB.projections.series.0.bull.4.value.value`, `report.projections.series.0.bull.4.value.value` | L; unchanged downstream method |
+| 96096333604.13 | 116470613552.2 | `stageB.projections.series.0.weighted.1.value.value`, `report.projections.series.0.weighted.1.value.value` | L; unchanged downstream method |
+| 108098213033.04 | 129519506477.97 | `stageB.projections.series.0.weighted.2.value.value`, `report.projections.series.0.weighted.2.value.value` | L; unchanged downstream method |
+| 119606948919.57 | 142063381060.39 | `stageB.projections.series.0.weighted.3.value.value`, `report.projections.series.0.weighted.3.value.value` | L; unchanged downstream method |
+| 130508511808.28 | 153225598773.27 | `stageB.projections.series.0.weighted.4.value.value`, `report.projections.series.0.weighted.4.value.value` | L; unchanged downstream method |
+| 40.35 | 40.34 | `stageB.projections.series.1.base.0.value.value`, `report.projections.series.1.base.0.value.value` | L; unchanged downstream method |
+| 40.35 | 40.49 | `stageB.projections.series.1.base.1.value.value`, `report.projections.series.1.base.1.value.value` | L; unchanged downstream method |
+| 40.35 | 40.64 | `stageB.projections.series.1.base.2.value.value`, `report.projections.series.1.base.2.value.value` | L; unchanged downstream method |
+| 40.35 | 40.79 | `stageB.projections.series.1.base.3.value.value`, `report.projections.series.1.base.3.value.value` | L; unchanged downstream method |
+| 40.35 | 40.94 | `stageB.projections.series.1.base.4.value.value`, `stageB.projections.series.1.bull.0.value.value`, `stageB.projections.series.1.bull.1.value.value`, `stageB.projections.series.1.bull.2.value.value`, `stageB.projections.series.1.bull.3.value.value`, `stageB.projections.series.1.bull.4.value.value`, `report.projections.series.1.base.4.value.value`, `report.projections.series.1.bull.0.value.value`, `report.projections.series.1.bull.1.value.value`, `report.projections.series.1.bull.2.value.value`, `report.projections.series.1.bull.3.value.value`, `report.projections.series.1.bull.4.value.value` | L; unchanged downstream method |
+| 33.74 | 34.16 | `stageB.projections.series.1.bear.0.value.value`, `report.projections.series.1.bear.0.value.value` | L; unchanged downstream method |
+| 35.3 | 35.77 | `stageB.projections.series.1.bear.1.value.value`, `report.projections.series.1.bear.1.value.value` | L; unchanged downstream method |
+| 36.54 | 37.08 | `stageB.projections.series.1.bear.2.value.value`, `report.projections.series.1.bear.2.value.value` | L; unchanged downstream method |
+| 37.52 | 38.14 | `stageB.projections.series.1.bear.3.value.value`, `report.projections.series.1.bear.3.value.value` | L; unchanged downstream method |
+| 38.3 | 39.03 | `stageB.projections.series.1.bear.4.value.value`, `report.projections.series.1.bear.4.value.value` | L; unchanged downstream method |
+| 38.7 | 38.94 | `stageB.projections.series.1.weighted.0.value.value`, `report.projections.series.1.weighted.0.value.value` | L; unchanged downstream method |
+| 39.09 | 39.42 | `stageB.projections.series.1.weighted.1.value.value`, `report.projections.series.1.weighted.1.value.value` | L; unchanged downstream method |
+| 39.4 | 39.83 | `stageB.projections.series.1.weighted.2.value.value`, `report.projections.series.1.weighted.2.value.value` | L; unchanged downstream method |
+| 39.64 | 40.17 | `stageB.projections.series.1.weighted.3.value.value`, `report.projections.series.1.weighted.3.value.value` | L; unchanged downstream method |
+| 39.84 | 40.46 | `stageB.projections.series.1.weighted.4.value.value`, `report.projections.series.1.weighted.4.value.value` | L; unchanged downstream method |
+| 6153531188.06 | 19636009403.24 | `stageB.projections.series.2.base.0.value.value`, `report.projections.series.2.base.0.value.value` | L; unchanged downstream method |
+| 13489084204.59 | 22036855121.5 | `stageB.projections.series.2.base.1.value.value`, `report.projections.series.2.base.1.value.value` | L; unchanged downstream method |
+| 20774973110.02 | 30084204199.77 | `stageB.projections.series.2.base.2.value.value`, `report.projections.series.2.base.2.value.value` | L; unchanged downstream method |
+| 24888430106.35 | 34445508669.4 | `stageB.projections.series.2.base.3.value.value`, `report.projections.series.2.base.3.value.value` | L; unchanged downstream method |
+| 28693950640.48 | 38975603538.29 | `stageB.projections.series.2.base.4.value.value`, `report.projections.series.2.base.4.value.value` | L; unchanged downstream method |
+| 11901508749.33 | 23230512842.05 | `stageB.projections.series.2.bear.0.value.value`, `report.projections.series.2.bear.0.value.value` | L; unchanged downstream method |
+| 16688927845.47 | 22059498614.45 | `stageB.projections.series.2.bear.1.value.value`, `report.projections.series.2.bear.1.value.value` | L; unchanged downstream method |
+| 20215319074.56 | 25690791975.41 | `stageB.projections.series.2.bear.2.value.value`, `report.projections.series.2.bear.2.value.value` | L; unchanged downstream method |
+| 20867609007.22 | 26191989472.66 | `stageB.projections.series.2.bear.3.value.value`, `report.projections.series.2.bear.3.value.value` | L; unchanged downstream method |
+| 21545635581.46 | 27172773409.11 | `stageB.projections.series.2.bear.4.value.value`, `report.projections.series.2.bear.4.value.value` | L; unchanged downstream method |
+| -3367285493.9 | 11707200656.66 | `stageB.projections.series.2.bull.0.value.value`, `report.projections.series.2.bull.0.value.value` | L; unchanged downstream method |
+| 4947750171.47 | 17141190544.33 | `stageB.projections.series.2.bull.1.value.value`, `report.projections.series.2.bull.1.value.value` | L; unchanged downstream method |
+| 15827918971.85 | 30054804627.33 | `stageB.projections.series.2.bull.2.value.value`, `report.projections.series.2.bull.2.value.value` | L; unchanged downstream method |
+| 24541640178.35 | 39927786380.91 | `stageB.projections.series.2.bull.3.value.value`, `report.projections.series.2.bull.3.value.value` | L; unchanged downstream method |
+| 33474308213.98 | 50392792525.49 | `stageB.projections.series.2.bull.4.value.value`, `report.projections.series.2.bull.4.value.value` | L; unchanged downstream method |
+| 5210321407.89 | 18552433076.3 | `stageB.projections.series.2.weighted.0.value.value`, `report.projections.series.2.weighted.0.value.value` | L; unchanged downstream method |
+| 12153711606.53 | 20818599850.45 | `stageB.projections.series.2.weighted.1.value.value`, `report.projections.series.2.weighted.1.value.value` | L; unchanged downstream method |
+| 19398296066.61 | 28978501250.57 | `stageB.projections.series.2.weighted.2.value.value`, `report.projections.series.2.weighted.2.value.value` | L; unchanged downstream method |
+| 23796527349.57 | 33752698298.09 | `stageB.projections.series.2.weighted.3.value.value`, `report.projections.series.2.weighted.3.value.value` | L; unchanged downstream method |
+| 28101961269.1 | 38879193252.79 | `stageB.projections.series.2.weighted.4.value.value`, `report.projections.series.2.weighted.4.value.value` | L; unchanged downstream method |
+| 28.81 | 34.36 | `stageB.projections.series.3.base.0.value.value`, `stageB.projections.series.3.flatShare.base.0.value.value`, `report.projections.series.3.base.0.value.value`, `report.projections.series.3.flatShare.base.0.value.value` | L; unchanged downstream method |
+| 33.82 | 40.28 | `stageB.projections.series.3.base.1.value.value`, `stageB.projections.series.3.flatShare.base.1.value.value`, `report.projections.series.3.base.1.value.value`, `report.projections.series.3.flatShare.base.1.value.value` | L; unchanged downstream method |
+| 37.7 | 44.62 | `stageB.projections.series.3.base.2.value.value`, `stageB.projections.series.3.flatShare.base.2.value.value`, `report.projections.series.3.base.2.value.value`, `report.projections.series.3.flatShare.base.2.value.value` | L; unchanged downstream method |
+| 41.32 | 48.73 | `stageB.projections.series.3.base.3.value.value`, `stageB.projections.series.3.flatShare.base.3.value.value`, `report.projections.series.3.base.3.value.value`, `report.projections.series.3.flatShare.base.3.value.value` | L; unchanged downstream method |
+| 44.69 | 52.36 | `stageB.projections.series.3.base.4.value.value`, `stageB.projections.series.3.flatShare.base.4.value.value`, `report.projections.series.3.base.4.value.value`, `report.projections.series.3.flatShare.base.4.value.value` | L; unchanged downstream method |
+| 20.82 | 24.73 | `stageB.projections.series.3.bear.0.value.value`, `stageB.projections.series.3.flatShare.bear.0.value.value`, `report.projections.series.3.bear.0.value.value`, `report.projections.series.3.flatShare.bear.0.value.value` | L; unchanged downstream method |
+| 22.9 | 27.04 | `stageB.projections.series.3.bear.1.value.value`, `stageB.projections.series.3.flatShare.bear.1.value.value`, `report.projections.series.3.bear.1.value.value`, `report.projections.series.3.flatShare.bear.1.value.value` | L; unchanged downstream method |
+| 24.24 | 28.33 | `stageB.projections.series.3.bear.2.value.value`, `stageB.projections.series.3.flatShare.bear.2.value.value`, `report.projections.series.3.bear.2.value.value`, `report.projections.series.3.flatShare.bear.2.value.value` | L; unchanged downstream method |
+| 25.58 | 29.7 | `stageB.projections.series.3.bear.3.value.value`, `stageB.projections.series.3.flatShare.bear.3.value.value`, `report.projections.series.3.bear.3.value.value`, `report.projections.series.3.flatShare.bear.3.value.value` | L; unchanged downstream method |
+| 26.95 | 31.03 | `stageB.projections.series.3.bear.4.value.value`, `stageB.projections.series.3.flatShare.bear.4.value.value`, `report.projections.series.3.bear.4.value.value`, `report.projections.series.3.flatShare.bear.4.value.value` | L; unchanged downstream method |
+| 32.57 | 39.91 | `stageB.projections.series.3.bull.0.value.value`, `stageB.projections.series.3.flatShare.bull.0.value.value`, `report.projections.series.3.bull.0.value.value`, `report.projections.series.3.flatShare.bull.0.value.value` | L; unchanged downstream method |
+| 42.26 | 51.57 | `stageB.projections.series.3.bull.1.value.value`, `stageB.projections.series.3.flatShare.bull.1.value.value`, `report.projections.series.3.bull.1.value.value`, `report.projections.series.3.flatShare.bull.1.value.value` | L; unchanged downstream method |
+| 51.04 | 61.73 | `stageB.projections.series.3.bull.2.value.value`, `stageB.projections.series.3.flatShare.bull.2.value.value`, `report.projections.series.3.bull.2.value.value`, `report.projections.series.3.flatShare.bull.2.value.value` | L; unchanged downstream method |
+| 59.43 | 71.41 | `stageB.projections.series.3.bull.3.value.value`, `stageB.projections.series.3.flatShare.bull.3.value.value`, `report.projections.series.3.bull.3.value.value`, `report.projections.series.3.flatShare.bull.3.value.value` | L; unchanged downstream method |
+| 67.23 | 79.99 | `stageB.projections.series.3.bull.4.value.value`, `stageB.projections.series.3.flatShare.bull.4.value.value`, `report.projections.series.3.bull.4.value.value`, `report.projections.series.3.flatShare.bull.4.value.value` | L; unchanged downstream method |
+| 0.7827415421807878 | 0.7648882663695067 | `stageB.projections.series.3.capitalReturn.netIncomeToEbit`, `report.projections.series.3.capitalReturn.netIncomeToEbit` | L; unchanged downstream method |
+| 27.75 | 33.34 | `stageB.projections.series.3.flatShare.weighted.0.value.value`, `stageB.projections.series.3.weighted.0.value.value`, `report.projections.series.3.flatShare.weighted.0.value.value`, `report.projections.series.3.weighted.0.value.value` | L; unchanged downstream method |
+| 33.2 | 39.79 | `stageB.projections.series.3.flatShare.weighted.1.value.value`, `stageB.projections.series.3.weighted.1.value.value`, `report.projections.series.3.flatShare.weighted.1.value.value`, `report.projections.series.3.weighted.1.value.value` | L; unchanged downstream method |
+| 37.67 | 44.83 | `stageB.projections.series.3.flatShare.weighted.2.value.value`, `stageB.projections.series.3.weighted.2.value.value`, `report.projections.series.3.flatShare.weighted.2.value.value`, `report.projections.series.3.weighted.2.value.value` | L; unchanged downstream method |
+| 41.91 | 49.64 | `stageB.projections.series.3.flatShare.weighted.3.value.value`, `stageB.projections.series.3.weighted.3.value.value`, `report.projections.series.3.flatShare.weighted.3.value.value`, `report.projections.series.3.weighted.3.value.value` | L; unchanged downstream method |
+| 45.89 | 53.93 | `stageB.projections.series.3.flatShare.weighted.4.value.value`, `stageB.projections.series.3.weighted.4.value.value`, `report.projections.series.3.flatShare.weighted.4.value.value`, `report.projections.series.3.weighted.4.value.value` | L; unchanged downstream method |
+| 29 | 34.59 | `stageB.projections.series.3.shareTrend.base.0.value.value`, `report.projections.series.3.shareTrend.base.0.value.value` | L; unchanged downstream method |
+| 34.27 | 40.81 | `stageB.projections.series.3.shareTrend.base.1.value.value`, `report.projections.series.3.shareTrend.base.1.value.value` | L; unchanged downstream method |
+| 38.46 | 45.52 | `stageB.projections.series.3.shareTrend.base.2.value.value`, `report.projections.series.3.shareTrend.base.2.value.value` | L; unchanged downstream method |
+| 42.42 | 50.03 | `stageB.projections.series.3.shareTrend.base.3.value.value`, `report.projections.series.3.shareTrend.base.3.value.value` | L; unchanged downstream method |
+| 46.19 | 54.12 | `stageB.projections.series.3.shareTrend.base.4.value.value`, `report.projections.series.3.shareTrend.base.4.value.value` | L; unchanged downstream method |
+| 20.96 | 24.89 | `stageB.projections.series.3.shareTrend.bear.0.value.value`, `report.projections.series.3.shareTrend.bear.0.value.value` | L; unchanged downstream method |
+| 23.21 | 27.4 | `stageB.projections.series.3.shareTrend.bear.1.value.value`, `report.projections.series.3.shareTrend.bear.1.value.value` | L; unchanged downstream method |
+| 24.73 | 28.89 | `stageB.projections.series.3.shareTrend.bear.2.value.value`, `report.projections.series.3.shareTrend.bear.2.value.value` | L; unchanged downstream method |
+| 26.26 | 30.5 | `stageB.projections.series.3.shareTrend.bear.3.value.value`, `report.projections.series.3.shareTrend.bear.3.value.value` | L; unchanged downstream method |
+| 27.85 | 32.07 | `stageB.projections.series.3.shareTrend.bear.4.value.value`, `report.projections.series.3.shareTrend.bear.4.value.value` | L; unchanged downstream method |
+| 32.78 | 40.17 | `stageB.projections.series.3.shareTrend.bull.0.value.value`, `report.projections.series.3.shareTrend.bull.0.value.value` | L; unchanged downstream method |
+| 42.82 | 52.26 | `stageB.projections.series.3.shareTrend.bull.1.value.value`, `report.projections.series.3.shareTrend.bull.1.value.value` | L; unchanged downstream method |
+| 52.06 | 62.97 | `stageB.projections.series.3.shareTrend.bull.2.value.value`, `report.projections.series.3.shareTrend.bull.2.value.value` | L; unchanged downstream method |
+| 61.02 | 73.32 | `stageB.projections.series.3.shareTrend.bull.3.value.value`, `report.projections.series.3.shareTrend.bull.3.value.value` | L; unchanged downstream method |
+| 69.48 | 82.68 | `stageB.projections.series.3.shareTrend.bull.4.value.value`, `report.projections.series.3.shareTrend.bull.4.value.value` | L; unchanged downstream method |
+| 27.93 | 33.56 | `stageB.projections.series.3.shareTrend.weighted.0.value.value`, `report.projections.series.3.shareTrend.weighted.0.value.value` | L; unchanged downstream method |
+| 33.64 | 40.32 | `stageB.projections.series.3.shareTrend.weighted.1.value.value`, `report.projections.series.3.shareTrend.weighted.1.value.value` | L; unchanged downstream method |
+| 38.42 | 45.72 | `stageB.projections.series.3.shareTrend.weighted.2.value.value`, `report.projections.series.3.shareTrend.weighted.2.value.value` | L; unchanged downstream method |
+| 43.03 | 50.97 | `stageB.projections.series.3.shareTrend.weighted.3.value.value`, `report.projections.series.3.shareTrend.weighted.3.value.value` | L; unchanged downstream method |
+| 47.43 | 55.75 | `stageB.projections.series.3.shareTrend.weighted.4.value.value`, `report.projections.series.3.shareTrend.weighted.4.value.value` | L; unchanged downstream method |
+| unavailable | 5764507362.521322 | `stageB.returns.roic.series.0.nopat` | L; unchanged downstream method |
+| unavailable | 0.09321744781090081 | `stageB.returns.roic.series.0.taxRateUsed` | L; unchanged downstream method |
+| 33.07179680623664 | 29.606112054329373 | `stageB.returns.wacc.interestCoverageRatio` | L; unchanged downstream method |
+| 0.4117647058823529 | 1 | `stageB.scores.aspects.balanceSheet.applicableCompleteness`, `stageB.scores.aspects.balanceSheet.dataCompleteness`, `report.scores.aspects.balanceSheet.applicableCompleteness`, `report.scores.aspects.balanceSheet.dataCompleteness` | L; unchanged downstream method |
+| 0.7128680203045685 | 1.204274258630974 | `stageB.scores.aspects.balanceSheet.drivers.0.value`, `stageB.scores.aspects.balanceSheet.signals.0.raw`, `report.balanceSheet.coverage.numbers.8.value`, `report.balanceSheet.graded.keyNumbers.0.value`, `report.scores.aspects.balanceSheet.drivers.0.value`, `report.scores.aspects.balanceSheet.signals.0.raw`, `report.verdict.gradeStrip.balanceSheet.keyNumbers.0.value` | L; unchanged downstream method |
+| 3.5501935313235915 | 29.606112054329373 | `stageB.scores.aspects.balanceSheet.drivers.1.value`, `stageB.scores.aspects.balanceSheet.signals.1.raw`, `report.balanceSheet.coverage.numbers.9.value`, `report.balanceSheet.graded.keyNumbers.1.value`, `report.scores.aspects.balanceSheet.drivers.1.value`, `report.scores.aspects.balanceSheet.signals.1.raw`, `report.verdict.gradeStrip.balanceSheet.keyNumbers.1.value` | L; unchanged downstream method |
+| 68.44 | 74.37 | `stageB.scores.aspects.balanceSheet.score`, `report.scores.aspects.balanceSheet.score` | L; unchanged downstream method |
+| 0.249265452373843 | 1.0349316474579693 | `stageB.scores.aspects.balanceSheet.signals.0.contributionPoints`, `report.scores.aspects.balanceSheet.signals.0.contributionPoints` | L; unchanged downstream method |
+| 3.5294117647058822 | 5.294117647058823 | `stageB.scores.aspects.balanceSheet.signals.0.effectiveCompositeWeightPct`, `report.scores.aspects.balanceSheet.signals.0.effectiveCompositeWeightPct` | L; unchanged downstream method |
+| 19660900000 | 44618000000 | `stageB.scores.aspects.balanceSheet.signals.0.operands.0.value`, `report.scores.aspects.balanceSheet.signals.0.operands.0.value` | L; unchanged downstream method |
+| 27580000000 | 37049700000 | `stageB.scores.aspects.balanceSheet.signals.0.operands.1.value`, `report.scores.aspects.balanceSheet.signals.0.operands.1.value` | L; unchanged downstream method |
+| 0.2 | 0.3 | `stageB.scores.aspects.balanceSheet.signals.0.signalWeight`, `report.scores.aspects.balanceSheet.signals.0.signalWeight` | L; unchanged downstream method |
+| 57.06252115059222 | 69.54870889642831 | `stageB.scores.aspects.balanceSheet.signals.0.transformedScore`, `report.scores.aspects.balanceSheet.signals.0.transformedScore` | L; unchanged downstream method |
+| 0.889667249389876 | 1.4823529411764704 | `stageB.scores.aspects.balanceSheet.signals.1.contributionPoints`, `report.scores.aspects.balanceSheet.signals.1.contributionPoints` | L; unchanged downstream method |
+| 2.6470588235294117 | 3.5294117647058822 | `stageB.scores.aspects.balanceSheet.signals.1.effectiveCompositeWeightPct`, `report.scores.aspects.balanceSheet.signals.1.effectiveCompositeWeightPct` | L; unchanged downstream method |
+| 698000000 | 29.606112054329373 | `stageB.scores.aspects.balanceSheet.signals.1.operands.0.value`, `report.scores.aspects.balanceSheet.signals.1.operands.0.value` | L; unchanged downstream method |
+| 19660900000 | 34876000000 | `stageB.scores.aspects.balanceSheet.signals.1.operands.1.value`, `report.scores.aspects.balanceSheet.signals.1.operands.1.value` | L; unchanged downstream method |
+| 3.5501935313235915 | 1178000000 | `stageB.scores.aspects.balanceSheet.signals.1.operands.2.value`, `report.scores.aspects.balanceSheet.signals.1.operands.2.value` | L; unchanged downstream method |
+| 0.15 | 0.2 | `stageB.scores.aspects.balanceSheet.signals.1.signalWeight`, `report.scores.aspects.balanceSheet.signals.1.signalWeight` | L; unchanged downstream method |
+| 83.60965164361754 | 92 | `stageB.scores.aspects.balanceSheet.signals.1.transformedScore`, `report.scores.aspects.balanceSheet.signals.1.transformedScore` | L; unchanged downstream method |
+| 24.971795356920122 | 22.448655291259392 | `stageB.scores.aspects.fundamentals.signals.1.operands.0.value`, `report.scores.aspects.fundamentals.signals.1.operands.0.value` | L; unchanged downstream method |
+| 18.92216621732505 | 24.971795356920122 | `stageB.scores.aspects.fundamentals.signals.1.operands.1.value`, `report.scores.aspects.fundamentals.signals.1.operands.1.value` | L; unchanged downstream method |
+| 28.637080123437602 | 18.92216621732505 | `stageB.scores.aspects.fundamentals.signals.1.operands.2.value`, `report.scores.aspects.fundamentals.signals.1.operands.2.value` | L; unchanged downstream method |
+| 40.35348808665368 | 28.637080123437602 | `stageB.scores.aspects.fundamentals.signals.1.operands.3.value`, `report.scores.aspects.fundamentals.signals.1.operands.3.value` | L; unchanged downstream method |
+| 3.0006844626967832 | 4 | `stageB.scores.aspects.fundamentals.signals.1.windowYears`, `report.scores.aspects.fundamentals.signals.1.windowYears` | L; unchanged downstream method |
+| 0 | 1 | `stageB.scores.aspects.valuation.applicableCompleteness`, `stageB.scores.aspects.valuation.dataCompleteness`, `report.scores.aspects.valuation.applicableCompleteness`, `report.scores.aspects.valuation.dataCompleteness` | L; unchanged downstream method |
+| unavailable | 33.98 | `stageB.scores.aspects.valuation.score`, `stageB.scores.assessments.valuation.score`, `report.scores.aspects.valuation.score`, `report.scores.assessments.valuation.score` | L; unchanged downstream method |
+| 0.6496256684491978 | 0.7672727272727273 | `stageB.scores.assessments.businessQuality.evidenceCompleteness`, `report.scores.assessments.businessQuality.evidenceCompleteness` | L; unchanged downstream method |
+| 67.16 | 70.51 | `stageB.scores.assessments.businessQuality.score`, `report.scores.assessments.businessQuality.score` | L; unchanged downstream method |
+| 0.5372192513368984 | 0.8254545454545454 | `stageB.scores.assessments.evidenceCompleteness`, `report.scores.assessments.evidenceCompleteness` | L; unchanged downstream method |
+| 63.74 | 63.05 | `stageB.scores.composite.score`, `report.scores.composite.score` | L; unchanged downstream method |
+| 4.568875473633628 | -3.2032748568780818 | `stageB.scores.factorExposure.0.aboveNeutralPoints`, `report.scores.factorExposure.0.aboveNeutralPoints` | L; unchanged downstream method |
+| 14.000000000000002 | 20 | `stageB.scores.factorExposure.0.weightPct`, `report.scores.factorExposure.0.weightPct` | L; unchanged downstream method |
+| 3.93 | 4.568875473633628 | `stageB.scores.factorExposure.1.aboveNeutralPoints`, `report.scores.factorExposure.1.aboveNeutralPoints` | L; unchanged downstream method |
+| 9.75 | 14.000000000000002 | `stageB.scores.factorExposure.1.weightPct`, `report.scores.factorExposure.1.weightPct` | L; unchanged downstream method |
+| 1.7967716273026175 | 2.766550041008283 | `stageB.scores.factorExposure.2.aboveNeutralPoints`, `report.scores.factorExposure.2.aboveNeutralPoints` | L; unchanged downstream method |
+| 9.75 | 12.352941176470589 | `stageB.scores.factorExposure.2.weightPct`, `report.scores.factorExposure.2.weightPct` | L; unchanged downstream method |
+| 0.8678716902497978 | 3.93 | `stageB.scores.factorExposure.3.aboveNeutralPoints`, `report.scores.factorExposure.3.aboveNeutralPoints` | L; unchanged downstream method |
+| 5 | 9.75 | `stageB.scores.factorExposure.3.weightPct`, `report.scores.factorExposure.3.weightPct` | L; unchanged downstream method |
+| 0.5432788504964027 | 1.7967716273026175 | `stageB.scores.factorExposure.4.aboveNeutralPoints`, `report.scores.factorExposure.4.aboveNeutralPoints` | L; unchanged downstream method |
+| 4.545454545454545 | 9.75 | `stageB.scores.factorExposure.4.weightPct`, `report.scores.factorExposure.4.weightPct` | L; unchanged downstream method |
+| 0.8901548302831702 | 0.8678716902497978 | `stageB.scores.factorExposure.5.aboveNeutralPoints`, `report.scores.factorExposure.5.aboveNeutralPoints` | L; unchanged downstream method |
+| 4.5 | 5 | `stageB.scores.factorExposure.5.weightPct`, `report.scores.factorExposure.5.weightPct` | L; unchanged downstream method |
+| 0.249265452373843 | 0.5432788504964027 | `stageB.scores.factorExposure.6.aboveNeutralPoints`, `report.scores.factorExposure.6.aboveNeutralPoints` | L; unchanged downstream method |
+| 3.5294117647058822 | 4.545454545454545 | `stageB.scores.factorExposure.6.weightPct`, `report.scores.factorExposure.6.weightPct` | L; unchanged downstream method |
+| 0.889667249389876 | 0.8901548302831702 | `stageB.scores.factorExposure.7.aboveNeutralPoints`, `report.scores.factorExposure.7.aboveNeutralPoints` | L; unchanged downstream method |
+| 2.6470588235294117 | 4.5 | `stageB.scores.factorExposure.7.weightPct`, `report.scores.factorExposure.7.weightPct` | L; unchanged downstream method |
+| 40.35348808665368 | 40.33679535518493 | `stageB.valuation.assumptions.ebitMarginPath.value.0`, `stageB.valuation.dcf.yearRows.0.ebitMarginPct`, `report.valuation.dcf.forecastRows.0.ebitMarginPct` | L; unchanged downstream method |
+| 40.35348808665368 | 40.48875794495595 | `stageB.valuation.assumptions.ebitMarginPath.value.1`, `stageB.valuation.dcf.yearRows.1.ebitMarginPct`, `report.valuation.dcf.forecastRows.1.ebitMarginPct` | L; unchanged downstream method |
+| 40.35348808665368 | 40.64072053472697 | `stageB.valuation.assumptions.ebitMarginPath.value.2`, `stageB.valuation.dcf.yearRows.2.ebitMarginPct`, `report.valuation.dcf.forecastRows.2.ebitMarginPct` | L; unchanged downstream method |
+| 40.35348808665368 | 40.79268312449799 | `stageB.valuation.assumptions.ebitMarginPath.value.3`, `stageB.valuation.dcf.yearRows.3.ebitMarginPct`, `report.valuation.dcf.forecastRows.3.ebitMarginPct` | L; unchanged downstream method |
+| 40.35348808665368 | 40.94464571426901 | `stageB.valuation.assumptions.ebitMarginPath.value.4`, `stageB.valuation.assumptions.ebitMarginPath.value.5`, `stageB.valuation.assumptions.ebitMarginPath.value.6`, `stageB.valuation.assumptions.ebitMarginPath.value.7`, `stageB.valuation.assumptions.ebitMarginPath.value.8`, `stageB.valuation.assumptions.ebitMarginPath.value.9`, `stageB.valuation.dcf.yearRows.4.ebitMarginPct`, `stageB.valuation.dcf.yearRows.5.ebitMarginPct`, `stageB.valuation.dcf.yearRows.6.ebitMarginPct`, `stageB.valuation.dcf.yearRows.7.ebitMarginPct`, `stageB.valuation.dcf.yearRows.8.ebitMarginPct`, `stageB.valuation.dcf.yearRows.9.ebitMarginPct`, `report.valuation.dcf.forecastRows.4.ebitMarginPct`, `report.valuation.dcf.forecastRows.5.ebitMarginPct`, `report.valuation.dcf.forecastRows.6.ebitMarginPct`, `report.valuation.dcf.forecastRows.7.ebitMarginPct`, `report.valuation.dcf.forecastRows.8.ebitMarginPct`, `report.valuation.dcf.forecastRows.9.ebitMarginPct` | L; unchanged downstream method |
+| 28.650201609295422 | 20.74317874515724 | `stageB.valuation.assumptions.growthAnchor.methods.3.valuePct` | L; unchanged downstream method |
+| 25 | 21.159517200924057 | `stageB.valuation.assumptions.growthAnchor.pointPct` | L; unchanged downstream method |
+| 25.113028632993146 | unavailable | `stageB.valuation.assumptions.growthAnchor.preClampMedianPct` | L; unchanged downstream method |
+| 25 | 15.087704855441197 | `stageB.valuation.assumptions.growthPath.value.0`, `stageB.valuation.assumptions.revenueAnchor.anchoredGrowthPct.0`, `stageB.valuation.assumptions.revenueAnchor.yearOneGrowthPct`, `stageB.valuation.dcf.yearRows.0.growthPct`, `report.valuation.dcf.forecastRows.0.growthPct` | L; unchanged downstream method |
+| 17.172158523213497 | 16.205274003241787 | `stageB.valuation.assumptions.growthPath.value.1`, `stageB.valuation.assumptions.revenueAnchor.anchoredGrowthPct.1`, `stageB.valuation.assumptions.revenueAnchor.yearTwoGrowthPct`, `stageB.valuation.dcf.yearRows.1.growthPct`, `report.valuation.dcf.forecastRows.1.growthPct` | L; unchanged downstream method |
+| 11.433445633955209 | 10.09425907742958 | `stageB.valuation.assumptions.growthPath.value.2`, `stageB.valuation.assumptions.revenueAnchor.anchoredGrowthPct.2`, `stageB.valuation.dcf.yearRows.2.growthPct`, `report.valuation.dcf.forecastRows.2.growthPct` | L; unchanged downstream method |
+| 9.589012191962043 | 8.585201029241674 | `stageB.valuation.assumptions.growthPath.value.3`, `stageB.valuation.assumptions.revenueAnchor.anchoredGrowthPct.3`, `stageB.valuation.dcf.yearRows.3.growthPct`, `report.valuation.dcf.forecastRows.3.growthPct` | L; unchanged downstream method |
+| 8.200110239085667 | 6.911369333756911 | `stageB.valuation.assumptions.growthPath.value.4`, `stageB.valuation.dcf.yearRows.4.growthPct`, `report.valuation.dcf.forecastRows.4.growthPct` | L; unchanged downstream method |
+| 6.483473944192187 | 5.582848236641797 | `stageB.valuation.assumptions.growthPath.value.5`, `stageB.valuation.dcf.yearRows.5.growthPct`, `report.valuation.dcf.forecastRows.5.growthPct` | L; unchanged downstream method |
+| 5.120978814011836 | 4.528400343080558 | `stageB.valuation.assumptions.growthPath.value.6`, `stageB.valuation.dcf.yearRows.6.growthPct`, `report.valuation.dcf.forecastRows.6.growthPct` | L; unchanged downstream method |
+| 4.039565712536916 | 3.6914844953381767 | `stageB.valuation.assumptions.growthPath.value.7`, `stageB.valuation.dcf.yearRows.7.growthPct`, `report.valuation.dcf.forecastRows.7.growthPct` | L; unchanged downstream method |
+| 3.1812475650901755 | 3.0272239467806195 | `stageB.valuation.assumptions.growthPath.value.8`, `stageB.valuation.dcf.yearRows.8.growthPct`, `report.valuation.dcf.forecastRows.8.growthPct` | L; unchanged downstream method |
+| 8.200110239085667 | unavailable | `stageB.valuation.assumptions.revenueAnchor.anchoredGrowthPct.4` | L; unchanged downstream method |
+| 91334188610 | unavailable | `stageB.valuation.assumptions.revenueAnchor.clampedFrom` | L; unchanged downstream method |
+| 91334188610 | 99507131372.11157 | `stageB.valuation.assumptions.revenueAnchor.consensusPath.0.consensus`, `stageB.valuation.assumptions.revenueAnchor.evidence.consensusYearOne`, `report.valuation.dcf.consensusPath.0.consensusRevenue` | L; unchanged downstream method |
+| 365 | 92 | `stageB.valuation.assumptions.revenueAnchor.consensusPath.0.fiscalYears.0.days`, `stageB.valuation.assumptions.revenueAnchor.consensusPath.1.fiscalYears.0.days`, `stageB.valuation.assumptions.revenueAnchor.consensusPath.3.fiscalYears.0.days`, `stageB.valuation.assumptions.revenueAnchor.consensusPath.4.fiscalYears.0.days` | L; unchanged downstream method |
+| unavailable | 67170000000 | `stageB.valuation.assumptions.revenueAnchor.consensusPath.0.fiscalYears.0.reportedToDate` | L; unchanged downstream method |
+| 107018240264 | 115632534663.72803 | `stageB.valuation.assumptions.revenueAnchor.consensusPath.1.consensus`, `stageB.valuation.assumptions.revenueAnchor.evidence.consensusYearTwo`, `report.valuation.dcf.consensusPath.1.consensusRevenue` | L; unchanged downstream method |
+| 119254112583 | 127304782290.48329 | `stageB.valuation.assumptions.revenueAnchor.consensusPath.2.consensus`, `report.valuation.dcf.consensusPath.2.consensusRevenue` | L; unchanged downstream method |
+| 366 | 92 | `stageB.valuation.assumptions.revenueAnchor.consensusPath.2.fiscalYears.0.days` | L; unchanged downstream method |
+| 130689403978 | 138234153769.95975 | `stageB.valuation.assumptions.revenueAnchor.consensusPath.3.consensus`, `report.valuation.dcf.consensusPath.3.consensusRevenue` | L; unchanged downstream method |
+| 141406079175 | unavailable | `stageB.valuation.assumptions.revenueAnchor.consensusPath.4.consensus`, `report.valuation.dcf.consensusPath.4.consensusRevenue` | L; unchanged downstream method |
+| 5 | unavailable | `stageB.valuation.assumptions.revenueAnchor.consensusYears.4` | L; unchanged downstream method |
+| 81473750000 | 99507131372.11157 | `stageB.valuation.assumptions.revenueAnchor.yearOneRevenue`, `stageB.valuation.dcf.yearRows.0.revenue`, `report.valuation.dcf.consensusPath.0.modelRevenue`, `report.valuation.dcf.forecastRows.0.revenue` | L; unchanged downstream method |
+| 0.8059127553291459 | 1.0690686977595332 | `stageB.valuation.assumptions.salesToCapital.value` | L; unchanged downstream method |
+| 83.04361834333143 | 83.63477597094678 | `stageB.valuation.assumptions.scenarioMarginCeiling.grossMarginPct` | L; unchanged downstream method |
+| 40.35348808665366 | 40.94464571426901 | `stageB.valuation.assumptions.scenarioMarginCeiling.pct` | L; unchanged downstream method |
+| 65179000000 | 86462000000 | `stageB.valuation.assumptions.startRevenue.value` | L; unchanged downstream method |
+| 19.785472776028914 | 20.677783785649368 | `stageB.valuation.assumptions.taxRatePath.value.0`, `stageB.valuation.dcf.yearRows.0.taxRatePct`, `report.valuation.dcf.forecastRows.0.taxRatePct` | L; unchanged downstream method |
+| 19.920420245359036 | 20.713585587243884 | `stageB.valuation.assumptions.taxRatePath.value.1`, `stageB.valuation.dcf.yearRows.1.taxRatePct`, `report.valuation.dcf.forecastRows.1.taxRatePct` | L; unchanged downstream method |
+| 20.055367714689154 | 20.749387388838397 | `stageB.valuation.assumptions.taxRatePath.value.2`, `stageB.valuation.dcf.yearRows.2.taxRatePct`, `report.valuation.dcf.forecastRows.2.taxRatePct` | L; unchanged downstream method |
+| 20.190315184019276 | 20.785189190432913 | `stageB.valuation.assumptions.taxRatePath.value.3`, `stageB.valuation.dcf.yearRows.3.taxRatePct`, `report.valuation.dcf.forecastRows.3.taxRatePct` | L; unchanged downstream method |
+| 20.325262653349398 | 20.820990992027426 | `stageB.valuation.assumptions.taxRatePath.value.4`, `stageB.valuation.dcf.yearRows.4.taxRatePct`, `report.valuation.dcf.forecastRows.4.taxRatePct` | L; unchanged downstream method |
+| 20.460210122679516 | 20.856792793621942 | `stageB.valuation.assumptions.taxRatePath.value.5`, `stageB.valuation.dcf.yearRows.5.taxRatePct`, `report.valuation.dcf.forecastRows.5.taxRatePct` | L; unchanged downstream method |
+| 20.595157592009638 | 20.892594595216455 | `stageB.valuation.assumptions.taxRatePath.value.6`, `stageB.valuation.dcf.yearRows.6.taxRatePct`, `report.valuation.dcf.forecastRows.6.taxRatePct` | L; unchanged downstream method |
+| 20.73010506133976 | 20.92839639681097 | `stageB.valuation.assumptions.taxRatePath.value.7`, `stageB.valuation.dcf.yearRows.7.taxRatePct`, `report.valuation.dcf.forecastRows.7.taxRatePct` | L; unchanged downstream method |
+| 20.865052530669878 | 20.964198198405484 | `stageB.valuation.assumptions.taxRatePath.value.8`, `stageB.valuation.dcf.yearRows.8.taxRatePct`, `report.valuation.dcf.forecastRows.8.taxRatePct` | L; unchanged downstream method |
+| 504556001092.129 | 632948677569.9573 | `stageB.valuation.dcf.enterpriseValue`, `report.valuation.dcf.bridge.enterpriseValue` | L; unchanged downstream method |
+| 463108271092.129 | 591500947569.9573 | `stageB.valuation.dcf.equityValue`, `report.valuation.dcf.bridge.equityValue` | L; unchanged downstream method |
+| 518.3660970361865 | 662.078517539688 | `stageB.valuation.dcf.perShare`, `stageB.valuation.growthMarginGrid.perShare.2.2`, `stageB.valuation.sensitivity.perShare.2.2`, `report.valuation.dcf.growthMarginGrid.perShare.2.2`, `report.valuation.dcf.sensitivityGrid.12.perShare` | L; unchanged downstream method |
+| 186242073701.25235 | 258283194595.8216 | `stageB.valuation.dcf.pvExplicit`, `report.valuation.dcf.bridge.presentValueExplicit` | L; unchanged downstream method |
+| 318313927390.8767 | 374665482974.1356 | `stageB.valuation.dcf.pvTerminal`, `report.valuation.dcf.bridge.presentValueTerminal` | L; unchanged downstream method |
+| 0.630879281391709 | 0.5919365917827126 | `stageB.valuation.dcf.terminalShare` | L; unchanged downstream method |
+| 650189254506.8398 | 758393354450.0613 | `stageB.valuation.dcf.terminalValue` | L; unchanged downstream method |
+| 1.0383062815259896 | 1.0289450186183204 | `stageB.valuation.dcf.yearRows.0.discountFactor` | L; unchanged downstream method |
+| 32877500000 | 40137987945.383675 | `stageB.valuation.dcf.yearRows.0.ebit` | L; unchanged downstream method |
+| 6153531188.061096 | 19636009403.2406 | `stageB.valuation.dcf.yearRows.0.fcff`, `report.valuation.dcf.forecastRows.0.fcff` | L; unchanged downstream method |
+| 26372531188.061096 | 31838341582.127228 | `stageB.valuation.dcf.yearRows.0.nopat`, `report.valuation.dcf.forecastRows.0.nopat` | L; unchanged downstream method |
+| 5926508678.168937 | 19083633282.571373 | `stageB.valuation.dcf.yearRows.0.pv`, `report.valuation.dcf.forecastRows.0.presentValue` | L; unchanged downstream method |
+| 20219000000 | 12202332178.886625 | `stageB.valuation.dcf.yearRows.0.reinvestment`, `report.valuation.dcf.forecastRows.0.reinvestment` | L; unchanged downstream method |
+| 1.119377167725471 | 1.1092849780254146 | `stageB.valuation.dcf.yearRows.1.discountFactor` | L; unchanged downstream method |
+| 38523276418.46952 | 46818177065.61413 | `stageB.valuation.dcf.yearRows.1.ebit` | L; unchanged downstream method |
+| 13489084204.58641 | 22036855121.5046 | `stageB.valuation.dcf.yearRows.1.fcff`, `report.valuation.dcf.forecastRows.1.fcff` | L; unchanged downstream method |
+| 30849277863.629093 | 37120453888.74075 | `stageB.valuation.dcf.yearRows.1.nopat`, `report.valuation.dcf.forecastRows.1.nopat` | L; unchanged downstream method |
+| 12050526483.397623 | 19865819476.55269 | `stageB.valuation.dcf.yearRows.1.pv`, `report.valuation.dcf.forecastRows.1.presentValue` | L; unchanged downstream method |
+| 17360193659.042683 | 15083598767.236155 | `stageB.valuation.dcf.yearRows.1.reinvestment`, `report.valuation.dcf.forecastRows.1.reinvestment` | L; unchanged downstream method |
+| 95464551504.80666 | 115632534663.72803 | `stageB.valuation.dcf.yearRows.1.revenue`, `report.valuation.dcf.consensusPath.1.modelRevenue`, `report.valuation.dcf.forecastRows.1.revenue` | L; unchanged downstream method |
+| 1.20677806338951 | 1.195897876181171 | `stageB.valuation.dcf.yearRows.2.discountFactor` | L; unchanged downstream method |
+| 42927814284.19352 | 51737580798.0179 | `stageB.valuation.dcf.yearRows.2.ebit` | L; unchanged downstream method |
+| 20774973110.01665 | 30084204199.77179 | `stageB.valuation.dcf.yearRows.2.fcff`, `report.valuation.dcf.forecastRows.2.fcff` | L; unchanged downstream method |
+| 34318483277.61965 | 41002349732.62389 | `stageB.valuation.dcf.yearRows.2.nopat`, `report.valuation.dcf.forecastRows.2.nopat` | L; unchanged downstream method |
+| 17215239272.468563 | 25156164919.231133 | `stageB.valuation.dcf.yearRows.2.pv`, `report.valuation.dcf.forecastRows.2.presentValue` | L; unchanged downstream method |
+| 13543510167.603 | 10918145532.852104 | `stageB.valuation.dcf.yearRows.2.reinvestment`, `report.valuation.dcf.forecastRows.2.reinvestment` | L; unchanged downstream method |
+| 106379439100.80789 | 127304782290.48329 | `stageB.valuation.dcf.yearRows.2.revenue`, `report.valuation.dcf.consensusPath.2.modelRevenue`, `report.valuation.dcf.forecastRows.2.revenue` | L; unchanged downstream method |
+| 1.3010032152409412 | 1.2892735037306786 | `stageB.valuation.dcf.yearRows.3.discountFactor` | L; unchanged downstream method |
+| 47044167629.64766 | 56389420317.210976 | `stageB.valuation.dcf.yearRows.3.ebit` | L; unchanged downstream method |
+| 24888430106.354492 | 34445508669.39553 | `stageB.valuation.dcf.yearRows.3.fcff`, `report.valuation.dcf.forecastRows.3.fcff` | L; unchanged downstream method |
+| 37545801909.52342 | 44668772620.89027 | `stageB.valuation.dcf.yearRows.3.nopat`, `report.valuation.dcf.forecastRows.3.nopat` | L; unchanged downstream method |
+| 19130183396.007397 | 26716991057.151974 | `stageB.valuation.dcf.yearRows.3.pv`, `report.valuation.dcf.forecastRows.3.presentValue` | L; unchanged downstream method |
+| 12657371803.168928 | 10223263951.494736 | `stageB.valuation.dcf.yearRows.3.reinvestment`, `report.valuation.dcf.forecastRows.3.reinvestment` | L; unchanged downstream method |
+| 116580176485.9252 | 138234153769.95975 | `stageB.valuation.dcf.yearRows.3.revenue`, `report.valuation.dcf.consensusPath.3.modelRevenue`, `report.valuation.dcf.forecastRows.3.revenue` | L; unchanged downstream method |
+| 1.4025854607542247 | 1.389939894140395 | `stageB.valuation.dcf.yearRows.4.discountFactor` | L; unchanged downstream method |
+| 50901841236.33902 | 60511283933.21603 | `stageB.valuation.dcf.yearRows.4.ebit` | L; unchanged downstream method |
+| 28693950640.482265 | 38975603538.28621 | `stageB.valuation.dcf.yearRows.4.fcff`, `report.valuation.dcf.forecastRows.4.fcff` | L; unchanged downstream method |
+| 40555908309.6622 | 47912234956.320984 | `stageB.valuation.dcf.yearRows.4.nopat`, `report.valuation.dcf.forecastRows.4.nopat` | L; unchanged downstream method |
+| 20457898248.176914 | 28041215093.2545 | `stageB.valuation.dcf.yearRows.4.pv`, `report.valuation.dcf.forecastRows.4.presentValue` | L; unchanged downstream method |
+| 11861957669.179935 | 8936631418.034771 | `stageB.valuation.dcf.yearRows.4.reinvestment`, `report.valuation.dcf.forecastRows.4.reinvestment` | L; unchanged downstream method |
+| 126139879474.6917 | 147788026682.3951 | `stageB.valuation.dcf.yearRows.4.revenue`, `report.valuation.dcf.consensusPath.4.modelRevenue`, `report.valuation.dcf.forecastRows.4.revenue` | L; unchanged downstream method |
+| 1.5120992413187957 | 1.498466309695124 | `stageB.valuation.dcf.yearRows.5.discountFactor` | L; unchanged downstream method |
+| 54202048850.01113 | 63889537081.250885 | `stageB.valuation.dcf.yearRows.5.ebit` | L; unchanged downstream method |
+| 32964389857.599113 | 42846500884.73179 | `stageB.valuation.dcf.yearRows.5.fcff`, `report.valuation.dcf.forecastRows.5.fcff` | L; unchanged downstream method |
+| 43112195764.50146 | 50564228715.41013 | `stageB.valuation.dcf.yearRows.5.nopat`, `report.valuation.dcf.forecastRows.5.nopat` | L; unchanged downstream method |
+| 21800414256.440483 | 28593569710.252132 | `stageB.valuation.dcf.yearRows.5.pv`, `report.valuation.dcf.forecastRows.5.presentValue` | L; unchanged downstream method |
+| 10147805906.902346 | 7717727830.678345 | `stageB.valuation.dcf.yearRows.5.reinvestment`, `report.valuation.dcf.forecastRows.5.reinvestment` | L; unchanged downstream method |
+| 134318125693.66875 | 156038807924.00092 | `stageB.valuation.dcf.yearRows.5.revenue`, `report.valuation.dcf.forecastRows.5.revenue` | L; unchanged downstream method |
+| 1.6301638506700102 | 1.6154664606414413 | `stageB.valuation.dcf.yearRows.6.discountFactor` | L; unchanged downstream method |
+| 56977724288.38055 | 66782711097.63083 | `stageB.valuation.dcf.yearRows.6.ebit` | L; unchanged downstream method |
+| 36708149862.91882 | 46220521035.28359 | `stageB.valuation.dcf.yearRows.6.fcff`, `report.valuation.dcf.forecastRows.6.fcff` | L; unchanged downstream method |
+| 45243072178.847824 | 52830070008.30819 | `stageB.valuation.dcf.yearRows.6.nopat`, `report.valuation.dcf.forecastRows.6.nopat` | L; unchanged downstream method |
+| 22518073780.02615 | 28611253877.057377 | `stageB.valuation.dcf.yearRows.6.pv`, `report.valuation.dcf.forecastRows.6.presentValue` | L; unchanged downstream method |
+| 8534922315.929004 | 6609548973.024594 | `stageB.valuation.dcf.yearRows.6.reinvestment`, `report.valuation.dcf.forecastRows.6.reinvestment` | L; unchanged downstream method |
+| 141196528453.8193 | 163104869837.37018 | `stageB.valuation.dcf.yearRows.6.revenue`, `report.valuation.dcf.forecastRows.6.revenue` | L; unchanged downstream method |
+| 1.7574469369573664 | 1.7416019756816274 | `stageB.valuation.dcf.yearRows.7.discountFactor` | L; unchanged downstream method |
+| 59279376902.517784 | 69247984523.36636 | `stageB.valuation.dcf.yearRows.7.ebit` | L; unchanged downstream method |
+| 39913349900.37901 | 49123495496.55365 | `stageB.valuation.dcf.yearRows.7.fcff`, `report.valuation.dcf.forecastRows.7.fcff` | L; unchanged downstream method |
+| 46990699790.91827 | 54755491825.51394 | `stageB.valuation.dcf.yearRows.7.nopat`, `report.valuation.dcf.forecastRows.7.nopat` | L; unchanged downstream method |
+| 22710984360.916306 | 28205925453.964714 | `stageB.valuation.dcf.yearRows.7.pv`, `report.valuation.dcf.forecastRows.7.presentValue` | L; unchanged downstream method |
+| 7077349890.539257 | 5631996328.960291 | `stageB.valuation.dcf.yearRows.7.reinvestment`, `report.valuation.dcf.forecastRows.7.reinvestment` | L; unchanged downstream method |
+| 146900255004.53223 | 169125860818.55823 | `stageB.valuation.dcf.yearRows.7.revenue`, `report.valuation.dcf.forecastRows.7.revenue` | L; unchanged downstream method |
+| 1.894668278253982 | 1.8775861434435392 | `stageB.valuation.dcf.yearRows.8.discountFactor` | L; unchanged downstream method |
+| 61165200636.82976 | 71344276093.52065 | `stageB.valuation.dcf.yearRows.8.ebit` | L; unchanged downstream method |
+| 42604331412.467384 | 51598475222.36131 | `stageB.valuation.dcf.yearRows.8.fcff`, `report.valuation.dcf.forecastRows.8.fcff` | L; unchanged downstream method |
+| 48403049393.4656 | 56387520650.05736 | `stageB.valuation.dcf.yearRows.8.nopat`, `report.valuation.dcf.forecastRows.8.nopat` | L; unchanged downstream method |
+| 22486433061.374256 | 27481282498.031456 | `stageB.valuation.dcf.yearRows.8.pv`, `report.valuation.dcf.forecastRows.8.presentValue` | L; unchanged downstream method |
+| 5798717980.998214 | 4789045427.696042 | `stageB.valuation.dcf.yearRows.8.reinvestment`, `report.valuation.dcf.forecastRows.8.reinvestment` | L; unchanged downstream method |
+| 151573515789.97516 | 174245679377.45648 | `stageB.valuation.dcf.yearRows.8.revenue`, `report.valuation.dcf.forecastRows.8.revenue` | L; unchanged downstream method |
+| 2.0426038528576025 | 2.0241879460842025 | `stageB.valuation.dcf.yearRows.9.discountFactor` | L; unchanged downstream method |
+| 62694330652.75049 | 73127882995.85866 | `stageB.valuation.dcf.yearRows.9.ebit` | L; unchanged downstream method |
+| 44826600480.83883 | 53696320306.50676 | `stageB.valuation.dcf.yearRows.9.fcff`, `report.valuation.dcf.forecastRows.9.fcff` | L; unchanged downstream method |
+| 49528521215.67289 | 57771027566.72834 | `stageB.valuation.dcf.yearRows.9.nopat`, `report.valuation.dcf.forecastRows.9.nopat` | L; unchanged downstream method |
+| 21945812164.275723 | 26527339227.754246 | `stageB.valuation.dcf.yearRows.9.pv`, `report.valuation.dcf.forecastRows.9.presentValue` | L; unchanged downstream method |
+| 4701920734.83406 | 4074707260.2215815 | `stageB.valuation.dcf.yearRows.9.reinvestment`, `report.valuation.dcf.forecastRows.9.reinvestment` | L; unchanged downstream method |
+| 155362853684.72452 | 178601821361.89288 | `stageB.valuation.dcf.yearRows.9.revenue`, `report.valuation.dcf.forecastRows.9.revenue` | L; unchanged downstream method |
+| 215.64804346790615 | 270.7446490796736 | `stageB.valuation.growthMarginGrid.perShare.0.0`, `report.scenarioPresentation.sensitivity.minPerShare`, `report.valuation.dcf.growthMarginGrid.perShare.0.0` | L; unchanged downstream method |
+| 261.2895053248966 | 323.12577559985687 | `stageB.valuation.growthMarginGrid.perShare.0.1`, `report.valuation.dcf.growthMarginGrid.perShare.0.1` | L; unchanged downstream method |
+| 306.9309671818871 | 375.5069021200403 | `stageB.valuation.growthMarginGrid.perShare.0.2`, `report.valuation.dcf.growthMarginGrid.perShare.0.2` | L; unchanged downstream method |
+| 276.63444520563627 | 361.12789198798635 | `stageB.valuation.growthMarginGrid.perShare.1.0`, `report.valuation.dcf.growthMarginGrid.perShare.1.0` | L; unchanged downstream method |
+| 338.1589588843865 | 432.44274603006403 | `stageB.valuation.growthMarginGrid.perShare.1.1`, `report.valuation.dcf.growthMarginGrid.perShare.1.1` | L; unchanged downstream method |
+| 399.6834725631368 | 503.75760007214177 | `stageB.valuation.growthMarginGrid.perShare.1.2`, `report.valuation.dcf.growthMarginGrid.perShare.1.2` | L; unchanged downstream method |
+| 354.63419170178776 | 470.67260292691077 | `stageB.valuation.growthMarginGrid.perShare.2.0`, `report.valuation.dcf.growthMarginGrid.perShare.2.0` | L; unchanged downstream method |
+| 436.5001443689871 | 566.3755602332994 | `stageB.valuation.growthMarginGrid.perShare.2.1`, `report.valuation.dcf.growthMarginGrid.perShare.2.1` | L; unchanged downstream method |
+| 453.53715538281165 | 610.3309911053561 | `stageB.valuation.growthMarginGrid.perShare.3.0`, `report.valuation.dcf.growthMarginGrid.perShare.3.0` | L; unchanged downstream method |
+| 561.1940638178036 | 737.1155556367911 | `stageB.valuation.growthMarginGrid.perShare.3.1`, `report.valuation.dcf.growthMarginGrid.perShare.3.1` | L; unchanged downstream method |
+| 668.8509722527955 | 863.900120168226 | `stageB.valuation.growthMarginGrid.perShare.3.2`, `report.valuation.dcf.growthMarginGrid.perShare.3.2` | L; unchanged downstream method |
+| 577.7912575639901 | 786.6455589910354 | `stageB.valuation.growthMarginGrid.perShare.4.0`, `report.valuation.dcf.growthMarginGrid.perShare.4.0` | L; unchanged downstream method |
+| 717.8478571395074 | 952.6583178645869 | `stageB.valuation.growthMarginGrid.perShare.4.1`, `report.valuation.dcf.growthMarginGrid.perShare.4.1` | L; unchanged downstream method |
+| 857.9044567150246 | 1118.6710767381383 | `stageB.valuation.growthMarginGrid.perShare.4.2`, `report.scenarioPresentation.sensitivity.maxPerShare`, `report.valuation.dcf.growthMarginGrid.perShare.4.2` | L; unchanged downstream method |
+| unavailable | 37.8568087595851 | `stageB.valuation.multiples.multiples.1.current`, `report.valuation.multiples.1.current` | L; unchanged downstream method |
+| 752.4344313834567 | 937.8988033116498 | `stageB.valuation.sensitivity.perShare.0.0`, `report.valuation.dcf.sensitivityGrid.0.perShare` | L; unchanged downstream method |
+| 755.2258679090808 | 941.1770083773555 | `stageB.valuation.sensitivity.perShare.0.1`, `report.valuation.dcf.sensitivityGrid.1.perShare` | L; unchanged downstream method |
+| 758.0173044347044 | 944.4552134430611 | `stageB.valuation.sensitivity.perShare.0.2`, `report.valuation.dcf.sensitivityGrid.2.perShare` | L; unchanged downstream method |
+| 760.8087409603284 | 947.7334185087665 | `stageB.valuation.sensitivity.perShare.0.3`, `report.valuation.dcf.sensitivityGrid.3.perShare` | L; unchanged downstream method |
+| 763.600177485952 | 951.0116235744719 | `stageB.valuation.sensitivity.perShare.0.4`, `report.valuation.dcf.sensitivityGrid.4.perShare` | L; unchanged downstream method |
+| 615.5831727697841 | 776.814257146447 | `stageB.valuation.sensitivity.perShare.1.0`, `report.valuation.dcf.sensitivityGrid.5.perShare` | L; unchanged downstream method |
+| 617.7610059305529 | 779.3747590393589 | `stageB.valuation.sensitivity.perShare.1.1`, `report.valuation.dcf.sensitivityGrid.6.perShare` | L; unchanged downstream method |
+| 619.9388390913217 | 781.9352609322709 | `stageB.valuation.sensitivity.perShare.1.2`, `report.valuation.dcf.sensitivityGrid.7.perShare` | L; unchanged downstream method |
+| 622.1166722520906 | 784.495762825183 | `stageB.valuation.sensitivity.perShare.1.3`, `report.valuation.dcf.sensitivityGrid.8.perShare` | L; unchanged downstream method |
+| 624.2945054128593 | 787.0562647180949 | `stageB.valuation.sensitivity.perShare.1.4`, `report.valuation.dcf.sensitivityGrid.9.perShare` | L; unchanged downstream method |
+| 514.890048535355 | 657.9870993567624 | `stageB.valuation.sensitivity.perShare.2.0`, `report.valuation.dcf.sensitivityGrid.10.perShare` | L; unchanged downstream method |
+| 516.6280727857709 | 660.0328084482251 | `stageB.valuation.sensitivity.perShare.2.1`, `report.valuation.dcf.sensitivityGrid.11.perShare` | L; unchanged downstream method |
+| 520.1041212866021 | 664.1242266311507 | `stageB.valuation.sensitivity.perShare.2.3`, `report.valuation.dcf.sensitivityGrid.13.perShare` | L; unchanged downstream method |
+| 521.8421455370177 | 666.1699357226133 | `stageB.valuation.sensitivity.perShare.2.4`, `report.valuation.dcf.sensitivityGrid.14.perShare` | L; unchanged downstream method |
+| 437.96028826479204 | 566.9538374985186 | `stageB.valuation.sensitivity.perShare.3.0`, `report.valuation.dcf.sensitivityGrid.15.perShare` | L; unchanged downstream method |
+| 439.37160607696023 | 568.6168515285203 | `stageB.valuation.sensitivity.perShare.3.1`, `report.valuation.dcf.sensitivityGrid.16.perShare` | L; unchanged downstream method |
+| 440.7829238891282 | 570.2798655585219 | `stageB.valuation.sensitivity.perShare.3.2`, `report.valuation.dcf.sensitivityGrid.17.perShare` | L; unchanged downstream method |
+| 442.19424170129645 | 571.9428795885236 | `stageB.valuation.sensitivity.perShare.3.3`, `report.valuation.dcf.sensitivityGrid.18.perShare` | L; unchanged downstream method |
+| 443.6055595134644 | 573.6058936185252 | `stageB.valuation.sensitivity.perShare.3.4`, `report.valuation.dcf.sensitivityGrid.19.perShare` | L; unchanged downstream method |
+| 377.46080022065144 | 495.1555398291038 | `stageB.valuation.sensitivity.perShare.4.0`, `report.valuation.dcf.sensitivityGrid.20.perShare` | L; unchanged downstream method |
+| 378.62272141542877 | 496.5261892658032 | `stageB.valuation.sensitivity.perShare.4.1`, `report.valuation.dcf.sensitivityGrid.21.perShare` | L; unchanged downstream method |
+| 379.7846426102061 | 497.89683870250263 | `stageB.valuation.sensitivity.perShare.4.2`, `report.valuation.dcf.sensitivityGrid.22.perShare` | L; unchanged downstream method |
+| 380.94656380498344 | 499.2674881392021 | `stageB.valuation.sensitivity.perShare.4.3`, `report.valuation.dcf.sensitivityGrid.23.perShare` | L; unchanged downstream method |
+| 382.1084849997606 | 500.6381375759014 | `stageB.valuation.sensitivity.perShare.4.4`, `report.valuation.dcf.sensitivityGrid.24.perShare` | L; unchanged downstream method |
+| unavailable | 39.079 | `report.filingDisclosures.quarterlyTrend.1.operatingMarginPct` | L; unchanged downstream method |
+| unavailable | 45.0275 | `report.filingDisclosures.quarterlyTrend.2.operatingMarginPct` | L; unchanged downstream method |
+| unavailable | 43.4092 | `report.filingDisclosures.quarterlyTrend.3.operatingMarginPct` | L; unchanged downstream method |
+| unavailable | 44.1381 | `report.filingDisclosures.quarterlyTrend.5.operatingMarginPct` | L; unchanged downstream method |
+| unavailable | 29.0282 | `report.filingDisclosures.quarterlyTrend.6.operatingMarginPct` | L; unchanged downstream method |
+| unproved provider observation | unavailable | `report.filingDisclosures.quarterlyTrend.7.operatingExpenses`, `report.filingDisclosures.quarterlyTrend.7.operatingMarginPct` | L; unchanged downstream method |
+| 24.971795 | 22.448655 | `report.fundamentals.marginTrend.1.values.0.value.value` | L; unchanged downstream method |
+| 18.922166 | 24.971795 | `report.fundamentals.marginTrend.1.values.1.value.value` | L; unchanged downstream method |
+| 28.63708 | 18.922166 | `report.fundamentals.marginTrend.1.values.2.value.value` | L; unchanged downstream method |
+| 40.353488 | 28.63708 | `report.fundamentals.marginTrend.1.values.3.value.value` | L; unchanged downstream method |
+| 5.584457 | 3.947779 | `report.fundamentals.marginTrend.4.values.0.value.value` | L; unchanged downstream method |
+| unavailable | 1.0090979233470023 | `report.valuation.dcf.bridge.rollForwardFactor` | L; unchanged downstream method |
+| -10.795999570439497 | 0 | `report.valuation.dcf.consensusPath.0.gapPct`, `report.valuation.dcf.consensusPath.1.gapPct`, `report.valuation.dcf.consensusPath.2.gapPct` | L; unchanged downstream method |
+| -10.795999570439484 | 0 | `report.valuation.dcf.consensusPath.3.gapPct` | L; unchanged downstream method |
+| -10.795999570439474 | unavailable | `report.valuation.dcf.consensusPath.4.gapPct` | L; unchanged downstream method |
+| unavailable | 20.41562244425145 | `report.valuation.multiples.1.own5yPercentile` | L; unchanged downstream method |
+| unavailable | 11 | `report.valuation.multiples.1.ownHistoryObservations` | L; unchanged downstream method |
+| unavailable | 45.2587890625 | `report.valuation.reverseDcf.impliedValue` | L; unchanged downstream method |
+
+lly-fixed-analyst: exact changed numeric figures below.
+
+| Before | After | Exact paths | Filed proof / derivation |
+| --- | --- | --- | --- |
+| 0.7128680203045685 | 1.204274258630974 | `report.balanceSheet.coverage.numbers.10.value`, `report.scores.aspects.balanceSheet.drivers.0.value`, `report.scores.aspects.balanceSheet.signals.0.raw` | L; unchanged downstream method |
+| 3.5501935313235915 | 29.606112054329373 | `report.balanceSheet.coverage.numbers.11.value`, `report.scores.aspects.balanceSheet.drivers.1.value`, `report.scores.aspects.balanceSheet.signals.1.raw` | L; unchanged downstream method |
+| 0 | 1 | `report.balanceSheet.graded.gradeContract.distance`, `report.scores.aspects.valuation.applicableCompleteness`, `report.scores.aspects.valuation.dataCompleteness`, `report.verdict.gradeStrip.balanceSheet.gradeContract.distance` | L; unchanged downstream method |
+| unavailable | -54.13370280568064 | `report.fairValue.upsidePct`, `report.valuation.dcf.upsidePct` | L; unchanged downstream method |
+| unavailable | 39.079 | `report.filingDisclosures.quarterlyTrend.1.operatingMarginPct` | L; unchanged downstream method |
+| unavailable | 45.0275 | `report.filingDisclosures.quarterlyTrend.2.operatingMarginPct` | L; unchanged downstream method |
+| unavailable | 43.4092 | `report.filingDisclosures.quarterlyTrend.3.operatingMarginPct` | L; unchanged downstream method |
+| unavailable | 44.1381 | `report.filingDisclosures.quarterlyTrend.5.operatingMarginPct` | L; unchanged downstream method |
+| unavailable | 29.0282 | `report.filingDisclosures.quarterlyTrend.6.operatingMarginPct` | L; unchanged downstream method |
+| unproved provider observation | unavailable | `report.filingDisclosures.quarterlyTrend.7.operatingExpenses`, `report.filingDisclosures.quarterlyTrend.7.operatingMarginPct` | L; unchanged downstream method |
+| 0.732999567072001 | 0.7505345142474684 | `report.projections.scenarioAssumptions.growthMarginCorrelation` | L; unchanged downstream method |
+| 0 | 0.6078503590840754 | `report.projections.scenarioAssumptions.scenarios.0.effectiveMarginDeltaPp` | L; unchanged downstream method |
+| 6.615918772517394 | 6.17828533713081 | `report.projections.scenarioAssumptions.scenarios.0.marginDeltaPp` | L; unchanged downstream method |
+| -6.615918772517394 | -6.17828533713081 | `report.projections.scenarioAssumptions.scenarios.2.marginDeltaPp` | L; unchanged downstream method |
+| 81473750000 | 99507131372.11 | `report.projections.series.0.base.0.value.value`, `report.projections.series.0.weighted.0.value.value` | L; unchanged downstream method |
+| 95464551504.81 | 115632534663.73 | `report.projections.series.0.base.1.value.value` | L; unchanged downstream method |
+| 106379439100.81 | 127304782290.48 | `report.projections.series.0.base.2.value.value` | L; unchanged downstream method |
+| 116580176485.93 | 138234153769.96 | `report.projections.series.0.base.3.value.value` | L; unchanged downstream method |
+| 126139879474.69 | 147788026682.4 | `report.projections.series.0.base.4.value.value` | L; unchanged downstream method |
+| 71092714008.07 | 85736359590.8 | `report.projections.series.0.bear.0.value.value` | L; unchanged downstream method |
+| 74647568571.69 | 89194469926.04 | `report.projections.series.0.bear.1.value.value` | L; unchanged downstream method |
+| 76321189862.46 | 89999756838.55 | `report.projections.series.0.bear.2.value.value` | L; unchanged downstream method |
+| 78430074385.53 | 91583175869.14 | `report.projections.series.0.bear.3.value.value` | L; unchanged downstream method |
+| 80980483312.75 | 93381030815.83 | `report.projections.series.0.bear.4.value.value` | L; unchanged downstream method |
+| 91854785991.93 | 113277903153.42 | `report.projections.series.0.bull.0.value.value` | L; unchanged downstream method |
+| 118808662835.2 | 145422914955.29 | `report.projections.series.0.bull.1.value.value` | L; unchanged downstream method |
+| 143312784068.08 | 173468704492.38 | `report.projections.series.0.bull.2.value.value` | L; unchanged downstream method |
+| 166837368320.91 | 200202040832.48 | `report.projections.series.0.bull.3.value.value` | L; unchanged downstream method |
+| 188773804971 | 223945310912.45 | `report.projections.series.0.bull.4.value.value` | L; unchanged downstream method |
+| 96096333604.13 | 116470613552.2 | `report.projections.series.0.weighted.1.value.value` | L; unchanged downstream method |
+| 108098213033.04 | 129519506477.97 | `report.projections.series.0.weighted.2.value.value` | L; unchanged downstream method |
+| 119606948919.57 | 142063381060.39 | `report.projections.series.0.weighted.3.value.value` | L; unchanged downstream method |
+| 130508511808.28 | 153225598773.27 | `report.projections.series.0.weighted.4.value.value` | L; unchanged downstream method |
+| 40.35 | 40.34 | `report.projections.series.1.base.0.value.value` | L; unchanged downstream method |
+| 40.35 | 40.49 | `report.projections.series.1.base.1.value.value` | L; unchanged downstream method |
+| 40.35 | 40.64 | `report.projections.series.1.base.2.value.value` | L; unchanged downstream method |
+| 40.35 | 40.79 | `report.projections.series.1.base.3.value.value` | L; unchanged downstream method |
+| 40.35 | 40.94 | `report.projections.series.1.base.4.value.value`, `report.projections.series.1.bull.0.value.value`, `report.projections.series.1.bull.1.value.value`, `report.projections.series.1.bull.2.value.value`, `report.projections.series.1.bull.3.value.value`, `report.projections.series.1.bull.4.value.value` | L; unchanged downstream method |
+| 33.74 | 34.16 | `report.projections.series.1.bear.0.value.value` | L; unchanged downstream method |
+| 35.3 | 35.77 | `report.projections.series.1.bear.1.value.value` | L; unchanged downstream method |
+| 36.54 | 37.08 | `report.projections.series.1.bear.2.value.value` | L; unchanged downstream method |
+| 37.52 | 38.14 | `report.projections.series.1.bear.3.value.value` | L; unchanged downstream method |
+| 38.3 | 39.03 | `report.projections.series.1.bear.4.value.value` | L; unchanged downstream method |
+| 38.7 | 38.94 | `report.projections.series.1.weighted.0.value.value` | L; unchanged downstream method |
+| 39.09 | 39.42 | `report.projections.series.1.weighted.1.value.value` | L; unchanged downstream method |
+| 39.4 | 39.83 | `report.projections.series.1.weighted.2.value.value` | L; unchanged downstream method |
+| 39.64 | 40.17 | `report.projections.series.1.weighted.3.value.value` | L; unchanged downstream method |
+| 39.84 | 40.46 | `report.projections.series.1.weighted.4.value.value` | L; unchanged downstream method |
+| 6153531188.06 | 19636009403.24 | `report.projections.series.2.base.0.value.value` | L; unchanged downstream method |
+| 13489084204.59 | 22036855121.5 | `report.projections.series.2.base.1.value.value` | L; unchanged downstream method |
+| 20774973110.02 | 30084204199.77 | `report.projections.series.2.base.2.value.value` | L; unchanged downstream method |
+| 24888430106.35 | 34445508669.4 | `report.projections.series.2.base.3.value.value` | L; unchanged downstream method |
+| 28693950640.48 | 38975603538.29 | `report.projections.series.2.base.4.value.value` | L; unchanged downstream method |
+| 11901508749.33 | 23230512842.05 | `report.projections.series.2.bear.0.value.value` | L; unchanged downstream method |
+| 16688927845.47 | 22059498614.45 | `report.projections.series.2.bear.1.value.value` | L; unchanged downstream method |
+| 20215319074.56 | 25690791975.41 | `report.projections.series.2.bear.2.value.value` | L; unchanged downstream method |
+| 20867609007.22 | 26191989472.66 | `report.projections.series.2.bear.3.value.value` | L; unchanged downstream method |
+| 21545635581.46 | 27172773409.11 | `report.projections.series.2.bear.4.value.value` | L; unchanged downstream method |
+| -3367285493.9 | 11707200656.66 | `report.projections.series.2.bull.0.value.value` | L; unchanged downstream method |
+| 4947750171.47 | 17141190544.33 | `report.projections.series.2.bull.1.value.value` | L; unchanged downstream method |
+| 15827918971.85 | 30054804627.33 | `report.projections.series.2.bull.2.value.value` | L; unchanged downstream method |
+| 24541640178.35 | 39927786380.91 | `report.projections.series.2.bull.3.value.value` | L; unchanged downstream method |
+| 33474308213.98 | 50392792525.49 | `report.projections.series.2.bull.4.value.value` | L; unchanged downstream method |
+| 5210321407.89 | 18552433076.3 | `report.projections.series.2.weighted.0.value.value` | L; unchanged downstream method |
+| 12153711606.53 | 20818599850.45 | `report.projections.series.2.weighted.1.value.value` | L; unchanged downstream method |
+| 19398296066.61 | 28978501250.57 | `report.projections.series.2.weighted.2.value.value` | L; unchanged downstream method |
+| 23796527349.57 | 33752698298.09 | `report.projections.series.2.weighted.3.value.value` | L; unchanged downstream method |
+| 28101961269.1 | 38879193252.79 | `report.projections.series.2.weighted.4.value.value` | L; unchanged downstream method |
+| 28.81 | 34.36 | `report.projections.series.3.base.0.value.value`, `report.projections.series.3.flatShare.base.0.value.value` | L; unchanged downstream method |
+| 33.82 | 40.28 | `report.projections.series.3.base.1.value.value`, `report.projections.series.3.flatShare.base.1.value.value` | L; unchanged downstream method |
+| 37.7 | 44.62 | `report.projections.series.3.base.2.value.value`, `report.projections.series.3.flatShare.base.2.value.value` | L; unchanged downstream method |
+| 41.32 | 48.73 | `report.projections.series.3.base.3.value.value`, `report.projections.series.3.flatShare.base.3.value.value` | L; unchanged downstream method |
+| 44.69 | 52.36 | `report.projections.series.3.base.4.value.value`, `report.projections.series.3.flatShare.base.4.value.value` | L; unchanged downstream method |
+| 20.82 | 24.73 | `report.projections.series.3.bear.0.value.value`, `report.projections.series.3.flatShare.bear.0.value.value` | L; unchanged downstream method |
+| 22.9 | 27.04 | `report.projections.series.3.bear.1.value.value`, `report.projections.series.3.flatShare.bear.1.value.value` | L; unchanged downstream method |
+| 24.24 | 28.33 | `report.projections.series.3.bear.2.value.value`, `report.projections.series.3.flatShare.bear.2.value.value` | L; unchanged downstream method |
+| 25.58 | 29.7 | `report.projections.series.3.bear.3.value.value`, `report.projections.series.3.flatShare.bear.3.value.value` | L; unchanged downstream method |
+| 26.95 | 31.03 | `report.projections.series.3.bear.4.value.value`, `report.projections.series.3.flatShare.bear.4.value.value` | L; unchanged downstream method |
+| 32.57 | 39.91 | `report.projections.series.3.bull.0.value.value`, `report.projections.series.3.flatShare.bull.0.value.value` | L; unchanged downstream method |
+| 42.26 | 51.57 | `report.projections.series.3.bull.1.value.value`, `report.projections.series.3.flatShare.bull.1.value.value` | L; unchanged downstream method |
+| 51.04 | 61.73 | `report.projections.series.3.bull.2.value.value`, `report.projections.series.3.flatShare.bull.2.value.value` | L; unchanged downstream method |
+| 59.43 | 71.41 | `report.projections.series.3.bull.3.value.value`, `report.projections.series.3.flatShare.bull.3.value.value` | L; unchanged downstream method |
+| 67.23 | 79.99 | `report.projections.series.3.bull.4.value.value`, `report.projections.series.3.flatShare.bull.4.value.value` | L; unchanged downstream method |
+| 0.7827415421807878 | 0.7648882663695067 | `report.projections.series.3.capitalReturn.netIncomeToEbit` | L; unchanged downstream method |
+| 27.75 | 33.34 | `report.projections.series.3.flatShare.weighted.0.value.value`, `report.projections.series.3.weighted.0.value.value` | L; unchanged downstream method |
+| 33.2 | 39.79 | `report.projections.series.3.flatShare.weighted.1.value.value`, `report.projections.series.3.weighted.1.value.value` | L; unchanged downstream method |
+| 37.67 | 44.83 | `report.projections.series.3.flatShare.weighted.2.value.value`, `report.projections.series.3.weighted.2.value.value` | L; unchanged downstream method |
+| 41.91 | 49.64 | `report.projections.series.3.flatShare.weighted.3.value.value`, `report.projections.series.3.weighted.3.value.value` | L; unchanged downstream method |
+| 45.89 | 53.93 | `report.projections.series.3.flatShare.weighted.4.value.value`, `report.projections.series.3.weighted.4.value.value` | L; unchanged downstream method |
+| 29 | 34.59 | `report.projections.series.3.shareTrend.base.0.value.value` | L; unchanged downstream method |
+| 34.27 | 40.81 | `report.projections.series.3.shareTrend.base.1.value.value` | L; unchanged downstream method |
+| 38.46 | 45.52 | `report.projections.series.3.shareTrend.base.2.value.value` | L; unchanged downstream method |
+| 42.42 | 50.03 | `report.projections.series.3.shareTrend.base.3.value.value` | L; unchanged downstream method |
+| 46.19 | 54.12 | `report.projections.series.3.shareTrend.base.4.value.value` | L; unchanged downstream method |
+| 20.96 | 24.89 | `report.projections.series.3.shareTrend.bear.0.value.value` | L; unchanged downstream method |
+| 23.21 | 27.4 | `report.projections.series.3.shareTrend.bear.1.value.value` | L; unchanged downstream method |
+| 24.73 | 28.89 | `report.projections.series.3.shareTrend.bear.2.value.value` | L; unchanged downstream method |
+| 26.26 | 30.5 | `report.projections.series.3.shareTrend.bear.3.value.value` | L; unchanged downstream method |
+| 27.85 | 32.07 | `report.projections.series.3.shareTrend.bear.4.value.value` | L; unchanged downstream method |
+| 32.78 | 40.17 | `report.projections.series.3.shareTrend.bull.0.value.value` | L; unchanged downstream method |
+| 42.82 | 52.26 | `report.projections.series.3.shareTrend.bull.1.value.value` | L; unchanged downstream method |
+| 52.06 | 62.97 | `report.projections.series.3.shareTrend.bull.2.value.value` | L; unchanged downstream method |
+| 61.02 | 73.32 | `report.projections.series.3.shareTrend.bull.3.value.value` | L; unchanged downstream method |
+| 69.48 | 82.68 | `report.projections.series.3.shareTrend.bull.4.value.value` | L; unchanged downstream method |
+| 27.93 | 33.56 | `report.projections.series.3.shareTrend.weighted.0.value.value` | L; unchanged downstream method |
+| 33.64 | 40.32 | `report.projections.series.3.shareTrend.weighted.1.value.value` | L; unchanged downstream method |
+| 38.42 | 45.72 | `report.projections.series.3.shareTrend.weighted.2.value.value` | L; unchanged downstream method |
+| 43.03 | 50.97 | `report.projections.series.3.shareTrend.weighted.3.value.value` | L; unchanged downstream method |
+| 47.43 | 55.75 | `report.projections.series.3.shareTrend.weighted.4.value.value` | L; unchanged downstream method |
+| 857.9044567150246 | 1118.6710767381383 | `report.scenarioPresentation.sensitivity.maxPerShare`, `report.valuation.dcf.growthMarginGrid.perShare.4.2` | L; unchanged downstream method |
+| 215.64804346790615 | 270.7446490796736 | `report.scenarioPresentation.sensitivity.minPerShare`, `report.valuation.dcf.growthMarginGrid.perShare.0.0` | L; unchanged downstream method |
+| 0.4117647058823529 | 1 | `report.scores.aspects.balanceSheet.applicableCompleteness`, `report.scores.aspects.balanceSheet.dataCompleteness` | L; unchanged downstream method |
+| 68.44 | 74.37 | `report.scores.aspects.balanceSheet.score` | L; unchanged downstream method |
+| 0.249265452373843 | 1.0349316474579693 | `report.scores.aspects.balanceSheet.signals.0.contributionPoints` | L; unchanged downstream method |
+| 3.5294117647058822 | 5.294117647058823 | `report.scores.aspects.balanceSheet.signals.0.effectiveCompositeWeightPct` | L; unchanged downstream method |
+| 19660900000 | 44618000000 | `report.scores.aspects.balanceSheet.signals.0.operands.0.value` | L; unchanged downstream method |
+| 27580000000 | 37049700000 | `report.scores.aspects.balanceSheet.signals.0.operands.1.value` | L; unchanged downstream method |
+| 0.2 | 0.3 | `report.scores.aspects.balanceSheet.signals.0.signalWeight` | L; unchanged downstream method |
+| 57.06252115059222 | 69.54870889642831 | `report.scores.aspects.balanceSheet.signals.0.transformedScore` | L; unchanged downstream method |
+| 0.889667249389876 | 1.4823529411764704 | `report.scores.aspects.balanceSheet.signals.1.contributionPoints` | L; unchanged downstream method |
+| 2.6470588235294117 | 3.5294117647058822 | `report.scores.aspects.balanceSheet.signals.1.effectiveCompositeWeightPct` | L; unchanged downstream method |
+| 698000000 | 29.606112054329373 | `report.scores.aspects.balanceSheet.signals.1.operands.0.value` | L; unchanged downstream method |
+| 19660900000 | 34876000000 | `report.scores.aspects.balanceSheet.signals.1.operands.1.value` | L; unchanged downstream method |
+| 3.5501935313235915 | 1178000000 | `report.scores.aspects.balanceSheet.signals.1.operands.2.value` | L; unchanged downstream method |
+| 0.15 | 0.2 | `report.scores.aspects.balanceSheet.signals.1.signalWeight` | L; unchanged downstream method |
+| 83.60965164361754 | 92 | `report.scores.aspects.balanceSheet.signals.1.transformedScore` | L; unchanged downstream method |
+| 5.584457438255553 | 3.947779023363034 | `report.scores.aspects.fundamentals.drivers.1.value`, `report.scores.aspects.fundamentals.signals.1.raw` | L; unchanged downstream method |
+| 24.971795356920122 | 22.448655291259392 | `report.scores.aspects.fundamentals.signals.1.operands.0.value` | L; unchanged downstream method |
+| 18.92216621732505 | 24.971795356920122 | `report.scores.aspects.fundamentals.signals.1.operands.1.value` | L; unchanged downstream method |
+| 28.637080123437602 | 18.92216621732505 | `report.scores.aspects.fundamentals.signals.1.operands.2.value` | L; unchanged downstream method |
+| 40.35348808665368 | 28.637080123437602 | `report.scores.aspects.fundamentals.signals.1.operands.3.value` | L; unchanged downstream method |
+| 3.0006844626967832 | 4 | `report.scores.aspects.fundamentals.signals.1.windowYears` | L; unchanged downstream method |
+| unavailable | 33.98 | `report.scores.aspects.valuation.score`, `report.scores.assessments.valuation.score` | L; unchanged downstream method |
+| 0.6496256684491978 | 0.7672727272727273 | `report.scores.assessments.businessQuality.evidenceCompleteness` | L; unchanged downstream method |
+| 67.16 | 70.51 | `report.scores.assessments.businessQuality.score` | L; unchanged downstream method |
+| 0.5372192513368984 | 0.8254545454545454 | `report.scores.assessments.evidenceCompleteness` | L; unchanged downstream method |
+| 63.74 | 63.05 | `report.scores.composite.score` | L; unchanged downstream method |
+| 4.568875473633628 | -3.2032748568780818 | `report.scores.factorExposure.0.aboveNeutralPoints` | L; unchanged downstream method |
+| 14.000000000000002 | 20 | `report.scores.factorExposure.0.weightPct` | L; unchanged downstream method |
+| 3.93 | 4.568875473633628 | `report.scores.factorExposure.1.aboveNeutralPoints` | L; unchanged downstream method |
+| 9.75 | 14.000000000000002 | `report.scores.factorExposure.1.weightPct` | L; unchanged downstream method |
+| 1.7967716273026175 | 2.766550041008283 | `report.scores.factorExposure.2.aboveNeutralPoints` | L; unchanged downstream method |
+| 9.75 | 12.352941176470589 | `report.scores.factorExposure.2.weightPct` | L; unchanged downstream method |
+| 0.8678716902497978 | 3.93 | `report.scores.factorExposure.3.aboveNeutralPoints` | L; unchanged downstream method |
+| 5 | 9.75 | `report.scores.factorExposure.3.weightPct` | L; unchanged downstream method |
+| 0.5432788504964027 | 1.7967716273026175 | `report.scores.factorExposure.4.aboveNeutralPoints` | L; unchanged downstream method |
+| 4.545454545454545 | 9.75 | `report.scores.factorExposure.4.weightPct` | L; unchanged downstream method |
+| 0.8901548302831702 | 0.8678716902497978 | `report.scores.factorExposure.5.aboveNeutralPoints` | L; unchanged downstream method |
+| 4.5 | 5 | `report.scores.factorExposure.5.weightPct` | L; unchanged downstream method |
+| 0.249265452373843 | 0.5432788504964027 | `report.scores.factorExposure.6.aboveNeutralPoints` | L; unchanged downstream method |
+| 3.5294117647058822 | 4.545454545454545 | `report.scores.factorExposure.6.weightPct` | L; unchanged downstream method |
+| 0.889667249389876 | 0.8901548302831702 | `report.scores.factorExposure.7.aboveNeutralPoints` | L; unchanged downstream method |
+| 2.6470588235294117 | 4.5 | `report.scores.factorExposure.7.weightPct` | L; unchanged downstream method |
+| 504556001092.129 | 632948677569.9573 | `report.valuation.dcf.bridge.enterpriseValue` | L; unchanged downstream method |
+| 463108271092.129 | 591500947569.9573 | `report.valuation.dcf.bridge.equityValue` | L; unchanged downstream method |
+| 186242073701.25235 | 258283194595.8216 | `report.valuation.dcf.bridge.presentValueExplicit` | L; unchanged downstream method |
+| 318313927390.8767 | 374665482974.1356 | `report.valuation.dcf.bridge.presentValueTerminal` | L; unchanged downstream method |
+| unavailable | 1.0090979233470023 | `report.valuation.dcf.bridge.rollForwardFactor` | L; unchanged downstream method |
+| 91334188610 | 99507131372.11157 | `report.valuation.dcf.consensusPath.0.consensusRevenue` | L; unchanged downstream method |
+| -10.795999570439497 | 0 | `report.valuation.dcf.consensusPath.0.gapPct`, `report.valuation.dcf.consensusPath.1.gapPct`, `report.valuation.dcf.consensusPath.2.gapPct` | L; unchanged downstream method |
+| 81473750000 | 99507131372.11157 | `report.valuation.dcf.consensusPath.0.modelRevenue`, `report.valuation.dcf.forecastRows.0.revenue` | L; unchanged downstream method |
+| 107018240264 | 115632534663.72803 | `report.valuation.dcf.consensusPath.1.consensusRevenue` | L; unchanged downstream method |
+| 95464551504.80666 | 115632534663.72803 | `report.valuation.dcf.consensusPath.1.modelRevenue`, `report.valuation.dcf.forecastRows.1.revenue` | L; unchanged downstream method |
+| 119254112583 | 127304782290.48329 | `report.valuation.dcf.consensusPath.2.consensusRevenue` | L; unchanged downstream method |
+| 106379439100.80789 | 127304782290.48329 | `report.valuation.dcf.consensusPath.2.modelRevenue`, `report.valuation.dcf.forecastRows.2.revenue` | L; unchanged downstream method |
+| 130689403978 | 138234153769.95975 | `report.valuation.dcf.consensusPath.3.consensusRevenue` | L; unchanged downstream method |
+| -10.795999570439484 | 0 | `report.valuation.dcf.consensusPath.3.gapPct` | L; unchanged downstream method |
+| 116580176485.9252 | 138234153769.95975 | `report.valuation.dcf.consensusPath.3.modelRevenue`, `report.valuation.dcf.forecastRows.3.revenue` | L; unchanged downstream method |
+| 141406079175 | unavailable | `report.valuation.dcf.consensusPath.4.consensusRevenue` | L; unchanged downstream method |
+| -10.795999570439474 | unavailable | `report.valuation.dcf.consensusPath.4.gapPct` | L; unchanged downstream method |
+| 126139879474.6917 | 147788026682.3951 | `report.valuation.dcf.consensusPath.4.modelRevenue`, `report.valuation.dcf.forecastRows.4.revenue` | L; unchanged downstream method |
+| 40.35348808665368 | 40.33679535518493 | `report.valuation.dcf.forecastRows.0.ebitMarginPct` | L; unchanged downstream method |
+| 6153531188.061096 | 19636009403.2406 | `report.valuation.dcf.forecastRows.0.fcff` | L; unchanged downstream method |
+| 25 | 15.087704855441197 | `report.valuation.dcf.forecastRows.0.growthPct` | L; unchanged downstream method |
+| 26372531188.061096 | 31838341582.127228 | `report.valuation.dcf.forecastRows.0.nopat` | L; unchanged downstream method |
+| 5926508678.168937 | 19083633282.571373 | `report.valuation.dcf.forecastRows.0.presentValue` | L; unchanged downstream method |
+| 20219000000 | 12202332178.886625 | `report.valuation.dcf.forecastRows.0.reinvestment` | L; unchanged downstream method |
+| 19.785472776028914 | 20.677783785649368 | `report.valuation.dcf.forecastRows.0.taxRatePct` | L; unchanged downstream method |
+| 40.35348808665368 | 40.48875794495595 | `report.valuation.dcf.forecastRows.1.ebitMarginPct` | L; unchanged downstream method |
+| 13489084204.58641 | 22036855121.5046 | `report.valuation.dcf.forecastRows.1.fcff` | L; unchanged downstream method |
+| 17.172158523213497 | 16.205274003241787 | `report.valuation.dcf.forecastRows.1.growthPct` | L; unchanged downstream method |
+| 30849277863.629093 | 37120453888.74075 | `report.valuation.dcf.forecastRows.1.nopat` | L; unchanged downstream method |
+| 12050526483.397623 | 19865819476.55269 | `report.valuation.dcf.forecastRows.1.presentValue` | L; unchanged downstream method |
+| 17360193659.042683 | 15083598767.236155 | `report.valuation.dcf.forecastRows.1.reinvestment` | L; unchanged downstream method |
+| 19.920420245359036 | 20.713585587243884 | `report.valuation.dcf.forecastRows.1.taxRatePct` | L; unchanged downstream method |
+| 40.35348808665368 | 40.64072053472697 | `report.valuation.dcf.forecastRows.2.ebitMarginPct` | L; unchanged downstream method |
+| 20774973110.01665 | 30084204199.77179 | `report.valuation.dcf.forecastRows.2.fcff` | L; unchanged downstream method |
+| 11.433445633955209 | 10.09425907742958 | `report.valuation.dcf.forecastRows.2.growthPct` | L; unchanged downstream method |
+| 34318483277.61965 | 41002349732.62389 | `report.valuation.dcf.forecastRows.2.nopat` | L; unchanged downstream method |
+| 17215239272.468563 | 25156164919.231133 | `report.valuation.dcf.forecastRows.2.presentValue` | L; unchanged downstream method |
+| 13543510167.603 | 10918145532.852104 | `report.valuation.dcf.forecastRows.2.reinvestment` | L; unchanged downstream method |
+| 20.055367714689154 | 20.749387388838397 | `report.valuation.dcf.forecastRows.2.taxRatePct` | L; unchanged downstream method |
+| 40.35348808665368 | 40.79268312449799 | `report.valuation.dcf.forecastRows.3.ebitMarginPct` | L; unchanged downstream method |
+| 24888430106.354492 | 34445508669.39553 | `report.valuation.dcf.forecastRows.3.fcff` | L; unchanged downstream method |
+| 9.589012191962043 | 8.585201029241674 | `report.valuation.dcf.forecastRows.3.growthPct` | L; unchanged downstream method |
+| 37545801909.52342 | 44668772620.89027 | `report.valuation.dcf.forecastRows.3.nopat` | L; unchanged downstream method |
+| 19130183396.007397 | 26716991057.151974 | `report.valuation.dcf.forecastRows.3.presentValue` | L; unchanged downstream method |
+| 12657371803.168928 | 10223263951.494736 | `report.valuation.dcf.forecastRows.3.reinvestment` | L; unchanged downstream method |
+| 20.190315184019276 | 20.785189190432913 | `report.valuation.dcf.forecastRows.3.taxRatePct` | L; unchanged downstream method |
+| 40.35348808665368 | 40.94464571426901 | `report.valuation.dcf.forecastRows.4.ebitMarginPct`, `report.valuation.dcf.forecastRows.5.ebitMarginPct`, `report.valuation.dcf.forecastRows.6.ebitMarginPct`, `report.valuation.dcf.forecastRows.7.ebitMarginPct`, `report.valuation.dcf.forecastRows.8.ebitMarginPct`, `report.valuation.dcf.forecastRows.9.ebitMarginPct` | L; unchanged downstream method |
+| 28693950640.482265 | 38975603538.28621 | `report.valuation.dcf.forecastRows.4.fcff` | L; unchanged downstream method |
+| 8.200110239085667 | 6.911369333756911 | `report.valuation.dcf.forecastRows.4.growthPct` | L; unchanged downstream method |
+| 40555908309.6622 | 47912234956.320984 | `report.valuation.dcf.forecastRows.4.nopat` | L; unchanged downstream method |
+| 20457898248.176914 | 28041215093.2545 | `report.valuation.dcf.forecastRows.4.presentValue` | L; unchanged downstream method |
+| 11861957669.179935 | 8936631418.034771 | `report.valuation.dcf.forecastRows.4.reinvestment` | L; unchanged downstream method |
+| 20.325262653349398 | 20.820990992027426 | `report.valuation.dcf.forecastRows.4.taxRatePct` | L; unchanged downstream method |
+| 32964389857.599113 | 42846500884.73179 | `report.valuation.dcf.forecastRows.5.fcff` | L; unchanged downstream method |
+| 6.483473944192187 | 5.582848236641797 | `report.valuation.dcf.forecastRows.5.growthPct` | L; unchanged downstream method |
+| 43112195764.50146 | 50564228715.41013 | `report.valuation.dcf.forecastRows.5.nopat` | L; unchanged downstream method |
+| 21800414256.440483 | 28593569710.252132 | `report.valuation.dcf.forecastRows.5.presentValue` | L; unchanged downstream method |
+| 10147805906.902346 | 7717727830.678345 | `report.valuation.dcf.forecastRows.5.reinvestment` | L; unchanged downstream method |
+| 134318125693.66875 | 156038807924.00092 | `report.valuation.dcf.forecastRows.5.revenue` | L; unchanged downstream method |
+| 20.460210122679516 | 20.856792793621942 | `report.valuation.dcf.forecastRows.5.taxRatePct` | L; unchanged downstream method |
+| 36708149862.91882 | 46220521035.28359 | `report.valuation.dcf.forecastRows.6.fcff` | L; unchanged downstream method |
+| 5.120978814011836 | 4.528400343080558 | `report.valuation.dcf.forecastRows.6.growthPct` | L; unchanged downstream method |
+| 45243072178.847824 | 52830070008.30819 | `report.valuation.dcf.forecastRows.6.nopat` | L; unchanged downstream method |
+| 22518073780.02615 | 28611253877.057377 | `report.valuation.dcf.forecastRows.6.presentValue` | L; unchanged downstream method |
+| 8534922315.929004 | 6609548973.024594 | `report.valuation.dcf.forecastRows.6.reinvestment` | L; unchanged downstream method |
+| 141196528453.8193 | 163104869837.37018 | `report.valuation.dcf.forecastRows.6.revenue` | L; unchanged downstream method |
+| 20.595157592009638 | 20.892594595216455 | `report.valuation.dcf.forecastRows.6.taxRatePct` | L; unchanged downstream method |
+| 39913349900.37901 | 49123495496.55365 | `report.valuation.dcf.forecastRows.7.fcff` | L; unchanged downstream method |
+| 4.039565712536916 | 3.6914844953381767 | `report.valuation.dcf.forecastRows.7.growthPct` | L; unchanged downstream method |
+| 46990699790.91827 | 54755491825.51394 | `report.valuation.dcf.forecastRows.7.nopat` | L; unchanged downstream method |
+| 22710984360.916306 | 28205925453.964714 | `report.valuation.dcf.forecastRows.7.presentValue` | L; unchanged downstream method |
+| 7077349890.539257 | 5631996328.960291 | `report.valuation.dcf.forecastRows.7.reinvestment` | L; unchanged downstream method |
+| 146900255004.53223 | 169125860818.55823 | `report.valuation.dcf.forecastRows.7.revenue` | L; unchanged downstream method |
+| 20.73010506133976 | 20.92839639681097 | `report.valuation.dcf.forecastRows.7.taxRatePct` | L; unchanged downstream method |
+| 42604331412.467384 | 51598475222.36131 | `report.valuation.dcf.forecastRows.8.fcff` | L; unchanged downstream method |
+| 3.1812475650901755 | 3.0272239467806195 | `report.valuation.dcf.forecastRows.8.growthPct` | L; unchanged downstream method |
+| 48403049393.4656 | 56387520650.05736 | `report.valuation.dcf.forecastRows.8.nopat` | L; unchanged downstream method |
+| 22486433061.374256 | 27481282498.031456 | `report.valuation.dcf.forecastRows.8.presentValue` | L; unchanged downstream method |
+| 5798717980.998214 | 4789045427.696042 | `report.valuation.dcf.forecastRows.8.reinvestment` | L; unchanged downstream method |
+| 151573515789.97516 | 174245679377.45648 | `report.valuation.dcf.forecastRows.8.revenue` | L; unchanged downstream method |
+| 20.865052530669878 | 20.964198198405484 | `report.valuation.dcf.forecastRows.8.taxRatePct` | L; unchanged downstream method |
+| 44826600480.83883 | 53696320306.50676 | `report.valuation.dcf.forecastRows.9.fcff` | L; unchanged downstream method |
+| 49528521215.67289 | 57771027566.72834 | `report.valuation.dcf.forecastRows.9.nopat` | L; unchanged downstream method |
+| 21945812164.275723 | 26527339227.754246 | `report.valuation.dcf.forecastRows.9.presentValue` | L; unchanged downstream method |
+| 4701920734.83406 | 4074707260.2215815 | `report.valuation.dcf.forecastRows.9.reinvestment` | L; unchanged downstream method |
+| 155362853684.72452 | 178601821361.89288 | `report.valuation.dcf.forecastRows.9.revenue` | L; unchanged downstream method |
+| 261.2895053248966 | 323.12577559985687 | `report.valuation.dcf.growthMarginGrid.perShare.0.1` | L; unchanged downstream method |
+| 306.9309671818871 | 375.5069021200403 | `report.valuation.dcf.growthMarginGrid.perShare.0.2` | L; unchanged downstream method |
+| 276.63444520563627 | 361.12789198798635 | `report.valuation.dcf.growthMarginGrid.perShare.1.0` | L; unchanged downstream method |
+| 338.1589588843865 | 432.44274603006403 | `report.valuation.dcf.growthMarginGrid.perShare.1.1` | L; unchanged downstream method |
+| 399.6834725631368 | 503.75760007214177 | `report.valuation.dcf.growthMarginGrid.perShare.1.2` | L; unchanged downstream method |
+| 354.63419170178776 | 470.67260292691077 | `report.valuation.dcf.growthMarginGrid.perShare.2.0` | L; unchanged downstream method |
+| 436.5001443689871 | 566.3755602332994 | `report.valuation.dcf.growthMarginGrid.perShare.2.1` | L; unchanged downstream method |
+| 518.3660970361865 | 662.078517539688 | `report.valuation.dcf.growthMarginGrid.perShare.2.2`, `report.valuation.dcf.sensitivityGrid.12.perShare` | L; unchanged downstream method |
+| 453.53715538281165 | 610.3309911053561 | `report.valuation.dcf.growthMarginGrid.perShare.3.0` | L; unchanged downstream method |
+| 561.1940638178036 | 737.1155556367911 | `report.valuation.dcf.growthMarginGrid.perShare.3.1` | L; unchanged downstream method |
+| 668.8509722527955 | 863.900120168226 | `report.valuation.dcf.growthMarginGrid.perShare.3.2` | L; unchanged downstream method |
+| 577.7912575639901 | 786.6455589910354 | `report.valuation.dcf.growthMarginGrid.perShare.4.0` | L; unchanged downstream method |
+| 717.8478571395074 | 952.6583178645869 | `report.valuation.dcf.growthMarginGrid.perShare.4.1` | L; unchanged downstream method |
+| 752.4344313834567 | 937.8988033116498 | `report.valuation.dcf.sensitivityGrid.0.perShare` | L; unchanged downstream method |
+| 755.2258679090808 | 941.1770083773555 | `report.valuation.dcf.sensitivityGrid.1.perShare` | L; unchanged downstream method |
+| 758.0173044347044 | 944.4552134430611 | `report.valuation.dcf.sensitivityGrid.2.perShare` | L; unchanged downstream method |
+| 760.8087409603284 | 947.7334185087665 | `report.valuation.dcf.sensitivityGrid.3.perShare` | L; unchanged downstream method |
+| 763.600177485952 | 951.0116235744719 | `report.valuation.dcf.sensitivityGrid.4.perShare` | L; unchanged downstream method |
+| 615.5831727697841 | 776.814257146447 | `report.valuation.dcf.sensitivityGrid.5.perShare` | L; unchanged downstream method |
+| 617.7610059305529 | 779.3747590393589 | `report.valuation.dcf.sensitivityGrid.6.perShare` | L; unchanged downstream method |
+| 619.9388390913217 | 781.9352609322709 | `report.valuation.dcf.sensitivityGrid.7.perShare` | L; unchanged downstream method |
+| 622.1166722520906 | 784.495762825183 | `report.valuation.dcf.sensitivityGrid.8.perShare` | L; unchanged downstream method |
+| 624.2945054128593 | 787.0562647180949 | `report.valuation.dcf.sensitivityGrid.9.perShare` | L; unchanged downstream method |
+| 514.890048535355 | 657.9870993567624 | `report.valuation.dcf.sensitivityGrid.10.perShare` | L; unchanged downstream method |
+| 516.6280727857709 | 660.0328084482251 | `report.valuation.dcf.sensitivityGrid.11.perShare` | L; unchanged downstream method |
+| 520.1041212866021 | 664.1242266311507 | `report.valuation.dcf.sensitivityGrid.13.perShare` | L; unchanged downstream method |
+| 521.8421455370177 | 666.1699357226133 | `report.valuation.dcf.sensitivityGrid.14.perShare` | L; unchanged downstream method |
+| 437.96028826479204 | 566.9538374985186 | `report.valuation.dcf.sensitivityGrid.15.perShare` | L; unchanged downstream method |
+| 439.37160607696023 | 568.6168515285203 | `report.valuation.dcf.sensitivityGrid.16.perShare` | L; unchanged downstream method |
+| 440.7829238891282 | 570.2798655585219 | `report.valuation.dcf.sensitivityGrid.17.perShare` | L; unchanged downstream method |
+| 442.19424170129645 | 571.9428795885236 | `report.valuation.dcf.sensitivityGrid.18.perShare` | L; unchanged downstream method |
+| 443.6055595134644 | 573.6058936185252 | `report.valuation.dcf.sensitivityGrid.19.perShare` | L; unchanged downstream method |
+| 377.46080022065144 | 495.1555398291038 | `report.valuation.dcf.sensitivityGrid.20.perShare` | L; unchanged downstream method |
+| 378.62272141542877 | 496.5261892658032 | `report.valuation.dcf.sensitivityGrid.21.perShare` | L; unchanged downstream method |
+| 379.7846426102061 | 497.89683870250263 | `report.valuation.dcf.sensitivityGrid.22.perShare` | L; unchanged downstream method |
+| 380.94656380498344 | 499.2674881392021 | `report.valuation.dcf.sensitivityGrid.23.perShare` | L; unchanged downstream method |
+| 382.1084849997606 | 500.6381375759014 | `report.valuation.dcf.sensitivityGrid.24.perShare` | L; unchanged downstream method |
+| unavailable | 2 | `report.valuation.graded.gradeContract.distance`, `report.verdict.gradeStrip.valuation.gradeContract.distance` | L; unchanged downstream method |
+| unavailable | 37.8568087595851 | `report.valuation.multiples.1.current` | L; unchanged downstream method |
+| unavailable | 20.41562244425145 | `report.valuation.multiples.1.own5yPercentile` | L; unchanged downstream method |
+| unavailable | 11 | `report.valuation.multiples.1.ownHistoryObservations` | L; unchanged downstream method |
+| unavailable | 45.2587890625 | `report.valuation.reverseDcf.impliedValue` | L; unchanged downstream method |
+
+This ledger records 1073 numeric changed leaves, including duplicated reader presentations. Every other changed leaf is a stamp, source receipt, qualification, prose rendering, array shift or analyst-claim revalidation described above. No new data or model call was made.
+
+Accuracy: 265 figures across the 13 referenced data-only cases: 171 match, 7 mismatch, 61 gap, 26 not-established. One intentional expectation update: DUK netIncome.ttm gap -> match, filed 5,578 million under proof D. All other statuses remain unchanged. The accuracy reference has no LLY entry; both LLY cases are instead covered by the filed receipts and exact before/after ledger here. Existing mismatches remain outside this package. The nineteen-case diff closes 145 exact approved file/manifest changes with nothing else. Typecheck passed; lint passed with the pre-existing unused _dropped warning. The additional accuracy-check unit file passed all 75 tests. No PR was opened under the resumed delivery rule.
+
+Focused verification: 18 files, 895 tests passed, including refusal wording, tag synonyms, version stamps, company-page currency, risk and repository release checks. The earlier whole-suite attempts are historical; no full suite or verify is run on resume under the owner's revised rule. Frozen control refresh changes only the report stamp and digest; the fictional sample retains its figures.
+
+
+### PR #191 independent-review follow-up (2026-11-14)
+
+Pinned main 742d4d2f095937c39957699586188a197a213ec5 was normally merged, preserving both D-263 and D-260 history comments, report 1.77.0, the earlier 1.76.0 entry and payload 1.95.0. Both frozen records were refreshed under D-260 starting from main's records/log, so D-263's entries precede the two new D-260 receipts. Their scopes contain only six payload version/header hash paths and two report spec/digest paths. The rebuilt fictional sample is unchanged from the merged source.
+
+Review items 1 to 6:
+
+1. A restructuring tag is not assumed disjoint from cost or SG&A. With a component bridge and that tag present, test the exact pretax reconciliation with the tag, then without it. Use only the exact tie; neither tie keeps the gap. No allowance was added. Synthetic controls prove embedded cost (operating 300), separate cost (250) and neither exact tie (unavailable) for revenue 1,000, cost 400, SG&A 300, interest 20 and restructuring 50. These are fictional test amounts, not company observations.
+2. D-179's annual-only NCI replay bound from cbb0f30b is explicitly marked Revised by D-260. Methodology and the source comment now distinguish the annual predecessor fallback from exact same-issuer quarterly flow completion. The q5 fixture establishes minority-interest income and consolidated profit in the same period/accession, not an inferred ownership allocation; independent refusals remain binding.
+3. The aggregate P/E regression again asserts Q4 common income 23,027,000 and FY-minus-YTD with accessions 0002064124-26-000009 and 0002064124-25-000032. The older retained row has those references; the original amounts remain in retained companyfacts. A fresh row also asserts both explicit flowOperands and their difference. No assertion was removed or weakened.
+4. Exact-window pretax and tax are accumulated as candidates and committed together only with compatible proof. A missing or independently refused half keeps both fields and the denominator unavailable and retains the tax-pair suppression. Only a recovered complete pair clears that suppression and its per-field notes.
+5. Recovery restores taxRatePretaxIncome and its filed basis via the existing effective-tax-base owner. Before-equity-method treatment is retained where the filing tags that base. The WACC consumer distinguishes recovered ordinary pretax from the before-equity-method base by typed provenance, so the source wording is accurate. Controls assert the recovered 10% trailing rate wins over a fictional 40% annual rate, and that the annual fallback is not used. The GitHub thread was neither replied to nor resolved.
+6. Normal merge and refresh as above; no rebase, force push, new PR or main push.
+
+Stored-case financial changes caused by these review fixes: **none**, across all 17 regression cases and both LLY modes. Compared with the previous D-260 rebuild, all Stage B numerical leaves and all reader financial leaves remain identical. The inherited main changes add EBITDA-computation boolean metadata and D-263 claim verification records; those are not altered filing inputs or model figures. AMZN fixed-analyst factual validation counts move contradicted 4 to 2 and validated 33 to 35 (rate 0.264 to 0.28); LLY fixed-analyst counts move contradicted 2 to 0, unchecked 241 to 240, validated 76 to 79 (rate 0.23824451410658307 to 0.2476489028213166), under D-263's declared-outflow/FCF verification rules. No financial source is asserted for these validation counters.
+
+LLY before/after this round: TTM operating income 34,876 million to 34,876 million; current model value 662.08/share to 662.08/share; valuation score 33.98 to 33.98. Filed operating proof remains pretax less NonoperatingIncomeExpense: FY2025 26,302 plus 9M2026 26,501 minus comparative 9M2025 17,927, accessions 0000059478-26-000013 and 0000059478-26-000108. The WACC tax rate is unchanged; its existing provider-ratio precedence is unchanged, and no vendor amount is copied into this decision. No stored case newly exercises the recovered tax-pair path, so no WACC/model value changes require additional filed operands.
+
+The new pinned-main diff preserves the earlier case/figure ledger, with these metadata/count corrections: both LLY Stage B files now have 1,307 changed paths including the restored EBITDA-computed boolean; data-only report remains 1,233 paths; fixed-analyst report has 6,452 paths (appendix 4,976). All other case counts above remain identical. This supersedes the earlier count-only inventory, not the filed figures or their proofs.
+
+Verification: the six initially failing restructuring/tax assertions were observed red before the fix; the WACC source-wording control also failed before the consumer correction. The focused set covers 15 files / 865 tests; the restored Q4 evidence file was rerun successfully after binding its amount assertion to the correct retained record. Final tax/WACC, Q4, TTM and refusal controls passed 149 tests across four files. Typecheck passed; lint passed with the existing unused _dropped warning. Both nineteen-case builds completed offline against pinned main. Final accuracy check: 265 figures across 13 referenced cases, 171 match, 7 mismatch, 61 gap, 26 not-established, every expectation satisfied; no expectation update. No full suite or verify was run.
+
 ## D-264 - Reader presentation across company types (2026-11-13)
 
 Principles P22 (one shared presentation rule), P21 (immutable saved reports),
@@ -2029,6 +3052,10 @@ Version stamps are not moved here (P27: the Stage 5 integration change moves
 them together). Stored reports and snapshots keep their bytes.
 
 ## D-240 - The trailing net income behind FCF conversion is read from the filings when they state one profit line (2026-11-12)
+
+Revised by D-260: the shared exact-window identity checks the annual/comparative
+presentation explicitly; directly tagged consolidated trailing profit can stand
+independently of four separately available consolidated quarters.
 
 Principles P5 (entity scope), P1 (exact period; an additive flow derived from
 compatible operands, each kept), P8 (filed beats vendor; no new allowance),
@@ -9997,6 +11024,8 @@ applied (D-57).
 
 ## D-179 - Valuation coverage from complete filed balances (2026-11-02)
 
+Revised by D-260: the annual-only NCI replay bound from cbb0f30b now also permits missing same-issuer quarterly monetary ownership flows. Each requires the exact filed interval, currency, issuer and compatible revenue/filing scope; independent allocation refusals remain closed. Predecessor recovery stays annual only. The D-260 q5 regression proves the quarterly minority-interest value and consolidated profit in the same accession.
+
 Fifteen of 26 US issuers in the frozen panel had their DCF withheld. Most causes
 were not missing data. A provider debt or lease line covered a narrower scope
 than its label, a single incomplete balance date vetoed WACC, or a filed annual
@@ -13972,6 +15001,10 @@ replay, independent review, version reconciliation and unchanged release gates.
 
 
 ## D-203 - Operating revenue and income basis (2026-11-05)
+
+Revised by D-260: separately filed operating-cost components, reconstructed-quarter
+review and exact additive income windows extend admission without changing its
+scope, presentation, refusal or tolerance rules.
 
 The round-1 execution receipts and panel counts in this section are historical
 at `61fd3583` / `04741e49`, not final evidence for round 2. The round-2 disposition

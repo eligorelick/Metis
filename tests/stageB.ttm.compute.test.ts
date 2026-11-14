@@ -123,7 +123,7 @@ describe("ttmIncome — completeness gating", () => {
     const rows = fourQ([{}, { revenue: null }]);
     expect(ttmIncome(rows, gaps)?.revenue).toBeNull();
     expect(gaps).toHaveLength(1);
-    expect(gaps[0].field).toBe("compute.ttmIncome");
+    expect(gaps[0].field).toBe("compute.ttmIncome.revenue");
     expect(gaps[0].severity).toBe("info");
     expect(gaps[0].reason).toMatch(/3\/4/);
   });
