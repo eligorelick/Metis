@@ -3731,7 +3731,7 @@ function assembleContextPayloadInContext(
   validation: ValidationReport,
 ): ContextPayload {
   const originalBundle = bundle;
-  bundle = withPrimaryCapitalBasis(withCashFlowSbcBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))))));
+  bundle = withCashFlowSbcBasis(withPrimaryCapitalBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))))));
   bundle = balanceIntegrityView(bundle);
   const profile = firstRow(bundle.profile);
   // Trading (listing), annual and model currencies, resolved exactly as Stage B

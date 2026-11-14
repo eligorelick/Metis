@@ -224,6 +224,7 @@
 // reports keep their bytes.
 // 1.76.0 (D-263, P19): declared cash outflow magnitudes and FCF clause subjects verify without false conflicts.
 // 1.77.0 (P1, D-260): complete filed operating costs and exact additive income windows.
+// 1.78.0 (D-262, P8/P13): exact-period filed additive flows replace conflicting vendor observations.
 // 1.79.0 D-261 (P8, P10): exact filed balances and root-input gaps for all withheld score signals.
 export const REPORT_SPEC_VERSION = "1.79.0" as const;
 
@@ -381,6 +382,7 @@ export const REPORT_SPEC_VERSION = "1.79.0" as const;
 // 1.94.0 (D-258, integration of D-257): a bank's filed revenue history, growth, net margins, trailing window and P/E
 // reach the analysts; the provider's gross-revenue subtotals no longer do.
 // 1.95.0 (P1, D-260): additive income reconstruction and retained FY/YTD operands.
+// 1.96.0 (D-262): the corrected capex, interest and sibling flow figures and their evidence reach the writer.
 // 1.97.0 (D-261 final review): typed liquidity qualification and informational root-input score gaps.
 export const PAYLOAD_VERSION = "1.97.0" as const;
 
@@ -455,6 +457,8 @@ export const EVIDENCE_CONTRACT_VERSION = "EVIDENCE_CONTRACT_1" as const;
 // for the conversion-share period and the noncontrolling-ownership test).
 // D-258: D-257 (a bank's filed total net revenue replaces the provider's figure where the filing proves it) changes
 // Stage B results on identical retained inputs; D-256 changes three stored Stage B label strings, no number.
+// D-260 (_69): complete filed operating costs and exact additive income windows.
+// D-262 (_70): exact-period filed capex, interest and sibling flows change deterministic results on frozen inputs.
 export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_FILED_BALANCES_GAPS_71" as const;
 
 /** Versioned method prior — bump when the resolution changes. */

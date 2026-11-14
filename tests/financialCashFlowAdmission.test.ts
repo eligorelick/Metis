@@ -33,12 +33,12 @@ describe("same-definition cash flow field admission", () => {
     expect(result.cash.fieldProvenance?.stockBasedCompensation).toMatchObject({ periodStart: "2026-02-28", periodEnd: end });
     expect(result.cashInput).toMatchObject({ value: { data: { rows: [{ stockBasedCompensation: 217 }] } } });
   });
-  it.each(["amount", "filing", "ambiguous", "prior refusal"])("does not reconcile cumulative SBC with %s evidence", kind => {
+  it.each(["amount", "filing", "ambiguous", "prior refusal"])("D-262: direct-quarter SBC stands independently of cumulative %s evidence, with refusals preserved", kind => {
     const total = point(kind === "amount" ? 218 : 217, { start: "2025-11-29", ...(kind === "filing" ? { accn: "0000796343-26-000099" } : {}) });
     const result = admit("ShareBasedCompensation", [point(114), total, ...(kind === "ambiguous" ? [{ ...total, val: 218 }] : [])],
       { stockBasedCompensation: 217, ...(kind === "prior refusal" ? { fieldConflicts: { stockBasedCompensation: { usable: false as const, vendorValue: 217, secValue: null, reason: "independent refusal" } } } : {}) });
-    expect(result.cash.stockBasedCompensation).toBeNull();
-    expect(result.cash.fieldConflicts?.stockBasedCompensation?.usable).toBe(false);
+    expect(result.cash.stockBasedCompensation).toBe(kind === "prior refusal" ? null : 114);
+    expect(result.cash.fieldConflicts?.stockBasedCompensation?.usable).toBe(kind !== "prior refusal");
   });
   it("keeps refusal dependencies closed after serialization of legacy vendor aliases",()=>{
     const raw={date:end,cashAtEndOfPeriod:2588e6,netChangeInCash:-3744e6,purchasesOfInvestments:-1125e6,salesMaturitiesOfInvestments:688e6,financialAssetCashFlow:-437e6,
@@ -101,11 +101,11 @@ describe("same-definition cash flow field admission", () => {
     const result=admit("UnrelatedTag",[],{cashAtBeginningOfPeriod:100,cashAtEndOfPeriod:80,netChangeInCash:-20,fieldConflicts:{[field]:refusal}});
     expect(result.cash[field]).toBeNull();expect(result.cash.netChangeInCash).toBeNull();expect(result.cash.fieldConflicts?.[field]).toEqual(refusal);
   });
-  it.each(flows)("withholds contradicted %s, preserving raw observations", (field, tag, sec, expected) => {
+  it.each(flows)("D-262: adopts filed %s, preserving raw observations", (field, tag, sec, expected) => {
     const input = { [field]: -99, netIncome: 100, stockBasedCompensation: 5, capitalExpenditure: -3 };
     const result = admit(tag, [point(sec)], input);
-    expect(result.cash[field]).toBeNull();
-    expect(result.cash.fieldConflicts?.[field]).toMatchObject({ usable: false, vendorValue: -99, secValue: expected, secEvidence: { periodStart: "2026-02-28", periodEnd: end } });
+    expect(result.cash[field]).toBe(expected);
+    expect(result.cash.fieldConflicts?.[field]).toMatchObject({ usable: true, resolution: "filed-family", vendorValue: -99, secValue: expected, secEvidence: { periodStart: "2026-02-28", periodEnd: end } });
     expect(result.cashInput.ok && result.cashInput.value.data.rows[0]?.[field]).toBe(-99);
     expect(result.out.cashflow.ok && result.out.cashflow.value.data.raw).toEqual(result.cashInput.ok && result.cashInput.value.data.raw);
     expect(result.cash).toMatchObject({ netIncome: 100, stockBasedCompensation: 5, capitalExpenditure: -3 });

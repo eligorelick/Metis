@@ -1,6 +1,6 @@
 import type { DataBundle } from "./types";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
-import { admitStockCompensation, admitBalanceCash, admitQuarterlyCapex, admitCashFlowNetIncome, admitZeroCapex, readmitFiledOperatingCashFlow, zeroCapexEntries, type ZeroCapexRefusal } from "@/edgar/financialEnrichment";
+import { admitFiledStatementFlows, admitStockCompensation, admitBalanceCash, admitQuarterlyCapex, admitFiledCapitalExpenditure, admitCashFlowNetIncome, admitZeroCapex, readmitFiledOperatingCashFlow, zeroCapexEntries, type ZeroCapexRefusal } from "@/edgar/financialEnrichment";
 import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 import { conflictCauseMatches } from "@/edgar/refusalCauseRead";
 
@@ -16,10 +16,17 @@ export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
     const input = bundle.statements[key];
     if (!input.ok) return input;
     const rows = input.value.data.rows.map(row => {
-      const sbc = admitStockCompensation(row, facts, key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
+      const flows = admitFiledStatementFlows(row, facts, "cashflow", key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
+      gaps.push(...flows.gaps);
+      for (const [field, prior] of Object.entries(row.fieldConflicts ?? {}))
+        if (prior.usable === false && flows.row.fieldConflicts?.[field]?.usable === true)
+          superseded.set(`statements.cashflow.${row.date}.${field}`, prior.reason);
+      const sbc = admitStockCompensation(flows.row, facts, key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
       gaps.push(...sbc.gaps);
       // D-239 (P7, P10): a provider zero for capital spending stands only as a filed zero for the row's own period.
-      const admitted = admitZeroCapex(sbc.row, facts, key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
+      const filedCapex = admitFiledCapitalExpenditure(sbc.row, facts, key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
+      gaps.push(...filedCapex.gaps);
+      const admitted = admitZeroCapex(filedCapex.row, facts, key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
       if (admitted.refusal) zeroCapex.push(admitted.refusal);
       const prior = row.fieldConflicts?.stockBasedCompensation, current = admitted.row.fieldConflicts?.stockBasedCompensation;
       if (prior?.usable === false && current?.usable === true && current.resolution === "filed-family")
@@ -34,6 +41,7 @@ export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
         gaps.push(...profit.gaps);
         return profit.row;
       }
+      if (admitted.row.fieldConflicts?.capitalExpenditure?.resolution === "filed-family" && admitted.row.fieldProvenance?.capitalExpenditure) return admitted.row;
       const capex = admitQuarterlyCapex(admitted.row, facts, bundle.statements.cashflowAnnual.ok ? bundle.statements.cashflowAnnual.value.data.rows : [], bundle.builtAt);
       gaps.push(...capex.gaps);
       return capex.row;

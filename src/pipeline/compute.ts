@@ -45,7 +45,7 @@ import type {
 } from "@/providers/fmp";
 import { parseSicCode } from "@/edgar/sic";
 import { successorContinuity } from "@/edgar/successor";
-import { PRETAX_EXCLUDING_EQUITY_METHOD_TAG, tagsFor } from "@/edgar/tagSynonyms";
+import { ACQUISITION_OTHER_PAYMENT_TAG, PRETAX_EXCLUDING_EQUITY_METHOD_TAG, tagsFor } from "@/edgar/tagSynonyms";
 
 import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
 import {
@@ -822,7 +822,7 @@ function withFiledForensicContext(
       return writeDown !== null && writeDown >= 0 ? { ...row, inventoryWriteDown: writeDown } : row;
     }),
     cashFlow: rows.cashFlow.map((row) => {
-      const second = annualTaggedValue(facts, "PaymentsToAcquireBusinessTwoNetOfCashAcquired", row.date, currency);
+      const second = annualTaggedValue(facts, ACQUISITION_OTHER_PAYMENT_TAG, row.date, currency);
       const acquisitions = row.acquisitionsNet ?? null;
       const other = row.otherInvestingActivities ?? null;
       if (second === null || second <= 0 || other === null || other > -second * 0.995) return row;
@@ -2303,7 +2303,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
-  bundle = withPrimaryCapitalBasis(withCashFlowSbcBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))))));
+  bundle = withCashFlowSbcBasis(withPrimaryCapitalBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))))));
   bundle = balanceIntegrityView(bundle);
   bundle = preferredCapitalView(bundle);
   bundle = filedCommonEarningsView(bundle);

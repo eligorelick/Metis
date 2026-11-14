@@ -21,10 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.79.0",
+    "specVersion": "1.78.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.79.0",
-    "evidenceContract": "EVIDENCE_CONTRACT_1",
+    "pipelineVersion": "1.78.0",
     "costUsd": 0,
     "verificationRate": 0.8501742160278746,
     "provenanceCoverage": {
@@ -1909,14 +1908,14 @@
           "asOf": "2025-12-31"
         },
         {
-          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
+          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
           "label": "JUDGMENT",
           "sourceId": "computed.capital.current",
           "source": "computed.capital.current",
           "asOf": "2026-03-31"
         },
         {
-          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
+          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
           "label": "JUDGMENT",
           "source": "computed.capital.current",
           "asOf": "2026-03-31"
@@ -3819,58 +3818,8 @@
         "severity": "info"
       },
       {
-        "field": "returns.roic.2022-12-31",
-        "reason": "2022-12-31: ROIC withheld because no balance sheet within 45d of 2022-12-31",
-        "severity": "info"
-      },
-      {
-        "field": "returns.roic.2023-12-31",
-        "reason": "2023-12-31: ROIC withheld because no balance sheet within 45d of 2023-12-31",
-        "severity": "info"
-      },
-      {
         "field": "returns.wacc.erp",
         "reason": "equity risk premium missing — dated Damodaran 4.18% fallback used for the cost of equity",
-        "severity": "info"
-      },
-      {
-        "field": "scores.balanceSheet.fcfConversionBeforeSbc",
-        "reason": "fcfConversionBeforeSbc withheld: consolidated net income (including noncontrolling interests' share) (computed.capital.current.netIncome) is missing or refused; FCF / consolidated net income (computed.capital.current.fcfConversionBeforeSbc) is missing or refused.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.balanceSheet.interestCoverage",
-        "reason": "interestCoverage withheld: interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m. EBIT / interest expense (computed.capital.current.interestCoverage) is missing or refused; interest expense (computed.capital.current.interestExpense) is missing or refused.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.balanceSheet.sbcPctOfFcf",
-        "reason": "sbcPctOfFcf withheld: SBC (computed.capital.current.cashBridge.stockBasedCompensation) is missing or refused; SBC / FCF before SBC, percent (computed.capital.current.sbcPctOfFcf) is missing or refused.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.leadership.buybackTiming",
-        "reason": "buybackTiming withheld: share of repurchase dollars covered, percent (computed.capital.buybackPriceAnalysis.timingCoveragePct) is missing or refused. This same-year execution-price comparison does not assess contemporaneous intrinsic-value discipline.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.quality.altmanZOriginalScale",
-        "reason": "altmanZOriginalScale withheld: totalCurrentAssets/totalCurrentLiabilities missing (unclassified balance sheet) — Z-score unavailable; retainedEarnings missing — X2 not computable; Z-score suppressed rather than assuming zero retained earnings. Altman Z-score (computed.forensics.altman.score) is missing or refused.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.technicals.pctFromHigh52w",
-        "reason": "pctFromHigh52w withheld: issuer observations inside the trailing year start 2025-09-08, after the 2025-07-02 boundary plus 7-day allowance. 52-week high (computed.technicals.range52w.high52w) is missing or refused.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.technicals.relStrength12m1m",
-        "reason": "relStrength12m1m withheld: no sector ETF resolved for this symbol; no valid SPY closes supplied for relative-strength alignment. issuer return (computed.technicals.relativeStrength.benchmark.momentum12m1m.symbolReturnPct) is missing or refused; benchmark return (computed.technicals.relativeStrength.benchmark.momentum12m1m.benchmarkReturnPct) is missing or refused.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.valuation.peOwnHistoryRank",
-        "reason": "peOwnHistoryRank withheld: no admitted current multiple and compatible historical multiple sample establish a percentile rank. Own-history rank unavailable.",
         "severity": "info"
       },
       {
@@ -7697,7 +7646,7 @@
         "traceKind": "source-cited"
       },
       {
-        "claim": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
+        "claim": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
         "outcome": "unverified",
         "validationStatus": "cited",
         "numericSupportStatus": "cited",

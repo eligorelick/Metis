@@ -809,10 +809,13 @@ function enriched(scope: "annual" | "quarter", cashflow: FmpCashFlowRow, balance
   return { balance: out.balance.value.data.rows[0]!, cashflow: out.cashflow.value.data.rows[0]! };
 }
 const annualEnriched = enriched("annual", { date: "2025-12-31", periodStart: "2025-01-01", filingDate: "2026-02-13", reportedCurrency: "USD", stockBasedCompensation: 300 * M,
-  netCashProvidedByInvestingActivities: -40 * M, netCashProvidedByFinancingActivities: -25 * M },
+  netCashProvidedByInvestingActivities: -40 * M, netCashProvidedByFinancingActivities: -25 * M,
+  // D-262 admits bare vendor conflicts. Keep these recorded-scope fixtures on
+  // the legacy refusal writer; fresh filed admissions have their own regressions.
+  fieldProvenance: { stockBasedCompensation: HELD, netCashProvidedByInvestingActivities: HELD, netCashProvidedByFinancingActivities: HELD } },
 { date: "2025-12-31", filingDate: "2026-02-13", reportedCurrency: "USD", cashAndCashEquivalents: 480 * M, cashAndShortTermInvestments: 600 * M, netDebt: -480 * M });
 const quarterEnriched = enriched("quarter", { date: "2026-03-31", periodStart: "2026-01-01", filingDate: "2026-05-08", reportedCurrency: "USD", stockBasedCompensation: 0,
-  netCashProvidedByInvestingActivities: -10 * M }, { date: "2026-03-31", filingDate: "2026-05-08", reportedCurrency: "USD", cashAndCashEquivalents: 480 * M });
+  netCashProvidedByInvestingActivities: -10 * M, fieldProvenance: { netCashProvidedByInvestingActivities: HELD } }, { date: "2026-03-31", filingDate: "2026-05-08", reportedCurrency: "USD", cashAndCashEquivalents: 480 * M });
 
 /** Share counts: a loss quarter whose vendor EPS (basic and diluted) differs from the filer's exact-interval EPS. */
 const SHARE_AS_OF = "2026-11-01";
