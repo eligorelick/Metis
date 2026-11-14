@@ -1,7 +1,17 @@
 const DAY_MS = 86_400_000;
 
+/**
+ * The pairing rule for a market value set against a statement date: the latest
+ * observation on or before that date, at most this many calendar days old
+ * (future rows are ineligible). First used by the own-history multiples (each
+ * window's market capitalization at its TTM end); D-267 reads the same rule for
+ * the Altman market value of equity at the balance-sheet date. One rule, one
+ * number: do not add another window beside it.
+ */
+export const STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS = 45;
+
 /** Parse one exact, real Gregorian YYYY-MM-DD as a UTC-midnight epoch. */
-function strictUtcDayMs(value: unknown): number | null {
+export function strictUtcDayMs(value: unknown): number | null {
   if (typeof value !== "string") return null;
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;

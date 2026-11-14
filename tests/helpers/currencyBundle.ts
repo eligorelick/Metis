@@ -65,6 +65,11 @@ export interface CurrencyBundleOptions {
   /** SEC SIC code (3571 routes Altman to the original, market-equity variant). */
   sic?: string;
   symbol?: string;
+  /**
+   * D-267: dated market-cap history rows (absent by default: the member is a gap). Altman's original X4 reads only an
+   * observation dated at the balance-sheet date.
+   */
+  marketCapHistory?: { date: string; marketCap: number }[];
 }
 
 function ok<T>(rows: T[], asOf: string, endpoint: string) {
@@ -197,7 +202,9 @@ export function currencyBundle(opts: CurrencyBundleOptions = {}): DataBundle {
     ratiosTtm: ok([{ effectiveTaxRateTTM: 0.2 }], "2026-03-31", "ratios-ttm"),
     enterpriseValues: GAP,
     analystEstimates: GAP,
-    marketCapHistory: GAP,
+    marketCapHistory: opts.marketCapHistory
+      ? ok(opts.marketCapHistory.map((r) => ({ symbol, ...r })), opts.marketCapHistory.map((r) => r.date).sort().at(-1) ?? "2026-07-02", "historical-market-capitalization")
+      : GAP,
     eodPrices: ok(eodRows(), "2026-07-02", "historical-price-eod"),
     benchmarkPrices: { spy: GAP, sectorEtf: GAP, sectorEtfSymbol: null },
     macro: { core: {}, sector: {}, gicsSector: null, attribution: "" },

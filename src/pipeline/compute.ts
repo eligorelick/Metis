@@ -2,6 +2,7 @@ import { withReleaseQuarterEarnings } from "./releaseQuarterEarnings";
 import { forwardAnnualEstimates } from "./forwardEstimates";
 import { withAssessmentQualification, financialEvidenceQualifications } from "@/report/assessment";
 import { resolveForeignValuation, translateValuationInputs, translateProjectionInputs, type ForeignValuationBasis } from "@/pipeline/foreignCurrency";
+import { derivedMarketCapShareDate, isDerivedMarketCapRow } from "@/pipeline/keyless";
 import { convertibleInstrumentsAt, foldConvertiblePreferred } from "@/pipeline/stageB/convertibles";
 import { noncontrollingOwnershipUnresolved } from "@/pipeline/stageB/ownership";
 import { admittedStatementRow, isFmpQuotaGap, quotePriceObservationDay } from "@/providers/fmp";
@@ -2861,6 +2862,26 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     ...(adrQuote && (foreignBasis || forensicCapRow?.marketCapSecurityBasis === "issuer-common") ? { marketCapSecurityBasis: "issuer-common" as const } : {}),
     ...(forensicClassAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: forensicClassAmbiguity } : {}),
   }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
+  // D-267 (P1, P13): Altman X4 sets the market value of equity AT the balance-sheet date against that balance's
+  // liabilities. The dated market-cap history is the provider series on its own share basis (the keyless derivation
+  // uses the count in force each day). It is not admitted where the current cap had to be rebuilt on the issuer's
+  // economic class basis (the provider series is not on it; the own-history multiples refuse it the same way), and a
+  // cap converted at the quote-date rate cannot be converted at the balance date with that rate.
+  const forensicClassScopeRebuilt = forensicEquityScope.status === "resolved" &&
+    (forensicEquityScope.multiClass === true || forensicEquityScope.weightedClasses === true);
+  // D-267 review: a derived reading carries the date of the share count it multiplied (see `derivedMarketCapShareDate`).
+  const marketCapHistoryEndpoint = bundle.marketCapHistory?.ok ? bundle.marketCapHistory.value.endpoint : null;
+  const shareFacts = bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.data : null;
+  const forensicMarketCapHistory = foreignBasis || forensicClassScopeRebuilt ? [] : rowsOf(bundle.marketCapHistory).flatMap((r) => {
+    const date = isoDay(r.date);
+    if (date === null) return [];
+    return [isDerivedMarketCapRow(r, marketCapHistoryEndpoint)
+      ? { date, marketCap: num(r.marketCap), sharesAsOf: derivedMarketCapShareDate(r, shareFacts) }
+      : { date, marketCap: num(r.marketCap) }];
+  });
+  const foreignCapRefusal = foreignBasis
+    ? `the market cap is converted to ${currencies.model} only at the ${foreignBasis.fx.quoteDate} quote-date rate, and no exchange rate dated at the balance-sheet date is admitted`
+    : null;
   const forensics = runForensics(route, {
     filedReceivables: filedReceivablesCandidates(companyFacts, {
       periods: balanceAnnual.flatMap(row => {
@@ -2883,6 +2904,15 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     marketCapAsOf: foreignBasis ? foreignBasis.fx.quoteDate : forensicEquityScope.status === "resolved" ? forensicEquityScope.priceAsOf ?? null
       : forensicEquityScope.status === "unresolved" ? null
         : quotePriceObservationDay(num(profile?.marketCap) !== null ? profile : quote),
+    marketCapHistory: forensicMarketCapHistory,
+    marketCapHistorySource: forensicClassScopeRebuilt
+      ? "no admitted history: the provider market-cap series is not on the issuer's economic class basis"
+      : bundle.marketCapHistory.ok ? bundle.marketCapHistory.value.endpoint : null,
+    marketCapHistoryCurrencyReason: foreignCapRefusal,
+    // D-267 review: the converted cap is the quote's observation at the rate's own date; forensics admits it only when
+    // both dates pair with the balance date.
+    marketCapConversion: foreignBasis ? { rateDate: foreignBasis.fx.observation.date, source: `FRED ${foreignBasis.fx.series}` } : null,
+    analysisCutoff: isoDay(bundle.builtAt),
     reportedCurrency: str(inc0?.reportedCurrency),
     quoteCurrency: foreignBasis ? currencies.model : str(profile?.currency),
     classification: {
@@ -2902,7 +2932,18 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     forensics.gaps.push({ field: "forensics.revenueEligibility", reason: revenueEligibilityReason, severity: "warn" });
   }
 
-  if (foreignBasis) forensics.notes.push(`${foreignBasis.note} Altman X4 converts the admitted USD market capitalization back into the reporting currency for its local-currency liability denominator.`);
+  if (foreignBasis) {
+    // D-267 review: the note states what Altman actually did with the converted capitalization on this run.
+    const altmanRun = forensics.altman;
+    const convertedSource = altmanRun?.variant === "original" ? altmanRun.asOf.marketCapSource ?? null : null;
+    const refusal = altmanRun?.gaps.some((g) => g.field === "forensics.altman.currency") === true ? foreignCapRefusal : null;
+    const altmanNote = convertedSource !== null && convertedSource.startsWith("current market capitalization converted at")
+      ? `Altman X4 converts the admitted USD market capitalization observed on ${altmanRun!.asOf.marketCap} back into the reporting currency (${convertedSource}) for its local-currency liability denominator, both dated with the ${altmanRun!.asOf.balanceSheet} balance sheet (D-267).`
+      : refusal !== null
+        ? `Altman X4 does not use the converted market capitalization: ${refusal}${altmanRun?.variant === "private" ? "; the book-equity Z-prime variant is used instead" : ""} (D-267).`
+        : `Altman does not use the converted market capitalization: ${altmanRun === null ? "no Altman score is computed" : `the ${altmanRun.variant} variant uses book equity`} (D-267).`;
+    forensics.notes.push(`${foreignBasis.note} ${altmanNote}`);
+  }
 
   // --- Technicals ------------------------------------------------------------
   // EOD rows are date DESC in the bundle; the module re-sorts ASC defensively.

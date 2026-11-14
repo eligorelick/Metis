@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.81.0 / payload 1.99.0, Stage B `STAGE_B_2026_11_SHARE_BASIS_DISCLOSURE_73` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.82.0 / payload 1.100.0, Stage B `STAGE_B_2026_11_BALANCE_DATE_MARKET_EQUITY_74` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -3727,13 +3727,33 @@ guards stay dominant. No ADS ratio
 is inferred, and this Altman correction does not claim to fix the deferred
 WACC scope limitation above.
 
-**Forensic observation context (D-138, Task 8).** An original Altman score can
-use a positive market-cap operand without a retained observation date. Its
-score-evidence caption then says `market-cap observation date unavailable`;
-the cap value, selected variant and existing source-date admission stay unchanged.
-A recorded cap date remains displayed; other variants and genuine missing-cap
-refusals retain their existing behavior. No quote, build or filing date fills
-an absent cap-observation date, and FIN-312's tombstoned date policy stays deferred.
+**Altman market equity at the balance-sheet date (D-267).** The original
+model's X4 divides the market value of equity by total liabilities, so both
+come from one date: the balance sheet the other four ratios read. X4 takes the
+market capitalization observed on or before that balance date, no more than 45
+calendar days earlier, from the dated market-cap history (the provider's series,
+or the public derivation that multiplies each close by the share count in force
+that day). This is the same pairing rule the own-history multiples use for a
+quarter's market value; it is one shared constant, not a new window. The current
+quote's cap counts only when it is itself dated inside that window. Nothing
+observed after the analysis cutoff is used. The score evidence names the
+observation date and its source. When no observation qualifies, X4 and the
+original Z are withheld with a gap that names the balance date (the current cap
+is not set against an older balance sheet); the signal is unscored and the usual
+unscored-aspect rules apply, with no penalty and no switch of variant. Where the
+current cap had to be rebuilt on the issuer's economic class basis, the provider
+series is not on that basis and is not admitted. A cap converted to the statement
+currency at one dated exchange rate counts only when the quote date and the
+rate's own date both pass the same pairing rule against the balance date;
+otherwise the currency refusal above applies and its disclosed Z-prime
+substitute is used. A reading from the public derivation counts only when the
+share count it multiplied was observed on or before that reading's day. Book-equity variants are unaffected.
+
+**Forensic observation context (D-138, Task 8).** A stored report built before
+D-267 can carry an original Altman score on a market-cap operand without a
+retained observation date. Its score-evidence caption says `market-cap
+observation date unavailable`. No quote, build or filing date fills an absent
+cap-observation date, and FIN-312's tombstoned date policy stays deferred.
 
 The discontinued-results supporting flag retains its existing nonzero count,
 five-year lookback, two-observation trigger, severity and scoring. It describes

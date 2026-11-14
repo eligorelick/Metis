@@ -108,8 +108,10 @@ describe("price comparisons need one known currency", () => {
   it("does not score Altman's market-equity X4 against liabilities of unknown currency", () => {
     // A manufacturer (SIC 3571) is scored on the original, market-equity Z,
     // whose X4 is the market cap over total liabilities.
-    const usdMaker = run({ sic: "3571" });
-    const unknownMaker = run({ sic: "3571", ...UNKNOWN_QUOTE });
+    // D-267: the cap is observed at the 2025-12-31 balance date the liabilities come from.
+    const atBalanceDate = [{ date: "2025-12-31", marketCap: 10_000e6 }];
+    const usdMaker = run({ sic: "3571", marketCapHistory: atBalanceDate });
+    const unknownMaker = run({ sic: "3571", ...UNKNOWN_QUOTE, marketCapHistory: atBalanceDate });
     expect(usdMaker.forensics.altman?.variant).toBe("original");
     // 10,000M market cap / 1,500M total liabilities.
     expect(usdMaker.forensics.altman?.components.x4).toBeCloseTo(10_000 / 1_500, 9);

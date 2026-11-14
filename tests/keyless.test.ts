@@ -1216,9 +1216,11 @@ describe("applyKeylessFallbacks", () => {
       enterpriseValue: 200 * 14_776 + 95 - 30,
     });
     expect(out.members.marketCapHistory.ok && out.members.marketCapHistory.value.data.rows).toEqual([
-      { symbol: "AAPL", date: "2025-06-27", marketCap: 200 * 14_900 },
-      { symbol: "AAPL", date: "2025-03-28", marketCap: 190 * 14_900 },
-      { symbol: "AAPL", date: "2024-12-27", marketCap: 180 * 14_900 },
+      // D-267 review: values unchanged; each row now names the share count it used, here observed after every bar
+      // (the earliest-count fallback), so a date-paired consumer such as Altman does not admit these readings.
+      { symbol: "AAPL", date: "2025-06-27", marketCap: 200 * 14_900, sharesAsOf: "2025-07-18" },
+      { symbol: "AAPL", date: "2025-03-28", marketCap: 190 * 14_900, sharesAsOf: "2025-07-18" },
+      { symbol: "AAPL", date: "2024-12-27", marketCap: 180 * 14_900, sharesAsOf: "2025-07-18" },
     ]);
   });
 });

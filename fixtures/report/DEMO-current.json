@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.81.0",
+    "specVersion": "1.82.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.81.0",
+    "pipelineVersion": "1.82.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8501742160278746,
@@ -82,7 +82,7 @@
     "dataCompleteness": {
       "state": "degraded",
       "criticalCount": 0,
-      "warningCount": 4,
+      "warningCount": 5,
       "edgar": "missing",
       "xbrl": "skipped",
       "forensicValidation": "provisional"
@@ -3768,6 +3768,11 @@
       }
     ],
     "missingData": [
+      {
+        "field": "forensics.altman.marketCapDate",
+        "reason": "no market value of equity observed on or before the balance-sheet date 2025-12-31 within 45 days (no dated market-cap history); the current market cap is not set against an older balance sheet, so original-variant X4 and Z are withheld (D-267)",
+        "severity": "warn"
+      },
       {
         "field": "forensics.altman.retainedEarnings",
         "reason": "retainedEarnings missing — X2 not computable; Z-score suppressed rather than assuming zero retained earnings",
