@@ -2729,15 +2729,15 @@
   {
     "date": "2026-11-14",
     "target": "stagec-payload",
-    "decision": "D-268",
-    "reason": "D-268 advances payload identity for filed whole-line carrying investment evidence; synthetic financial figures remain unchanged.",
+    "decision": "D-267",
+    "reason": "D-267 part 1 versions the fallback balance-date refusal and D-260 distinct operating candidate semantics; frozen financial values are unchanged.",
     "scope": [
-      "$.payload.payloadVersion",
       "$.payloadVersion",
       "$.fingerprint",
       "$.summary.promptFnv1a32",
       "$.prompt.sha256",
-      "$.prompt.sections[0].sha256"
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
     ],
     "beforeSha256": "aec4ad66b8fe88e0df6dc921248ceaf0aebe579bb970b5d4f4c8a4f165dfc40f",
     "afterSha256": "1e696b563b864dce63b06ed3810d92d11e2e0939cbb44466ffdbfb64af655cc3",
@@ -2749,6 +2749,23 @@
       "$.prompt.sha256",
       "$.prompt.sections[0].sha256",
       "$.payload.payloadVersion"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-267",
+    "reason": "D-267 part 1 and D-260 operating candidate correction advance report semantics; the fictional report keeps its financial figures and only its current spec stamp changes.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "5be914833a83570e65e2a106d0f812223455a11138ee63474145578d1af3d640",
+    "afterSha256": "045bb64a6662d29e1779f944e4eaacdfc4410d939894248c4d606052aae9f094",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
     ]
   }
 ]

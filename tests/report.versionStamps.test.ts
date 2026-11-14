@@ -149,12 +149,12 @@ describe("new version stamps", () => {
     expect(specVersionBefore(REPORT_SPEC_VERSION, ANNUALIZATION_CONVENTION_SPEC)).toBe(false);
   });
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.83.0"); // D-261: filed liquidity and root-input gaps
+    expect(REPORT_SPEC_VERSION).toBe("1.84.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
     expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
-    expect(PAYLOAD_VERSION).toBe("1.102.0"); // D-268: carrying investment totals
+    expect(PAYLOAD_VERSION).toBe("1.102.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
     expect(PIPELINE_VERSION).toBe("stage-c-1.6.44"); // Bound annual schedule evidence and source reconciliation disclosures.
     expect(INSIDER_ROLES_READ_FROM).toBe("1.56.0"); // AI-116 frozen display cutoff
-    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_11_CARRYING_INVESTMENTS_76"); // D-268: carrying investment totals
+    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_11_FALLBACK_DATE_76"); // D-267 part 1: same-date fallback; D-260 candidate identity
     expect(SCORE_BANDS_VERSION).toBe("SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE");
     expect(IMPLIED_RETURN_SHARE_BASIS_SPEC).toBe("1.52.0");
     expect(specVersionBefore(IMPLIED_RETURN_SHARE_BASIS_SPEC, REPORT_SPEC_VERSION)).toBe(true);
@@ -191,10 +191,10 @@ describe("new version stamps", () => {
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.83.0"); // D-261
+    expect(newReport().meta.specVersion).toBe("1.84.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
-    expect(payload.payloadVersion).toBe("1.102.0"); // D-261
+    expect(payload.payloadVersion).toBe("1.102.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
     expect(payloadFingerprint(payload)).toMatch(/^1\.102\.0:[0-9a-f]{8}$/);
     expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.102\.0\)/);
   });
@@ -207,7 +207,7 @@ describe("new version stamps", () => {
     expect(payloadFingerprint(payload)).not.toBe(prior);
   });
 
-  it.each(["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.13.0", "1.14.0", "1.16.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2", "1.19.3", "1.19.4", "1.20.0", "1.21.0", "1.31.0", "1.50.0", "1.51.0", "1.79.0", "1.80.0", "1.81.0", "1.82.0"])("does not compare a prior %s report as the same financial convention", (version) => {
+  it.each(["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.13.0", "1.14.0", "1.16.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2", "1.19.3", "1.19.4", "1.20.0", "1.21.0", "1.31.0", "1.50.0", "1.51.0", "1.79.0", "1.80.0", "1.81.0", "1.82.0", "1.83.0"])("does not compare a prior %s report as the same financial convention", (version) => {
     const before = newReport();
     before.meta.specVersion = version;
     const after = newReport();

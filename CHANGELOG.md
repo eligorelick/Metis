@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.83.0** and
+Current source declares application **0.1.0**, report spec **1.84.0** and
 payload **1.102.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -18,11 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
-## Unreleased - Whole-line carrying investment evidence (P7, P8, D-268)
+## Unreleased - Same-date fallback models (D-267 part 1)
 
-- Read a filed investment carrying total with only the standard carrying-measurement dimension; exclude instrument, entity and hierarchy subsets and never sum a member with its total.
-- Supplement covered filings, including foreign annual forms, without replacing existing facts. Repaired liquidity composes exact same-filing cash and investments with typed refusal guards.
-- Payload 1.102.0 and Stage B CARRYING_INVESTMENTS_76; original snapshots keep their missing-source gaps. Cached-filing LLY verification recovers 7,373M liquidity, 35,130M net debt and 39.7485% FY2025 ROIC. Saved reports stay unchanged.
+- Withhold fiscal-year fallback DCFs that mix balance and statement dates, with a typed root cause.
+- D-260 follow-up: restructuring candidates use the existing reporting-unit rule; identical operating figures count once and different matching figures remain ambiguous.
+- D-267 review: preserve independent critical capital and lease gaps before the date refusal; an unparseable fallback date withholds the model. Restore trailing-route date disclosure regressions.
+- Report 1.84.0, payload 1.102.0, Stage B FALLBACK_DATE_76. Trailing models retain the existing date rule.
 
 ## Unreleased - Filed cash recovery and named root gaps (D-261)
 

@@ -72,10 +72,13 @@ export function operatingBridgeProof(revenue: FiledIncomeLine, pretax: FiledInco
   if (costsConflict) return costsConflict;
   if (!aggregate && !netInterest && !interest && !other && !interestIncome) return { status: "unavailable" };
   // D-260 review: a restructuring tag can be a child of cost or SG&A.
-  // Prove membership with exact reconciliation, without a rounding allowance.
+  // Use the existing reporting-unit rule for both possible memberships.
+  // Identical operating figures are one candidate; distinct matches remain ambiguous.
   if (!total && special) {
-    if (operating + nonoperating !== pretax.value) {
-      if (operating + special.value + nonoperating !== pretax.value) return { status: "unavailable" };
+    const separate = same(operating + nonoperating, pretax.value);
+    const embedded = same(operating + special.value + nonoperating, pretax.value);
+    if ((!separate && !embedded) || (separate && embedded && operating !== operating + special.value)) return { status: "unavailable" };
+    if (embedded && !separate) {
       operating += special.value;
       operands = operands.filter(p => p !== special);
     }

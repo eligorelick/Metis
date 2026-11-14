@@ -62,13 +62,16 @@ const round2 = (v: number): number => Math.round(v * 100) / 100;
  * debt refusal behind it. Null when no gap says.
  */
 /**
- * The warn gap that withheld the DCF for a refused temporary-equity operand (FIN-119-V1) or for invested capital the
- * operating-lease removal emptied (FIN-303, I6); every other warn gap stays unquoted.
+ * The warn gap that withheld the DCF for a refused temporary-equity operand (FIN-119-V1), for invested capital the
+ * operating-lease removal emptied (FIN-303, I6), or for a balance not dated at the statement date (D-267); every other
+ * warn gap stays unquoted.
  */
 export function dcfWithheldWarnGap(gaps: readonly ManifestEntry[]): ManifestEntry | undefined {
-  return gaps.find((g) => g.severity === "warn" && g.field === "valuation.dcf.salesToCapital" &&
+  return gaps.find((g) => g.severity === "warn" && (
     // P11 (D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
-    gapCauseMatches(g, "investedCapitalClaimWithheld"));
+    (g.field === "valuation.dcf.salesToCapital" && gapCauseMatches(g, "investedCapitalClaimWithheld")) ||
+    // D-267: no balance dated at the statement date, so the model was not built on another date's balance.
+    (g.field === "valuation.dcf.bridgeBalanceDate" && gapCauseMatches(g, "dcfBalanceDateMismatch"))));
 }
 
 /**

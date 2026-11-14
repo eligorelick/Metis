@@ -19,7 +19,26 @@ function row(vendor: number, pretax: number): FmpIncomeStatementRow {
 }
 
 describe("complete primary operating proof", () => {
-  it.each([[280, 300], [230, 250], [229, null]])("proves restructuring membership by exact pretax reconciliation (%s, D-260)", (pretax, expected) => {
+  it.each([[281, 50, 300], [280, 1, null], [229, 50, 250], [280, 0, 300]])("uses the reporting-unit rule without ambiguous restructuring membership (%s, %s, D-260)", (pretax, restructuring, expected) => {
+    const result = operatingBridgeProof(line(1000, "Revenues"), line(pretax!, pretaxTag), {
+      CostOfRevenue: line(400, "CostOfRevenue"),
+      SellingGeneralAndAdministrativeExpense: line(300, "SellingGeneralAndAdministrativeExpense"),
+      InterestExpense: line(20, "InterestExpense"),
+      RestructuringSettlementAndImpairmentProvisions: line(restructuring!, "RestructuringSettlementAndImpairmentProvisions"),
+    });
+    expect(result.status).toBe(expected === null ? "unavailable" : "complete");
+    if (result.status === "complete") expect(result.line.value).toBe(expected);
+  });
+  it("keeps an aggregate operating-cost shape independent of restructuring membership", () => {
+    const result = operatingBridgeProof(line(1000, "Revenues"), line(280, pretaxTag), {
+      OperatingExpenses: line(700, "OperatingExpenses"),
+      InterestExpense: line(20, "InterestExpense"),
+      RestructuringSettlementAndImpairmentProvisions: line(1, "RestructuringSettlementAndImpairmentProvisions"),
+    });
+    expect(result.status).toBe("complete");
+    if (result.status === "complete") expect(result.line.value).toBe(300);
+  });
+  it.each([[280, 300], [230, 250], [200, null]])("proves restructuring membership by filed pretax reconciliation (%s, D-260)", (pretax, expected) => {
     const r = row(300, pretax!);
     Object.assign(r.filedIncomeLines!, { CostOfRevenue: line(400, "CostOfRevenue"),
       SellingGeneralAndAdministrativeExpense: line(300, "SellingGeneralAndAdministrativeExpense"),
