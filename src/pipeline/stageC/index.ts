@@ -31,7 +31,7 @@
 
 import type { DataBundle } from "@/pipeline/types";
 import { parseSubscriptionModel } from "@/ai/contracts";
-import { chatGptWebSearchTool, runSubscriptionPass } from "@/ai/transport";
+import { chatGptWebSearchTool, claudeWebResearchTool, runSubscriptionPass } from "@/ai/transport";
 import { createSectionCheckpoint } from "./sectionCheckpoint";
 import type { ComputedMetrics } from "@/pipeline/compute";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
@@ -262,7 +262,8 @@ function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
     const checkpoint = deps.jobSeed ? createSectionCheckpoint(JSON.stringify({ job: deps.jobSeed, payload: payloadFingerprint(deps.payload), model: deps.analysisModel, options: deps.subscriptionOptions ?? null })) : undefined;
     return {
       model: deps.analysisModel, signal: deps.signal, jobSeed: deps.jobSeed,
-      ...(subscription.provider === "chatgpt" ? { webSearchTool: chatGptWebSearchTool } : {}),
+      ...(subscription.provider === "chatgpt" ? { webSearchTool: chatGptWebSearchTool }
+        : subscription.provider === "claude" ? { webSearchTool: claudeWebResearchTool } : {}),
       // The plan endpoint closes any single response at 15 minutes.
       sectionedOutput: true,
       ...(checkpoint ? { sectionCheckpoint: { ...checkpoint, record: (field: string, telemetry: unknown) => checkpoint.record(field, telemetry, owners.get(field.split(":")[0])) } } : {}),
@@ -276,8 +277,8 @@ function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
           throw new Error("Subscription pass changed model or exceeded the local input size limit");
         }
       },
-      // Search is a separate ChatGPT research request; writing/judge stay
-      // tool-free. Each request settles before the next.
+      // Search is a separate ChatGPT or Claude (D-269) research request;
+      // writing/judge stay tool-free. Each request settles before the next.
     };
   }
   const owners = new Map<string, ReturnType<NonNullable<typeof deps.passAttemptFor>>>();

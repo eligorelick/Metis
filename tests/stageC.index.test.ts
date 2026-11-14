@@ -451,6 +451,41 @@ describe("subscription research wiring", () => {
     expect(transport.mock.calls.every(call => call[1] === "selected-account")).toBe(true);
   });
 
+  it("researches through the selected Claude Code account before a tool-free writer (D-269)", async () => {
+    const transport = vi.spyOn(subscriptionTransport, "runSubscriptionPass")
+      .mockResolvedValueOnce({ ok: true, value: { data: {
+        model: "claude/claude-opus-5-5", costUsd: 0, fallbackUsed: false,
+        usage: { input_tokens: 1, output_tokens: 1, server_tool_use: { web_search_requests: 1 } },
+        fetchedUrls: ["https://issuer.example/release"],
+        fetchedSources: [{ url: "https://issuer.example/release", title: "Issuer release", pageAge: null }],
+        researchText: "Dated release from https://issuer.example/release; prose-only https://invented.example/x",
+        execution: { requestedModel: "claude/example", modelObserved: true, usageReported: true, webSearches: 1, webResearchUsed: true },
+        message: { model: "claude/claude-opus-5-5", usage: { input_tokens: 1, output_tokens: 1 },
+          content: [{ type: "text", text: "Dated release." }] },
+      } } }).mockResolvedValue({ ...refusal, error: { ...refusal.error, model: "claude/example" } });
+    await expect(pipelinePasses.runAnalystPass!(setup("claude"), "bear")).rejects.toThrow("fixture stop");
+    expect(transport).toHaveBeenCalledTimes(2);
+    const [researchRequest, writerRequest] = transport.mock.calls.map(call => call[0]);
+    expect(researchRequest.tools).toEqual([{ type: "claude_web_research", maxActions: 8 }]);
+    expect(researchRequest.field).toBe("llm.bear");
+    expect(researchRequest.outputSchema).toBeUndefined();
+    expect(writerRequest.tools).toBeUndefined();
+    expect(writerRequest.outputSchema).toBeDefined();
+    expect(JSON.stringify(writerRequest.messages)).toContain("https://issuer.example/release");
+    expect(transport.mock.calls.every(call => call[1] === "selected-account")).toBe(true);
+  });
+
+  it("keeps Claude Code judges tool-free (D-269)", async () => {
+    const transport = vi.spyOn(subscriptionTransport, "runSubscriptionPass").mockResolvedValue({ ...refusal, error: { ...refusal.error, model: "claude/example" } });
+    const analyst = adapterPassResult(fakeAnalystCase());
+    await expect(pipelinePasses.runJudgePass(setup("claude"), analyst, analyst)).rejects.toThrow("fixture stop");
+    expect(transport.mock.calls.length).toBeGreaterThanOrEqual(1);
+    for (const [request] of transport.mock.calls) {
+      expect(request.tools).toBeUndefined();
+      expect(request.outputSchema).toBeDefined();
+    }
+  });
+
   it("keeps Gemini analysts and ChatGPT judges tool-free", async () => {
     const transport = vi.spyOn(subscriptionTransport, "runSubscriptionPass").mockResolvedValue(refusal);
     await expect(pipelinePasses.runAnalystPass!(setup("gemini"), "bull")).rejects.toThrow("fixture stop");
