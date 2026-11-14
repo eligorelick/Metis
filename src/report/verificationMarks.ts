@@ -17,6 +17,7 @@ const computedFigures = new WeakSet<object>();
 /** Indexed data-only reports holding at least one computed figure. */
 const computedReports = new WeakSet<object>();
 const indexed = new WeakSet<object>();
+const factReports = new WeakSet<object>();
 
 function markFor(entry: VerificationLogEntry): ClaimStatusMark {
   const status = displayedValidationStatus(entry);
@@ -66,7 +67,7 @@ export function indexVerificationMarks(report: Report): void {
     // A removed entry (an earnings-reference guard row, a withheld legacy claim) marks nothing.
     if (!isCountedClaimEntry(entry, "factual-claim") || entry.path === undefined) continue;
     const node = resolvePath(report, entry.path);
-    if (node !== null && typeof node === "object" && (node as Partial<SourcedClaim>).text === entry.claim) marks.set(node, markFor(entry));
+    if (node !== null && typeof node === "object" && (node as Partial<SourcedClaim>).text === entry.claim) { marks.set(node, markFor(entry)); factReports.add(report); }
   }
 }
 
@@ -100,4 +101,12 @@ export const COMPUTED_MARK_LEGEND = "Cited column: \"computed\" means the pipeli
 /** A figure's citation status in words: "computed (no citation check ran)" for a data-only report's figure (F-23). */
 export function figureCitationStatus(n: TracedNumber): string {
   return n.verified === true && isComputedFigure(n) ? "computed (no citation check ran)" : numericCitationTraceLabel(n.verified);
+}
+
+/** D-264: citation coverage and numerical matching answer different questions. */
+export const FACT_STATUS_LEGEND = 'Fact tags: validated means the number was matched to its record by code; unverified means it has a citation but was not matched by code; qualitative means no number to match; contradicted means it conflicts with its record. Citation coverage counts traceable figures, not validated claims.';
+
+/** Show the legend only when this report has factual status tags to explain. */
+export function hasFactStatusMarks(report: Report): boolean {
+  return factReports.has(report);
 }

@@ -599,7 +599,11 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
     for (const entry of POISON_REGISTRY) {
       expect(markdown, entry.path).toContain(poisonMarker(entry));
     }
-    expect(unescapedMatches(outsideCode, /(?:<!--[\s\S]*?-->|<\/?[A-Za-z][^>\n]*>)/g)).toEqual([]);
+    // D-264: the fixed outlook target is renderer-owned HTML. Every other raw
+    // tag (including injected anchors or duplicate targets) must still fail.
+    expect(unescapedMatches(outsideCode, /(?:<!--[\s\S]*?-->|<\/?[A-Za-z][^>\n]*>)/g)).toEqual([
+      '<a id="report-outlook">', "</a>",
+    ]);
     expect(unescapedMatches(outsideCode, /!?\[[^\]\n]*\]\([^\n)]*\)/g, 0)).toEqual([]);
     expect(unescapedMatches(outsideCode, /<(?:https?|mailto):[^>]+>/gi)).toEqual([]);
     expect(outsideCode).not.toMatch(/https?:\/\/p30\.invalid|www\.p30\.invalid|p30@p30\.invalid/);

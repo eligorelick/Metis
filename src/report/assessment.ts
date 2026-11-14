@@ -94,7 +94,7 @@ export function compositeNote(scores: Pick<Scoring, "composite" | "assessments" 
   const note = `${evidence === null ? "" : `evidence for ${evidencePercentText(evidence)} of the route-applicable signal weight (${floor}); `}bands ${BAND_THRESHOLDS_TEXT}`;
   const unscored = unscoredAspectsText(scores);
   const qualification = qualificationText(scores.qualification?.composite);
-  return [note, unscored, qualification].filter(Boolean).join(". ");
+  return [note, unscored, qualification].filter(Boolean).map((text, index, parts) => index < parts.length - 1 ? text!.replace(/\.+$/, "") : text).join(". ");
 }
 
 const COMPOSITE_ASPECT_LABEL: Readonly<Record<keyof Scoring["aspects"], string>> = {

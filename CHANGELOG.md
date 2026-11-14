@@ -18,6 +18,21 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Shared reader presentation repairs (P22, P21, D-264)
+
+- Review follow-up preserves every stored segment parent link and bounds
+  additional hierarchy searches with exact proof in every displayed quarter.
+  Notes explain subtotal overlap even when no hierarchy can be inferred.
+- Repairs web management-actions and Markdown outlook link targets, and checks
+  the live card's dated/not-current meaning explicitly.
+
+- App, Markdown and print show plain dated-model wording, one dated row for known
+  duplicate metric aliases, consistent segment components with overlapping shares
+  disclosed, and qualified broad vendor geography labels.
+- Executive cards link to shared company actions and outlook guidance. A short
+  fact-tag legend distinguishes numerical matching from citation coverage.
+- Saved inputs, payloads, figures, reports and verification statuses stay unchanged.
+
 ## Unreleased - P19 verification marks (D-263)
 
 - Independent review tightened the rule: only established negative-for-outflow producers qualify; cash-use prose has no label-rebuild fallback; only declared prose definitions are masked; label qualifiers and ambiguous legacy operand refusals remain. EBITDA and net-debt definitions now require the actual current producer evidence.
