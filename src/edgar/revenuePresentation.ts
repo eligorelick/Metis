@@ -51,10 +51,10 @@ export function operatingBridgeProof(revenue: FiledIncomeLine, pretax: FiledInco
   // An excluding-acquired line alone does not establish total research expense.
   if (!total && !research && (researchExcluding || acquired) && researchCosts.length === 0) return { status: "unavailable" };
   const otherCosts = [...researchCosts, ...(special ? [special] : [])];
-  const operands = total ? [total] : cost && sga ? [cost, sga, ...otherCosts] :
+  let operands = total ? [total] : cost && sga ? [cost, sga, ...otherCosts] :
     gross && sga ? [sga, ...otherCosts] : null;
   if (!operands) return { status: "unavailable" };
-  const operating = (total || cost ? revenue.value : gross!.value) - operands.reduce((sum, p) => sum + p.value, 0);
+  let operating = (total || cost ? revenue.value : gross!.value) - operands.reduce((sum, p) => sum + p.value, 0);
   if (gross && cost && !same(revenue.value - cost.value, gross.value)) return { status: "conflict", reason: "Complete operating reconciliation refused: same-scope gross profit and full cost have a conflict." };
   const aggregatePick = pick(["NonoperatingIncomeExpense"]), interestPick = pick(["InterestExpense", "InterestAndDebtExpense", "InterestExpenseNonoperating"]);
   const benefitPick = pick(["NetPeriodicDefinedBenefitsExpenseReversalOfExpenseExcludingServiceCostComponent"]), otherPick = pick(["OtherNonoperatingIncomeExpense"]);
@@ -71,7 +71,15 @@ export function operatingBridgeProof(revenue: FiledIncomeLine, pretax: FiledInco
   const costsPick = pick(["CostsAndExpenses", "BenefitsLossesAndExpenses"]), costsConflict = conflicts([costsPick]);
   if (costsConflict) return costsConflict;
   if (!aggregate && !netInterest && !interest && !other && !interestIncome) return { status: "unavailable" };
-  if (!same(operating + nonoperating, pretax.value)) return { status: "unavailable" };
+  // D-260 review: a restructuring tag can be a child of cost or SG&A.
+  // Prove membership with exact reconciliation, without a rounding allowance.
+  if (!total && special) {
+    if (operating + nonoperating !== pretax.value) {
+      if (operating + special.value + nonoperating !== pretax.value) return { status: "unavailable" };
+      operating += special.value;
+      operands = operands.filter(p => p !== special);
+    }
+  } else if (!same(operating + nonoperating, pretax.value)) return { status: "unavailable" };
   const costs = value(costsPick);
   if (costs && !same(costs.value, revenue.value - pretax.value)) return { status: "unavailable" };
   const used = [revenue, pretax, ...operands, ...(gross && !total && !cost ? [gross] : []),

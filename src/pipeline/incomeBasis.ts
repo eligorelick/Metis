@@ -9,6 +9,7 @@ import type { ManifestEntry } from "@/types/core";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { ADDITIVE_INCOME_FIELDS, buildIncomeWindowFromCompanyFacts, buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import type { TtmIncome } from "./compute";
+import { effectiveTaxPretaxIncome } from "@/edgar/incomeClassification";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { sectorIndustryForSic } from "@/edgar/sic";
 import { successorContinuity } from "@/edgar/successor";
@@ -140,7 +141,11 @@ export function withFiledIncomeWindow(bundle: DataBundle, ttm: TtmIncome | null,
   }
   const sec = bankRevenue ? admitted : corroborateOperatingIncome(admitted, raw);
   let out = ttm;
+  const needsTaxPair = !finite(ttm.incomeBeforeTax) || !finite(ttm.incomeTaxExpense);
+  const recoveredTax: Partial<Record<"incomeBeforeTax" | "incomeTaxExpense", { value: number; proof: NonNullable<FmpIncomeStatementRow["fieldProvenance"]>[string]; reason: string }>> = {};
   for (const field of fields) {
+    const taxField = field === "incomeBeforeTax" || field === "incomeTaxExpense";
+    if (taxField && !needsTaxPair) continue;
     const operating = field === "operatingIncome" || field === "ebit";
     const value = operating ? sec.operatingIncome : sec[field];
     const proof = sec.fieldProvenance?.[operating ? "operatingIncome" : field];
@@ -150,7 +155,7 @@ export function withFiledIncomeWindow(bundle: DataBundle, ttm: TtmIncome | null,
       proof?.flowOperands?.flatMap(o => o.points) ?? [];
     const rerounded = operating && reconciledSum && finite(ttm[field]) && finite(value) && value !== ttm[field] &&
       vendorAgreesWithDerived(ttm[field]!, value, roundingOperands.map(p => p.val));
-    if (finite(ttm[field]) && !rerounded || !finite(value) || !proof || sec.fieldConflicts?.[operating ? "operatingIncome" : field]?.usable === false ||
+    if (finite(ttm[field]) && !rerounded && !taxField || !finite(value) || !proof || sec.fieldConflicts?.[operating ? "operatingIncome" : field]?.usable === false ||
         q.some(r => r.fieldConflicts?.[field]?.usable === false && !(operating && r.fieldConflicts[field]?.cause === "operating-basis")) ||
         operating && q.some(r => r.fieldConflicts?.operatingIncome?.usable === false && r.fieldConflicts.operatingIncome.cause !== "operating-basis") ||
         // Raw filed totals cannot undo a completed-sale recurring-income adjustment.
@@ -162,11 +167,28 @@ export function withFiledIncomeWindow(bundle: DataBundle, ttm: TtmIncome | null,
       `FY + current YTD - prior-year YTD where three operands are retained, otherwise a directly filed exact window. ` +
       operands.map(o => `${o.tag}: ${o.points.map((p, i) => `${o.points.length === 3 ? ["FY ", "+ current YTD ", "- prior-year YTD "][i] : "filed component "}${p.val} (${p.start} through ${p.end}; ${p.form} ${p.accn}, filed ${p.filed})`).join(" ")}`).join("; ") +
       (rerounded ? ` The quarter sum ${ttm[field]} differs at the filed operands' reporting precision; the independently reconciled trailing identity supplies the total.` : " Standalone quarters remain unproven where their operands are absent.");
+    if (taxField) { recoveredTax[field] = { value, proof, reason }; continue; }
     out = { ...out, [field]: value, filedIncomeFlows: { ...out.filedIncomeFlows, [field]: proof },
       ...(field === "operatingIncome" ? { nonMarginOperatingIncome: undefined, operatingIncomeBasis: reason,
         operatingIncomeEvidence: { status: "filed-or-reconciled", asOf: ttm.date, field: `compute.ttmIncome.${field}`, usedInDiscountRate: false } } : {}) };
     gaps.splice(0, gaps.length, ...gaps.filter(g => g.field !== `compute.ttmIncome.${field}`));
     gaps.push({ field: `compute.ttmIncome.${field}`, severity: "info", expected: true, reason });
+  }
+  if (needsTaxPair) {
+    const pre = recoveredTax.incomeBeforeTax, tax = recoveredTax.incomeTaxExpense;
+    const base = effectiveTaxPretaxIncome(sec);
+    if (pre && tax && sameBasis(pre.proof, tax.proof) && finite(base)) {
+      const basis = `TTM effective tax rate uses the recovered filed tax pair for ${ttm.periodStart} through ${ttm.date}; ` +
+        `provision ${tax.value} / filed pre-tax denominator ${base} ${pre.proof.unit}, retaining the before-equity-method base where applicable. ` +
+        `${pre.proof.tags.join(", ")}; ${pre.reason}; ${tax.reason}`;
+      out = { ...out, incomeBeforeTax: pre.value, incomeTaxExpense: tax.value, taxRatePretaxIncome: base, taxRatePretaxBasis: basis,
+        filedIncomeFlows: { ...out.filedIncomeFlows, incomeBeforeTax: pre.proof, incomeTaxExpense: tax.proof } };
+      const cleared = new Set(["compute.ttmIncome.incomeBeforeTax", "compute.ttmIncome.incomeTaxExpense", "compute.ttmIncome.taxPair", "compute.ttmIncome.taxRatePretaxIncome"]);
+      gaps.splice(0, gaps.length, ...gaps.filter(g => !cleared.has(g.field)));
+      for (const [field, item] of [["incomeBeforeTax", pre], ["incomeTaxExpense", tax]] as const)
+        gaps.push({ field: `compute.ttmIncome.${field}`, severity: "info", expected: true, reason: item.reason });
+      gaps.push({ field: "compute.ttmIncome.taxRatePretaxIncome", severity: "info", expected: true, reason: basis });
+    } else out = { ...out, incomeBeforeTax: null, incomeTaxExpense: null, taxRatePretaxIncome: null, taxRatePretaxBasis: null };
   }
   return out;
 }
@@ -244,9 +266,9 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
         out={...out,waccOperatingIncome:undefined};
         gaps.push({field:`statements.income.${row.date}.waccOperatingIncome`,severity:"warn",reason:standaloneRefusal ?? retainedWaccRefusal!});
       }
-      // Recover the annual E-5 fallback without rebuilding quarterly ownership
-      // history for consumers whose valuation already had an annual key.
-      // Fresh SEC extraction still reads every synonym on both period bases.
+      // The annual predecessor fallback remains bounded to the E-5 key.
+      // D-260 also completes same-issuer quarterly ownership flows below,
+      // using exact filed periods and the same revenue/filing scope.
       const priorNci = name === "incomeAnnual" && predecessorEvidence && row.cik != null && Number(row.cik) === Number(predecessorEvidence.cik10) &&
         predecessorFactsFor(facts, predecessorEvidence, row.date ?? null, row.reportedCurrency ?? null, bundle.builtAt) !== null
         ? predecessorAnnual.find(r => r.date === row.date && r.reportedCurrency === row.reportedCurrency) : undefined;

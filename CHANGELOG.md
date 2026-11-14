@@ -25,6 +25,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 - A proved reconstructed quarter is reviewed even when its original vendor filing no longer supplies the current SEC pair. Unsupported operating expenses and margins remain withheld.
 - Report 1.77.0, payload 1.95.0 and Stage B `STAGE_B_2026_11_FILED_INCOME_WINDOWS_69` identify the new calculation meaning. Stored reports, DCF methods, growth guards, weights and score bands are unchanged.
 
+- D-260 review: restructuring membership requires an exact filed reconciliation; recovered trailing tax pairs restore their denominator atomically. Replay ownership documentation and fourth-quarter operand assertions now match the implementation.
+
 ## Unreleased - Shared reader presentation repairs (P22, P21, D-264)
 
 - Review follow-up preserves every stored segment parent link and bounds

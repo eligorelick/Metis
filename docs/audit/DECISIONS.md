@@ -1012,6 +1012,28 @@ Accuracy: 265 figures across the 13 referenced data-only cases: 171 match, 7 mis
 
 Focused verification: 18 files, 895 tests passed, including refusal wording, tag synonyms, version stamps, company-page currency, risk and repository release checks. The earlier whole-suite attempts are historical; no full suite or verify is run on resume under the owner's revised rule. Frozen control refresh changes only the report stamp and digest; the fictional sample retains its figures.
 
+
+### PR #191 independent-review follow-up (2026-11-14)
+
+Pinned main 742d4d2f095937c39957699586188a197a213ec5 was normally merged, preserving both D-263 and D-260 history comments, report 1.77.0, the earlier 1.76.0 entry and payload 1.95.0. Both frozen records were refreshed under D-260 starting from main's records/log, so D-263's entries precede the two new D-260 receipts. Their scopes contain only six payload version/header hash paths and two report spec/digest paths. The rebuilt fictional sample is unchanged from the merged source.
+
+Review items 1 to 6:
+
+1. A restructuring tag is not assumed disjoint from cost or SG&A. With a component bridge and that tag present, test the exact pretax reconciliation with the tag, then without it. Use only the exact tie; neither tie keeps the gap. No allowance was added. Synthetic controls prove embedded cost (operating 300), separate cost (250) and neither exact tie (unavailable) for revenue 1,000, cost 400, SG&A 300, interest 20 and restructuring 50. These are fictional test amounts, not company observations.
+2. D-179's annual-only NCI replay bound from cbb0f30b is explicitly marked Revised by D-260. Methodology and the source comment now distinguish the annual predecessor fallback from exact same-issuer quarterly flow completion. The q5 fixture establishes minority-interest income and consolidated profit in the same period/accession, not an inferred ownership allocation; independent refusals remain binding.
+3. The aggregate P/E regression again asserts Q4 common income 23,027,000 and FY-minus-YTD with accessions 0002064124-26-000009 and 0002064124-25-000032. The older retained row has those references; the original amounts remain in retained companyfacts. A fresh row also asserts both explicit flowOperands and their difference. No assertion was removed or weakened.
+4. Exact-window pretax and tax are accumulated as candidates and committed together only with compatible proof. A missing or independently refused half keeps both fields and the denominator unavailable and retains the tax-pair suppression. Only a recovered complete pair clears that suppression and its per-field notes.
+5. Recovery restores taxRatePretaxIncome and its filed basis via the existing effective-tax-base owner. Before-equity-method treatment is retained where the filing tags that base. The WACC consumer distinguishes recovered ordinary pretax from the before-equity-method base by typed provenance, so the source wording is accurate. Controls assert the recovered 10% trailing rate wins over a fictional 40% annual rate, and that the annual fallback is not used. The GitHub thread was neither replied to nor resolved.
+6. Normal merge and refresh as above; no rebase, force push, new PR or main push.
+
+Stored-case financial changes caused by these review fixes: **none**, across all 17 regression cases and both LLY modes. Compared with the previous D-260 rebuild, all Stage B numerical leaves and all reader financial leaves remain identical. The inherited main changes add EBITDA-computation boolean metadata and D-263 claim verification records; those are not altered filing inputs or model figures. AMZN fixed-analyst factual validation counts move contradicted 4 to 2 and validated 33 to 35 (rate 0.264 to 0.28); LLY fixed-analyst counts move contradicted 2 to 0, unchecked 241 to 240, validated 76 to 79 (rate 0.23824451410658307 to 0.2476489028213166), under D-263's declared-outflow/FCF verification rules. No financial source is asserted for these validation counters.
+
+LLY before/after this round: TTM operating income 34,876 million to 34,876 million; current model value 662.08/share to 662.08/share; valuation score 33.98 to 33.98. Filed operating proof remains pretax less NonoperatingIncomeExpense: FY2025 26,302 plus 9M2026 26,501 minus comparative 9M2025 17,927, accessions 0000059478-26-000013 and 0000059478-26-000108. The WACC tax rate is unchanged; its existing provider-ratio precedence is unchanged, and no vendor amount is copied into this decision. No stored case newly exercises the recovered tax-pair path, so no WACC/model value changes require additional filed operands.
+
+The new pinned-main diff preserves the earlier case/figure ledger, with these metadata/count corrections: both LLY Stage B files now have 1,307 changed paths including the restored EBITDA-computed boolean; data-only report remains 1,233 paths; fixed-analyst report has 6,452 paths (appendix 4,976). All other case counts above remain identical. This supersedes the earlier count-only inventory, not the filed figures or their proofs.
+
+Verification: the six initially failing restructuring/tax assertions were observed red before the fix; the WACC source-wording control also failed before the consumer correction. The focused set covers 15 files / 865 tests; the restored Q4 evidence file was rerun successfully after binding its amount assertion to the correct retained record. Final tax/WACC, Q4, TTM and refusal controls passed 149 tests across four files. Typecheck passed; lint passed with the existing unused _dropped warning. Both nineteen-case builds completed offline against pinned main. Final accuracy check: 265 figures across 13 referenced cases, 171 match, 7 mismatch, 61 gap, 26 not-established, every expectation satisfied; no expectation update. No full suite or verify was run.
+
 ## D-264 - Reader presentation across company types (2026-11-13)
 
 Principles P22 (one shared presentation rule), P21 (immutable saved reports),
@@ -11001,6 +11023,8 @@ applied (D-57).
   tolerance to admit a name. A wrong unit is worse than a withheld value.
 
 ## D-179 - Valuation coverage from complete filed balances (2026-11-02)
+
+Revised by D-260: the annual-only NCI replay bound from cbb0f30b now also permits missing same-issuer quarterly monetary ownership flows. Each requires the exact filed interval, currency, issuer and compatible revenue/filing scope; independent allocation refusals remain closed. Predecessor recovery stays annual only. The D-260 q5 regression proves the quarterly minority-interest value and consolidated profit in the same accession.
 
 Fifteen of 26 US issuers in the frozen panel had their DCF withheld. Most causes
 were not missing data. A provider debt or lease line covered a narrower scope

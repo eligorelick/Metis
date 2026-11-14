@@ -2111,9 +2111,11 @@ parent's. Period, core-form, currency and presentation checks are unchanged.
 On replay, missing vendor annual NCI income may be completed from that admitted statement;
 missing consolidated profit may be supplied with it only from the same filed
 period and accession. A refused allocation is never filled, and a vendor
-nonzero observation is not overwritten. Quarterly ownership histories are not
-rebuilt by this replay fallback; fresh extraction reads the ordered synonyms
-on both annual and quarterly bases. No new book-NCI materiality exemption
+nonzero observation is not overwritten. Revised by D-260: replay also completes
+missing same-issuer quarterly ownership flows from exact filed periods and
+compatible revenue/filing scope, retaining every operand. Predecessor replay
+remains annual only. Fresh extraction reads the ordered synonyms on both bases.
+No new book-NCI materiality exemption
 is applied: small book NCI cannot by itself bound the earnings claim.
 For a successor, the annual row may read its retained predecessor facts only
 when that row names the predecessor CIK, the predecessor's facts match that
@@ -8372,6 +8374,9 @@ also reads research excluding acquired in-process costs, the acquired-research
 expense, and restructuring, settlement and impairment provisions. A filed total
 research expense replaces its children once; conflicting totals close the proof.
 Cash payments for acquisitions cannot establish these income-statement expenses.
+Restructuring can already be included in another cost. When a component bridge
+carries that tag, its membership is proved by an exact tie to filed pretax income,
+with or without that component. Neither exact tie means the bridge stays unavailable.
 Every bridge still reconciles independently to same-scope filed pretax income.
 
 Missing monetary income fields use the statement owner's exact annual or
@@ -8393,8 +8398,11 @@ reconciled trailing identity can supersede a quarter sum differing only within
 the existing filed-operand rounding allowance, with the difference disclosed.
 Only the three total operands enter that comparison; their component receipts
 are retained evidence, not additional rounding terms. Missing trailing revenue
-still passes the revenue-admission owner and its company sales policy. Its
-completeness gap is named `compute.ttmIncome.revenue`, so an exact window clears
+still passes the revenue-admission owner and its company sales policy.
+The tax pair is recovered atomically with its own filed pre-tax denominator and
+basis, preserving the before-equity-method treatment where applicable. The
+tax-pair suppression is retired only after both same-scope operands are established;
+a half pair remains withheld. The revenue completeness gap is named `compute.ttmIncome.revenue`, so an exact window clears
 that field's suppression rather than a generic window refusal. EBIT inherits an
 independent operating-income refusal even when its own retained field is absent.
 

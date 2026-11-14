@@ -45,7 +45,7 @@ import type {
 } from "@/providers/fmp";
 import { parseSicCode } from "@/edgar/sic";
 import { successorContinuity } from "@/edgar/successor";
-import { tagsFor } from "@/edgar/tagSynonyms";
+import { PRETAX_EXCLUDING_EQUITY_METHOD_TAG, tagsFor } from "@/edgar/tagSynonyms";
 
 import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
 import {
@@ -1536,7 +1536,11 @@ export interface WaccStatementTaxRate {
 export function waccTaxRateFromStatements(ttm: TtmIncome | null, latestAnnual: FmpIncomeStatementRow | undefined): WaccStatementTaxRate {
   const ttmRate = effectiveTaxRateFromTtm(ttm);
   if (ttmRate !== null) {
-    return { rate: ttmRate, basis: ttm?.taxRatePretaxBasis
+    const recoveredPretax = ttm?.filedIncomeFlows?.incomeBeforeTax;
+    const rebased = !!ttm?.taxRatePretaxBasis && (!recoveredPretax ||
+      recoveredPretax.tags.includes(`us-gaap/${PRETAX_EXCLUDING_EQUITY_METHOD_TAG}`) ||
+      recoveredPretax.calculation === "pretax-plus-equity-method");
+    return { rate: ttmRate, basis: rebased
       ? "TTM incomeTaxExpense / filed pre-tax income before equity-method results, from the statements (observed effective rate; the provider's ratio divides by pre-tax income after those results, D-237)"
       : "TTM incomeTaxExpense / incomeBeforeTax from the statements (observed effective rate)", fallback: null };
   }
