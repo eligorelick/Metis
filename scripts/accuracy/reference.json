@@ -1,7 +1,7 @@
 {
   "about": "Filed reference values for npm run accuracy:check, built by npm run accuracy:fetch from SEC EDGAR XBRL companyfacts (public SEC facts). Periods and cutoffs come from the golden run's reports; values come only from the filings. Rebuild with: npm run accuracy:fetch -- --network --run <golden run>.",
   "source": "https://data.sec.gov/api/xbrl/companyfacts/",
-  "builtFrom": "../../../../Documents/Thesis-AI-equity-research/tmp/golden/fu-batch",
+  "builtFrom": "tmp/golden-after-a",
   "cases": {
     "amzn-data-only": {
       "ticker": "AMZN",
@@ -77,7 +77,7 @@
       "ticker": "TSM",
       "cik": 1046179,
       "entityName": "Taiwan Semiconductor Manufacturing Company Limited",
-      "cutoffAt": "2026-11-12T18:21:28.303Z",
+      "cutoffAt": "2026-11-14T17:03:28.420Z",
       "currency": "TWD"
     },
     "rivn-data-only": {
