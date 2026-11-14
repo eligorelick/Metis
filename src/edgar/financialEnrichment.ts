@@ -354,6 +354,13 @@ export function admitFiledStatementFlows<T extends FmpStatementRow>(row: T, fact
     if (row.fieldProvenance?.[field] || prior?.usable === false && prior.cause !== "vendor-sec-value-conflict") continue;
     const vendor = prior?.usable === false ? prior.vendorValue : row[field];
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
+    // A vendor D&A observation already agreeing with another filed basis is
+    // not a conflict that a narrower income cost line can settle.
+    if (kind === "income" && field === "depreciationAndAmortization" &&
+        [...tagsFor("depreciationAndAmortization"), "CostDepreciationAmortizationAndDepletion"].some(tag => {
+          const basis = filedRowFlow(row, facts, [tag], scope, observedAt);
+          return basis && agreesWithSec(vendor, basis.value, [basis]);
+        })) continue;
     const item = bank && spec.item === "interestIncome" ? "bankInterestIncome" : spec.item;
     let tags = spec.tags ?? tagsFor(item!);
     if (field === "interestIncome") {
@@ -2262,7 +2269,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
       let out = flows.row;
       gaps.push(...flows.gaps);
       for (const [field, sec] of candidates) {
-        if (out.fieldConflicts?.[field]?.usable === false) continue;
+        if (out.fieldConflicts?.[field]?.usable === false || out.fieldConflicts?.[field]?.resolution === "filed-family" && out.fieldProvenance?.[field]) continue;
         if (!sec) {
           if (kind === "cashflow" && typeof row[field] === "number" && Number.isFinite(row[field])) keptUnverified(ctx, field, row.date, [PRINCIPAL_TAG]);
           const tag = field === "operatingLeaseLiability" ? "OperatingLeaseLiability" : field === "financeLeaseLiability" ? "FinanceLeaseLiability" : "FinanceLeasePrincipalPayments";

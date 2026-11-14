@@ -318,3 +318,15 @@ it("records both revised decisions", () => {
   expect(text.split("## D-200 -")[1]!.split("\n## ")[0]).toContain("Revised by D-262");
   expect(text.split("## D-262 -")[1]!.split("\n## ")[0]).toContain("D-215");
 });
+
+it("preserves original lease-principal precision through the legacy enrichment loop", () => {
+  const f = facts({ FinanceLeasePrincipalPayments: [annual(90.4 * M), { ...annual(90 * M), filed: "2026-04-01", accn: "later" }] });
+  const out = enrichFinancialFields(source([]), source([{ ...cashRow(), financeLeasePrincipalPayments: 90 * M }]), f, "annual", observedAt);
+  expect(out.cashflow.ok && out.cashflow.value.data.rows[0]?.financeLeasePrincipalPayments).toBe(90.4 * M);
+  expect(out.cashflow.ok && out.cashflow.value.data.rows[0]?.fieldConflicts?.financeLeasePrincipalPayments?.usable).toBe(true);
+});
+
+it("does not narrow an income D&A observation already agreeing with a separately filed D&A basis", () => {
+  const out = admitFiledStatementFlows({ ...interestRow(), depreciationAndAmortization: 80 * M }, facts({ CostDepreciationAmortizationAndDepletion: [annual(70 * M)], DepreciationDepletionAndAmortization: [annual(80 * M)] }), "income", "annual", observedAt);
+  expect(out.row.depreciationAndAmortization).toBe(80 * M);
+});
