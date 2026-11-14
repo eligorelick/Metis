@@ -133,7 +133,7 @@ describe("I-2: the statement-date row is refused by the lease and temporary-equi
     expect(dcfBridgeRow("2025-12-31", "annual", [anchor], [clean], { row: anchor, basis: "quarter" }, false)).toMatchObject({ row: clean, cause: "statement-row" });
   });
 
-  describe("runStageB: a fiscal-year-base run keeps the clean anchor and publishes, as main", () => {
+  describe("runStageB: a fiscal-year-base run withholds a mismatched clean anchor (D-267)", () => {
     const OPTIONS = { debt: 300, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] } as const;
 
     /** The fiscal-year 10-K row is the only statement-date balance, and the DCF falls back to the fiscal year. */
@@ -158,9 +158,9 @@ describe("I-2: the statement-date row is refused by the lease and temporary-equi
         if (control.kind !== "dcf" || control.dcf === null) throw new Error("the control must publish a DCF");
         if (v.kind !== "dcf") throw new Error("expected the DCF route");
         expect(v.gaps.filter((g) => g.severity === "critical" && g.field.startsWith("valuation.dcf"))).toEqual([]);
-        expect(v.dcf).not.toBeNull();
-        // The anchor is the 2026-03-31 quarter: debt 300, cash 120.
-        expect(v.dcf!.bridge.netDebt).toBe(180 * M);
+        expect(v.dcf).toBeNull();
+        expect(v.assumptions).toBeNull();
+        expect(v.gaps.find(g => g.field === "valuation.dcf.bridgeBalanceDate")).toMatchObject({ severity: "warn", cause: "dcf-balance-date-mismatch" });
         expect(v.gaps.find((g) => g.field === "valuation.dcf.bridgeBalanceDate")?.reason).toMatch(/withheld/);
       });
     }

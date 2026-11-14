@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.83.0** and
-payload **1.101.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.84.0** and
+payload **1.102.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -23,6 +23,13 @@ original versions and bytes; source merge does not deploy or publish a release.
 - The bull and bear analysts on a Claude Code connection now each send one separate research request with only the CLI's own WebSearch and WebFetch tools, up to eight actions, as on the ChatGPT connection. Writers and the judge stay tool-free; every other isolation flag is kept, and Metis still never reads the CLI's sign-in files or uses an API key on this route.
 - Metis reads the CLI's typed stream events: any other tool, MCP server, nested agent or fetch of a local, private or IP-literal address stops the request, the first action beyond eight or ten minutes stops the CLI, and only typed search links and successfully fetched URLs become citable sources. Prose URLs never do. No failure switches to a paid route.
 - No calculation, payload or report stamp changes; computed figures still come only from filings and the supplied evidence. Settings, README, privacy, operations, methodology and Claude usage text now say so.
+
+## Unreleased - Same-date fallback models (D-267 part 1)
+
+- Withhold fiscal-year fallback DCFs that mix balance and statement dates, with a typed root cause.
+- D-260 follow-up: restructuring candidates use the existing reporting-unit rule; identical operating figures count once and different matching figures remain ambiguous.
+- D-267 review: preserve independent critical capital and lease gaps before the date refusal; an unparseable fallback date withholds the model. Restore trailing-route date disclosure regressions.
+- Report 1.84.0, payload 1.102.0, Stage B FALLBACK_DATE_76. Trailing models retain the existing date rule.
 
 ## Unreleased - Filed cash recovery and named root gaps (D-261)
 

@@ -201,6 +201,15 @@ const GAP_READERS = {
     legacy: (reason) => reason.startsWith("Temporary equity refused for invested capital: ") ||
       reason.startsWith("Invested capital emptied by the operating-lease removal: "),
   },
+  /**
+   * D-267, `dcfWithheldWarnGap` (`stageB/fairValue.ts`): the warn gap that withheld a fiscal-year fallback DCF because no balance dated at
+   * its statement date was admitted. Before D-267 the same field was an info note on a published model, so an entry
+   * without the code never withheld anything and its legacy reading is false.
+   */
+  dcfBalanceDateMismatch: {
+    codes: new Set<GapCause>(["dcf-balance-date-mismatch"]),
+    legacy: () => false,
+  },
   /** G4, `dcfWithheldReason` (`stageB/fairValue.ts`): the critical invested-capital gap whose upstream quote is net debt. */
   investedCapitalBalanceFieldsMissing: {
     codes: new Set<GapCause>(["invested-capital-balance-fields-missing"]),
