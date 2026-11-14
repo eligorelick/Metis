@@ -61,7 +61,8 @@ evidence collection:
    embedded judgments are split) replaces a failing heading with the fixed
    heading "Product line (its name is not in the cited claims)" and keeps the
    claims; the presentation applies the same function, so a report assembled
-   by any other path prints the same. Alternatives rejected: rejecting the
+   by any other path prints the same (review round 1 below adds stricter
+   rules). Alternatives rejected: rejecting the
    section costs a paid repair round for a label problem; dropping the item
    would hide sourced claims; requiring the name inside the cited excerpt text
    is not possible for web and news citations, which keep no fetched text. The
@@ -92,6 +93,37 @@ evidence collection:
    ceiling enumerate graded sections only; these fields are not graded, so
    neither changes.
 
+### Review round 1 corrections (independent review, lead decisions)
+
+- **A heading is a name, never a claim (HIGH).** The review showed that a
+  heading such as "Verandol revenue grew 99%", repeated in its own FACT claim,
+  passed the name rule. Its bullet was marked contradicted, but Markdown and
+  print showed the heading unmarked, which hid the verification failure. The
+  lead decided two rules, both now in force for both product-line arrays:
+  (a) at generation (`productLineHeadingIsName` in `passes.ts`), a heading with
+  any digit, percent sign, Unicode currency symbol or number word (the
+  verifier's existing `statesNumberWord` list, so no new vocabulary), or longer
+  than 8 words or 60 characters, is replaced by the fixed heading; (b) at read
+  time (`businessStoryBlocks`, so stored and new reports obey), a heading prints
+  only when a FACT claim that writes the name carries the validated or
+  qualitative mark. A contradicted, unverified or unchecked claim never lends
+  its words to an unmarked heading, and with no verification log nothing
+  supports a name. If several claims name the line, one validated or
+  qualitative claim is enough: the others keep their own marks on their
+  bullets. Requiring every one to verify would also hide valid names wherever
+  an unrelated multi-figure sentence goes unverified, which was the outcome for
+  58% of LLY's factual claims.
+- **Trademark signs (LOW).** Compatibility normalization turned "™" into the
+  letters "TM" before they were removed, so "Verandol" did not match
+  "Verandol™ treats diabetes." The ™, ℠, ® and © signs (and a following emoji
+  variation selector) are now removed before normalization. Letters "TM"
+  written into a word stay part of it.
+- **Empty-peer note (LOW).** When the provider's peer list has no comparable
+  company, the note pointed to competitors only for the older `competitors`
+  list. It now also points to "competitors by product line ... under The
+  business in the Business section" when only that list is filled, and names
+  both when both are.
+
 ### Scope and limits
 
 No figure, gap, score, payload byte or evidence selection changes; evidence
@@ -109,7 +141,7 @@ hash only.
 
 ### Same-report check
 
-Main pinned at `efa432ee`. All 17 stored cases (data-only and fixed-analyst,
+Main pinned at `bec62776` (after merging main for review round 1; first run at `efa432ee`, same result). All 17 stored cases (data-only and fixed-analyst,
 including the bank, insurer, REIT and utility cases) and both LLY cases differ
 only in `meta.specVersion` and `meta.pipelineVersion`, the matching version
 lines of Markdown, print, audit and dossier, and the dossier's report-identity
@@ -133,7 +165,12 @@ controls) at generation and at read time; blank story claims regenerate the
 section; new claims verify at their exact paths; the full and sectioned judge
 schemas require the seven fields; the checklist text is pinned verbatim in
 both analysts' and the judge's prompts; research puts market and competitors
-before news. Revised test assertions: the stamp pins only
+before news. Review round 1 adds: numeric, currency, number-word and
+over-long headings replaced at generation in both arrays; contradicted,
+unverified and unlogged headings fall back on all three renderers while
+validated and qualitative ones print; trademark-sign matches with a literal
+"TM" control; and the empty-peer note for each combination of the two
+competitor lists. Revised test assertions: the stamp pins only
 (`tests/report.versionStamps.test.ts`, `tests/jobRunner.test.ts`,
 `tests/stageC.payload.passes.test.ts`), each moved to the new stamp.
 

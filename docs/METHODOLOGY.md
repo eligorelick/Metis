@@ -8886,10 +8886,15 @@ named competitors before news. A web page is untrusted third-party text: it is
 cited with its publisher, link and date and never used for a figure Metis
 computes from filings.
 
-A product-line heading is a label, so code checks it (P18): it stands only when
-one of the item's own FACT claims writes the same name as a whole word or
-phrase (case, spacing, dashes and trademark signs aside). Otherwise generation
-replaces it with the fixed heading "Product line (its name is not in the cited
-claims)" and keeps the claims. App, Markdown and print read the same
+A product-line heading is a name, never a claim, so code checks it (P18). At
+generation it must carry no digit, percent sign, currency symbol or number word,
+have at most 8 words and 60 characters, and be written as a whole word or phrase
+in one of the item's own FACT claims (case, spacing, dashes and trademark signs
+aside). At read time it prints only when a FACT claim that writes the name is
+marked validated or qualitative; a contradicted, unverified or unchecked claim
+never supports a heading. Otherwise the fixed heading "Product line (its name is
+not in the cited claims)" prints and the claims keep their own marks. When the
+provider's peer list has no comparable company, the peer note points to the
+competitors by product line in "The business" when the report carries them. App, Markdown and print read the same
 presentation rule (P22); a report saved before this change has none of these
 fields and prints none of these headings (P21).

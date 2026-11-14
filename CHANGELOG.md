@@ -21,7 +21,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 ## Unreleased - A home for the business story (P18, P20, P22, D-271)
 
 - New optional report fields give the business one home for every company type: products and services, what is coming (pipeline, roadmap, launches, capacity with dates), customers and suppliers, competitors by product line (foreign-listed rivals included, never valuation peers), protection and expiry, management's plan and current guidance, and industry. Each is a sourced claim the existing verifier checks; app, Markdown and print show them under "The business". Saved reports have none of these fields and print exactly as before.
-- A product-line heading stands only when one of its own FACT claims names it; otherwise generation prints a fixed heading and keeps the claims.
+- A product-line heading is a name, never a claim: it may hold no figure, currency, number word or more than 8 words / 60 characters, must be written in one of its own FACT claims, and prints only when such a claim is validated or qualitative. Otherwise a fixed heading prints and the claims keep their marks. Trademark signs no longer block a match, and the empty-peer note points to competitors by product line (review round 1).
 - The analysts and the judge get one sector-neutral business checklist in place of wording written for a chip and software issuer; product-level competitors are asked for by default, and research looks for market size and named competitors before news.
 - Report 1.86.0, pipeline stage-c-1.6.45; payload 1.103.0 and Stage B unchanged. No figure changes; the same-report check differs only in version metadata.
 
