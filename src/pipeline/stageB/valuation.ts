@@ -2364,7 +2364,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const leaseBasis = { fcx1Excluded: leaseExcluded, includeLeasesInEv: inputs.includeLeasesInEv === true, currentRowExcludesLease: leaseOut.note === null };
   const icDebt = bal && bal.fieldConflicts?.totalDebt?.usable !== false && isNum(bal.totalDebt) ? bal.totalDebt - (leaseExcluded ? bal.operatingLeaseLiability as number : leaseOut.amount) : null;
   const liquidityResolution = resolveNetDebt(bal ?? {});
-  const admittedLiquidity = liquidityResolution.value !== null;
+  const admittedLiquidity = liquidityResolution.value !== null && (isNum(bal?.cashAndShortTermInvestments) || bal?.cashBasis === "cash-only");
   const liquidity = bal && isNum(bal.totalDebt) && liquidityResolution.value !== null ? bal.totalDebt - liquidityResolution.value : null;
   if (liquidityResolution.cashBasis === "cash-only") notes.push(liquidityResolution.reason);
   const equity = resolveConsolidatedEquity(bal ?? {});

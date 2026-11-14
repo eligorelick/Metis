@@ -878,7 +878,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
           priorCombined.secEvidence?.tags.length === 1 && priorCombined.secEvidence.tags[0] === `us-gaap/${tag}`;
         out = { ...out, cashAndCashEquivalents: value, cashAndShortTermInvestments: null, netDebt, fieldConflicts,
           vendorNetDebt: out.vendorNetDebt !== undefined ? out.vendorNetDebt : typeof out.netDebt === "number" && Number.isFinite(out.netDebt) ? out.netDebt : null,
-          fieldProvenance: { ...out.fieldProvenance, [field]: { ...sec.evidence, ...(mainComponentScope ? { calculation: "cash-scope-reconciled" } : {}) },
+          fieldProvenance: { ...out.fieldProvenance, [field]: { ...sec.evidence, ...(mainComponentScope ? { cashScopeReconciled: true as const } : {}) },
             ...(canRecomputeDebt ? { netDebt: { ...sec.evidence, tags: [...new Set([...debtProof!.tags, ...sec.evidence.tags])], calculation: "total-debt-minus-unrestricted-cash" } } : {}) } };
         gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true,
           attemptedSources: evidence.tags.map(t => `edgar:companyfacts/${t}`) });

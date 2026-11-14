@@ -20,7 +20,7 @@ export interface LeaseDebtInputs {
   capitalLeaseObligationsCurrent?: number | null;
   capitalLeaseObligationsNonCurrent?: number | null;
   fieldProvenance?: Readonly<Record<string, { readonly tags: readonly string[]; readonly source?: string;
-    readonly calculation?: string; readonly periodEnd?: string | null; readonly periodStart?: string | null; readonly filings?: readonly { readonly accn?: string }[] } | undefined>>;
+    readonly calculation?: string; readonly cashScopeReconciled?: true; readonly periodEnd?: string | null; readonly periodStart?: string | null; readonly filings?: readonly { readonly accn?: string }[] } | undefined>>;
 }
 
 /** An amount in millions with grouped digits ("96,320M"); the refusal names the values it compared. */
@@ -192,6 +192,8 @@ export function operatingLeaseOutOfDebt(
 }
 
 export interface NetDebtInputs extends LeaseDebtInputs {
+  /** Preserve main's existing ROIC fallback; other consumers require explicit filed admission. */
+  allowLegacyCashOnly?: boolean;
   cashBasis?: "cash-only";
   date?: string | null;
   totalDebt?: number | null;
@@ -304,13 +306,13 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
     return { ...base, value: null, cashBasis: null, conflict: true, reason: leaseConflict };
   }
 
-  const mainComponentScope = inputs.fieldProvenance?.cashAndCashEquivalents?.calculation === "cash-scope-reconciled";
+  const mainComponentScope = inputs.fieldProvenance?.cashAndCashEquivalents?.cashScopeReconciled === true;
   const refusedCash = ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermInvestments"].find(f => inputs.fieldConflicts?.[f]?.usable === false &&
     !((f !== "cashAndCashEquivalents" && inputs.fieldConflicts[f]?.cause === "liquidity-not-established" && inputs.cashBasis === "cash-only") ||
       f === "cashAndShortTermInvestments" && mainComponentScope && cash !== null && shortTermInvestments !== null));
   if (refusedCash) return { ...base, value: null, cashBasis: null, conflict: true,
     reason: `${refusedCash} refused: ${inputs.fieldConflicts![refusedCash]!.reason ?? "incompatible liquidity evidence"}` };
-  if (cash !== null && combinedCash === null && shortTermInvestments === null) {
+  if ((inputs.cashBasis === "cash-only" || inputs.allowLegacyCashOnly) && cash !== null && combinedCash === null && shortTermInvestments === null) {
     const debtProof = inputs.fieldProvenance?.totalDebt;
     // Completing only a vendor lease line does not prove the rest of that vendor debt total.
     if (inputs.cashBasis === "cash-only" && (debtProof?.source !== "edgar" || debtProof.calculation === "noncurrent-lease-line-completed" ||
@@ -375,7 +377,7 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
     value: null,
     cashBasis: null,
     // Fix round 2, M3: name the row's cash-only net debt only when it carries one (a keyless row often does not).
-    reason: "cashAndShortTermInvestments unavailable; cashAndCashEquivalents or shortTermInvestments missing" +
+    reason: "combined cash-and-short-term-investments unavailable; cashAndCashEquivalents or shortTermInvestments missing" +
       (vendorNetDebt !== null ? "; the row's cash-only net debt is not used" : ""),
   };
 }

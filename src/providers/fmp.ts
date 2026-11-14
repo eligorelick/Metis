@@ -161,6 +161,8 @@ export interface FmpQuoteRow extends FmpRawRow {
 
 /** Field evidence supplements the row envelope without relabeling vendor fields. */
 export interface StatementFieldProvenance {
+  /** Positive scope evidence for main's admitted restricted-inclusive cash observation. */
+  cashScopeReconciled?: true;
   primaryCapital?: { definition: "cash-outflow"; source: import("@/edgar/primaryCapital").PrimaryCapitalIdentity; proof: import("@/edgar/primaryCapital").PrimaryCapitalProof };
   source: "edgar";
   unit: string;

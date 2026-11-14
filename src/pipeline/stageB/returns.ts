@@ -1585,11 +1585,14 @@ function investedCapital(
     shortTermInvestments: b.shortTermInvestments ?? null,
     cashAndShortTermInvestments: b.cashAndShortTermInvestments ?? null,
     cashBasis: b.cashBasis,
+    allowLegacyCashOnly: true,
     fieldConflicts: b.fieldConflicts,
     fieldProvenance: b.fieldProvenance,
   });
   if (resolution.value !== null) {
-    if (resolution.cashBasis === "cash-only") notes.push(`${b.date}: invested capital nets cash only (narrower basis); ${resolution.reason}`);
+    if (resolution.cashBasis === "cash-only") notes.push(b.cashConflictReconciled
+      ? `${b.date}: invested capital nets cash only (narrower basis); ${resolution.reason}`
+      : `short-term investments unreported on ${b.date} — invested capital nets cash only (narrower than the house cash + short-term-investments basis)`);
     return resolution.value - (b.totalDebt - debt) + equity.value + temporaryTotal;
   }
 
@@ -1827,7 +1830,7 @@ export function computeRoic(
     return { series: [], latestRoicPct: null, asOf: inc[0]?.date ?? null, notes, gaps };
   }
   notes.push(
-    `invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (totalEquity, else parent totalStockholdersEquity + minorityInterest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (${NET_DEBT_RESOLVER_VERSION}; cash-only where short-term investments are not established from available facts, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
+    `invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (totalEquity, else parent totalStockholdersEquity + minorityInterest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (${NET_DEBT_RESOLVER_VERSION}; ${balance.some(b => b.cashConflictReconciled) ? "cash-only where short-term investments are not established from available facts" : "cash-only where short-term investments are unreported"}, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
   );
   const leaseDisclosed = bal.some((b) => isFiniteNumber(b.operatingLeaseLiability) && b.operatingLeaseLiability >= 0);
   if (includeOperatingLeases) {
@@ -1943,8 +1946,8 @@ export function computeRoic(
       if (priorLiquidity.conflict) {
         rootCauses.set(row.date, priorLiquidity.reason); yearNotes.push(priorLiquidity.reason); continue;
       }
-      const basisNow = resolveNetDebt(balNow).cashBasis === "cash-only" ? "cash-only" : "cash-and-investments";
-      const basisPrev = resolveNetDebt(balPrev).cashBasis === "cash-only" ? "cash-only" : "cash-and-investments";
+      const basisNow = resolveNetDebt({ ...balNow, allowLegacyCashOnly: true }).cashBasis === "cash-only" ? "cash-only" : "cash-and-investments";
+      const basisPrev = resolveNetDebt({ ...balPrev, allowLegacyCashOnly: true }).cashBasis === "cash-only" ? "cash-only" : "cash-and-investments";
       if ((balNow.cashConflictReconciled || balPrev.cashConflictReconciled) && basisNow !== basisPrev) {
         const reason = `liquidity bases differ: ${balNow.date} uses ${basisNow}, ${balPrev.date} uses ${basisPrev}; average invested capital is withheld`;
         rootCauses.set(row.date, reason); yearNotes.push(reason); continue;
@@ -1971,7 +1974,7 @@ export function computeRoic(
     }
     for (const used of [balNow, ...(balPrev && balPrev !== balNow ? [balPrev] : [])]) {
       const liquidity = resolveNetDebt(used);
-      if (liquidity.value !== null && liquidity.cashBasis === "cash-only") gaps.push({ field: "returns.roic.cashBasis", reason: `${used.date}: ${liquidity.reason}`, severity: "info" });
+      if (used.cashConflictReconciled && liquidity.value !== null && liquidity.cashBasis === "cash-only") gaps.push({ field: "returns.roic.cashBasis", reason: `${used.date}: ${liquidity.reason}`, severity: "info" });
     }
     entry.investedCapitalAvg = icAvg;
     entry.operatingLoss = normalizedEbit <= 0;
