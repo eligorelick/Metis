@@ -7,6 +7,8 @@ import os from "node:os";
 import path from "node:path";
 import { aiDirectory, claimAiRuntime, ensurePrivateDirectory, readAiStore, withAiStore } from "./store";
 import { CHATGPT_EFFORTS, validModelId, type ChatGptEffort } from "./contracts";
+import type { ProviderFailure } from "./providerFailure";
+import { canonicalizeFetchedUrl } from "@/pipeline/stageC/provenance";
 
 const KEY = Symbol.for("metis.claude.runtime.v1");
 type Runtime = { generation: number; disconnecting: boolean; children: Set<ChildProcessWithoutNullStreams> };
@@ -40,20 +42,147 @@ export function claudeEnvironment(): NodeJS.ProcessEnv {
   return env;
 }
 
-export function claudeRunArgs(model: string, effort?: ChatGptEffort): string[] {
+/** The CLI's own built-in web tools; the only tools an analyst research request may have (D-269). */
+export const CLAUDE_RESEARCH_TOOLS = ["WebSearch", "WebFetch"] as const;
+type ClaudeResearchTool = typeof CLAUDE_RESEARCH_TOOLS[number];
+const RESEARCH_TOOL_SET: ReadonlySet<string> = new Set(CLAUDE_RESEARCH_TOOLS);
+/** Same local research deadline as the ChatGPT route (D-269). */
+export const CLAUDE_RESEARCH_TIMEOUT_MS = 10 * 60_000;
+const MAX_OUTPUT_CHARS = 8_000_000;
+/**
+ * Hosts WebFetch must never reach, as the CLI's own permission globs (`*` spans
+ * dots; live-checked on 2.1.323). They become deny rules the CLI checks before
+ * a fetch runs, and the same list drives the stream observer's check (D-269, P26).
+ * Private and reserved IPv4 blocks, IPv6 literals, local-use names and public
+ * wildcard-DNS services that map names onto private addresses.
+ */
+export const NON_PUBLIC_WEBFETCH_HOSTS: readonly string[] = [
+  "localhost", "*.localhost", "*.local", "*.localdomain", "*.internal", "*.intranet", "*.lan", "*.home", "*.corp", "*.home.arpa",
+  "0.*.*.*", "10.*.*.*", "100.*.*.*", "127.*.*.*", "169.254.*.*", "192.168.*.*", "198.18.*.*", "198.19.*.*",
+  ...Array.from({ length: 16 }, (_, index) => `172.${16 + index}.*.*`), "*:*", "[*",
+  ...["nip.io", "sslip.io", "xip.io", "localtest.me", "lvh.me", "traefik.me", "vcap.me"].flatMap(service => [service, `*.${service}`]),
+];
+const hostGlobs = (globs: readonly string[]) => new RegExp(`^(?:${globs.map(glob => glob.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")).join("|")})$`);
+const NON_PUBLIC_HOST = hostGlobs(NON_PUBLIC_WEBFETCH_HOSTS);
+/**
+ * The only sites WebFetch may read (D-269, lead decision; P26 doubt denies):
+ * filings, the regulators and statistics agencies analyst theses most often
+ * turn on, and the two US listing exchanges. Each domain also allows its
+ * subdomains. WebSearch is not restricted; it runs on Anthropic's side.
+ */
+export const CLAUDE_WEBFETCH_FIXED_DOMAINS: readonly string[] = [
+  "sec.gov", // filings and SEC releases
+  "fda.gov", "cms.gov", // US drug and device approvals; Medicare pricing and coverage
+  "federalreserve.gov", "ftc.gov", // bank regulation and rates; competition and merger review
+  "bls.gov", "census.gov", // official US industry and market statistics
+  "nasdaq.com", "nyse.com", // listing exchanges
+  "europa.eu", // EU institutions, including the EMA (ema.europa.eu) and the European Commission
+  "gov.uk", // UK government, including the MHRA and the CMA
+];
+// Hosting suffixes on which anyone can publish a subdomain; never an issuer's own domain.
+const SHARED_HOSTING = hostGlobs(["github.io", "blogspot.com", "wordpress.com", "wixsite.com", "squarespace.com", "herokuapp.com",
+  "azurewebsites.net", "cloudfront.net", "amazonaws.com", "appspot.com", "netlify.app", "vercel.app", "pages.dev", "web.app",
+  "firebaseapp.com", "googleusercontent.com", "sharepoint.com", "myshopify.com", "weebly.com", "godaddysites.com"].flatMap(domain => [domain, "*." + domain]));
+/**
+ * Second-level labels that ccTLD registries use as public suffixes (co.uk, com.au,
+ * co.jp, org.uk ...). A two-label name with one of these under a two-letter TLD is
+ * never a registrable domain, so it is never granted as a WebFetch wildcard
+ * (D-269 review round 1; no public-suffix dependency is available).
+ */
+const GENERIC_SECOND_LEVEL: ReadonlySet<string> = new Set(["co", "com", "net", "org", "gov", "edu", "ac", "ne", "or", "go", "gob", "gv", "ltd", "plc",
+  "mil", "nom", "sch", "int", "info", "biz", "gen", "firm", "ind", "nic", "res", "lg", "ed", "gr", "web"]);
+/**
+ * The registrable parent of a host: its last two labels, only when they plausibly
+ * form a registrable domain (a generic TLD of three or more letters, or a two-letter
+ * ccTLD whose second-level label is not a generic public second level). Otherwise
+ * null, and the issuer gets its exact host only.
+ */
+export function registrableWebFetchParent(host: string): string | null {
+  const labels = host.split(".");
+  if (labels.length < 2) return null;
+  const tld = labels[labels.length - 1]!, second = labels[labels.length - 2]!;
+  if (!/^[a-z]{2,63}$/.test(tld)) return null;
+  if (tld.length === 2 && GENERIC_SECOND_LEVEL.has(second)) return null;
+  const parent = labels.slice(-2).join(".");
+  return SHARED_HOSTING.test(parent) ? null : parent;
+}
+/**
+ * The issuer's website host from the bundle's company profile (deterministic data,
+ * never model text): a plain public hostname. An IP literal, a local-use name, a
+ * wildcard-DNS or shared-hosting name, a bare public suffix (co.uk, com.au) or
+ * anything unparseable gives no issuer host.
+ */
+export function issuerWebFetchHost(website: unknown): string | null {
+  if (typeof website !== "string" || !website.trim() || website.length > 2_048) return null;
+  const raw = website.trim();
+  const url = publicWebUrl(/^https?:\/\//i.test(raw) ? raw : "https://" + raw);
+  if (!url) return null;
+  const host = new URL(url).hostname.toLowerCase().replace(/\.$/, "");
+  if (host.length > 253 || !host.includes(".") || !host.split(".").every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) ||
+      /^[\d.]+$/.test(host) || NON_PUBLIC_HOST.test(host) || SHARED_HOSTING.test(host)) return null;
+  // A bare two-label name must itself be registrable (rejects co.uk, com.au, org.uk).
+  if (host.split(".").length === 2 && registrableWebFetchParent(host) !== host) return null;
+  return host;
+}
+/** What WebFetch may read: `domains` with their subdomains, and `hosts` exactly. */
+export interface WebFetchAllowlist { domains: readonly string[]; hosts: readonly string[] }
+/**
+ * The WebFetch allowlist for one research request: the fixed list (each with its
+ * subdomains), plus the issuer's exact profile host, and when that host is the
+ * www host also the bare name (www.lilly.com gives www.lilly.com and lilly.com).
+ * The issuer never gets a wildcard: without a public suffix list a parent cannot be
+ * proven registrable (workers.dev, uk.com, ca.us), so doubt denies (P26; D-269
+ * review round 2).
+ */
+export function claudeWebFetchAllowlist(issuerHost?: string | null): WebFetchAllowlist {
+  const host = issuerHost ? issuerWebFetchHost(issuerHost) : null;
+  const fixed = (name: string) => CLAUDE_WEBFETCH_FIXED_DOMAINS.some(domain => name === domain || name.endsWith("." + domain));
+  const bare = host?.startsWith("www.") ? issuerWebFetchHost(host.slice(4)) : null;
+  const hosts = [host, bare].filter((name): name is string => name !== null && !fixed(name));
+  return { domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: [...new Set(hosts)] };
+}
+/** Only fixed domains, re-validated registrable parents and re-validated hosts reach the CLI. */
+function validatedAllowlist(allowlist: WebFetchAllowlist): WebFetchAllowlist {
+  return {
+    domains: allowlist.domains.filter(domain => CLAUDE_WEBFETCH_FIXED_DOMAINS.includes(domain)),
+    hosts: allowlist.hosts.filter(host => issuerWebFetchHost(host) === host),
+  };
+}
+const allowedFetchHost = (allowlist: WebFetchAllowlist) => hostGlobs([...allowlist.domains.flatMap(domain => [domain, "*." + domain]), ...allowlist.hosts]);
+
+/**
+ * Print-mode arguments for the unmodified CLI. Writing, judge and verify are
+ * tool-free. Analyst research (D-269) gets only the CLI's built-in WebSearch and
+ * WebFetch, streamed as typed events so the action count and provenance come
+ * from tool events, never prose; every other isolation flag is kept.
+ */
+export function claudeRunArgs(model: string, effort?: ChatGptEffort, research?: { webFetch: WebFetchAllowlist }): string[] {
   if (!validModelId(model)) throw new Error("Invalid Claude model");
   if (effort && !CHATGPT_EFFORTS.includes(effort)) throw new Error("Invalid Claude effort");
-  return ["--print", "--output-format", "json", "--safe-mode", "--setting-sources", "",
+  return ["--print", ...(research ? ["--output-format", "stream-json", "--verbose"] : ["--output-format", "json"]),
+    "--safe-mode", "--setting-sources", "",
     "--settings", JSON.stringify({ disableAllHooks: true, autoMemoryEnabled: false }),
-    "--tools", "", "--disallowedTools", "mcp__*", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
+    // A WebFetch rule "domain:x" matches only the host x (live-checked on
+    // 2.1.323), so each allowed domain gets x and *.x; under dontAsk the CLI
+    // refuses any other fetch before it runs.
+    ...(research ? ["--tools", CLAUDE_RESEARCH_TOOLS.join(","), "--allowedTools", "WebSearch",
+      ...validatedAllowlist(research.webFetch).domains.flatMap(domain => [`WebFetch(domain:${domain})`, `WebFetch(domain:*.${domain})`]),
+      ...validatedAllowlist(research.webFetch).hosts.map(host => `WebFetch(domain:${host})`)] : ["--tools", ""]),
+    "--disallowedTools", "mcp__*", ...(research ? NON_PUBLIC_WEBFETCH_HOSTS.map(host => `WebFetch(domain:${host})`) : []),
+    "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
     "--no-session-persistence", "--permission-mode", "dontAsk",
     "--model", model, ...(effort ? ["--effort", effort] : [])];
 }
 
 const failure = "Claude could not complete this pass. Check Claude Code sign-in, model access and usage limits. No paid API fallback was attempted.";
-export function parseClaudeResult(output: string): { text: string; model: string; input: number; output: number; observedModels: string[] } {
-  const result = JSON.parse(output);
-  if (result.type !== "result" || result.subtype !== "success" || result.is_error || typeof result.result !== "string" || !result.result.trim() ||
+type ClaudeResult = { text: string; model: string; input: number; output: number; observedModels: string[] };
+export function parseClaudeResult(output: string): ClaudeResult {
+  return parseClaudeResultEvent(JSON.parse(output));
+}
+function parseClaudeResultEvent(value: unknown): ClaudeResult {
+  const result = (value && typeof value === "object" ? value : {}) as { type?: unknown; subtype?: unknown; is_error?: unknown; result?: unknown; modelUsage?: unknown };
+  const text = result.result;
+  if (result.type !== "result" || result.subtype !== "success" || result.is_error || typeof text !== "string" || !text.trim() ||
       !result.modelUsage || typeof result.modelUsage !== "object" || Array.isArray(result.modelUsage)) throw new Error(failure);
   const entries = Object.entries(result.modelUsage) as [string, { inputTokens?: number; outputTokens?: number; cacheReadInputTokens?: number; cacheCreationInputTokens?: number }][];
   const count = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 0;
@@ -63,7 +192,164 @@ export function parseClaudeResult(output: string): { text: string; model: string
   const tokensOut = entries.reduce((sum, [, usage]) => sum + usage.outputTokens!, 0);
   if (!count(input) || !count(tokensOut)) throw new Error(failure);
   const observedModels = entries.map(([model]) => model);
-  return { text: result.result, model: observedModels.length === 1 ? observedModels[0] : "multiple-models", input, output: tokensOut, observedModels };
+  return { text, model: observedModels.length === 1 ? observedModels[0] : "multiple-models", input, output: tokensOut, observedModels };
+}
+
+/** A research request the local boundary rejected; never accepted as evidence, never replayed (D-269). */
+export class ClaudeResearchError extends Error {
+  readonly providerFailure: ProviderFailure;
+  constructor(message: string, code: "local_web_action_limit" | "local_web_time_limit" | "local_web_research_boundary", readonly webSearches: number) {
+    super(message);
+    this.providerFailure = { disposition: "terminal", code, bodyShape: code === "local_web_time_limit" ? "transport" : "stream-error" };
+  }
+}
+export interface ClaudeResearchResult extends ClaudeResult {
+  /** Observed WebSearch searches plus WebFetch fetches, not a billing estimate. */
+  webSearches: number;
+  fetchedUrls: string[];
+  fetchedSources: { url: string; title: string; pageAge: null }[];
+  researchText: string;
+}
+/**
+ * A public web address by its name: http(s), no credentials, a dotted DNS name
+ * that is not an IP literal and not on {@link NON_PUBLIC_WEBFETCH_HOSTS}. This
+ * is a name check, not a network boundary: a public name that resolves to a
+ * private address is not detected (D-269 records that residual risk).
+ */
+export function publicWebUrl(raw: unknown): string | null {
+  if (typeof raw !== "string" || raw.length > 8_192) return null;
+  const url = canonicalizeFetchedUrl(raw);
+  if (!url) return null;
+  const parsed = new URL(url);
+  const host = parsed.hostname.toLowerCase().replace(/\.$/, "");
+  if (parsed.username || parsed.password || !host.includes(".") || /^[\d.]+$/.test(host) || NON_PUBLIC_HOST.test(host)) return null;
+  return url;
+}
+const UNCOMPLETED = "Claude did not complete the requested web research. No searched evidence was accepted and no paid fallback was attempted.";
+const INVALID_EVENT = "Claude returned invalid web-research event metadata. No paid fallback was attempted.";
+
+/**
+ * Reads the CLI's stream-json events for one research request (D-269). This is
+ * a LOCAL observation boundary, as on the ChatGPT route: the first observed
+ * action beyond the limit stops the CLI; it cannot undo work already run
+ * remotely. Counts and provenance come only from typed tool events: a
+ * WebSearch's result links and a WebFetch's input URL when the fetch returned
+ * HTTP 2xx. URLs in the model's prose never create provenance.
+ */
+export function claudeResearchObserver(maxActions: number, webFetch: WebFetchAllowlist = { domains: CLAUDE_WEBFETCH_FIXED_DOMAINS, hosts: [] }) {
+  const fetchable = allowedFetchHost(validatedAllowlist(webFetch));
+  const actions = new Map<string, { tool: ClaudeResearchTool; url?: string; input: string; weight: number; done: boolean }>();
+  let initialized = false;
+  const sources = new Map<string, { url: string; title: string; pageAge: null }>();
+  let final: ClaudeResult | undefined;
+  let serverSearches = 0;
+  const count = () => Math.max([...actions.values()].reduce((sum, action) => sum + action.weight, 0),
+    serverSearches + [...actions.values()].filter(action => action.tool === "WebFetch").length);
+  const reject = (message: string, code: "local_web_action_limit" | "local_web_research_boundary" = "local_web_research_boundary"): never => {
+    // D-269 review round 2: every failure reports the call-based count, so observed activity is never hidden.
+    throw new ClaudeResearchError(message, code, count());
+  };
+  const enforceLimit = () => {
+    if (count() > maxActions) reject(`Claude web research exceeded the local observed-action limit (${maxActions}). The CLI was stopped; remote work may already have run. No paid fallback was attempted.`, "local_web_action_limit");
+  };
+  const addSource = (raw: unknown, title: unknown = "") => {
+    const url = publicWebUrl(raw);
+    if (!url || !sources.has(url) && sources.size >= 200) return;
+    const existing = sources.get(url);
+    sources.set(url, { url, title: typeof title === "string" && title.trim() ? title.slice(0, 500) : existing?.title ?? "", pageAge: null });
+  };
+  const blocks = (event: Record<string, unknown>): unknown[] => {
+    const message = event.message as { content?: unknown } | undefined;
+    return Array.isArray(message?.content) ? message.content : [];
+  };
+  return {
+    line(raw: string): void {
+      if (!raw.trim()) return;
+      if (final) reject(INVALID_EVENT);
+      let event: unknown;
+      try { event = JSON.parse(raw); } catch { reject(INVALID_EVENT); }
+      if (!event || typeof event !== "object" || Array.isArray(event)) reject(INVALID_EVENT);
+      const item = event as Record<string, unknown>;
+      // Any event from a nested agent, of any type, rejects the research.
+      if (item.parent_tool_use_id !== undefined && item.parent_tool_use_id !== null) reject("Claude ran a nested agent during web research. No paid fallback was attempted.");
+      // The CLI's init event comes first, exactly once; nothing is read before it.
+      const isInit = item.type === "system" && item.subtype === "init";
+      if (isInit === initialized) reject(INVALID_EVENT);
+      initialized = true;
+      if (isInit) {
+        const tools = item.tools;
+        if (!Array.isArray(tools) || tools.some(tool => typeof tool !== "string" || !RESEARCH_TOOL_SET.has(tool)) ||
+            item.mcp_servers !== undefined && (!Array.isArray(item.mcp_servers) || item.mcp_servers.length > 0)) {
+          reject("Claude Code offered tools outside WebSearch and WebFetch. No paid fallback was attempted.");
+        }
+      } else if (item.type === "assistant") {
+        for (const block of blocks(item)) {
+          const type = block && typeof block === "object" ? (block as { type?: unknown }).type : undefined;
+          if (typeof type === "string" && type !== "tool_use" && /tool/.test(type)) reject("Claude returned an unrequested tool action. No paid fallback was attempted.");
+          if (type !== "tool_use") continue;
+          const { id, name, input } = block as { id?: unknown; name?: unknown; input?: unknown };
+          if (typeof name !== "string" || !RESEARCH_TOOL_SET.has(name)) reject("Claude returned an unrequested tool action. No paid fallback was attempted.");
+          if (typeof id !== "string" || !id || id.length > 256 || !input || typeof input !== "object") reject(INVALID_EVENT);
+          const args = input as { query?: unknown; url?: unknown };
+          if (name === "WebSearch" ? typeof args.query !== "string" : typeof args.url !== "string") reject(INVALID_EVENT);
+          // Stop the CLI the moment it is asked to fetch a non-public address.
+          if (name === "WebFetch" && !publicWebUrl(args.url)) reject("Claude asked to fetch a local, private or non-web address during web research. The CLI was stopped and no research was accepted. No paid fallback was attempted.");
+          // A reused id is a protocol violation unless it repeats the same block exactly.
+          const key = JSON.stringify([name, input]);
+          const existing = actions.get(id as string);
+          if (existing) { if (existing.input !== key) reject("Claude reused a tool call id for a different call during web research. No paid fallback was attempted."); continue; }
+          actions.set(id as string, { tool: name as ClaudeResearchTool, input: key, weight: 1, done: false, ...(name === "WebFetch" ? { url: args.url as string } : {}) });
+          enforceLimit();
+        }
+      } else if (item.type === "user") {
+        const results = blocks(item).filter(block => block && typeof block === "object" && (block as { type?: unknown }).type === "tool_result") as { tool_use_id?: unknown; is_error?: unknown }[];
+        for (const result of results) {
+          if (result.is_error !== undefined && typeof result.is_error !== "boolean") reject(INVALID_EVENT);
+          const action = typeof result.tool_use_id === "string" ? actions.get(result.tool_use_id) : undefined;
+          if (!action || action.done) reject(INVALID_EVENT);
+          action!.done = true;
+          // A typed result is attributed only when this event carries one tool result.
+          const typed = results.length === 1 && result.is_error !== true && item.tool_use_result && typeof item.tool_use_result === "object"
+            ? item.tool_use_result as { code?: unknown; results?: unknown; searchCount?: unknown } : undefined;
+          if (!typed) continue;
+          if (action!.tool === "WebFetch") {
+            // A source only when the fetch succeeded on an allowed site; a refused
+            // fetch outside the allowlist is a failed action, never a source.
+            const fetched = publicWebUrl(action!.url);
+            if (fetched && fetchable.test(new URL(fetched).hostname) && Number.isSafeInteger(typed.code) && (typed.code as number) >= 200 && (typed.code as number) < 300) addSource(fetched);
+            continue;
+          }
+          if (Number.isSafeInteger(typed.searchCount) && (typed.searchCount as number) > 1) action!.weight = typed.searchCount as number;
+          for (const entry of Array.isArray(typed.results) ? typed.results : []) {
+            const links = entry && typeof entry === "object" ? (entry as { content?: unknown }).content : undefined;
+            for (const link of Array.isArray(links) ? links : []) {
+              if (link && typeof link === "object") addSource((link as { url?: unknown }).url, (link as { title?: unknown }).title);
+            }
+          }
+          enforceLimit();
+        }
+      } else if (item.type === "result") {
+        if (item.is_error !== undefined && typeof item.is_error !== "boolean" ||
+            item.permission_denials !== undefined && !Array.isArray(item.permission_denials)) reject(INVALID_EVENT);
+        try { final = parseClaudeResultEvent(item); } catch { reject(UNCOMPLETED); }
+        // The CLI refuses WebFetch outside the allowlist; such a refusal is a
+        // failed fetch already counted above. Any other denial rejects the research.
+        if (Array.isArray(item.permission_denials) && item.permission_denials.some(denial => {
+          const entry = (denial && typeof denial === "object" ? denial : {}) as { tool_name?: unknown; tool_use_id?: unknown };
+          return entry.tool_name !== "WebFetch" || typeof entry.tool_use_id !== "string" || actions.get(entry.tool_use_id)?.tool !== "WebFetch";
+        })) reject("Claude Code denied a requested tool action during web research. No paid fallback was attempted.");
+        const usage = item.modelUsage as Record<string, { webSearchRequests?: unknown }>;
+        serverSearches = Object.values(usage).reduce((sum, entry) => sum + (Number.isSafeInteger(entry?.webSearchRequests) && (entry.webSearchRequests as number) > 0 ? entry.webSearchRequests as number : 0), 0);
+        enforceLimit();
+      }
+    },
+    finish(): ClaudeResearchResult {
+      if (!final) reject(UNCOMPLETED);
+      const fetchedSources = [...sources.values()].sort((a, b) => a.url.localeCompare(b.url));
+      return { ...final!, webSearches: count(), fetchedSources, fetchedUrls: fetchedSources.map(source => source.url), researchText: final!.text };
+    },
+    observed: count,
+  };
 }
 
 export function claudeIdentity(value: unknown): string {
@@ -74,7 +360,13 @@ export function claudeIdentity(value: unknown): string {
   return createHash("sha256").update(JSON.stringify([status.email, status.orgId ?? ""])).digest("hex");
 }
 
-async function invoke(args: string[], input = "", signal?: AbortSignal, timeoutMs = 30_000): Promise<string> {
+/**
+ * With `research`, each stdout line goes to its observer as it arrives; an
+ * observer rejection stops the CLI at once, and any other failure, including
+ * the local deadline, is a typed research rejection (never a replayable one).
+ */
+async function invoke(args: string[], input = "", signal?: AbortSignal, timeoutMs = 30_000,
+  research?: { line: (line: string) => void; observed: () => number }): Promise<string> {
   signal?.throwIfAborted();
   if (runtime().disconnecting) throw new Error("Claude is disconnecting; retry shortly.");
   const executable = claudeExecutable();
@@ -85,17 +377,39 @@ async function invoke(args: string[], input = "", signal?: AbortSignal, timeoutM
   child.stderr.resume(); // Never surface CLI diagnostics or account details.
   child.stdin.on("error", () => {});
   return new Promise((resolve, reject) => {
-    let output = ""; let canceled = false;
+    let output = ""; let canceled = false; let received = 0; let timedOut = false;
+    let rejected: Error | undefined;
     const decoder = new StringDecoder("utf8");
     const abort = () => { canceled = true; child.kill("SIGKILL"); };
-    const timer = setTimeout(abort, timeoutMs); timer.unref();
+    const timer = setTimeout(() => { timedOut = true; abort(); }, timeoutMs); timer.unref();
     const cleanup = () => { clearTimeout(timer); signal?.removeEventListener("abort", abort); runtime().children.delete(child); };
     signal?.addEventListener("abort", abort, { once: true });
-    child.stdout.on("data", (data: Buffer) => { output += decoder.write(data); if (output.length > 8_000_000) abort(); });
+    const observe = (text: string, end: boolean) => {
+      output += text;
+      if (!research || rejected) return;
+      try {
+        let newline: number;
+        while ((newline = output.indexOf("\n")) >= 0) { const line = output.slice(0, newline); output = output.slice(newline + 1); research.line(line); }
+        if (end && output) { const line = output; output = ""; research.line(line); }
+      } catch (error) { rejected = error instanceof ClaudeResearchError ? error : new ClaudeResearchError(INVALID_EVENT, "local_web_research_boundary", research.observed()); abort(); }
+    };
+    child.stdout.on("data", (data: Buffer) => {
+      const text = decoder.write(data); received += text.length;
+      if (received > MAX_OUTPUT_CHARS) {
+        if (research && !rejected) rejected = new ClaudeResearchError("Claude response exceeded the local size limit. No paid fallback was attempted.", "local_web_research_boundary", research.observed());
+        abort(); return;
+      }
+      observe(text, false);
+    });
     child.once("error", () => { cleanup(); reject(new Error("Claude Code could not start. Check the CLI installation.")); });
     child.once("close", code => {
-      cleanup(); output += decoder.end();
-      if (canceled || code !== 0) reject(new Error(failure)); else resolve(output);
+      cleanup();
+      if (!canceled && code === 0) observe(decoder.end(), true);
+      if (!research) { if (canceled || code !== 0) reject(new Error(failure)); else resolve(output); return; }
+      if (rejected) reject(rejected);
+      else if (timedOut) reject(new ClaudeResearchError("Claude web research reached the local time limit. No research was accepted and no paid fallback was attempted.", "local_web_time_limit", research.observed()));
+      else if (canceled || code !== 0) reject(new ClaudeResearchError("Claude web research ended before completion. No searched evidence was accepted and no paid fallback was attempted.", "local_web_research_boundary", research.observed()));
+      else resolve("");
     });
     if (signal?.aborted) abort(); else child.stdin.end(input);
   });
@@ -117,7 +431,9 @@ export async function connectClaude(): Promise<void> {
   });
 }
 
-export async function runClaude(id: string, model: string, prompt: string, signal?: AbortSignal, effort?: ChatGptEffort) {
+export async function runClaude(id: string, model: string, prompt: string, signal?: AbortSignal, effort?: ChatGptEffort): Promise<ClaudeResult>;
+export async function runClaude(id: string, model: string, prompt: string, signal: AbortSignal | undefined, effort: ChatGptEffort | undefined, research: { maxActions: number; webFetch: WebFetchAllowlist }): Promise<ClaudeResearchResult>;
+export async function runClaude(id: string, model: string, prompt: string, signal?: AbortSignal, effort?: ChatGptEffort, research?: { maxActions: number; webFetch: WebFetchAllowlist }): Promise<ClaudeResult | ClaudeResearchResult> {
   const generation = runtime().generation;
   const identity = await withAiStore(store => {
     claimAiRuntime(store);
@@ -127,7 +443,13 @@ export async function runClaude(id: string, model: string, prompt: string, signa
   const currentIdentity = claudeIdentity(JSON.parse(await invoke(["auth", "status"], "", signal)));
   if (identity !== currentIdentity) throw new Error("Claude Code's account changed. Reconnect in Settings before running a report.");
   if (runtime().generation !== generation || readAiStore()?.claude?.id !== id) throw new Error("Claude connection was canceled.");
-  return parseClaudeResult(await invoke(claudeRunArgs(model, effort), prompt, signal, 45 * 60_000));
+  if (!research) return parseClaudeResult(await invoke(claudeRunArgs(model, effort), prompt, signal, 45 * 60_000));
+  if (!Number.isSafeInteger(research.maxActions) || research.maxActions < 1) throw new Error("Invalid Claude research limit");
+  // Only fixed or re-validated entries reach the CLI's permission rules.
+  const webFetch = validatedAllowlist(research.webFetch);
+  const observer = claudeResearchObserver(research.maxActions, webFetch);
+  await invoke(claudeRunArgs(model, effort, { webFetch }), prompt, signal, CLAUDE_RESEARCH_TIMEOUT_MS, observer);
+  return observer.finish();
 }
 
 export async function disconnectClaude(): Promise<string> {
