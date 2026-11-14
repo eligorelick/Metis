@@ -100,7 +100,8 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
   // Standard is the only speed offered, and a saved Fast reads as Standard here.
   const fastOffered = model !== "" && chatGptFastOffered(model);
   const speed = fastOffered ? serviceTier : "default";
-  // A saved full model ID is not one of the aliases, so it opens the ID box too.
+  // A saved full model ID is not one of the aliases, so it opens the ID box too. Typing in the
+  // box sets the flag, so emptying it to enter another ID keeps the box open.
   const claudeCustom = customClaude || (model !== "" && !(CLAUDE_MODELS as readonly string[]).includes(model));
   return <Panel title="AI connections">
     <div className="space-y-3 text-sm">
@@ -164,7 +165,7 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
             {CLAUDE_MODELS.map(id => <option key={id} value={id}>{id}</option>)}
             <option value="custom">Other — enter a full model ID</option>
           </select></label>
-          {claudeCustom && <input aria-label="Claude model ID" placeholder="Full Claude model ID" className="w-full border border-edge bg-bg p-2" value={model} maxLength={128} disabled={busy} onChange={e => { dirty.current = true; setModel(e.target.value); }} />}
+          {claudeCustom && <input aria-label="Claude model ID" placeholder="Full Claude model ID" className="w-full border border-edge bg-bg p-2" value={model} maxLength={128} disabled={busy} onChange={e => { dirty.current = true; setCustomClaude(true); setModel(e.target.value); }} />}
           <p className="text-xs text-faint">Choose default, opus, sonnet, haiku, fable or best, or pick Other to enter a full Claude model ID. Aliases resolve through your installed CLI; account access may vary. Reports record the models returned by the CLI. Research uses the supplied financial evidence; web tools are disabled for this connection.</p>
           <label className="block">Claude reasoning effort<select className="mt-1 w-full border border-edge bg-bg p-2" value={effort} disabled={busy} onChange={e => { dirty.current = true; setEffort(e.target.value as ChatGptEffort | ""); }}>
             <option value="">CLI default</option>{CHATGPT_EFFORTS.map(level => <option key={level} value={level}>{level}</option>)}

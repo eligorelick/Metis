@@ -18,6 +18,16 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Claude CLI model is a dropdown (2026-11-13)
+
+- In Settings, the model for the local Claude Code connection was a text box
+  with a suggestion list. Browsers show only the suggestions that match the
+  text already in the box, so with `default` filled in no other model could be
+  picked. It is now a dropdown of `default`, `opus`, `sonnet`, `haiku`, `fable`
+  and `best`, with an "Other" entry that opens a box for a full model ID. A
+  saved full ID opens that box on load, and the box stays open while its text
+  is replaced. The value sent to the server and its validation are unchanged.
+
 ## Unreleased - README reorganized for first-time readers (2026-11-13)
 
 - The README's prose is split into paragraphs, lists and tables. New: a table

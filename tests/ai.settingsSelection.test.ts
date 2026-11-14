@@ -66,6 +66,11 @@ it("accepts a full Claude model ID and shows a saved one", async () => {
   expect(model.value).toBe("custom");
   const id = container.querySelector<HTMLInputElement>('input[aria-label="Claude model ID"]')!;
   expect(id.value).toBe("claude-opus-5-5");
+  // Deleting the saved ID to type another must keep the box open, not fall back to an alias.
+  await change(id, "");
+  expect(container.querySelector('input[aria-label="Claude model ID"]')).toBe(id);
+  expect(model.value).toBe("custom");
+  expect(Array.from(container.querySelectorAll("button")).find(b => b.textContent === "Save report connection")!.disabled).toBe(true);
   await change(model, "sonnet");
   expect(container.querySelector('input[aria-label="Claude model ID"]')).toBeNull();
   await change(model, "custom");
