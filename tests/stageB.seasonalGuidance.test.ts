@@ -217,7 +217,7 @@ describe("guidance on a seasonal and period-comparable basis", () => {
   });
   it("carries an annual base at the guided year-over-year pace", () => {
     const i = scenario(SEASONAL).inputs;
-    const a = build({ ...i, analystEstimates: null, incomeTtm: { ...i.incomeTtm!, date: "2025-12-31", basis: "annual", revenue: 1000e9 },
+    const a = build({ ...i, balance: { ...i.balance!, date: "2025-12-31" }, analystEstimates: null, incomeTtm: { ...i.incomeTtm!, date: "2025-12-31", basis: "annual", revenue: 1000e9 },
       quarterRevenue: { latest: { date: "2025-12-31", revenue: 280e9 }, yearAgo: null, guidedYearAgo: { date: "2025-03-31", revenue: 250e9, days: 90 } },
       guidance: { revenue: 270e9, periodStart: "2026-01-01", periodEnd: "2026-03-31", asOf: "2026-02-01", source: "synthetic release" } }).revenueAnchor!;
     expect(a.source).toBe("guidance");

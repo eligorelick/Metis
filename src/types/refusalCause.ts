@@ -107,6 +107,12 @@ export const GAP_CAUSES = [
   "invested-capital-temporary-equity-refused",
   /** G3: `LEASE_EMPTIED_CAPITAL_LEAD` on `valuation.dcf.salesToCapital`: the operating-lease removal empties invested capital. */
   "invested-capital-lease-emptied",
+  /**
+   * D-267 (P1, P13): on `valuation.dcf.bridgeBalanceDate`, a fiscal-year fallback DCF has no balance dated at its statement date, so
+   * the model value is withheld rather than built on another date's balance. New with D-267: no entry before it carries
+   * it, and its sentence never meant a withheld model before, so its legacy reading is false.
+   */
+  "dcf-balance-date-mismatch",
   /** G5: "temporary-equity SEC enrichment withheld: <reason>" for the whole balance date (`supplementTemporaryEquity` `refuse`). */
   "temporary-equity-enrichment-withheld",
   /** G5 (and the R4 sentence): "temporary-equity SEC enrichment withheld: vendor A/L/permanent-equity operands are missing, ..." for one category. */
