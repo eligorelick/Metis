@@ -36,6 +36,7 @@ telemetry (`telemetry.nextjs.org`). `.env.example` ships
 | Anthropic through the official Claude Code CLI | The research prompt and evidence payload for inference; authentication is handled by the CLI | You sign in using `claude auth login` or run a report through the local CLI; Metis never reads or stores the CLI's OAuth tokens |
 | Anthropic's server-side web search | Search queries the model composes, executed by Anthropic on its servers and subject to its search service behavior | A Claude analyst chooses to search; capped at `MAX_PROVIDER_WEB_SEARCHES` = 8 uses per request, including separate retry/resumption requests (`src/providers/anthropic.ts`) |
 | OpenAI's hosted web research | Model-composed queries and visited sources, handled by OpenAI's search service | A ChatGPT analyst runs the separate research request; local cancellation on the first observed action beyond eight search/open/find actions, a ten-minute deadline and a 16 MB stream limit; these cannot prevent work already performed remotely |
+| Claude Code's built-in WebSearch and WebFetch | Model-composed queries, run by Anthropic's search service, and the pages the model asks the CLI to fetch from your computer | A Claude Code analyst runs the separate research request; only those two tools are enabled; local cancellation on the first observed action beyond eight searches and fetches, a ten-minute deadline and an 8 MB output limit; these cannot prevent work already performed (D-269) |
 | Financial Modeling Prep (`financialmodelingprep.com`) | The symbol and endpoint parameters; `FMP_API_KEY` in an `apikey` header, never in the URL | `FMP_API_KEY` is set |
 | Yahoo (`query1.finance.yahoo.com`) | The symbol, chart parameters/date range and a product-identifying `User-Agent` (`YAHOO_DEFAULT_USER_AGENT`). **`EDGAR_CONTACT` is not used by the Yahoo client** | Quote or price history fallback is needed and FMP could not serve it |
 | FRED (`api.stlouisfed.org`, `fred.stlouisfed.org`) | Series ID, date range and transformation parameters; keyed requests include `FRED_API_KEY` as an `api_key` query parameter. The keyless `fredgraph.csv` fallback sends no credential | Macro series are requested; CSV also provides a fallback when keyed retrieval fails |
@@ -102,8 +103,8 @@ is disclosed. The database can cache full provider responses beyond what the
 model receives.
 
 ChatGPT requests set `store: false` and stream Responses API output. That
-request option does not establish zero retention by OpenAI. Subscription adapters expose no additional
-web-search tool; Claude analysts retain bounded server-side search. Metis
+request option does not establish zero retention by OpenAI. Analyst research on the ChatGPT and Claude Code connections uses only
+that provider's own web tools; Claude API analysts retain bounded server-side search. Metis
 does not train a model or change provider account data-use/retention policies.
 
 ## Keys
@@ -388,7 +389,7 @@ also be switched off for data-only reports.
 | Claude via local CLI | Official Claude Code 2.1.319+; run `claude auth login` in a terminal, then Connect local Claude Code | Your Claude account's model access, limits and extra usage settings |
 | Claude API | Optional `ANTHROPIC_API_KEY` | Separately billed Anthropic API usage |
 
-The Claude connection checks the CLI's authentication status and stores only an opaque connection ID and a hash of account identity. It invokes the unmodified CLI with safe mode, no built-in/MCP tools, no session persistence, and no inherited API keys. It does not copy OAuth tokens, implement a Claude.ai sign-in flow, or sign the CLI out when you disconnect Metis. Changing the CLI account requires reconnecting in Settings. Model aliases resolve through the CLI; observed models and token counts are recorded in reports. Remaining allowance is available at [Claude usage](https://claude.ai/settings/usage), not through Metis. See [Anthropic's current authentication rules](https://code.claude.com/docs/en/legal-and-compliance).
+The Claude connection checks the CLI's authentication status and stores only an opaque connection ID and a hash of account identity. It invokes the unmodified CLI with safe mode, no MCP servers, no session persistence, and no inherited API keys. Writers and judges run with no tools. The two analysts' separate research requests enable only the CLI's own WebSearch and WebFetch tools, with no shell, file or other tools (D-269). It does not copy OAuth tokens, implement a Claude.ai sign-in flow, or sign the CLI out when you disconnect Metis. Changing the CLI account requires reconnecting in Settings. Model aliases resolve through the CLI; observed models and token counts are recorded in reports. Remaining allowance is available at [Claude usage](https://claude.ai/settings/usage), not through Metis. See [Anthropic's current authentication rules](https://code.claude.com/docs/en/legal-and-compliance).
 
 ChatGPT sign-in opens normal Chrome, with a fallback link.
 Only one running Metis server per OS user can own connection lifecycles/inference;
@@ -403,8 +404,10 @@ ChatGPT analyst research can use the connected plan's hosted web search when
 the account and model allow it. OpenAI does not support `max_tool_calls` on this
 route, so Metis cancels locally on the first action beyond eight; the count
 includes search, open and find actions and is not an API charge estimate or a
-provider-side spending cap. The local Claude CLI uses supplied evidence only. The Claude API
-path retains bounded web search. Writers and judges have no search tools.
+provider-side spending cap. Claude Code analyst research uses only the CLI's built-in
+WebSearch and WebFetch tools and is stopped locally on the first action beyond
+eight searches and fetches; a web page never supplies a figure Metis computes
+from filings (D-269). The Claude API path retains bounded web search. Writers and judges have no search tools.
 Reports disclose observed actions and retained web evidence, including research
 reused from a checkpoint. Explicit local action/time limits and an unsupported
 search capability can continue to a tool-free writer on the same connection,

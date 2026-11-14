@@ -20,7 +20,7 @@ ChatGPT, effort and speed, or for Claude Code, an optional effort.
 | AI off | Fetch, validate and calculate locally; save a data-only report | No inference charge |
 | Claude API | `ANTHROPIC_API_KEY`; Anthropic Messages API | USD estimated from provider usage and the registry, or conservative presumed spend |
 | ChatGPT | Browser OAuth; OpenAI Responses API through the connected account | `$0` API cost; reported input/output tokens and execution evidence |
-| Claude Code | Your installed, unmodified Claude Code CLI 2.1.319+, signed in to your Claude subscription with `claude auth login`; Metis runs it locally with tools, hooks, MCP servers and session saving turned off, uses supplied evidence only (no web search), and never reads the CLI's OAuth tokens | `$0` API cost; the input tokens (cache reads and writes included) and output tokens the CLI reports, the model or models it reports, and the requested effort (the CLI does not report the effort it used). One complete report has run live through this route (2026-11-12; see the limits section) |
+| Claude Code | Your installed, unmodified Claude Code CLI 2.1.319+, signed in to your Claude subscription with `claude auth login`; Metis runs it locally with hooks, MCP servers and session saving turned off; writers and judges have no tools, and the two analysts' separate research requests have only the CLI's built-in WebSearch and WebFetch, stopped locally beyond eight actions (D-269); Metis never reads the CLI's OAuth tokens | `$0` API cost; the input tokens (cache reads and writes included) and output tokens the CLI reports, the model or models it reports, and the requested effort (the CLI does not report the effort it used). One complete report has run live through this route (2026-11-12; see the limits section) |
 
 A subscription report's `$0` means Metis records no API dollar charge. It does
 not mean free or unlimited provider usage, and Metis cannot read remaining
@@ -412,9 +412,9 @@ Effort was left at the CLI default, and the CLI did not report the effort it
 used. Every pass finished on its first attempt, the report saved and exported,
 no paid API fallback occurred, and Metis recorded $0 API cost. The CLI reported
 about 1.29 million input tokens (cache reads and writes included) and 118
-thousand output tokens; the run took about 17 minutes. Metis runs the CLI with
+thousand output tokens; the run took about 17 minutes. At that time Metis ran the CLI with
 its tools turned off, so the passes used only the supplied evidence and did no
-web research. One run is not a guarantee. It does not show how subscription
+web research; analyst web research on this route came later (D-269). One run is not a guarantee. It does not show how subscription
 usage limits apply on other accounts and plans (Metis cannot read remaining
 allowance), nor results with other models, efforts or companies, nor research
 quality.

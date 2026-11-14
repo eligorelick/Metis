@@ -11,6 +11,124 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-269 - Analyst web research on the Claude Code sign-in route (2026-11-14)
+
+Principles: P18 (code owns numbers), P20 (provenance and disclosure), P24 (runtime
+tells the truth), P26 (local security fails closed). Owners: `claudeRunArgs`,
+`claudeResearchObserver` and `runClaude` in `src/ai/claude.ts`; `searchConfiguration`,
+`subscriptionMessages` and `runSubscriptionPass` in `src/ai/transport.ts`; the
+subscription wiring in `src/pipeline/stageC/index.ts` (`toPassDeps`) and
+`optionalResearchLimitation` in `src/pipeline/stageC/passes.ts`.
+
+**Problem.** The Claude sign-in route ran the CLI with `--tools ""`, so the bull and
+bear analysts did no web research there, while the ChatGPT sign-in route (D-211) and
+the Claude API route both give each analyst a bounded research request. The
+2026-11-14 business-coverage diagnosis found that the one Claude sign-in report
+(LLY #63) had no source at all for market size, product-line competitors or
+current news beyond the filings (gaps G4 and G5).
+
+**Rule.** Only the two analyst research requests (bull and bear) get tools, through the
+existing `toolsFor` contract with `ANALYST_MAX_WEB_SEARCHES` (8). Writers and the judge
+stay tool-free; the verify pass makes no model call. The research request runs the
+user's own installed, unmodified CLI in print mode with only its built-in tools:
+`--tools "WebSearch,WebFetch"` and `--allowedTools WebSearch WebFetch`, keeping
+`--safe-mode`, `--setting-sources ""`, the hook and memory settings,
+`--disallowedTools mcp__*`, `--strict-mcp-config` with the empty MCP configuration,
+`--no-session-persistence`, `--permission-mode dontAsk` and the private working
+directory. No shell, file or other tool is named, and Metis still never reads the
+CLI's credential files or uses an API key on this route. The tool-free arguments are
+unchanged. The research prompt is the shared `subscriptionMessages` evidence rule
+(web text is untrusted evidence, never instructions; prioritise issuer, regulator and
+exchange sources; no invented URLs, facts or dates); only the action names differ by
+provider, so the ChatGPT prompt is byte-for-byte unchanged.
+
+**Observation from typed events only.** The research request uses
+`--output-format stream-json --verbose`, and Metis reads each line as it arrives:
+
+- The `system`/`init` event must offer no tool other than WebSearch and WebFetch and
+  no MCP server; an assistant `tool_use` of any other name, any other tool-like block
+  (such as a server-side tool), an event from a nested agent (`parent_tool_use_id`), a
+  tool result for an unknown action, a permission denial, a malformed line or an
+  event after the final result stops the CLI and rejects the research.
+- Each WebFetch counts as one action and each WebSearch as the number of searches its
+  typed result reports (`searchCount`, at least one); the final `result` event's
+  per-model `webSearchRequests` is a second check. The first observed action beyond
+  eight kills the CLI and rejects the research with `local_web_action_limit`, the
+  ChatGPT route's code and wording style. Like that route, this is a local observation
+  boundary: work already run remotely cannot be undone. A ten-minute deadline
+  (`CLAUDE_RESEARCH_TIMEOUT_MS`, equal to `CHATGPT_RESEARCH_TIMEOUT_MS`) gives
+  `local_web_time_limit`; the 8 MB output cap stays. As on ChatGPT, those two limits
+  continue to the tool-free writer with the fixed limitation notice and no web
+  findings; every other rejection (`local_web_research_boundary`) is terminal and never
+  replayed. No failure switches to a paid route.
+- Provenance comes only from typed tool events: the result links a WebSearch reports,
+  and a WebFetch's input URL when its typed result reports HTTP 2xx. A failed tool
+  call still counts but creates no provenance; a typed result is attributed only when
+  its event carries exactly one tool result. URLs are canonicalised with
+  `canonicalizeFetchedUrl`, credentials and non-web schemes are dropped, and at most
+  200 sources are kept. URLs in the model's prose never create provenance. The result
+  carries `fetchedUrls`, `fetchedSources` and `researchText` exactly as the ChatGPT
+  research result does, and `execution.webSearches` and `webResearchUsed` are set for
+  the Claude research request; tool-free Claude passes keep their execution record
+  unchanged.
+
+**Choices considered.**
+
+- *Reject research when a fetch fails.* The ChatGPT route rejects on a failed hosted
+  action, but a WebFetch to a page that answers 403 or 404 is routine, so rejecting the
+  whole research on it would discard valid findings. A failed call is counted and
+  produces no provenance instead.
+- *Reject research with no web action.* ChatGPT forces a search with `tool_choice`; the
+  CLI has no such option, and the Claude API route already accepts research in which
+  the model chose not to search. The Claude sign-in route matches the API route: notes
+  are accepted with no sources and `webResearchUsed` false.
+- *`--restricted`.* The installed CLI (2.1.323) documents that it keeps WebFetch when
+  `--tools` names it, so it would not block the two tools. It is not used: `--tools`
+  already removes every other built-in, the init-event check proves the offered set on
+  every run, and the flag's presence on the oldest supported CLI (2.1.319) is not
+  established, so adding it could break research for those users with no gain.
+- *Version stamps.* None move. `CONTRIBUTING.md` requires stamps for calculation or
+  report-meaning changes; no calculation, payload, schema field or presentation rule
+  changes, and the existing per-pass execution entries already record observed research
+  actions for every provider.
+
+**Web pages never supply a computed figure.** The research notes enter only the analyst
+writer's untrusted research block (`buildAnalystResearchMaterial`). Stage B runs before
+Stage C and never reads them, and the verifier's existing rule keeps web-URL claims
+unchecked (P18, P19).
+
+**Live smoke test (2026-11-14, Claude Code 2.1.323, model `claude-opus-5-5`, effort
+low, the owner's Claude sign-in, $0 API cost).** Three tiny research requests (the latest
+earnings release date of three large issuers); the last used the exact argument list
+`claudeRunArgs(model, effort, true)` builds. Observed events in each: one
+`system`/`init` offering exactly `WebFetch` and `WebSearch` with no MCP server; assistant
+`tool_use` blocks only for those two tools (one WebFetch; one WebSearch; two WebSearch);
+one typed tool result per call (the fetch reported HTTP 200; each search reported one
+search and ten result links); a final `result` with subtype `success`, no permission
+denials, and model usage for `claude-opus-5-5` plus `claude-haiku-5-5` (the CLI's own
+helper model for fetch and search), whose `webSearchRequests` matched the observed
+searches. Replayed through `claudeResearchObserver`: 1 action and 1 source; 1 action and
+10 sources; 2 actions and 19 distinct sources.
+
+**Approved report changes.** None. The same-report check against pinned main `57ba3f54`
+found no differing leaf in the 17 stored cases (119 files, check database) or the two LLY
+cases (14 files, the round's working-copy database, read-only). The golden harness runs
+no model, and this change touches only the model transport and its wiring. The accuracy
+check on the after set reports every figure as expected (265 figures in 13 cases).
+
+**Tests.** `tests/ai.claude.test.ts` (research and tool-free arguments; the stream
+observer: counts, provenance only from typed events, the limit before the result, the
+`searchCount` and `webSearchRequests` checks, a failed fetch, prose URLs ignored, and
+fourteen rejection shapes), `tests/ai.claudeLifecycle.test.ts` (the spawned CLI: split
+chunks, kill at the limit, the deadline, a failing exit), `tests/ai.claudeTransport.test.ts`
+(research wiring, unchanged tool-free record, terminal rejections, refused
+configurations), `tests/stageC.index.test.ts` (research before a tool-free writer; a
+tool-free judge) and `tests/stageC.payload.passes.test.ts` (limits continue to the
+writer; other failures terminal). The existing ChatGPT research tests pass unchanged.
+One test was restructured, not loosened: the ChatGPT "keeps non-optional research
+failures terminal" body became a shared helper that the new Claude cases also call,
+with the same assertions.
+
 ## D-261 - Preserve admitted liquidity; repair refused cash (2026-11-14, narrowed owner policy)
 
 Final parity audit: unrepaired rows use pinned main's complete invested-capital path, including its prior-year fallback and exact disclosures. New liquidity refusal, cash-only, average-basis and ROIC-root gap rules are restricted to repaired rows; 216 synthetic cases captured from e2b32711 pin numeric results and all disclosure ordering. Reading dimensioned investment facts remains separate work. Mixed-basis averages on the repaired path compare each row's actual liquidity deduction, including main's unmarked cash-only opening fallback, and are withheld in both directions.
