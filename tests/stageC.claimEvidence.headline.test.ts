@@ -90,7 +90,11 @@ describe("D-189 plain headline wording stays producer-bound", () => {
   const rote = record({ id: "computed.valuation.rote-the-return-p-tbv-is-read-against", label: "ROTE (the return P/TBV is read against)",
     origin: "computed.returns.rote", value: 20.7, unit: "percent", currency: null, asOf: "2025-12-31", fiscalPeriod: "FY2025" });
   const pe = record({ id: "computed.valuation.p-e-current-fy2025", label: "P/E (current, FY2025)", origin: "computed.valuation.multiples.peTtm",
-    value: 16.9, unit: "ratio", currency: null, period: "FY2025", fiscalPeriod: "FY2025" });
+    value: 16.9, unit: "ratio", currency: null, period: "FY2025", fiscalPeriod: "FY2025", componentDefinitions: ["price / epsDiluted"] });
+  it("D-274 refuses an annual diluted-EPS alias without its formula or on the aggregate formula", () => {
+    for (const componentDefinitions of [undefined, ["marketCap / common income"]])
+      expect(check("Price to earnings on FY2025 diluted EPS was 16.9 times.", { ...pe, componentDefinitions }).status).toBe("unchecked");
+  });
   const er = record({ id: "computed.valuation.excess-return-per-share", label: "excess-return per share", origin: "computed.valuation.excessReturn", value: 222.78, asOf: "2025-12-31" });
   const eps = record({ id: "payload.estimates.est-eps-2026-12-31", label: "est EPS 2026-12-31", origin: "fmp:analyst-estimates",
     kind: "provider", value: 24.69, period: "2026-12-31" });

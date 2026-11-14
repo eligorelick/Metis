@@ -22,7 +22,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 - Verify each independently described excerpt figure and confirm only when all pass; preserve shared period, modality and scope refusals and the ordered two-level table rule.
 - Omitted suffixes require explicit count/percentage metric wording and the same established source unit. No inferred currency, scale or new tolerance.
-- Add one producer-bound trailing diluted EPS multiple synonym with near-miss controls. Qualitative and web/news claims retain their boundaries.
+- Review round 1: retain all reviewer reproductions; refuse shared opening/tail qualifiers and missing shared description words, compare whole words, require explicit percentage-change units, and prevent count inference from bypassing a table scale.
+- Basis-specific diluted-EPS and aggregate common-income aliases require the cited producer record's exact formula; absent proof stays unverified. Annual aliases and alternate web/news citation prefixes obey the same refusal. Qualitative claims keep their treatment.
 - Report 1.87.0; no computed figure changes.
 
 ## Unreleased - A4 TSM same-report capture (P2, D-275) (2026-11-14)

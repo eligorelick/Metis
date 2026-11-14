@@ -12513,6 +12513,8 @@ history.
 
 ## D-182 - Findings from the first paid test (Haiku, META, 2026-11-03)
 
+**Revised by D-274 review round 1:** basis-specific P/E wording requires the cited record's own denominator formula. A producer id or generic P/E label alone does not establish diluted EPS versus aggregate common income.
+
 The owner allowed up to $25 of paid testing, tiered from cheaper to better models
 so that each tier's findings are fixed before the next. Tier 1 ran META with
 Haiku 4.5 analysts at medium effort (the judge is raised to the Sonnet 5.5 floor)
@@ -13042,6 +13044,8 @@ evidence and verification are in [the evidence report](2026-11-03-valuation-inpu
   its roughly 42% margin at a 7.03% WACC; the report's reverse DCF shows the gap.
 
 ## D-189 - Latest admitted financial book and producer-bound headline wording (2026-11-03)
+
+**Revised by D-274 review round 1:** basis-specific P/E wording requires the cited record's own denominator formula. A producer id or generic P/E label alone does not establish diluted EPS versus aggregate common income.
 
 **Opening book (Task A).** Decouple the financial-route opening balance from
 the availability of a complete trailing return. Select the newest quarterly
@@ -17549,6 +17553,8 @@ Conditional spend estimate using this repository's Opus 5.5 pricing (input $4/M 
 
 ## D-274 - Confirm independently bound excerpt figures (P18, P19; 2026-11-14)
 
+The initial implementation and measurements below are superseded by the review-round-1 rule and measurements at the end of this entry.
+
 The stored-report diagnosis found that the verifier refused independently described figures merely because a clause held several figures, and refused an explicit count metric without a suffix. The deterministic owner is claimEvidence.ts. Models do not assign verification or raise confidence. This revises the blanket multi-figure/unit-omission refusal of D-45/D-66, keeping their precision, metric, period and source rules.
 
 Each comma-delimited figure is checked by the ordinary per-figure matcher, and every figure must pass. Grouped digits and dates are preserved. A split that loses a shared period, base, forward-looking status or non-default scope/basis is refused. Unlabelled lists remain ambiguous. The existing two-level ordered-table comparison runs first and is unchanged. Conflicting values/directions remain contradicted; other gaps remain unverified.
@@ -17583,3 +17589,39 @@ Final adversarial check: an omitted suffix beside percentage points or basis poi
 Local validation: verifier/excerpt/refusal suite 757 passed; focused version/frozen checks 895 passed before the final compound-unit guard, and the verifier suite passed again after it. The required changed run completed 16,260 passing tests and two stale version-pin failures; both exact pins were updated and each failed test passed in a targeted rerun. Typecheck passed and lint has zero errors (one inherited unused-variable warning). The first frozen refresh wrote its two-leaf receipt but timed out in a child-process comparison under load; the ordinary frozen test then passed. A repeat refresh correctly refused a no-op because the record already matched. No test was weakened or skipped to pass.
 
 The supplemental final guard replays produce byte-identical report JSON for AMZN, META, MU, NVDA and LLY, so the measured counters and differing-leaf lists above also describe the final implementation.
+
+
+### D-274 review round 1 - Fail closed on shared qualifiers, units, scale and denominator proof
+
+The adversarial reviewer demonstrated new false confirmations in four classes. All 124 supplied reproductions were copied from the reviewer scratchpad into three verifier test files, replacing output-only loops with assertions and retaining their source/claim text. Before the repair, the assertions reproduced 18 failures across qualifier, percentage-unit and table-count cases. The P/E tests separately cover both denominator constructions, missing declarations, conflicting declarations and near misses.
+
+FC1: a comma split refuses a sentence-opening comma qualifier or a trailing shared both-description. Apart from a closed set of ordinary financial metric-head words, every description word must appear in every figure's own description, using whole-word token equality. Unknown words are potential shared scope/basis, never silently discarded. Shared period, comparison base, modality and the ordered two-level pattern retain their existing checks. Repeated scope has a positive control; segment versus segments has a refusal control. This is a conservative admission gate, not a new semantic matcher.
+
+FC2: omitted-unit inference refuses point/points/pt/pts/ppt/ppts/pp/bp/bps words and any percentage metric describing a change. A percentage change needs explicit units on claim and source. The inference still accepts independently bound, unambiguous level percentages and integer counts.
+
+FC3: no count unit is inferred for a bare table cell under a declared scale, including an undated flattened count passage. Independently established count units obey the existing table scale, as currency and shares already do. Both the incorrect unscaled count and the correctly scaled claim against a bare, unit-unestablished cell remain unverified; the latter is no longer falsely contradicted. No table unit or number is guessed.
+
+FC4: the peTtm producer computes either price over diluted EPS or market capitalization over common income. Its numeric provenance record currently omits valuation.ts's basis text, so the generic label proves neither. Both basis-specific synonyms now require one exact producer formula in the cited record's existing componentDefinitions metadata; missing, conflicting and other definitions refuse. The existing annual diluted-EPS alias is the same sibling defect and now requires the same proof. No basis is reconstructed from the ratio's value or source id. These stored records therefore lose the three initial LLY confirmations instead of gaining unproved formula metadata. Carrying new formula evidence into future registry records is outside this verifier-only repair.
+
+The copied reproductions also expose new inference through fmp:news, www and web: prefixes. These are the same forbidden web/news confirmation class and now share the existing numeric refusal. Numberless qualitative treatment is unchanged.
+
+Test revisions: headline.test.ts's positive annual fixture now explicitly declares its diluted-EPS formula, with new missing/wrong formula refusals. r7.test.ts row 21 now expects unverified because its frozen record lacks denominator proof; a new positive case supplies the exact aggregate formula and a control supplies the wrong formula. recordMetric.test.ts likewise supplies explicit formula proof to the old positive and adds absent/conflicting/opposite-formula cases. No old value/unit/date or near-miss control is removed. These strengthen P19 and supersede D-182/D-189's basis-specific producer-id-only admission. No numerical tolerance, computed figure, confidence status vocabulary, stored database, saved report or version stamp changes in this review repair.
+
+Final clause-order safeguard: run the original per-figure clause rule before trying the new comma admission. A clause that already passes retains its bindings and is never split; the new guard governs only a split needed for confirmation. This preserves the two stored LLY sensitivity claims that already validated on main. A new direct-clause positive control accompanies all reviewer reproductions, whole-word scope and repeated-scope controls (127 copied/extended reproduction cases total).
+
+
+**Final review-round-1 same-report measurements.** Main was fetched and merged normally at 73b9a44a5634. The complete 17-case regression and two LLY cases were replayed against main, then all five fixed-analyst cases were replayed again after the direct-clause safeguard. Every Stage B output and payload fingerprint remains identical. All 19 report JSONs change only version and verifier disclosures: AMZN 7 leaves, META 1, MU 8, NVDA 7, LLY fixed-analyst 64; every data-only case 1. Refusal notes/reasons account for every additional leaf. No claim text, numeric financial value, coverage counter or validation status differs from main. Reader export changes follow those notes/version and report identities.
+
+| Fixed analyst case | Main numeric matches | Final numeric matches | Rate |
+|---|---|---|---|
+| amzn-fixed-analyst | 35/125 | 35/125 | 28.00% |
+| meta-fixed-analyst | 44/128 | 44/128 | 34.38% |
+| mu-fixed-analyst | 37/138 | 37/138 | 26.81% |
+| nvda-fixed-analyst | 34/120 | 34/120 | 28.33% |
+| lly-fixed-analyst | 77/319 | 77/319 | 24.14% |
+
+Compared with the reviewed PR head 5c395faf, LLY falls from 80/319 to 77/319: the three repeated trailing diluted-EPS aliases return to unverified because their record does not prove that formula. All four other analyst rates stay unchanged. Compared with main, no claim flips into or out of confirmation. Each diagnosed bucket has zero new confirmations: computed paraphrase, excerpt multi-figure/unit omission, retained-text mismatch and web/news. The requested list of newly confirmed claims with matched excerpt text is empty; tmp/d274-round1-lly-flips.json and tmp/d274-round1-measurements.json retain the local audit output (uncommitted).
+
+Accuracy matches all existing expectations: 265 figures, 173 match, 5 mismatch, 61 gap, 26 not-established. No expectation update. Focused verifier/excerpt/refusal checks pass 886 tests, including all 124 copied reproductions plus 3 controls, and new formula tests. New-file risk/release checks passed on the run whose only failure was the now-revised frozen row 21 assertion; the final verifier run passes that strengthened row and its new formula controls. Typecheck and lint pass (one inherited unused-variable warning). The required changed sweep is recorded at delivery.
+
+Final changed sweep: 646 test files passed; 16,391 tests passed, one existing skipped test, zero failing tests. PowerShell redirection classified the emitted Vitest configuration warning as NativeCommandError and returned wrapper exit 1, despite the complete passing test summary; no test or timeout was changed for this warning.

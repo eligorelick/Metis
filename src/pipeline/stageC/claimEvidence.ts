@@ -983,6 +983,7 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
   for (const form of [...forms]) { const bare = withoutAxis(form); if (bare !== null) forms.add(bare); }
   for (const form of [...forms]) { const bare = withoutRestatedAcronyms(form); if (bare !== null) forms.add(bare); }
   if (record.kind === "computed") {
+    const peBasis = record.componentDefinitions?.length === 1 ? record.componentDefinitions[0] : undefined;
     // D-187: names belong to these producers, never to arbitrary numeric rows.
     if (record.id === "computed.valuation.dcf-per-share" && record.origin === "computed.valuation.dcf" &&
       record.unit === "currency-per-share" && label === "DCF per share") forms.add("DCF base-case value per share");
@@ -1001,7 +1002,7 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (houseAspectScore(record) && label === "balanceSheet score") forms.add("balance sheet score");
     const annualPe = /^P\/E \(current, (FY\d{4})\)$/.exec(label)?.[1];
     if (annualPe && record.origin === "computed.valuation.multiples.peTtm" && record.unit === "ratio" &&
-      record.id === `computed.valuation.p-e-current-${annualPe.toLowerCase()}` && record.period === annualPe && record.fiscalPeriod === annualPe)
+      record.id === `computed.valuation.p-e-current-${annualPe.toLowerCase()}` && record.period === annualPe && record.fiscalPeriod === annualPe && peBasis === "price / epsDiluted")
       forms.add(`price to earnings on ${annualPe} diluted EPS`);
     if (record.origin === "computed.valuation.multiples.evToEbitda" && record.unit === "ratio" && label === "evToEbitda (current)")
       forms.add("EV/EBITDA");
@@ -1031,10 +1032,12 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (record.unit === "score" && /^computed\.scores\.[a-z]+$/.test(record.origin) &&
       record.id.startsWith("computed.deterministic-aspect-scores.") && /^[a-z]+ score$/.test(label)) forms.add(`quantitative ${label}`);
     if (record.origin === "computed.valuation.multiples.peTtm" && record.unit === "ratio" && label === "peTtm (current)") {
-      forms.add("price to trailing diluted EPS multiple"); // D-274: producer-bound trailing diluted earnings.
+      // D-274 review FC4: the producer has two different denominators. A generic
+      // P/E label proves neither one; absent a declared formula, neither alias binds.
+      if (peBasis === "price / epsDiluted") forms.add("price to trailing diluted EPS multiple");
       forms.add("P/E TTM (current)");
       forms.add("trailing price to earnings multiple");
-      forms.add("market capitalization to trailing common earnings");
+      if (peBasis === "marketCap / common income") forms.add("market capitalization to trailing common earnings");
       // D-182 (TSM paid run): "The trailing P/E was 26.4x" named this record but read as no metric.
       forms.add("trailing P/E");
       forms.add("trailing price to earnings");
@@ -1426,7 +1429,7 @@ function isPerShareCell(quantity: Quantity, column: { scale: number | null; exce
  */
 function tableScaleFor(quantity: Quantity, column: { scale: number | null; exceptPerShare: boolean; label: string } | undefined): number {
   if (column === undefined || quantity.scaled) return 1;
-  if (quantity.unit !== "currency" && quantity.unit !== "shares" && quantity.unit !== null) return 1;
+  if (quantity.unit !== "currency" && quantity.unit !== "shares" && quantity.unit !== "count" && quantity.unit !== null) return 1;
   if (isPerShareCell(quantity, column)) return 1;
   return column.scale ?? 1;
 }
@@ -1588,10 +1591,13 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
 // Never infer money, scale or currency from a convenient matching value.
 function excerptMetricUnit(quantity: Quantity, label: string): Quantity {
   if (quantity.unit !== null) return quantity;
-  if (/\b(?:percentage[\s-]+points?|basis[\s-]+points?)\b/i.test(label)) return quantity;
+  if (/\b(?:points?|pts?|ppts?|pp|bps?)\b/i.test(label)) return quantity;
   const count = /\bcount\b/i.test(label);
   const percent = /\b(?:percent|percentage)\b/i.test(label);
   if (count === percent) return quantity;
+  // A change in a percentage can be a relative percent or a point change.
+  // The metric's name alone establishes neither one.
+  if (percent && findDirectionWords(label).length > 0) return quantity;
   if (count && (!Number.isInteger(quantity.value) || quantity.step < 1)) return quantity;
   return { ...quantity, unit: count ? "count" : "percent" };
 }
@@ -1650,7 +1656,9 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const aliases = column.period.kind === "period" ? (/^Q[1-4]/.test(column.period.key) ? [column.period.key] : []) : inherited.some((period) => period.kind === "date" && period.key === column.period.key) && (column.window === null || column.window.key === "quarter")
           ? inherited.filter((period) => period.kind === "period").map((period) => period.key)
           : [];
-        const dollarCell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true } : excerptMetricUnit(quantity, bareLabel);
+        const dollarCell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true }
+          : quantity.unit === null && column.scale !== 1 && /\bcount\b/i.test(bareLabel) ? quantity
+            : excerptMetricUnit(quantity, bareLabel);
         const tableColumn = { scale: column.scale, aliases, date: column.period.key, exceptPerShare: column.exceptPerShare, label: column.label };
         // AI-403: a decimal cell of an "except per share data" table is the per-share line, in dollars, and is never scaled.
         const cell = dollarCell.unit === "currency" && isPerShareCell(dollarCell, tableColumn) ? { ...dollarCell, unit: "currency-per-share" as const } : dollarCell;
@@ -1709,7 +1717,9 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
       const forwardLooking = FORWARD_LOOKING.test(own.text);
       // AI-503: a comparison base is not a figure of the excerpt's reporting period.
       const noPeriod = forwardLooking || own.base;
-      return { quantity: excerptMetricUnit(quantity, own.own), context: own, inherited: noPeriod ? [] : inherited, inheritedWindows: noPeriod ? new Set<string>() : inheritedWindows, forwardLooking, yearEnd, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
+      const scaledCount = quantity.unit === null && /\bcount\b/i.test(own.own) &&
+        [...body.text.slice(0, quantity.start).matchAll(TABLE_SCALE)].length > 0;
+      return { quantity: scaledCount ? quantity : excerptMetricUnit(quantity, own.own), context: own, inherited: noPeriod ? [] : inherited, inheritedWindows: noPeriod ? new Set<string>() : inheritedWindows, forwardLooking, yearEnd, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
         levelBeforeComparison: /^\s*,?\s*(?:up|down|higher|lower)\s+from\b/i.test(body.text.slice(quantity.end)),
         span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + own.start, end: body.start + own.end, text: own.text } };
     });
@@ -1798,6 +1808,8 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   index?: ClaimEvidenceIndex;
   seriesLatest?: ReadonlyMap<string, string>;
   registry?: readonly NumericProvenanceRecord[];
+  /** Internal: compare the unchanged clause before attempting a comma split. */
+  independentFigures?: boolean;
 }): ClaimNumericSupport {
   const record = options.record;
   if (record) claim = { ...claim, text: componentContext(claim.text, declaredDefinitions(record)).text };
@@ -1822,7 +1834,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   const stated = quantities(typedText);
   if (stated.length === 0) return support(statesNumberWord(claim.text) ? "unchecked" : "cited", "supported",
     "citation observed; factual content not machine-validated");
-  if (record === undefined && /^(?:https?:|news:)/i.test(options.sourceId))
+  if (record === undefined && /^(?:https?:|(?:fmp:)?news:|www\.|web:)/i.test(options.sourceId))
     return support("unchecked", "text-source", "web and news citations cannot establish filing figures");
   if (record !== undefined) {
     if (stated.length !== 1) return support("unchecked", "text-ambiguous", "one numeric record cannot bind multiple prose quantities");
@@ -1997,12 +2009,28 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   const spans: ClaimSourceSpan[] = [];
   // D-274: commas between independently described figures are clause boundaries.
   // Preserve grouped digits and dates; ordered comparisons above retain their owner.
-  if (stated.length > 1) {
+  if (stated.length > 1 && options.independentFigures !== false) {
     const dates = [...claim.text.matchAll(HEADER_DATE)];
     const separated = claim.text.replace(/,(?=\s+[A-Za-z])/g, (comma, at: number) =>
       !dates.some(date => at >= date.index && at < date.index + date[0].length) &&
       stated.some(q => q.end <= at) && stated.some(q => q.start > at) ? ";" : comma);
     if (separated !== claim.text) {
+      // Preserve a clause the ordinary per-figure rules already establish.
+      // The new admission gate applies only when splitting is needed to verify it.
+      const direct = validateClaimNumericSupport(claim, { ...options, independentFigures: false });
+      if (direct.status === "validated") return direct;
+      const opening = claim.text.slice(0, stated[0]!.start).replace(HEADER_DATE, date => " ".repeat(date.length));
+      if (opening.includes(",") || /\bboth\b/i.test(claim.text.slice(stated.at(-1)!.end)))
+        return support("unchecked", "text-ambiguous", "a shared opening qualifier or trailing description cannot be split between figures");
+      // Only ordinary financial metric heads belong uniquely to a figure here.
+      // All other description words may be shared scope/basis and must recur in
+      // every figure's own description. This is a refusal gate, never a synonym.
+      const descriptions = stated.map(q => ownDescriptionTokens(claimContext(separated, q, stated).own, []));
+      const metricWords = new Set(["consolidated", "total", "revenue", "gross", "operating", "net", "income", "margin",
+        "earnings", "profit", "eps", "cash", "flow", "capital", "expenditure", "asset", "assets", "debt", "equity"]);
+      const shared = descriptions.flat().filter(word => !metricWords.has(word));
+      if (shared.some(word => descriptions.some(words => !words.includes(word))))
+        return support("unchecked", "text-ambiguous", "a shared description word is not established for every figure");
       // Splitting must never erase a shared period, comparison base or modality.
       for (const q of stated) {
         const before = claimContext(claim.text, q, stated);
@@ -2013,11 +2041,12 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
           return support("unchecked", "text-ambiguous", "independent figures do not retain their shared period or modality");
         // Non-default scope/basis stated before a list may govern every member.
         // Require it to be repeated rather than silently dropping it at a comma.
-        const qualifiers = before.text.match(/\b(?:segment|parent|subsidiary|non-gaap|adjusted|excluding)\b/gi) ?? [];
-        if (qualifiers.some(word => !after.text.toLowerCase().includes(word.toLowerCase())))
+        const qualifiers = ownDescriptionTokens(before.text, []).filter(word => !metricWords.has(word));
+        const afterWords = ownDescriptionTokens(after.text, []);
+        if (qualifiers.some(word => !afterWords.includes(word)))
           return support("unchecked", "text-ambiguous", "independent figures do not retain their shared scope or basis");
       }
-      return validateClaimNumericSupport({ ...claim, text: separated }, options);
+      return validateClaimNumericSupport({ ...claim, text: separated }, { ...options, independentFigures: false });
     }
   }
   for (const printed of stated) {
