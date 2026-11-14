@@ -6,7 +6,7 @@ import { confirmedQuarterResultsSchedules } from "@/edgar/earningsSchedule";
 export { EVIDENCE_SELECTION_VERSION } from "@/report/versions";
 export { NOTES_RISK_SELECTION_VERSION } from "@/report/versions";
 export { EVENT_SELECTION_VERSION } from "@/report/versions";
-export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs", "operating-costs", "commercial-terms"] as const;
+export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs", "operating-costs", "commercial-terms", "ip-exclusivity", "development-capacity", "competition", "customers", "suppliers-manufacturing"] as const;
 /**
  * D-63: 10-K Item 1 (Business) families. A business description carries few
  * figures, so the financial families above found almost nothing in it; these
@@ -14,7 +14,7 @@ export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "t
  * ecosystem, the product roadmap, customers, suppliers and manufacturing,
  * competitors, export and other regulation, and the executive officers.
  */
-export const BUSINESS_CATEGORIES = ["platform-software", "products-roadmap", "customers", "suppliers-manufacturing", "competition", "regulation-export", "officers", "commercial-terms", "reporting-changes"] as const;
+export const BUSINESS_CATEGORIES = ["platform-software", "products-roadmap", "customers", "suppliers-manufacturing", "competition", "regulation-export", "officers", "commercial-terms", "reporting-changes", "ip-exclusivity", "development-capacity"] as const;
 /**
  * D-63: the latest 10-Q's notes to the financial statements. D-66: the 10-K's
  * notes are read with the same families, and business combinations (a deal's
@@ -62,6 +62,8 @@ const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
   "commercial-terms": /\b(?:warrants?|exercise price|reduction (?:of|in|to) revenue|contra.revenue|commercial agreement|design.win|deployment|purchase milestones)\b/i,
   "reporting-changes": /\b(?:reportable segment|nonreportable businesses|segment (?:reclassification|recast)|recast (?:prior|comparative))\b/i,
   "platform-software": /\b(?:software|platforms?|ecosystems?|developers?|librar(?:y|ies)|SDKs?|frameworks?|APIs?|CUDA|operating systems?|installed base)\b/i,
+  "ip-exclusivity": /\b(?:patents?|data protection|(?:regulatory |market )?exclusivity|expir(?:y|ation|es)|(?:licen[cs]e|contract|franchise|concession) terms?)\b/i,
+  "development-capacity": /\b(?:Phase\s*(?:[1-3]|I{1,3})|submitted|approved|launch(?:ed|es)?|pipeline|roadmap|nodes?|fabs?|plants?|capacity|start of production)\b/i,
   "products-roadmap": /\b(?:architectures?|roadmap|launch(?:ed|es)?|introduc(?:ed|es)|unveil(?:ed|s)?|next[- ]generation|new products?|product (?:transitions?|cycles?|lines?)|production shipments?|commence production)\b/i,
   customers: /\b(?:customers?|clients?|end markets?|hyperscalers?|cloud service providers?|CSPs)\b/i,
   "suppliers-manufacturing": /\b(?:suppliers?|foundr(?:y|ies)|wafers?|manufactur(?:e|ed|ing|ers?)|subcontractors?|supply chains?|packaging|memory|components?|capacity)\b/i,
@@ -219,7 +221,7 @@ const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
     prose: { bonus: /\b(?:expected to (?:commence|begin|ship|launch|be available)|roadmap|unveiled|next[- ]generation|joined [A-Z][\w.&-]* in (?:19|20)\d{2}|(?:has|have) served as|co-founded|foundr(?:y|ies)|competitors include|customers include)\b/i },
   },
   risk: {
-    categories: [...BUSINESS_CATEGORIES.filter((category) => category !== "officers" && category !== "platform-software"),
+    categories: [...BUSINESS_CATEGORIES.filter((category) => category !== "officers" && category !== "platform-software" && category !== "ip-exclusivity" && category !== "development-capacity"),
       "investments", "commitments-guarantees", "results", "guidance", "capex-liquidity", "tax", "exceptional", "internal-controls", "contingencies"],
     critical: criticalDisclosure,
     prose: { bonus: /\b(?:depend(?:s|ent)? on|rel(?:y|ies|iant) on|concentrat\w*|sole[- ]source|single[- ]source|limited number of (?:customers|suppliers)|export controls?|significant portion of (?:our )?(?:revenue|sales))\b/i },
@@ -234,7 +236,7 @@ const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   // The operative paragraph of an 8-K item: its dated lead, the parties it
   // names and the amounts it commits (a cap, a purchase price).
   event: {
-    categories: MATERIAL_CATEGORIES,
+    categories: MATERIAL_CATEGORIES.filter(category => !["ip-exclusivity", "development-capacity", "competition", "customers", "suppliers-manufacturing"].includes(category)),
     priorityTier: eventPriorityTier,
     abbreviations: true,
   },
@@ -381,6 +383,12 @@ function contextLinks(all: readonly Passage[], profile: EvidenceProfile): Map<Pa
   };
   for (let i = 0; i < all.length; i++) {
     const passage = all[i]!;
+    // D-270: numbered/lettered footnotes remain attached to their schedule.
+    if ((profile === "business" || profile === "financial" || profile === "interim") && passage.table && ISSUER_SCHEDULE_HEADER.test(passage.text)) {
+      for (let j = i + 1; j < all.length && FOOTNOTE.test(all[j]!.text); j++) bind(passage, all[j]!);
+      const previous = all[i - 1];
+      if (previous && /(?:as follows|following table|table below)[^:]*:\s*$/i.test(previous.text)) bind(previous, passage);
+    }
     // Commercial upside and its consideration, timing and accounting terms
     // are one reading. Keep bounded adjacent referents with the originating
     // transaction; if the group cannot fit, omit it rather than detach terms.
@@ -518,13 +526,36 @@ export function selectGovernanceEvidence(text: string, maxChars: number): Select
     coverage: { version: "governance-evidence-1", retainedChars, omittedChars, categories: [] } };
 }
 
+/** D-270: explicit schedule headers, not numeric density or a passing keyword. */
+const ISSUER_SCHEDULE_HEADER = /\b(?:Product\s+Protection\s+Territory|Estimated Expiry(?: Date)?|(?:Compound|Product|Program)\s+Indication(?:\/Study)?\s+(?:Status|Stage)|Pipeline\s+(?:Product|Program|Stage)|(?:Product|Customer|Segment|Capacity)\s+(?:Name\s+)?(?:Stage|Revenue|Sales|Capacity|Expected|Concentration))\b/i;
+
 function passages(text: string, profile: EvidenceProfile): Passage[] {
   const { categories: families, prose, abbreviations } = PROFILES[profile];
   const contextual = profile === "notes" || profile === "interim" || profile === "event";
   // Numbered clauses in an 8-K sentence are not table footnotes.
   const split = profile === "event" ? new RegExp(CONTEXT_BOUNDARY.source.replace(String.raw`\s+(?=\(\d{1,2}\)\s+[A-Z])|`, ""), "g")
     : contextual ? CONTEXT_BOUNDARY : prose !== undefined || abbreviations === true ? PROSE_BOUNDARY : FINANCIAL_BOUNDARY;
-  const boundaries = [0, ...[...text.matchAll(split)].map((match) => match.index + match[0].length), text.length];
+  // Source paragraph breaks bound a block. Flattened schedules keep the
+  // entire block with its lead and qualifications; never guess interior rows.
+  const sourceBlocks = [...text.matchAll(/(?:[^\n]|\n(?![ \t]*\n))+/g)];
+  const scheduleBlocks: { start: number; end: number }[] = [];
+  if (profile === "business" || profile === "financial" || profile === "interim") {
+    for (let i = 0; i < sourceBlocks.length; i++) {
+      const block = sourceBlocks[i]!;
+      if (!ISSUER_SCHEDULE_HEADER.test(block[0])) continue;
+      const previous = sourceBlocks[i - 1];
+      const start = previous && /(?:as follows|following table|table below)[^:]*:\s*$/i.test(previous[0]) ? previous.index : block.index;
+      let end = block.index + block[0].length;
+      // A footnote is one source paragraph, including all of its sentences.
+      while (sourceBlocks[i + 1] && (FOOTNOTE.test(sourceBlocks[i + 1]![0]) || /^\s*(?:\*|Notes?:)/i.test(sourceBlocks[i + 1]![0]))) {
+        const footnote = sourceBlocks[++i]!;
+        end = footnote.index + footnote[0].length;
+      }
+      scheduleBlocks.push({ start, end });
+    }
+  }
+  const boundaries = [...new Set([0, ...[...text.matchAll(split)].map((match) => match.index + match[0].length), text.length, ...scheduleBlocks.flatMap(block => [block.start, block.end])])]
+    .filter(at => !scheduleBlocks.some(block => at > block.start && at < block.end)).sort((a, b) => a - b);
   const out: Passage[] = [];
   for (let i = 1; i < boundaries.length; i++) {
     let start = boundaries[i - 1];
@@ -532,14 +563,15 @@ function passages(text: string, profile: EvidenceProfile): Passage[] {
     while (start < stop) {
       // Whole sentences and flattened tables are atomic in the filing reading.
       // Oversized units are omitted with coverage, never printed as half a row.
-      let end = contextual ? stop : Math.min(stop, start + 1_100);
+      const scheduleBlock = scheduleBlocks.some(block => start === block.start && stop === block.end);
+      let end = contextual || scheduleBlock ? stop : Math.min(stop, start + 1_100);
       if (end < stop) {
         const space = text.lastIndexOf(" ", end);
         if (space > start + 700) end = space;
       }
       const body = text.slice(start, end);
       if (body.trim() !== "") {
-        const categories = families.filter((category) => CATEGORY_PATTERNS[category].test(body));
+        const categories = families.filter((category) => (CATEGORY_PATTERNS[category].test(body) || (profile === "business" && category === "products-roadmap" && /\b(?:products?|services?|therapies|medicines|indications?|clinical|pipeline|Phase\s*[1-3]|submitted|approved)\b/i.test(body))));
         // An 8-K award "for 4,912 shares" ranks with the dollar amounts (AI-101).
         const quantities = (body.match(/\d[\d,.]*\s*(?:%|billion|million)|\$\s*\d/g) ?? []).length +
           (profile === "event" ? (body.match(/\b\d[\d,]*\s+shares\b/g) ?? []).length : 0);
@@ -553,6 +585,7 @@ function passages(text: string, profile: EvidenceProfile): Passage[] {
           table = isTable(body, contextual);
           if (table) score -= 12;
         }
+        if (scheduleBlock) table = true;
         out.push({ start, end, text: body, categories, score, table });
       }
       start = end;
@@ -603,6 +636,8 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   }).length) : 0;
   const reserve = text.length > budget ? Math.min(budget, 210 + coverageCost) : 0;
   let remaining = budget - reserve;
+  const issuerSchedules = profile === "business" || profile === "financial" || profile === "interim";
+  let issuerTableTurn = false;
   const add = (passage: Passage, limit = remaining): boolean => {
     if (selected.includes(passage)) return true;
     // A remaining commitment often refers to the investment in the preceding
@@ -638,6 +673,7 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
         if (!selected.includes(linked) && !additions.includes(linked)) additions.push(linked);
       }
     }
+    if (issuerSchedules && !issuerTableTurn && additions.some(candidate => candidate.table && ISSUER_SCHEDULE_HEADER.test(candidate.text))) return false;
     const cost = profile === "financial"
       ? additions.reduce((sum, candidate) => sum + candidate.text.length, 0) +
         separator.length * (selected.length > 0 ? additions.length : additions.length - 1)
@@ -701,18 +737,21 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
     }
     // Primary statement tables first (see PRIMARY_TABLE); a table split across
     // passages keeps its directly following row passages with it.
-    if (profile === "interim") {
+    if (profile === "interim" || profile === "business" || profile === "financial") {
       const cap = Math.floor(budget * PRIMARY_TABLE_SHARE);
       let used = 0;
-      for (const passage of all.filter((candidate) => candidate.table && PRIMARY_TABLE.test(candidate.text.slice(0, 400)))) {
+      for (const passage of all.filter((candidate) => candidate.table && (ISSUER_SCHEDULE_HEADER.test(candidate.text) || (profile === "interim" && PRIMARY_TABLE.test(candidate.text.slice(0, 400)))))) {
         const group = [passage];
         for (let i = all.indexOf(passage) + 1; i < all.length && all[i]!.table && all[i]!.start === group.at(-1)!.end &&
-          !PRIMARY_TABLE.test(all[i]!.text.slice(0, 400)); i++) group.push(all[i]!);
+          !PRIMARY_TABLE.test(all[i]!.text.slice(0, 400)) && !ISSUER_SCHEDULE_HEADER.test(group[0]!.text) && !ISSUER_SCHEDULE_HEADER.test(all[i]!.text); i++) group.push(all[i]!);
         const size = group.reduce((sum, member) => sum + member.text.length, 0);
         if (selected.includes(passage) || used + size > cap) continue;
         const before = remaining;
         const kept = selected.length;
-        if (!group.every((member) => add(member))) {
+        issuerTableTurn = true;
+        const complete = group.every((member) => add(member, cap - used));
+        issuerTableTurn = false;
+        if (!complete) {
           // Atomic: a primary table without its rows is not kept.
           selected.splice(kept);
           remaining = before;
@@ -771,11 +810,11 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
         if (next) add(next);
       }
     }
-    if (all[0]) add(all[0]);
+    if (all[0] && !(issuerSchedules && ISSUER_SCHEDULE_HEADER.test(all[0].text))) add(all[0]);
     // Generic risk/business narrative can be useful without a keyword or
     // amount. Notes/interim fillers need a score or qualifying context; event
     // fallback skips agreement recitals but still admits named-person context.
-    for (const passage of all.filter(candidate => !(profile === "notes" && HYPOTHETICAL_CLAIM.test(candidate.text) && LEGAL_CONTEXT.test(candidate.text) && !criticalDisclosure(candidate.text)))
+    for (const passage of all.filter(candidate => !issuerSchedules || !candidate.table || !ISSUER_SCHEDULE_HEADER.test(candidate.text)).filter(candidate => !(profile === "notes" && HYPOTHETICAL_CLAIM.test(candidate.text) && LEGAL_CONTEXT.test(candidate.text) && !criticalDisclosure(candidate.text)))
       .filter((candidate) => candidate.score > 0 || (profile === "event"
       ? !/\b(?:foregoing description|incorporated by reference|previously reported|capitalized terms|representations, warranties)\b/i.test(candidate.text)
       : contextual ? contextKind(candidate) !== null : !/\bforward[- ]looking statements\b/i.test(candidate.text)))

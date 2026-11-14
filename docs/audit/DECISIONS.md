@@ -6978,6 +6978,9 @@ Revised by D-267 (part 1, 2026-11-14): the fiscal-year fallback DCF now withhold
 
 ## D-63 (NVDA report 34 audit P1-8, P1-9, P1-10, P1-14, P0-10, P0-11, P2-10 and the 2026-10-15 rerun findings) Read the business, the 10-Q notes and the release tables; give the CEO and CFO a citable outlook record
 
+Business/MD&A schedule selection and budgets revised by D-270; other D-63 rules remain in force.
+
+
 Revised by D-264: reader-only duplicate/segment presentation; original generation rules remain.
 
 - **Evidence**: the integration rerun (`data/recovery/nvda-integration-20261015`) never named CUDA, TSMC or OpenAI. No 10-K Item 1 or 10-Q note was read; section-evidence-2 kept 11% of the 114,916-char Item 1A, 19% of the 10-Q MD&A, 58% of the Q2 release and 59% of the CFO commentary, and its 1,200-char cut of the residual-value-guarantee 8-K dropped "An affiliate of OpenAI Group PBC … will be the tenant". The report then said evidence it held was "not in the filings": the $59M principal payments between issuer FCF and OCF less capex, the non-GAAP reconciliation, the Hugging Face price, and the DSO and inventory build behind the OCF drop. All 30 FACT claims stated no figure (numeric validation 0/30). Every executive was "not-assessed", although the report printed revenue above the guided range three quarters running, and no pay was stated although D-57 registered the compensation rows. Six figures the excerpts printed were untraced. The "Other" geography and Edge Computing showed dashes where the total less the other rows was known. An 18-month-old charge was the only "high" flag, and "$6.1 billion" against "$6.042 billion" was called a discrepancy. The next earnings date was printed beside a past date: the earnings envelope's newest reported row.
@@ -16765,3 +16768,41 @@ but calls it a source of cash is left unverified, not marked as a conflict,
 because the rebuilt label no longer carries the clause's direction words. It is
 never confirmed. No stored-company figure changes: across the 17 regression
 cases and the two Eli Lilly rebuilds no numeric Stage B leaf differs from main.
+
+
+## D-270 (2026-11-14) Keep source-bounded issuer schedules in filing evidence (P9, P20)
+
+**Problem and scope.** Business and MD&A filters dropped collected IP schedules, clinical pipelines and capacity plans. The same defect affects pharmaceutical, industrial, financial, property and foreign issuers. This changes evidence sent to analysts, never computed financial facts. Revises D-63's small fixed business/MD&A excerpts and the prior exclusion of tables from business family turns.
+
+**Choice.** Add IP/exclusivity and development/capacity families to business and financial/interim readings; financial/interim also gain named competition, customers and suppliers. Broaden business product coverage beyond technology. Preserve notes, risk and event behavior. Give explicitly headed issuer schedules at most 40% of a truncated section budget. Retain a whole source paragraph block, not guessed flattened rows; blank lines bound a block, and a flattened section without them is one block. Keep following numbered footnotes and an explicit adjacent table introduction atomically. If the block cannot fit, disclose omission.
+
+**Budget and tradeoff.** Grow business and annual/interim MD&A from their existing 12k/14k/12k floors to source length, capped at 96k apiece. The frozen sources lost HTML table structure; retaining complete bounded sections is the conservative way to preserve tables and all their qualifications. Maximum added source text is 250k characters, with no transfer from another section. The 2m input guard remains enforced. This spends more context; very long flattened tables may still be withheld whole. No new evidence fetch or paid model call.
+
+**Stamps.** Payload 1.103.0 and general selector section-evidence-9. Report, Stage B, notes/risk and event stamps stay fixed. Refresh sample and frozen Stage C payload (including prompt hashes and coverage metadata); this is an evidence-meaning change, not a calculation change.
+
+**Regression changes.** The existing late-guidance MD&A test now uses a source above the new cap and asserts the 96k bound; all existing inclusion, coverage and exact-offset assertions remain. Payload stamp pins and prior-resume cases move together. New synthetic tests cover IP and pipeline schedules, dated plant plans, named banking competitors and sole suppliers, an oversized schedule, an unrelated numeric table and atomic footnote refusal. No test is skipped or loosened.
+
+**Approved report changes.** Filing excerpt text, source spans, category coverage and derived evidence records/verification can change; coverage gaps disappear where a whole section now fits. Computed Stage B numeric leaves must remain identical. Frozen source replays and same-report check results are recorded below before delivery. No vendor rows or changed financial figures are authorized.
+
+
+**Frozen-source replay.** Read report #61/#62/#63 snapshots from the final-round database in read-only mode, plus JPM and O golden snapshots. Source characters retained (before -> after):
+
+| Snapshot | Business | Annual MD&A | Interim MD&A |
+|---|---:|---:|---:|
+| 63 | 11,102 -> 83,909 | 12,271 -> 48,814 | 10,021 -> 29,848 |
+| 61 | 10,851 -> 53,551 | 12,731 -> 36,172 | absent |
+| 62 | 10,926 -> 43,572 | 12,891 -> 64,172 | 10,154 -> 54,444 |
+| jpm-data-only | 11,167 -> 39,135 | 13,326 -> 91,697 | 10,171 -> 90,923 |
+| o-data-only | 11,229 -> 41,101 | 13,015 -> 71,070 | 10,293 -> 83,817 |
+
+LLY's Mounjaro/Zepbound, Trulicity, Jardiance, Verzenio and Ebglyss patent rows and the orforglipron/retatrutide pipeline rows are now present in full. TSM Arizona and 2-nanometer plans are retained. EXPE's Booking passage remains and its MD&A Airbnb passage is added. JPM's business competition paragraph remains; it names competitor types rather than rival firms, so named bank rivals remain a source gap. No source acquisition or invented competitor list is authorized here. Risk and notes retained-character counts are identical before/after in all five representative replays. The bank and REIT now use the same growing business/MD&A budgets; no issuer type is exempt. Long sections above the cap retain disclosed omissions.
+
+**Same-report and accuracy.** Baseline is origin/main e8d3b567a0db554ac9f134ff1a344b7c0472e4ff. All 17 regression cases and both LLY cases have exactly identical Stage B JSON, including every numeric leaf. No financial figure changes, so no replacement filed tag/period/accession is needed. Payloads and their fingerprints change in all 19. The five fixed-analyst reports (AMZN, META, MU, NVDA, LLY) change only evidence coverage gaps, source bindings/spans, source labels and refusal explanations; all validation statuses remain unchanged. The 14 data-only reports are identical. Maximum replayed payload is 622,398 characters (DUK), versus the unchanged 2,000,000 guard; LLY is 564,327. Accuracy passes the existing expectations for all 265 figures in 13 configured companies; no expectation changed. The separate LLY accuracy invocation has no configured company and refuses that directory; LLY instead has the exact Stage B comparison and fixed-analyst replay.
+
+**Test revisions completing the budget change.** `currentReports` and `edgar.filingFacts` now use the actual growing budgets and assert exact complete text/zero omission where it fits, retaining every earlier content assertion. `stageC.interimSupersession` compares with the actual capped budget and verifies that an ordinary retained update does not acquire the supersession label for an absent or older annual basis; the older exclusion caused only by the 12k budget is replaced with explicit inclusion. The quarterly earnings/funding regression now exceeds 96k and keeps all citation, date, context and coverage assertions at that cap. `evidenceSelection.eventReferent` moves only the general-selector stamp pin. Notes/risk/event method pins remain unchanged. These are D-270 replacements of fixed-budget assertions, not waived checks.
+
+
+**Local checks.** TypeScript passes. ESLint passes with one pre-existing unused-variable warning in the revenue-admission test. Sample build and D-270 frozen-payload refresh pass (the later refresh correctly reports no further delta). The required `--changed origin/main` sweep ran once: 16,160 passed, five stale budget/stamp assertions failed, one existing skipped test. Each failure was revised under the explicit D-270 budget/stamp replacement above and passes its focused recheck. No full `verify` run, model call or database write was performed. The existing verifier can leave newly exposed ambiguous source context unverified: AMZN's FCF refusal explanation moves from missing text to ambiguous text without changing its value or validation status. That verifier behavior is outside this selection change.
+
+
+Final focused suite: 634 tests passed across 11 files after the budget/stamp replacements. All 19 final-tree Stage B outputs remain identical; final validation statuses are unchanged.

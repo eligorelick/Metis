@@ -1,3 +1,4 @@
+import { businessEvidenceBudget, mdnaEvidenceBudget } from "@/pipeline/stageC/payload";
 /**
  * NVDA report #34 audit, work package 3: 8-K releases, 8-K events and XBRL
  * quarterly segments, read from saved NVIDIA filings (fixtures/edgar/
@@ -463,14 +464,15 @@ describe("D-63 filing evidence", () => {
   const payloadOf = (bundle: DataBundle) => assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
 
   it("retains the business description's platform, roadmap, suppliers, competitors and officers, and the 10-Q notes' material passages", () => {
-    const item1 = selectMaterialEvidence(ITEM1, 12_000, "business");
-    expect(item1.text.length).toBeLessThanOrEqual(12_000);
+    const item1 = selectMaterialEvidence(ITEM1, businessEvidenceBudget(ITEM1.length), "business");
+    expect(item1.text).toBe(ITEM1);
+    expect(item1.text.length).toBeLessThanOrEqual(96_000);
     for (const needle of ["CUDA", "Taiwan Semiconductor Manufacturing Company Limited, or TSMC", "Rubin", "Our current competitors include",
       "Colette M. Kress joined NVIDIA in 2013", "export"]) expect(item1.text).toContain(needle);
-    // The financial reading of the same text kept neither the foundry nor the officers.
-    expect(selectMaterialEvidence(ITEM1, 12_000).text).not.toContain("TSMC");
+    // D-270: financial readings now retain the same named supplier family.
+    expect(selectMaterialEvidence(ITEM1, mdnaEvidenceBudget(ITEM1.length)).text).toBe(ITEM1);
     for (const span of item1.spans) expect(ITEM1.slice(span.start, span.end)).toBe(span.text);
-    expect(item1.coverage.version).toBe("section-evidence-8/business");
+    expect(item1.coverage.version).toBe("section-evidence-9/business");
 
     // D-66 reserves concentration passages and raises the bounded notes budget.
     const notes = selectMaterialEvidence(NOTES, 14_000, "notes");

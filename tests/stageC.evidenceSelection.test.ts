@@ -193,3 +193,42 @@ describe("bounded material filing evidence", () => {
     }
   });
 });
+
+// D-270: synthetic issuer schedules and unrelated banking/control shapes.
+describe("D-270 filing schedules", () => {
+  const crowd = Array.from({ length: 120 }, (_, i) => `Revenue was $${i + 100} million and operating income was $20 million; demand remains uncertain.`).join("\n");
+  const patent = "Product Protection Territory Estimated Expiry Date Alpha compound patent US 2036 Beta data protection EU 2030 (1) Extensions remain uncertain.";
+  const pipeline = "Pipeline Product Stage Expected launch Alpha Phase 3 2028 Beta Submitted 2027 (1) Approval is not assured.";
+  it.each(["business", "financial", "interim"] as const)("keeps whole IP and pipeline schedules and named dependencies in %s", profile => {
+    const capacity = "Our Arizona plant will start production of the 2-nanometer node in 2028.";
+    const rivals = "Our competitors include Example Bank Corporation and Regional Finance Ltd.";
+    const original = [crowd, patent, pipeline, capacity, rivals, "Our sole-source supplier is Example Materials Ltd.", "One customer accounts for 40% of revenue."].join("\n\n");
+    const selected = selectMaterialEvidence(original, 4_000, profile);
+    for (const text of [patent, pipeline, capacity, rivals]) expect(selected.text).toContain(text);
+    for (const span of selected.spans) expect(original.slice(span.start, span.end)).toBe(span.text);
+    expect(selected.text.length).toBeLessThanOrEqual(4_000);
+  });
+  it("omits an oversized schedule whole and preserves bank risk prose", () => {
+    const table = `Product Protection Territory Estimated Expiry Date ${"Alpha patent US 2036 ".repeat(200)}`;
+    const risk = "Our competitors include Example Bank Corporation. Our sole-source supplier is Clearing Ltd.";
+    const selected = selectMaterialEvidence(`${table}\n\n${risk}\n\n${crowd}`, 2_000, "business");
+    expect(selected.text).not.toContain("Alpha patent");
+    expect(selected.text).toContain("Example Bank Corporation");
+    expect(selected.text).toContain("Clearing Ltd");
+  });
+  it("does not let an unrelated numeric table displace business risk prose", () => {
+    const table = `Unrelated archive ${"100 200 300 400 ".repeat(400)}`;
+    const risk = "Our sole-source supplier is Clearing Ltd. Our competitors include Regional Bank Corporation.";
+    const selected = selectMaterialEvidence(`${table}\n\n${risk}\n\n${crowd}`, 2_000, "business");
+    expect(selected.text).toContain("Clearing Ltd");
+    expect(selected.text).toContain("Regional Bank Corporation");
+  });
+});
+
+ it("binds a schedule's following numbered footnote atomically", () => {
+  const table = "Product Protection Territory Estimated Expiry Date Alpha patent US 2036";
+  const footnote = "(1) The expiry may be extended and is subject to litigation. Extensions are not assured.";
+  const text = `${table}\n\n${footnote}\n\n${longMdna()}`;
+  expect(selectMaterialEvidence(text, 3_000, "business").text).toContain(footnote);
+  expect(selectMaterialEvidence(text, 300, "business").text).not.toContain(table);
+ });

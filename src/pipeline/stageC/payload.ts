@@ -2492,6 +2492,17 @@ export function riskFactorBudget(sourceChars: number): number {
     Math.max(PAYLOAD_BUDGETS.item1aChars, Math.round(sourceChars * PAYLOAD_BUDGETS.item1aLongShare)));
 }
 
+/** D-270: bounded growth preserves source blocks without guessing table bounds. */
+export function businessEvidenceBudget(sourceChars: number): number {
+  return Math.min(96_000, Math.max(PAYLOAD_BUDGETS.businessChars, sourceChars));
+}
+export function tenQMdnaEvidenceBudget(sourceChars: number): number {
+  return Math.min(96_000, Math.max(PAYLOAD_BUDGETS.tenQMdnaChars, sourceChars));
+}
+export function mdnaEvidenceBudget(sourceChars: number): number {
+  return Math.min(96_000, Math.max(PAYLOAD_BUDGETS.mdnaChars, sourceChars));
+}
+
 /** Printed in place of a release's fiscal label that the run's statement rows contradict. It holds no digit and no "year" or "quarter" word, so no title reader takes a period or window from it. */
 const FISCAL_LABEL_WITHHELD = " [issuer fiscal label withheld: the release and the statement rows disagree]";
 
@@ -2584,7 +2595,7 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   add(
     bundle.edgar.business,
     (form) => (form === "20-F" ? "20-F Item 4 — Information on the Company" : "10-K Item 1 — Business"),
-    PAYLOAD_BUDGETS.businessChars,
+    businessEvidenceBudget,
     (form) => (form === "20-F" ? "edgar:20-F item4" : "edgar:10-K item1"),
     "business",
   );
@@ -2598,7 +2609,7 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   add(
     bundle.edgar.mdna,
     (form) => (form === "20-F" ? "20-F Item 5 — Operating and Financial Review and Prospects" : "10-K Item 7 — MD&A"),
-    PAYLOAD_BUDGETS.mdnaChars,
+    mdnaEvidenceBudget,
     (form) => (form === "20-F" ? "edgar:20-F item5" : "edgar:10-K item7"),
   );
   // D-66: the 10-Q MD&A keeps its concentration-of-revenue statements first.
@@ -2607,7 +2618,7 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   const annual = out.filter((excerpt) => excerpt.source === "edgar:10-K item1" || excerpt.source === "edgar:10-K item7");
   const tenQEnd = bundle.edgar.tenQMdna?.ok ? isoDay(bundle.edgar.tenQMdna.value.data.reportDate) : null;
   const newer = tenQEnd !== null && annual.length > 0 && annual.every((excerpt) => excerpt.asOf !== null && excerpt.asOf < tenQEnd);
-  add(bundle.edgar.tenQMdna, () => "10-Q Item 2 — MD&A", PAYLOAD_BUDGETS.tenQMdnaChars, () => "edgar:10-Q item2", "interim",
+  add(bundle.edgar.tenQMdna, () => "10-Q Item 2 — MD&A", tenQMdnaEvidenceBudget, () => "edgar:10-Q item2", "interim",
     newer ? operatingMeasuresStated(annual.map((excerpt) => excerpt.text).join("\n")) : []);
   const combinedQuarter = bundle.edgar.tenQNotes?.ok && bundle.edgar.tenQNotes.value.data.financialTextScope === "statements-and-notes";
   const combinedAnnual = bundle.edgar.tenKNotes?.ok && bundle.edgar.tenKNotes.value.data.financialTextScope === "statements-and-notes";

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { parseBusinessCombinationFacts, parseCommitmentFacts, parseCustomerConcentrationFacts, parseInvestmentFacts, parseOfficerChanges, parseSayOnPay, parseStatementFacts, parseTradingArrangements, parseWorkingCapital } from "@/edgar/filingFacts";
 import { annualNotesToFinancialStatements, extractSection } from "@/edgar/extract";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
-import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
+import { assembleContextPayload, serializePayloadForPrompt, tenQMdnaEvidenceBudget } from "@/pipeline/stageC/payload";
 import { runStageB } from "@/pipeline/compute";
 import { selectMaterialEvidence } from "@/pipeline/stageC/evidenceSelection";
 import { buildEarningsReleaseRecord, buildMaterialEventFiling, CURRENT_REPORTS_VERSION } from "@/providers/currentReports";
@@ -200,9 +200,11 @@ describe("D-66 recovered filing facts", () => {
     const retainedNotes = selectMaterialEvidence(notes, 14_000, "notes");
     expect(retainedNotes.text.length).toBeLessThanOrEqual(14_000);
     for (const needle of ["one direct customer represented 16 %", "three direct customers represented 16 %, 15 %, and 13 %", "22 %, 14 %, 13 %, 11 %, and 10 %", "90 days up to one year", "equity method"]) expect(retainedNotes.text).toContain(needle);
-    const retainedMdna = selectMaterialEvidence(mdna, 14_000, "interim");
+    const retainedMdna = selectMaterialEvidence(mdna, tenQMdnaEvidenceBudget(mdna.length), "interim");
     expect(retainedMdna.text).toContain("one AI research and deployment company contributed a meaningful amount");
-    for (const selected of [retainedNotes, retainedMdna]) expect(selected.coverage.omittedChars).toBeGreaterThan(0);
+    expect(retainedNotes.coverage.omittedChars).toBeGreaterThan(0);
+    expect(retainedMdna.text).toBe(mdna);
+    expect(retainedMdna.coverage.omittedChars).toBe(0);
   });
 
   it("withholds unsupported statement units, unestablished investment dates, and invalid plan dates", () => {
