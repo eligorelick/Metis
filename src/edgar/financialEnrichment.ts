@@ -291,7 +291,8 @@ function competingCapex(facts: CompanyFacts, sec: Resolved): string[] {
   const selected = sec.evidence.tags.map(t => t.replace(/^us-gaap\//, ""));
   const operands = sec.operands ?? points(facts, selected[0]!, sec.evidence.unit, sec.evidence.observedAt).filter(p =>
     p.start === sec.evidence.periodStart && p.end === sec.evidence.periodEnd && sec.evidence.filings.some(f => f.accn === p.accn && f.filed === p.filed));
-  return capitalSpendingTags().filter(tag => !selected.includes(tag) && operands.some(o => {
+  const periods = [...operands.map(p => ({ start: p.start, end: p.end })), { start: sec.evidence.periodStart, end: sec.evidence.periodEnd }];
+  return capitalSpendingTags().filter(tag => !selected.includes(tag) && periods.some(o => {
     const copies = points(facts, tag, sec.evidence.unit, sec.evidence.observedAt).filter(p => p.start === o.start && p.end === o.end);
     if (!copies.length) return false;
     const latest = copies.reduce((day, p) => p.filed > day ? p.filed : day, "");

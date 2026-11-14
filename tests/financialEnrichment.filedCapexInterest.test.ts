@@ -376,3 +376,9 @@ it("honors the latest explicit component zero without treating an omitted period
  const f=facts({[PPE]:[annual(1000*M)],PaymentsForSoftware:[{...annual(100*M),accn:"earlier"},{...annual(0),accn:"newer",filed:"2026-03-01"}]});
  expect(admitFiledCapitalExpenditure(cashRow(-900*M),f,"annual",observedAt).row.capitalExpenditure).toBe(-1000*M);
 });
+
+it("counts a directly filed quarter competitor beside a YTD-derived capex quarter", () => {
+ const row={...cashRow(-900*M),date:"2025-09-30",filingDate:"2025-10-30",periodStart:"2025-07-01",period:"Q3"};
+ const f=facts({[PPE]:[nineMonths(750*M),sixMonths(420*M)],PaymentsForSoftware:[point("2025-07-01","2025-09-30",50*M,"2025-10-30")]});
+ expect(admitFiledCapitalExpenditure(row,f,"quarter",observedAt).row.capitalExpenditure).toBe(-900*M);
+});
