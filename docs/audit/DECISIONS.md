@@ -132,17 +132,25 @@ evidence collection:
   establishes that Verandol dominates the market." That claim is a cited
   qualitative statement, so the round-1 rule printed the affirmative heading
   unmarked in app, Markdown and print, in both product-line arrays. Two review
-  rounds were used, so the lead fixed it under P18 (code owns labels): at read
-  time (`businessStoryBlocks`), a product-line heading also has to equal, as a
-  whole name (case, spacing, dashes and trademark signs aside;
-  `productLineHeadingKey`), a product or geographic segment name in the
-  report's own segment table, which code built from filed or provider data and
-  never from model text. Otherwise the fixed heading prints and the line's
-  claims keep their own marks. Cost: a product the segment table does not name
-  (a recent launch grouped into "other") prints under the fixed heading, with
-  its name in the claim text. A test pins the reviewer's reproduction, a segment
-  name that stands, an unlisted name that falls back, and the same report with
-  no segment rows printing no model-written heading at all.
+  rounds were used, so the lead fixed it under P18 (code owns labels). A first
+  lead fix checked the heading against the report's own segment table at read
+  time; the merge-gate confirmation showed those product rows keep
+  judge-authored names (`applySegmentShares` recomputes only the share), so
+  that was not code-owned either. The rule now runs at report assembly
+  (`gateProductLineHeadings`, `bundleSegmentNameKeys` in `passes.ts`): a
+  product-line heading stands only when it equals, as a whole name (case,
+  spacing, dashes and trademark signs aside; `productLineHeadingKey`), a
+  product or geographic segment name in the bundle's own segmentation rows
+  (filed or provider data, never model text); otherwise the fixed heading
+  replaces it and the claims are kept. The read-time rule above (a naming FACT
+  must be validated or qualitative) still applies. Cost: a product the
+  segmentation data does not name (a recent launch grouped into "other") prints
+  under the fixed heading, with its name in the claim text. Tests pin the
+  reviewer's reproduction, segment names that stand (including a trademark sign
+  and a different case), an unlisted name, and no or refused segmentation data
+  keeping no model-written heading. Known adjacent limit (not changed here): the
+  report's product segment rows themselves keep judge-authored names beside
+  their traced revenue.
 
 ### Scope and limits
 

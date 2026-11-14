@@ -82,6 +82,7 @@ import {
   invalidAnalystCaseSections,
   invalidJudgeOutputSections,
   noBuySellHold,
+  productLineHeadingKey,
   productLineNamedInClaims,
   UNNAMED_PRODUCT_LINE_HEADING,
   type AnalystCase,
@@ -4533,6 +4534,38 @@ export function applySegmentShares(
   };
 }
 
+/**
+ * D-271, review round 2 (lead fix, P18: code owns labels): the product and
+ * geographic segment names in the bundle's own segmentation data (filed or
+ * provider rows, never model text), as heading keys.
+ */
+export function bundleSegmentNameKeys(bundle: DataBundle | undefined): Set<string> {
+  const keys = new Set<string>();
+  for (const res of [bundle?.segmentation?.product, bundle?.segmentation?.geographic]) {
+    if (res === undefined || !res.ok || !res.value) continue;
+    for (const row of res.value.data.rows ?? []) {
+      const data = row?.data;
+      if (data === undefined || data === null || typeof data !== "object") continue;
+      for (const name of Object.keys(data)) { const key = productLineHeadingKey(name); if (key) keys.add(key); }
+    }
+  }
+  return keys;
+}
+
+/**
+ * D-271, review round 2: a model-written product-line heading can assert what
+ * its only naming claim says is unproven ("Verandol dominates the market" over
+ * "No reviewed source establishes that Verandol dominates the market"), and the
+ * report's own segment rows keep judge-authored names, so neither the claims
+ * nor those rows make a heading code-owned. At assembly a heading stands only
+ * when it equals, as a whole name, a segment name in the bundle's segmentation
+ * data; otherwise the fixed heading replaces it and the claims are kept. The
+ * read-time rule (a naming FACT must be validated or qualitative) still applies.
+ */
+export function gateProductLineHeadings<T extends { productLine: string }>(items: readonly T[] | undefined, names: ReadonlySet<string>): T[] | undefined {
+  return items?.map(item => names.has(productLineHeadingKey(item.productLine)) ? item : { ...item, productLine: UNNAMED_PRODUCT_LINE_HEADING });
+}
+
 /** The sources an executive decision may quote: the same excerpts the verify pass reads. */
 function retainedDecisionSources(payload: ContextPayload): { source: string; text: string }[] {
   return [payload.transcript ?? null, ...(payload.filings ?? [])].filter((excerpt): excerpt is NonNullable<typeof excerpt> => excerpt !== null);
@@ -4654,7 +4687,12 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     args.computed.valuation,
   ), args.computed);
   const quality = applyForensicScores(args.judgeOutput.quality, args.computed.forensics);
-  const business = applySegmentShares(args.judgeOutput.business, args.bundle);
+  const segmentNames = bundleSegmentNameKeys(args.bundle);
+  const sharedBusiness = applySegmentShares(args.judgeOutput.business, args.bundle);
+  const business = sharedBusiness.products === undefined ? sharedBusiness
+    : { ...sharedBusiness, products: gateProductLineHeadings(sharedBusiness.products, segmentNames) };
+  const competitive = args.judgeOutput.competitive.competitorsByProductLine === undefined ? args.judgeOutput.competitive
+    : { ...args.judgeOutput.competitive, competitorsByProductLine: gateProductLineHeadings(args.judgeOutput.competitive.competitorsByProductLine, segmentNames) };
   // Audit work package 3: guidance, issuer FCF, capital return, dated 8-K
   // events, XBRL segment revenue by quarter and the eight-quarter trend,
   // pipeline-filled from the bundle. Built before the triggers (D-65), which
@@ -4674,7 +4712,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
       read: { ...args.judgeOutput.technicals.read, trend: technicalTrendText(args.computed.technicals, statementCurrencies(args.bundle).trading) },
     } : args.judgeOutput.technicals,
     leadership: args.judgeOutput.leadership,
-    competitive: args.judgeOutput.competitive,
+    competitive,
     catalystsRisks: args.judgeOutput.catalystsRisks,
     outlook: args.judgeOutput.outlook,
     macro: args.judgeOutput.macro,

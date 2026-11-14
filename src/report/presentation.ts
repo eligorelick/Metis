@@ -88,7 +88,7 @@ import {
   establishedCurrency,
 } from "@/report/format";
 import type { ManifestEntry } from "@/types/core";
-import { BUSINESS_STORY_HEADING, productLineHeadingKey, productLineNamingClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
+import { BUSINESS_STORY_HEADING, productLineNamingClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
 import { claimStatusMark } from "@/report/verificationMarks";
 import type {
   Business,
@@ -814,23 +814,9 @@ export interface BusinessStoryBlock {
  * stored report obeys too; with no verification log nothing supports a name.
  */
 const SUPPORTING_MARKS = new Set(["validated", "qualitative"]);
-/**
- * D-271, review round 2 (lead fix, P18: code owns labels): a model-written
- * heading can still assert something its supporting claim only says is
- * unproven ("Verandol dominates the market" over "No reviewed source
- * establishes that Verandol dominates the market"). So a heading also has to be
- * a name code already holds: a product or geographic segment name in the
- * report's own segment table (filed or provider data, never model text).
- * Otherwise the line prints the code-owned heading and its claims keep their
- * own marks.
- */
-const codeOwnedName = (segments: Business["segments"] | undefined) => {
-  const names = new Set([...(segments?.product ?? []), ...(segments?.geographic ?? [])].map(row => productLineHeadingKey(row.name)).filter(Boolean));
-  return (heading: string) => names.has(productLineHeadingKey(heading));
-};
-const productLines = (items: Business["products"] | Competitive["competitorsByProductLine"], isCodeName: (heading: string) => boolean): BusinessStoryLine[] =>
+const productLines = (items: Business["products"] | Competitive["competitorsByProductLine"]): BusinessStoryLine[] =>
   (items ?? []).filter(item => item.claims.length > 0).map(item => ({
-    heading: isCodeName(item.productLine) && productLineNamingClaims(item).some(claim => SUPPORTING_MARKS.has(claimStatusMark(claim) ?? ""))
+    heading: productLineNamingClaims(item).some(claim => SUPPORTING_MARKS.has(claimStatusMark(claim) ?? ""))
       ? item.productLine.trim() : UNNAMED_PRODUCT_LINE_HEADING,
     claims: item.claims,
   }));
@@ -843,15 +829,14 @@ const productLines = (items: Business["products"] | Competitive["competitorsByPr
  * are never changed.
  */
 export function businessStoryBlocks(
-  business: Pick<Business, "products" | "whatIsComing" | "customersAndSuppliers" | "protection" | "managementPlan" | "industry"> & { segments?: Business["segments"] },
+  business: Pick<Business, "products" | "whatIsComing" | "customersAndSuppliers" | "protection" | "managementPlan" | "industry">,
   competitive?: Pick<Competitive, "competitorsByProductLine">,
 ): BusinessStoryBlock[] {
-  const isCodeName = codeOwnedName(business.segments);
   const blocks: BusinessStoryBlock[] = [
-    { key: "products", heading: "Products and services", claims: [], lines: productLines(business.products, isCodeName) },
+    { key: "products", heading: "Products and services", claims: [], lines: productLines(business.products) },
     { key: "whatIsComing", heading: "What is coming", claims: business.whatIsComing ?? [], lines: [] },
     { key: "customersAndSuppliers", heading: "Customers and suppliers", claims: business.customersAndSuppliers ?? [], lines: [] },
-    { key: "competitorsByProductLine", heading: "Competitors by product line", claims: [], lines: productLines(competitive?.competitorsByProductLine, isCodeName) },
+    { key: "competitorsByProductLine", heading: "Competitors by product line", claims: [], lines: productLines(competitive?.competitorsByProductLine) },
     { key: "protection", heading: "Protection and expiry", claims: business.protection ?? [], lines: [] },
     { key: "managementPlan", heading: "Management's plan", claims: business.managementPlan ?? [], lines: [] },
     { key: "industry", heading: "Industry", claims: business.industry ?? [], lines: [] },

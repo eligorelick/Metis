@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ReportView } from "@/components/report/ReportView";
-import { checkCarriedJudgeSections, normalizeJudgeOutput, runVerifyPass, sectionOutputSchema, type PassDeps } from "@/pipeline/stageC/passes";
+import { bundleSegmentNameKeys, checkCarriedJudgeSections, gateProductLineHeadings, normalizeJudgeOutput, runVerifyPass, sectionOutputSchema, type PassDeps } from "@/pipeline/stageC/passes";
 import type { ContextPayload } from "@/pipeline/stageC/payload";
 import {
   buildAnalystResearchFraming,
@@ -267,28 +267,27 @@ describe("product-line headings are code-checked labels (D-271, P18)", () => {
     for (const headings of renderedLineHeadings(ReportSchema.parse(report))) expect(new Set(headings)).toEqual(new Set([UNNAMED_PRODUCT_LINE_HEADING]));
   });
 
-  // Review round 2 (lead fix, P18): a heading must be a name code already holds (a segment name), so an
-  // assertion supported only by a statement of an evidence gap never becomes an unmarked caption.
-  it("prints a heading only when it is a segment name code holds, even when a qualitative FACT names it", async () => {
-    const report = pharmaLike();
-    report.business.products = [
-      line("Verandol dominates the market", fact("No reviewed source establishes that Verandol dominates the market.")),
-      line("Verandol", fact("Verandol is a once-weekly injectable for adults with diabetes.")),
-      line("Zelvan", fact("Zelvan treats migraine.")),
-    ];
-    report.competitive.competitorsByProductLine = [line("Verandol dominates the market", fact("No reviewed source establishes that Verandol dominates the market.")),
-      line("Corvista", fact("Corvista competes with Nordhavn Pharma's topical cream."))];
-    const checked = await verified(report);
-    const status = (path: string) => checked.appendix.verificationLog!.find(entry => entry.path === path)?.validationStatus;
-    expect(status("business.products[0].claims[0]")).toBe("cited");
-    expect(status("business.products[2].claims[0]")).toBe("cited");
-    // "Verandol" and "Corvista" are segment names; the assertion and the unlisted "Zelvan" fall back.
-    const expected = [UNNAMED_PRODUCT_LINE_HEADING, "Verandol", UNNAMED_PRODUCT_LINE_HEADING, UNNAMED_PRODUCT_LINE_HEADING, "Corvista"];
-    for (const headings of renderedLineHeadings(checked)) expect(headings).toEqual(expected);
-    // Control: the same report without segment rows prints no model-written heading at all.
-    checked.business.segments.product = [];
-    checked.business.segments.geographic = [];
-    for (const headings of renderedLineHeadings(checked)) expect(new Set(headings)).toEqual(new Set([UNNAMED_PRODUCT_LINE_HEADING]));
+  // Review round 2 (lead fix, P18): at assembly a heading must be a segment name in the bundle's own
+  // segmentation data, so neither an assertion backed only by a statement of an evidence gap nor a
+  // judge-authored segment row can turn model text into a caption.
+  it("keeps a heading at assembly only when it is a segment name in the bundle's segmentation data", () => {
+    const bundle = { segmentation: {
+      product: { ok: true, value: { data: { rows: [{ date: "2025-12-31", data: { "Verandol™": 10, Corvista: 5 } }] } } },
+      geographic: { ok: true, value: { data: { rows: [{ date: "2025-12-31", data: { "United States": 12 } }] } } },
+    } } as unknown as Parameters<typeof bundleSegmentNameKeys>[0];
+    const names = bundleSegmentNameKeys(bundle);
+    const items = [line("Verandol dominates the market", fact("No reviewed source establishes that Verandol dominates the market.")),
+      line("Verandol", fact("Verandol is a once-weekly injectable.")), line("corvista", fact("Corvista treats psoriasis.")),
+      line("Zelvan", fact("Zelvan treats migraine.")), line("United States", fact("United States sales grew."))];
+    expect(gateProductLineHeadings(items, names)!.map(item => item.productLine))
+      .toEqual([UNNAMED_PRODUCT_LINE_HEADING, "Verandol", "corvista", UNNAMED_PRODUCT_LINE_HEADING, "United States"]);
+    // Claims are always kept.
+    expect(gateProductLineHeadings(items, names)!.map(item => item.claims)).toEqual(items.map(item => item.claims));
+    // Control: no segmentation data (or a refused feed) keeps no model-written heading.
+    expect(new Set(gateProductLineHeadings(items, bundleSegmentNameKeys(undefined))!.map(item => item.productLine))).toEqual(new Set([UNNAMED_PRODUCT_LINE_HEADING]));
+    const refused = { segmentation: { product: { ok: false }, geographic: { ok: false } } } as unknown as Parameters<typeof bundleSegmentNameKeys>[0];
+    expect(bundleSegmentNameKeys(refused).size).toBe(0);
+    expect(gateProductLineHeadings(undefined, names)).toBeUndefined();
   });
 
   // Review round 1, finding 2: trademark signs are removed before compatibility normalization.
