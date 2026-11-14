@@ -3047,5 +3047,22 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-274",
+    "reason": "D-274 advances report meaning for deterministic excerpt claim verification; only report version and its projection digest change.",
+    "scope": [
+      "$.projection.report.meta.specVersion",
+      "$.projectionSha256"
+    ],
+    "beforeSha256": "ae0061570f25d8229a986a25c0ebabd1587548a300fdfc4ec9192dce68ea73f3",
+    "afterSha256": "fe3422ec6442b66aba15244cc0eadcd7a215d2140132cdc37469736b09196206",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.86.0",
+    "specVersion": "1.87.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.86.0",
+    "pipelineVersion": "1.87.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8501742160278746,
@@ -826,7 +826,7 @@
     ],
     "products": [
       {
-        "productLine": "Hardware and installation",
+        "productLine": "Product line (its name is not in the cited claims)",
         "claims": [
           {
             "text": "Hardware and installation revenue is recognized on customer acceptance; installation bids compete on price.",
@@ -838,7 +838,7 @@
         ]
       },
       {
-        "productLine": "Support subscriptions",
+        "productLine": "Product line (its name is not in the cited claims)",
         "claims": [
           {
             "text": "Annual support subscriptions are recognized over the service term and compete on uptime.",
@@ -3615,7 +3615,7 @@
     ],
     "competitorsByProductLine": [
       {
-        "productLine": "Hardware and installation",
+        "productLine": "Product line (its name is not in the cited claims)",
         "claims": [
           {
             "text": "In hardware and installation, Lantern Quay Automation bids lower installation prices but offers less local support.",
@@ -3627,7 +3627,7 @@
         ]
       },
       {
-        "productLine": "Support subscriptions",
+        "productLine": "Product line (its name is not in the cited claims)",
         "claims": [
           {
             "text": "In support subscriptions, Bramble Circuit Works has broader support coverage but slower custom deployments.",
