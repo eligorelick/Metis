@@ -1507,7 +1507,7 @@ function investedCapital(
   notes: string[],
   includeOperatingLeases: boolean,
   /** KNW-03: the refusal of a debt or capital input that exists, for the manifest; "debt" for the balance's debt, "cash" for its cash basis. */
-  refusals: { reason: string; kind: "debt" | "cash" | "temporary-equity" }[] = [],
+  refusals: { reason: string; kind: "debt" | "cash" | "temporary-equity"; infoOnly?: boolean }[] = [],
   /** What a temporary-equity refusal means for the caller's year (the withheld year, or a prior balance feeding an average). */
   temporaryEquityConsequence = "ROIC withheld.",
 ): number | null {
@@ -1517,7 +1517,7 @@ function investedCapital(
   if (b.leaseCoverageNote) notes.push(`${b.date}: retained debt/lease scope: ${b.leaseCoverageNote} ROIC is an otherwise-unchanged calculation on these retained operands, not a fully corrected lease-inclusive economic-capital measure.`);
   notes.push(`${b.date}: invested-capital equity basis ${equity.basis}: ${equity.reason}`);
   if (equity.value === null) {
-    refusals.push({ kind: "cash", reason: "consolidated equity is missing" });
+    refusals.push({ kind: "cash", reason: "consolidated equity is missing", infoOnly: !b.cashConflictReconciled });
     notes.push(`totalStockholdersEquity/consolidated equity missing on ${b.date} - invested capital uncomputable`);
     return null;
   }
@@ -1528,7 +1528,7 @@ function investedCapital(
       notes.push(`${b.date}: ${reason} — invested capital uncomputable`);
       refusals.push({ reason, kind: "debt" });
     } else {
-      refusals.push({ kind: "debt", reason: "totalDebt is missing" });
+      refusals.push({ kind: "debt", reason: "totalDebt is missing", infoOnly: !b.cashConflictReconciled });
       notes.push(`totalDebt missing on ${b.date} — invested capital uncomputable`);
     }
     return null;
@@ -1597,6 +1597,18 @@ function investedCapital(
     return resolution.value - (b.totalDebt - debt) + equity.value + temporaryTotal;
   }
 
+  if (!b.cashConflictReconciled) {
+    if (resolution.conflict === true) {
+      notes.push(`${b.date}: ${resolution.reason ?? "cash components conflict"} — invested capital uncomputable (no trustworthy cash basis)`);
+      refusals.push({ reason: resolution.reason ?? "cash components conflict", kind: "cash" });
+    } else {
+      notes.push(`cashAndCashEquivalents missing on ${b.date} — invested capital uncomputable`);
+      refusals.push({ kind: "cash", infoOnly: true, reason: b.fieldConflicts?.cashAndCashEquivalents?.usable === false
+        ? `cashAndCashEquivalents withheld (${b.fieldConflicts.cashAndCashEquivalents.reason ?? "refused at admission"})`
+        : "cashAndCashEquivalents missing" });
+    }
+    return null;
+  }
   refusals.push({ reason: resolution.reason, kind: "cash" });
   notes.push(`${b.date}: ${resolution.reason}; invested capital unavailable`);
   return null;
@@ -1918,11 +1930,13 @@ export function computeRoic(
       continue;
     }
     balanceDatesRead.add(balNow.date.slice(0, 10));
-    const refusals: { reason: string; kind: "debt" | "cash" | "temporary-equity" }[] = [];
+    const refusals: { reason: string; kind: "debt" | "cash" | "temporary-equity"; infoOnly?: boolean }[] = [];
     const icNow = investedCapital(balNow, yearNotes, includeOperatingLeases, refusals);
     if (icNow === null) {
       rootCauses.set(row.date, refusals[0]?.reason ?? "invested capital is not established");
-      if (refusals.length > 0) {
+      // Missing operands on an unrepaired row gain only the root-input info entry;
+      // preserve main's refusal warning and its ordering for actual conflicts.
+      if (refusals.length > 0 && !refusals[0]!.infoOnly) {
         refusedYears.push({ date: row.date, reason: refusals[0]!.reason });
         if (i === 0) latestRefusal = { balanceDate: balNow.date.slice(0, 10), kind: refusals[0]!.kind };
       }
