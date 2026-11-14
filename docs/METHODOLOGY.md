@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.78.0 / payload 1.95.0, Stage B `STAGE_B_2026_11_FILED_FLOWS_69` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.78.0 / payload 1.96.0, Stage B `STAGE_B_2026_11_FILED_FLOWS_70` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -2149,9 +2149,11 @@ parent's. Period, core-form, currency and presentation checks are unchanged.
 On replay, missing vendor annual NCI income may be completed from that admitted statement;
 missing consolidated profit may be supplied with it only from the same filed
 period and accession. A refused allocation is never filled, and a vendor
-nonzero observation is not overwritten. Quarterly ownership histories are not
-rebuilt by this replay fallback; fresh extraction reads the ordered synonyms
-on both annual and quarterly bases. No new book-NCI materiality exemption
+nonzero observation is not overwritten. Revised by D-260: replay also completes
+missing same-issuer quarterly ownership flows from exact filed periods and
+compatible revenue/filing scope, retaining every operand. Predecessor replay
+remains annual only. Fresh extraction reads the ordered synonyms on both bases.
+No new book-NCI materiality exemption
 is applied: small book NCI cannot by itself bound the earnings claim.
 For a successor, the annual row may read its retained predecessor facts only
 when that row names the predecessor CIK, the predecessor's facts match that
@@ -8404,6 +8406,53 @@ results in the statement's own period column and revised comparable sales.
 Nearby prose, negated/remote mentions, another statement, zero results or a
 broader revenue total beside unchanged sales cannot establish that finding.
 These are bounded supported forms; missing proof is not proof of no change.
+
+**Additive income windows (P1, D-260).** The complete disjoint operating bridge
+also reads research excluding acquired in-process costs, the acquired-research
+expense, and restructuring, settlement and impairment provisions. A filed total
+research expense replaces its children once; conflicting totals close the proof.
+Cash payments for acquisitions cannot establish these income-statement expenses.
+Restructuring can already be included in another cost. When a component bridge
+carries that tag, its membership is proved by an exact tie to filed pretax income,
+with or without that component. Neither exact tie means the bridge stays unavailable.
+Every bridge still reconciles independently to same-scope filed pretax income.
+
+Missing monetary income fields use the statement owner's exact annual or
+quarterly resolution, including FY-minus-YTD and YTD differences. A reconstructed
+quarter whose revenue corroborates the vendor observation can enter this review
+when a later compatible filing supplies the canonical pair; the original vendor
+filing date cannot exempt its operating numerator from review. Complete expenses
+are proved separately. No expense total is plugged from revenue minus profit.
+
+When standalone quarters cannot establish an additive trailing flow, the same
+income chains may use FY + current YTD - prior-year YTD for the exact trailing
+start and end. Both YTD operands come from one current core filing; the annual
+and comparative must share a compatible presentation. Every concept, original
+amount, interval, currency and filing is retained in `flowOperands` and disclosed
+in the calculation manifest. Complete operating totals are reconciled within each
+filing before applying that identity; the existing presentation rule tests the
+totals, so independently rounded children do not create a new allowance. An exact
+reconciled trailing identity can supersede a quarter sum differing only within
+the existing filed-operand rounding allowance, with the difference disclosed.
+Only the three total operands enter that comparison; their component receipts
+are retained evidence, not additional rounding terms. Missing trailing revenue
+still passes the revenue-admission owner and its company sales policy.
+The tax pair is recovered atomically with its own filed pre-tax denominator and
+basis, preserving the before-equity-method treatment where applicable. The
+tax-pair suppression is retired only after both same-scope operands are established;
+a half pair remains withheld. The revenue completeness gap is named `compute.ttmIncome.revenue`, so an exact window clears
+that field's suppression rather than a generic window refusal. EBIT inherits an
+independent operating-income refusal even when its own retained field is absent.
+
+This applies to US-GAAP facts on eligible 10-K/10-Q and foreign 20-F/40-F forms
+where those forms state the same exact interval. A missing foreign interim series
+does not become quarterly evidence; 6-K and IFRS taxonomy mapping remain outside
+this adapter. Bank and securities-firm revenue chains remain separate, and their
+operating income still requires their filed operating tag. Common and parent
+profit retain their ownership constructors. A filed consolidated ProfitLoss can
+independently establish the consolidated trailing flow. EPS and weighted average
+shares are not additive. Acquisition, issuer, currency, period, presentation and
+independent field refusals remain binding.
 
 Comparative operating sales require a core fact matching the printed sales
 line in the bound filing and duration. A statement's income-total anchor does

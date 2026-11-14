@@ -311,6 +311,7 @@ describe("buildStatementsFromCompanyFacts — quarterly rows", () => {
       derivation: undefined,
       filings: [{ accn: "revenue-q4-direct", filed: "2026-02-20", form: "10-K" }],
       operands: undefined,
+      receiptPoints: undefined,
     },
     {
       label: "FY minus YTD Q4",
@@ -321,6 +322,10 @@ describe("buildStatementsFromCompanyFacts — quarterly rows", () => {
         { accn: "revenue-q3-ytd", filed: "2025-11-01", form: "10-Q" },
       ],
       operands: ["Revenues 2025-01-01..2025-12-31", "Revenues 2025-01-01..2025-09-30"],
+      receiptPoints: [
+        { start: "2025-01-01", end: "2025-12-31", val: 1000 },
+        { start: "2025-01-01", end: "2025-09-30", val: 710 },
+      ],
     },
     {
       label: "FY minus three quarters Q4",
@@ -338,8 +343,14 @@ describe("buildStatementsFromCompanyFacts — quarterly rows", () => {
         "Revenues 2025-04-01..2025-06-30",
         "Revenues 2025-01-01..2025-03-31",
       ],
+      receiptPoints: [
+        { start: "2025-01-01", end: "2025-12-31", val: 1000 },
+        { start: "2025-07-01", end: "2025-09-30", val: 260 },
+        { start: "2025-04-01", end: "2025-06-30", val: 250 },
+        { start: "2025-01-01", end: "2025-03-31", val: 200 },
+      ],
     },
-  ])("preserves $label field provenance and its original operands", ({ extra, derivation, filings, operands }) => {
+  ])("preserves $label field provenance and its original operands", ({ extra, derivation, filings, operands, receiptPoints }) => {
     const observedAt = "2026-09-29T12:34:56.000Z";
     const f = facts({
       Revenues: [
@@ -367,6 +378,8 @@ describe("buildStatementsFromCompanyFacts — quarterly rows", () => {
       source: "edgar", unit: "USD", periodStart: "2025-10-01", periodEnd: "2025-12-31", observedAt,
       tags: ["us-gaap/Revenues"], filings,
       ...(derivation === undefined ? {} : { derivation }),
+      ...(receiptPoints ? { flowOperands: [{ tag: "us-gaap/Revenues",
+        points: receiptPoints.map((p, i) => expect.objectContaining({ ...p, ...filings[i] })) }] } : {}),
     });
     // A directly reported field must not inherit the row's reconstructed revenue label.
     expect(q4.fieldProvenance?.netIncome).toEqual({
@@ -385,6 +398,10 @@ describe("buildStatementsFromCompanyFacts — quarterly rows", () => {
         { accn: "0000000000-26-000003", filed: "2025-08-01", form: "10-Q" },
         { accn: "0000000000-26-000002", filed: "2025-05-02", form: "10-Q" },
       ],
+      flowOperands: [{ tag: "us-gaap/NetCashProvidedByUsedInOperatingActivities", points: [
+        expect.objectContaining({ start: "2024-09-29", end: "2025-06-28", val: 95, accn: "0000000000-26-000003", filed: "2025-08-01", form: "10-Q" }),
+        expect.objectContaining({ start: "2024-09-29", end: "2025-03-29", val: 80, accn: "0000000000-26-000002", filed: "2025-05-02", form: "10-Q" }),
+      ] }],
     });
   });
 

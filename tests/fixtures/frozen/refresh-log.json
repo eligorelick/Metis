@@ -368,59 +368,44 @@
   },
   {
     "date": "2026-11-14",
-    "target": "audit-fixture",
-    "decision": "D-262",
-    "reason": "D-262 integration applies its capex definition and report spec 1.78.0 on the merged D-263 frozen record; numeric synthetic figures are unchanged.",
+    "target": "stagec-payload",
+    "decision": "D-260",
+    "reason": "P1 D-260 retains the payload 1.95.0 income-window meaning after merging D-263 verification; only version header and dependent hashes change.",
     "scope": [
-      "$.projectionSha256",
-      "$.projection.report.meta.specVersion",
-      "$.projection.stageB.capital.current.cashBridge.definition",
-      "$.projection.report.balanceSheet.coverage.commentary[1].text"
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
     ],
-    "beforeSha256": "1cdc597504cfb978d82a0d1207f25db7366e72d50e3714ada6c0536b045a2572",
-    "afterSha256": "d1c8aac937934a1019868929c16721f721813a290f7229969b3fc597e1dc2d75",
-    "changedLeaves": 4,
+    "beforeSha256": "d1848e7fd39b37b57ad1e2f70b1804109d0b93110b1c24f8ad0abfff3264c31c",
+    "afterSha256": "9f5ea654cb5564700a49b4e69e506c8564fb4af68f6864c627f7ce06b453bb3d",
+    "changedLeaves": 6,
     "changedPaths": [
-      "$.projectionSha256",
-      "$.projection.stageB.capital.current.cashBridge.definition",
-      "$.projection.report.meta.specVersion",
-      "$.projection.report.balanceSheet.coverage.commentary[1].text"
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
     ]
   },
   {
     "date": "2026-11-14",
-    "target": "stagec-payload",
-    "decision": "D-262",
-    "reason": "D-262 integration applies its payload stamp and capex definition on the merged D-263 frozen record, preserving all numeric figures and affirmative producer metadata.",
+    "target": "audit-fixture",
+    "decision": "D-260",
+    "reason": "P1 D-260 retains report spec 1.77.0 after merging D-263 verification, changing only the current report label and enclosing digest.",
     "scope": [
-      "$.payloadVersion",
-      "$.fingerprint",
-      "$.summary.promptBytes",
-      "$.summary.promptFnv1a32",
-      "$.summary.provenanceHash",
-      "$.prompt.bytes",
-      "$.prompt.sha256",
-      "$.prompt.sections[0].sha256",
-      "$.prompt.sections[6].bytes",
-      "$.prompt.sections[6].sha256",
-      "$.payload.payloadVersion",
-      "$.payload.computed[4].notes[1]"
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
     ],
-    "beforeSha256": "d1848e7fd39b37b57ad1e2f70b1804109d0b93110b1c24f8ad0abfff3264c31c",
-    "afterSha256": "168dfa18f0252101295afebc7cb073540e07f3c3b323f95af24462f7f97e3316",
-    "changedLeaves": 11,
+    "beforeSha256": "1cdc597504cfb978d82a0d1207f25db7366e72d50e3714ada6c0536b045a2572",
+    "afterSha256": "f23a5cf86488745fe7315b29696c20da560681311dc7bc4526f92cb947109d69",
+    "changedLeaves": 2,
     "changedPaths": [
-      "$.payloadVersion",
-      "$.fingerprint",
-      "$.summary.promptBytes",
-      "$.summary.promptFnv1a32",
-      "$.prompt.bytes",
-      "$.prompt.sha256",
-      "$.prompt.sections[0].sha256",
-      "$.prompt.sections[6].bytes",
-      "$.prompt.sections[6].sha256",
-      "$.payload.payloadVersion",
-      "$.payload.computed[4].notes[1]"
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
     ]
   }
 ]

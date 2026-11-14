@@ -28,7 +28,7 @@ import { newerFilingSentence, newerResultsSentence } from "@/report/filingDisclo
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
-import { operatingIncomeEvidenceForNonMargins, operatingIncomeForNonMargins, operatingMarginBasis, withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
+import { operatingIncomeEvidenceForNonMargins, operatingIncomeForNonMargins, operatingMarginBasis, withFiledIncomeWindow, withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import { withFilerShareUnits } from "@/pipeline/shareUnits";
 import { filedAnnualNciEarnings, filedSingleProfitWindow } from "@/pipeline/nciEarnings";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
@@ -45,7 +45,7 @@ import type {
 } from "@/providers/fmp";
 import { parseSicCode } from "@/edgar/sic";
 import { successorContinuity } from "@/edgar/successor";
-import { ACQUISITION_OTHER_PAYMENT_TAG, tagsFor } from "@/edgar/tagSynonyms";
+import { ACQUISITION_OTHER_PAYMENT_TAG, PRETAX_EXCLUDING_EQUITY_METHOD_TAG, tagsFor } from "@/edgar/tagSynonyms";
 
 import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
 import {
@@ -850,6 +850,8 @@ function toOhlcv(r: FmpRawRow): OhlcvRow {
 // ---------------------------------------------------------------------------
 
 export interface TtmIncome {
+  /** Filed operands when the exact window is proved independently of quarter completeness. */
+  filedIncomeFlows?: FmpIncomeStatementRow["fieldProvenance"];
   date: string;
   periodStart: string | null;
   periodStartBasis: "filed" | "prior-quarter-end" | null;
@@ -1343,7 +1345,7 @@ function ttmIncomeFromNormalized(
   const revenueCount = countField(q, "revenue");
   if (revenueCount < 4) {
     gaps?.push({
-      field: "compute.ttmIncome",
+      field: "compute.ttmIncome.revenue",
       reason: `revenue present in only ${revenueCount}/4 latest quarters — TTM revenue suppressed (a partial sum would understate it); revenue-dependent consumers use the latest annual statement or refuse. Independently complete common earnings remain eligible.`,
       severity: "info",
       attemptedSources: ["fmp:/stable/income-statement?period=quarter"],
@@ -1534,7 +1536,11 @@ export interface WaccStatementTaxRate {
 export function waccTaxRateFromStatements(ttm: TtmIncome | null, latestAnnual: FmpIncomeStatementRow | undefined): WaccStatementTaxRate {
   const ttmRate = effectiveTaxRateFromTtm(ttm);
   if (ttmRate !== null) {
-    return { rate: ttmRate, basis: ttm?.taxRatePretaxBasis
+    const recoveredPretax = ttm?.filedIncomeFlows?.incomeBeforeTax;
+    const rebased = !!ttm?.taxRatePretaxBasis && (!recoveredPretax ||
+      recoveredPretax.tags.includes(`us-gaap/${PRETAX_EXCLUDING_EQUITY_METHOD_TAG}`) ||
+      recoveredPretax.calculation === "pretax-plus-equity-method");
+    return { rate: ttmRate, basis: rebased
       ? "TTM incomeTaxExpense / filed pre-tax income before equity-method results, from the statements (observed effective rate; the provider's ratio divides by pre-tax income after those results, D-237)"
       : "TTM incomeTaxExpense / incomeBeforeTax from the statements (observed effective rate)", fallback: null };
   }
@@ -1750,7 +1756,7 @@ export function statementCurrencies(bundle: DataBundle): StatementCurrencies {
   const income = normalizeStatementQuarters(rows(statements.incomeQuarterly), "income", undefined, statements.incomeQuarterly);
   const balance = normalizeStatementQuarters(rows(statements.balanceQuarterly), "balance");
   const cashflow = normalizeStatementQuarters(rows(statements.cashflowQuarterly), "cashFlow", undefined, statements.cashflowQuarterly);
-  const incomeWindow = ttmIncomeFromNormalized(income, undefined, [...balance.rows, ...cashflow.rows]);
+  const incomeWindow = withFiledIncomeWindow(bundle, ttmIncomeFromNormalized(income, undefined, [...balance.rows, ...cashflow.rows]), income.rows, []);
   return resolveStatementCurrencies(
     bundle.profile === undefined ? undefined : firstRow(bundle.profile)?.currency,
     rows(statements.incomeAnnual)[0],
@@ -2224,8 +2230,8 @@ export function operatingDispositionView(bundle: DataBundle): { bundle: DataBund
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   const annual = rowsOf(bundle.statements.incomeAnnual);
   const quarters = normalizeStatementQuarters(rowsOf(bundle.statements.incomeQuarterly), "income", undefined, bundle.statements.incomeQuarterly);
-  const trailing = ttmIncomeFromNormalized(quarters, undefined,
-    [...rowsOf(bundle.statements.balanceQuarterly), ...rowsOf(bundle.statements.cashflowQuarterly)], bundle.builtAt);
+  const trailing = withFiledIncomeWindow(bundle, ttmIncomeFromNormalized(quarters, undefined,
+    [...rowsOf(bundle.statements.balanceQuarterly), ...rowsOf(bundle.statements.cashflowQuarterly)], bundle.builtAt), quarters.rows, []);
   const seed = trailing?.revenue != null ? trailing : annual[0];
   const end = isoDay(seed?.date), currency = normalizeReportedCurrency(seed?.reportedCurrency);
   const sections = [bundle.edgar?.tenKNotes, bundle.edgar?.tenQNotes].flatMap(s => s?.ok && s.value.source === "edgar" &&
@@ -2394,10 +2400,10 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
         reportedCurrency: normalizeReportedCurrency(inc0.reportedCurrency),
       }
     : null;
-  const trailingIncome = ttmIncomeFromNormalized(incomeQuarterSet, ttmGaps, [
+  const trailingIncome = withFiledIncomeWindow(bundle, ttmIncomeFromNormalized(incomeQuarterSet, ttmGaps, [
     ...balanceQuarterSet.rows,
     ...cashflowQuarterSet.rows,
-  ], bundle.builtAt);
+  ], bundle.builtAt), incomeQuarterSet.rows, ttmGaps);
   // D-198: only common-return consumers admit an earnings-only window. Every
   // legacy revenue-dependent consumer keeps its complete-revenue gate.
   const ttmInc = trailingIncome?.revenue != null ? trailingIncome : null;

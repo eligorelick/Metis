@@ -93,7 +93,7 @@ describe("NCI income synonyms in the existing ordered resolution", () => {
       expect(out.value.data.rows[0]?.netIncomeAttributableToNoncontrollingInterest).toBeUndefined();
     });
   }
-  it("recovers the annual key without rebuilding an already-valued issuer's quarterly ownership history", () => {
+  it("retains the annual key and completes an exact filed quarterly ownership flow (P1, D-260)", () => {
     const { bundle, facts } = fixture();
     if (!bundle.statements.incomeAnnual.ok || !bundle.statements.incomeQuarterly.ok) throw new Error("fixture");
     Object.assign(bundle.statements.incomeAnnual.value.data.rows[0]!, { netIncomeAttributableToNoncontrollingInterest: -2 * M, netIncomeConsolidated: 148 * M });
@@ -105,7 +105,10 @@ describe("NCI income synonyms in the existing ordered resolution", () => {
     }
     const out = withIncomeOperatingBasis(bundle).statements.incomeQuarterly;
     if (!out.ok) throw new Error("fixture");
-    expect(out.value.data.rows[0]?.netIncomeAttributableToNoncontrollingInterest).toBeUndefined();
+    expect(out.value.data.rows[0]?.netIncomeAttributableToNoncontrollingInterest).toBe(-1 * M);
+    expect(out.value.data.rows[0]?.netIncomeConsolidated).toBe(44 * M);
+    expect(out.value.data.rows[0]?.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest?.filings[0]?.accn).toBe("0000000042-26-000002");
+    expect(bundle.statements.incomeAnnual.value.data.rows[0]?.netIncomeAttributableToNoncontrollingInterest).toBe(-2 * M);
   });
   it("does not read nonredeemable NCI income as total NCI income", () => {
     // Beside redeemable NCI it is only part of outside owners' earnings (PR #86 review).

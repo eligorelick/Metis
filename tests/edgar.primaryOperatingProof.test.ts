@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { corroborateOperatingIncome } from "@/edgar/revenueAdmission";
+import { operatingBridgeProof } from "@/edgar/revenuePresentation";
 import { operatingIncomeForNonMargins } from "@/pipeline/incomeBasis";
 import type { FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 
@@ -18,6 +19,47 @@ function row(vendor: number, pretax: number): FmpIncomeStatementRow {
 }
 
 describe("complete primary operating proof", () => {
+  it.each([[280, 300], [230, 250], [229, null]])("proves restructuring membership by exact pretax reconciliation (%s, D-260)", (pretax, expected) => {
+    const r = row(300, pretax!);
+    Object.assign(r.filedIncomeLines!, { CostOfRevenue: line(400, "CostOfRevenue"),
+      SellingGeneralAndAdministrativeExpense: line(300, "SellingGeneralAndAdministrativeExpense"),
+      InterestExpense: line(20, "InterestExpense"),
+      RestructuringSettlementAndImpairmentProvisions: line(50, "RestructuringSettlementAndImpairmentProvisions") });
+    const result = operatingBridgeProof(line(1000, "Revenues"), line(pretax!, pretaxTag), r.filedIncomeLines!);
+    expect(result.status).toBe(expected === null ? "unavailable" : "complete");
+    if (result.status === "complete") {
+      expect(result.line.value).toBe(expected);
+      expect(result.line.proof.tags.includes("us-gaap/RestructuringSettlementAndImpairmentProvisions")).toBe(expected === 250);
+    }
+  });
+  it("includes acquired research and special charges in a disjoint filed operating bridge (P1, D-260)", () => {
+    const r = row(300, 180);
+    Object.assign(r.filedIncomeLines!, {
+      CostOfRevenue: line(400, "CostOfRevenue"),
+      SellingGeneralAndAdministrativeExpense: line(200, "SellingGeneralAndAdministrativeExpense"),
+      ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost: line(100, "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"),
+      ResearchAndDevelopmentAssetAcquiredOtherThanThroughBusinessCombinationWrittenOff: line(80, "ResearchAndDevelopmentAssetAcquiredOtherThanThroughBusinessCombinationWrittenOff"),
+      RestructuringSettlementAndImpairmentProvisions: line(20, "RestructuringSettlementAndImpairmentProvisions"),
+      NonoperatingIncomeExpense: line(-20, "NonoperatingIncomeExpense"),
+    });
+    const out = corroborateOperatingIncome(r, r);
+    expect(out.operatingIncome).toBe(200);
+    expect(out.fieldProvenance?.operatingIncome?.calculation).toBe("complete-operating-reconciliation");
+    expect(out.fieldProvenance?.operatingIncome?.tags).toContain("us-gaap/ResearchAndDevelopmentAssetAcquiredOtherThanThroughBusinessCombinationWrittenOff");
+  });
+
+  it("does not double-count acquired research inside a filed total research amount (D-260)", () => {
+    const r = row(300, 180);
+    Object.assign(r.filedIncomeLines!, { CostOfRevenue: line(400, "CostOfRevenue"),
+      SellingGeneralAndAdministrativeExpense: line(200, "SellingGeneralAndAdministrativeExpense"),
+      ResearchAndDevelopmentExpense: line(180, "ResearchAndDevelopmentExpense"),
+      ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost: line(100, "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"),
+      ResearchAndDevelopmentAssetAcquiredOtherThanThroughBusinessCombinationWrittenOff: line(80, "ResearchAndDevelopmentAssetAcquiredOtherThanThroughBusinessCombinationWrittenOff"),
+      RestructuringSettlementAndImpairmentProvisions: line(20, "RestructuringSettlementAndImpairmentProvisions"),
+      NonoperatingIncomeExpense: line(-20, "NonoperatingIncomeExpense") });
+    expect(corroborateOperatingIncome(r, r).operatingIncome).toBe(200);
+  });
+
   it("corrects an incompatible operating tag from a complete disjoint itemized statement before any consumer uses it", () => {
     const r = row(500, 290);
     r.fieldProvenance!.operatingIncome = line(500, "OperatingIncomeLoss").proof;

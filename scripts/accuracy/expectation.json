@@ -1414,9 +1414,9 @@
     {
       "case": "duk-data-only",
       "figure": "netIncome.ttm",
-      "status": "gap",
-      "valueSha256": "74234e98afe7498f",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "P1 D-260: DUK consolidated TTM ProfitLoss is proved at 5578 million by FY2025 5071 (0001326160-26-000014) plus 9M2026 4372 minus 9M2025 3865 (both 0001326160-26-000051); the intentional gap-to-match change restores that exact denominator."
     },
     {
       "case": "duk-data-only",
