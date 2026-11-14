@@ -3,17 +3,26 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.75.0 / payload 1.94.0, Stage B `STAGE_B_2026_11_BANK_REVENUE_68` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.76.0 / payload 1.95.0, Stage B `STAGE_B_2026_11_FILED_BALANCES_GAPS_69` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
 An explicit fiscal-year guidance introduction can bind annual revenue and tax-rate bullets. Intervening prose, a new outlook or trailing restrictions cannot silently inherit that annual scope. Unsupported operating measures remain source narrative, and annual guidance is not converted into quarterly guidance. Primary earnings schedules can confirm quarter/date rows under an explicit results-release announcement, with enclosing uncertainty or conflicting rows refused. General evidence selector `section-evidence-8` reserves at most a fifth of the existing excerpt budget for complete calendar passages, merging overlapping selections; notes/risk and event selectors keep their own versions. An unexplained pretax-to-net-income residual is disclosed without diagnosing an unproved equity-method adjustment.
 
-Source-scope recovery (D-210) preserves original vendor observations. A cash
-amount equal to a filing's explicit restricted-inclusive total may be replaced
-by its directly filed unrestricted balance only with unambiguous compatible
-evidence. Net debt is then recomputed only from admitted debt in that same
-filing; a combined cash-and-investments value needs its own proof. A vendor SBC
+Source-scope recovery (D-210, revised by D-261) preserves original vendor
+observations. An unambiguous exact-instant filed cash or lease balance replaces
+a conflicting vendor observation on the same issuer and currency, at annual
+and quarterly instants, including core 20-F/40-F forms. Available filed copies
+must agree under the existing same-observation rule. Temporary-equity categories
+also require matching same-filing assets, liabilities and permanent equity.
+Independent scope and composition refusals remain authoritative. Net debt is
+recomputed only from admitted debt and cash in the same filing. Combined
+liquidity uses a compatible filed total or cash plus separately filed investments
+from one filing. When the vendor combined total equals filed cash alone, it can
+carry that cash-only observation, explicitly qualified: absent filed investments
+are unreported, not zero, and an uncorroborated vendor split is not added again.
+An ambiguous or independently refused investment amount cannot use this path.
+A vendor SBC
 quarter equal to a cumulative amount is corrected only when that filing also
 directly states the standalone quarter. Missing lease portions, conflicting
 filing presentations and unsupported ownership allocations remain unavailable.
@@ -882,6 +891,15 @@ return with the current cost of equity, as it did before.
 ---
 
 ## Growth, annual returns and capital diagnostics
+
+D-261 (P10, P11): every withheld annual ROIC has a dated manifest entry naming
+the missing or refused root input, including ordinary missing cash, equity,
+operating income, tax and matching balances, and nonpositive capital. The shared
+scorer likewise emits `scores.<aspect>.<signal>` for every applicable signal
+withheld for missing data or zero supporting evidence. It names the signal's
+actual source operands and carries upstream refusal reasons; a route-inapplicable
+signal retains its route explanation. Score bands, weights and arithmetic do
+not change. ROIC minus WACC separately names the missing ROIC or WACC input.
 
 R2 operating margins use paired statement bases in quarterly trends, annual
 fundamentals and trailing calculations. A confirmed issuer's canonical filed

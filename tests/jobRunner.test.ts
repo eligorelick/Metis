@@ -6711,7 +6711,7 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.75.0"); // D-258: bank revenue report semantics
+    expect(repRow?.specVersion).toBe("1.76.0"); // D-261: bank revenue report semantics
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
@@ -10846,7 +10846,7 @@ describe("analyst repair attempt after schema-invalid output", () => {
       expect(report.appendix.missingData.find((gap) => gap.field === "llm.bull")?.reason).toBe(
         `repair attempt after schema-invalid output also failed: bull pass failed (schema): schema-invalid structured output for llm.bull: ${plain}`,
       );
-      expect(report.appendix.missingData.map((gap) => gap.reason).join("\n")).not.toContain("origin");
+      expect(report.appendix.missingData.filter(gap => gap.field.startsWith("llm.")).map((gap) => gap.reason).join("\n")).not.toContain("origin");
     });
 
     it("closes a queued side when its sibling failed in a way no repair fixes", async () => {

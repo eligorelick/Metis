@@ -1602,7 +1602,8 @@ function investedCapital(
   // signal. The defect this replaces was using cash-only even when short-term
   // investments WERE reported, which overstated invested capital.
   if (!isFiniteNumber(b.cashAndCashEquivalents)) {
-    notes.push(`cashAndCashEquivalents missing on ${b.date} — invested capital uncomputable`);
+    const refused = b.fieldConflicts?.cashAndCashEquivalents;
+    notes.push(`cashAndCashEquivalents ${refused?.usable === false ? `withheld (${refused.reason ?? "refused at admission"})` : "missing"} on ${b.date} — invested capital uncomputable`);
     return null;
   }
   notes.push(
@@ -1986,6 +1987,13 @@ export function computeRoic(
       severity: latestRefusal !== null && latestRefusal.kind === "debt" && options.waccRefusal != null &&
         latestRefusal.balanceDate === options.waccRefusal.date.slice(0, 10) ? "critical" : "warn",
     });
+  }
+  // D-261 (P10, P11): ordinary missing operands used to leave only a private
+  // per-year note. Every withheld annual ROIC must name that root in the manifest.
+  for (const year of series) if (year.roicPct === null) {
+    const cause = year.notes.find(note => /uncomputable|suppressed|not meaningful|no balance sheet|ROIC withheld/i.test(note))
+      ?? year.notes.at(-1) ?? "NOPAT or invested capital is not established";
+    gaps.push({ field: `returns.roic.${year.date}`, reason: `${year.date}: ROIC withheld because ${cause}`, severity: "warn" });
   }
   const latest = series.length > 0 ? series[series.length - 1] : null;
   return {

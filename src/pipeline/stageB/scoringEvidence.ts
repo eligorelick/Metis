@@ -15,6 +15,50 @@ const HISTORY_KEY_LABEL: Record<string, string> = {
 };
 type Evidence = Pick<ScoreSignal, "family" | "asOf" | "period" | "startDate" | "endDate" | "windowYears" | "fallbackReason" | "operands">;
 
+/** D-261 (P10, P11): the same dependencies used to trace a score name a missing score's cause. */
+export function scoreSignalRefusal(i: ScoringInputs, aspect: ScoreAspect, id: string): string {
+  const evidence = describeScoreEvidence(i, aspect, id);
+  let causes: string[] = [];
+  if (/^roic/.test(id)) {
+    const years = id.endsWith("Floor") ? i.roic.gaps : i.roic.gaps.filter(g => g.field === `returns.roic.${i.roic.asOf}` || g.field === "returns.roic");
+    if (id.endsWith("Floor") || i.roic.latestRoicPct === null) causes.push(...years.map(g => g.reason));
+    if (id === "roicVsWaccSpread" && i.wacc.waccPct === null) causes.push(...i.wacc.gaps.map(g => g.reason));
+  } else if (/^rote/.test(id)) causes = i.rote.gaps.map(g => g.reason);
+  else if (/Cagr$|Margin/.test(id)) {
+    const key = id === "epsCagr" ? /eps/i : id === "fcfCagr" ? /fcf/i : id === "revenueCagr" ? /revenue/i : /margin/i;
+    causes = i.growth.gaps.filter(g => key.test(g.field)).map(g => g.reason);
+    if (/Cagr$/.test(id)) {
+      const rows = id === "epsCagr" ? i.growth.epsDilutedCagrs : id === "fcfCagr" ? i.growth.fcfCagrs : i.growth.revenueCagrs;
+      causes.push(...rows.filter(r => !finite(r.cagrPct)).map(r => r.note).filter((s): s is string => Boolean(s)));
+    }
+  } else if (aspect === "quality") {
+    const key = id.startsWith("piotroski") ? /piotroski/i : id.startsWith("altman") ? /altman/i : id.startsWith("accruals") ? /accruals/i : /beneish/i;
+    causes = i.forensics.gaps.filter(g => key.test(g.field)).map(g => g.reason);
+  } else if (aspect === "valuation" || id === "equityReturnVsCoeSpread") {
+    causes = i.valuation.gaps.map(g => g.reason);
+    if (i.valuationUse.status !== "current") causes.push(`valuation use is ${i.valuationUse.status}: ${i.valuationUse.reason}; value date ${i.valuationUse.valueDate ?? "unestablished"}, quote date ${i.valuationUse.quoteDate ?? "unestablished"}`);
+  } else if (aspect === "balanceSheet" || aspect === "leadership") {
+    const key = id === "buybackTiming" ? /buyback|repurchase/i : id === "shareCountTrend" ? /share/i : id === "netDebtToEbitda" ? /netDebt|ebitda|cash/i
+      : id === "interestCoverage" ? /interest|ebit/i : id === "sbcPctOfFcf" ? /sbc|fcf/i : id === "fcfConversionBeforeSbc" ? /fcf|netIncome/i : new RegExp(id, "i");
+    causes = [...i.capital.gaps, ...(i.financialMetrics?.gaps ?? [])].filter(g => key.test(g.field)).map(g => g.reason);
+  } else if (aspect === "technicals") {
+    const key = id === "smaGap" ? /sma/i : id === "pctFromHigh52w" ? /52|range/i : /strength|momentum|benchmark/i;
+    causes = i.technicals.gaps.filter(g => key.test(g.field)).map(g => g.reason);
+  }
+  const missing = evidence.operands.filter(o => o.value === null).map(o => `${o.name} (${o.source}) is missing or refused`);
+  // An undefined ratio can have finite operands (a nonpositive denominator or
+  // too few historical points). Name those operands and the required operation.
+  const inputs = missing.length ? missing.join("; ") : evidence.operands.length
+    ? `the retained ${evidence.operands.map(o => o.name).join(", ")} do not establish the signal's required ratio or history`
+    : id.endsWith("Floor") ? "fewer than two computable annual capital returns establish the return floor"
+      : /OwnHistoryRank$/.test(id) ? "no admitted current multiple and compatible historical multiple sample establish a percentile rank"
+        : /Cagr$/.test(id) ? "positive, dated start and end values for a span-compatible growth window are not established"
+          : id === "operatingMarginSlope" ? "consecutive admitted revenue and operating-income observations do not establish a margin trend"
+            : id === "buybackTiming" ? "filed repurchase cost and shares and a complete same-year average price are not established"
+              : `${id}'s source operands are not established`;
+  return `${id} withheld: ${[...new Set(causes)].join("; ") || inputs}. ${causes.length ? inputs + ". " : ""}${evidence.fallbackReason ?? ""}`.trim();
+}
+
 /** Metadata only: mirror each grader's selected operand and never change its numeric score. */
 export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id: string): Evidence {
   const result: Evidence = { family: aspect, asOf: null, period: null, startDate: null, endDate: null, windowYears: null, fallbackReason: null, operands: [] };

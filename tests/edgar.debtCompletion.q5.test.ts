@@ -88,7 +88,11 @@ describe("exact same-filing debt completion", () => {
       fieldConflicts: { totalDebt: { usable: false, vendorValue: 122.5 * M, secValue: null, reason },
         netDebt: { usable: false, vendorValue: 112.5 * M, secValue: null, reason } } });
     Object.assign(vendor, { totalDebt: null, netDebt: null });
-    if (cashRefused) vendor = admitBalanceCash(vendor, facts, 'quarter', OBSERVED).row;
+    if (cashRefused) {
+      const ps = (facts.facts['us-gaap']!.CashAndCashEquivalentsAtCarryingValue as { units: { USD: { val: number; filed: string; accn: string }[] } }).units.USD;
+      ps.push({ ...ps[0]!, val: 11 * M, filed: '2026-09-01', accn: '0000000042-26-000099' });
+      vendor = admitBalanceCash(vendor, facts, 'quarter', OBSERVED).row;
+    }
     const out = admitDebtFields(vendor, facts, 'USD', OBSERVED);
     expect(out.row.totalDebt).toBe(130 * M);
     expect(out.row.fieldConflicts?.totalDebt?.usable).toBe(true);
@@ -107,6 +111,9 @@ describe("exact same-filing debt completion", () => {
   });
   it("reconciles debt independently of a cash refusal in either pass order and retains that refusal", () => {
     const facts = companyFacts({ [Q2]: { ...tagged, CashAndCashEquivalentsAtCarryingValue: 9 } });
+    // D-261: an unambiguous cash fact is adopted; this refusal-control needs conflicting filed copies.
+    const ps = (facts.facts['us-gaap']!.CashAndCashEquivalentsAtCarryingValue as { units: { USD: { val: number; filed: string; accn: string }[] } }).units.USD;
+    ps.push({ ...ps[0]!, val: 11 * M, filed: '2026-09-01', accn: '0000000042-26-000099' });
     const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M });
     const cashFirst = admitDebtFields(admitBalanceCash(vendor, facts, 'quarter', OBSERVED).row, facts, 'USD', OBSERVED).row;
     const debtFirst = admitBalanceCash(admitDebtFields(vendor, facts, 'USD', OBSERVED).row, facts, 'quarter', OBSERVED).row;

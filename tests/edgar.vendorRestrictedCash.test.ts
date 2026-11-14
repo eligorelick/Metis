@@ -44,7 +44,7 @@ describe("vendor cash that exactly matches the same filing's restricted-inclusiv
     expect(out.netDebt).toBeNull();
     if (kind !== "debt filing") expect(out.fieldConflicts?.[kind === "debt refusal" ? "totalDebt" : "netDebt"]?.reason).toBe("independent refusal");
   });
-  it.each(["amount", "accession", "future", "currency", "refusal"])("keeps the cash refusal for incompatible %s evidence", kind => {
+  it.each(["amount", "accession", "future", "currency", "refusal"])("direct cash needs no restricted-inclusive %s bridge, but preserves an independent refusal", kind => {
     const facts = companyFacts({ [Q2]: tags });
     const c = facts.facts["us-gaap"]![totalTag] as { units: Record<string, Record<string, unknown>[]> };
     const p = c.units.USD![0]!;
@@ -55,9 +55,9 @@ describe("vendor cash that exactly matches the same filing's restricted-inclusiv
     const row = vendor();
     if (kind === "refusal") row.fieldConflicts = { cashAndCashEquivalents: { usable: false, vendorValue: 6976 * M, secValue: null, reason: "unrelated refusal" } };
     const out = admitBalanceCash(row, facts, "quarter", OBSERVED).row;
-    expect(out.cashAndCashEquivalents).toBeNull();
+    expect(out.cashAndCashEquivalents).toBe(kind === "refusal" ? null : 5413 * M);
     expect(out.netDebt).toBeNull();
-    expect(out.fieldConflicts?.cashAndCashEquivalents?.usable).toBe(false);
+    expect(out.fieldConflicts?.cashAndCashEquivalents?.usable).toBe(kind !== "refusal");
   });
   it.each(["conflicting same-filing values", "invalid latest filing"])("does not admit cash from %s", kind => {
     const facts = companyFacts({ [Q2]: tags });

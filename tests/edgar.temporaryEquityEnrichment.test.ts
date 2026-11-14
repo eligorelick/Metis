@@ -136,10 +136,10 @@ describe("temporary equity enrichment of compatible successful vendor balances",
     expect(out.row.temporaryEquityAttributableToParent).toBeUndefined();
     expect(out.gaps.some(g => /temporary|currency/i.test(g.reason))).toBe(true);
   });
-  it("preserves a conflicting vendor amount and explicitly refuses its reconciled use", () => {
+  it("uses a complete filed temporary category over a conflicting vendor amount", () => {
     const out = enrich({ ...row(), temporaryEquityAttributableToParent: 123 });
-    expect(out.row.temporaryEquityAttributableToParent).toBe(123);
-    expect(out.row.fieldConflicts?.temporaryEquityAttributableToParent).toMatchObject({ vendorValue: 123, secValue: 1_722_111_000, usable: false });
+    expect(out.row.temporaryEquityAttributableToParent).toBe(1_722_111_000);
+    expect(out.row.fieldConflicts?.temporaryEquityAttributableToParent).toMatchObject({ vendorValue: 123, secValue: 1_722_111_000, usable: true, resolution: "filed-family" });
   });
   it.each([
     concept(1_722_111_000, { accn: "0001769628-25-000015" }),

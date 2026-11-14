@@ -147,6 +147,13 @@ it("each writer's refusal carries the code (or no code) the readers are tested o
 /** Same-period filing: noncurrent debt 100, current debt 0, noncurrent operating lease 18, no operating-lease total. */
 const RECOVERY_TAGS = { LongTermDebtNoncurrent: 100, LongTermDebtCurrent: 0, OperatingLeaseLiabilityNoncurrent: 18 };
 const recoveryFacts = (extra: Record<string, number> = {}): CompanyFacts => companyFacts({ [Q2]: { ...RECOVERY_TAGS, ...extra } });
+/** D-261: only incompatible filed copies still produce a cash comparison refusal. */
+function inconsistentCash(facts: CompanyFacts): CompanyFacts {
+  const out = structuredClone(facts);
+  const unit = (out.facts["us-gaap"]!.CashAndCashEquivalentsAtCarryingValue as { units: { USD: FactPoint[] } }).units.USD;
+  unit.push({ ...unit[0]!, val: unit[0]!.val + 2 * M, filed: "2026-09-01", accn: "0000000042-26-000099" });
+  return out;
+}
 /** The refusal as the row carries it; the amounts it was refused at are this row's. */
 function refusedRow(refusal: Refusal, base: FmpBalanceSheetRow = vendor()): FmpBalanceSheetRow {
   // Retained admission refusals serialize the withheld fields as null, unlike optional provider fields.
@@ -235,7 +242,7 @@ describe("C11: the same-filing debt completion revisits only incomplete-scope re
   });
 
   describe("a vendor/SEC cash conflict on net debt", () => {
-    const cashFacts = recoveryFacts({ CashAndCashEquivalentsAtCarryingValue: 9 });
+    const cashFacts = inconsistentCash(recoveryFacts({ CashAndCashEquivalentsAtCarryingValue: 9 }));
     const cashRefused = admitBalanceCash(vendor(), cashFacts, "quarter", OBSERVED).row;
     const read = (row: FmpBalanceSheetRow) => C11(row, cashFacts);
 
@@ -414,7 +421,7 @@ function noteRowWith(over: Partial<Record<"shortTermDebt" | "totalDebt" | "netDe
   if (!standIn) row.fieldProvenance = { ...row.fieldProvenance, shortTermDebt: { ...row.fieldProvenance!.shortTermDebt!, tags: ["us-gaap/LongTermDebtCurrent"] } };
   return row;
 }
-const cashOnNetDebt = admitBalanceCash(vendor(), recoveryFacts({ CashAndCashEquivalentsAtCarryingValue: 9 }), "quarter", OBSERVED).row;
+const cashOnNetDebt = admitBalanceCash(vendor(), inconsistentCash(recoveryFacts({ CashAndCashEquivalentsAtCarryingValue: 9 })), "quarter", OBSERVED).row;
 
 const SHORT_NOTE = {
   "the SEC statement builder's maturity bucket": { conflict: conflictOn(noteRow, "shortTermDebt"), reads: true },
@@ -776,7 +783,7 @@ const withConflict = <T extends FmpStatementRow>(row: T, field: string, from: Co
 
 /** Cash: the filing tags only unrestricted cash on the writer's pass; the later pass also sees its restricted-inclusive total. */
 const CASH_POINT = usd(500, undefined, "2025-12-31", "2026-02-01", "10-K");
-const CASH_ONLY = usdFacts({ CashAndCashEquivalentsAtCarryingValue: [CASH_POINT] });
+const CASH_ONLY = usdFacts({ CashAndCashEquivalentsAtCarryingValue: [CASH_POINT, { ...CASH_POINT, val: 550 * M, filed: "2026-03-01", accn: "0000000001-26-000099" }] });
 const CASH_SCOPED = usdFacts({ CashAndCashEquivalentsAtCarryingValue: [CASH_POINT],
   CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents: [{ ...CASH_POINT, val: 520 * M }] });
 const cashRefused = admitBalanceCash({ date: "2025-12-31", filingDate: "2026-02-01", reportedCurrency: "USD", cashAndCashEquivalents: 520 * M,
@@ -785,16 +792,17 @@ const C3 = (row: FmpBalanceSheetRow) => admitBalanceCash(row, CASH_SCOPED, "annu
 function expectCashReconciled(out: ReturnType<typeof C3>): void {
   expect(out.row.cashAndCashEquivalents).toBe(500 * M);
   expect(out.row.fieldConflicts?.cashAndCashEquivalents).toMatchObject({ usable: true, resolution: "filed-family", vendorValue: 520 * M,
-    reason: expect.stringMatching(/^vendor cash scope reconciled at 2025-12-31: vendor 520M USD equals the filed CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents/) });
-  // The dependents keep the cash refusal they were given; the reader does not read them.
-  for (const dependent of ["cashAndShortTermInvestments", "netDebt"]) expect(out.row.fieldConflicts?.[dependent]).toEqual(cashRefused.fieldConflicts![dependent]);
+    reason: expect.stringMatching(/^Vendor cash reconciled at 2025-12-31:/) });
+  // Their separate composition still is not established by the filed cash fact.
+  for (const dependent of ["cashAndShortTermInvestments", "netDebt"]) expect(out.row.fieldConflicts?.[dependent]).toMatchObject({ usable: false,
+    vendorValue: cashRefused.fieldConflicts![dependent]!.vendorValue });
 }
 
 /** The acquisition pass (`enrichFinancialFields`) over both statements: refusals on stock compensation, investing and financing cash flow and cash. */
 const ENRICH_FACTS = usdFacts({ ShareBasedCompensation: [usd(398, "2025-01-01", "2025-12-31", "2026-02-13", "10-K"), usd(103, "2026-01-01", "2026-03-31", "2026-05-08")],
   NetCashProvidedByUsedInInvestingActivities: [usd(-50, "2025-01-01", "2025-12-31", "2026-02-13", "10-K"), usd(-12, "2026-01-01", "2026-03-31", "2026-05-08")],
   NetCashProvidedByUsedInFinancingActivities: [usd(-20, "2025-01-01", "2025-12-31", "2026-02-13", "10-K")],
-  CashAndCashEquivalentsAtCarryingValue: [usd(500, undefined, "2025-12-31", "2026-02-13", "10-K"), usd(400, undefined, "2024-12-31", "2025-02-13", "10-K")] });
+  CashAndCashEquivalentsAtCarryingValue: [usd(500, undefined, "2025-12-31", "2026-02-13", "10-K"), usd(550, undefined, "2025-12-31", "2026-03-01", "10-K"), usd(400, undefined, "2024-12-31", "2025-02-13", "10-K")] });
 function enriched(scope: "annual" | "quarter", cashflow: FmpCashFlowRow, balance: FmpBalanceSheetRow): { balance: FmpBalanceSheetRow; cashflow: FmpCashFlowRow } {
   const out = enrichFinancialFields(fetched([balance]), fetched([cashflow]), ENRICH_FACTS, scope, CASH_AT);
   if (!out.balance.ok || !out.cashflow.ok) throw Error("fixture");
@@ -1033,7 +1041,7 @@ describe("refusalCauseRead", () => {
   /** Every conflict the writers above produce, with the field it sits on. */
   const fielded: [string, Conflict][] = [
     ...Object.values(REFUSALS).flatMap((refusal): [string, Conflict][] => [["totalDebt", refusal.totalDebt], ["netDebt", refusal.netDebt]]),
-    ...fieldsOf(admitBalanceCash(vendor(), recoveryFacts({ CashAndCashEquivalentsAtCarryingValue: 9 }), "quarter", OBSERVED).row),
+    ...fieldsOf(cashOnNetDebt),
     ...[
       crwvBalanceRows(),
       crwvBalanceRows({ LongTermDebt: 30e9 }),

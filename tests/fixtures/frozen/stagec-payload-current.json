@@ -1,13 +1,13 @@
 {
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
-  "payloadVersion": "1.94.0",
-  "fingerprint": "1.94.0:daa66563",
-  "summary": {"promptBytes": 155033, "promptFnv1a32": "daa66563", "provenanceCount": 536, "provenanceHash": "67a18127", "provenanceIdsHash": "1f4e2f3b", "citationCount": 79, "citationHash": "7c7763ca", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "de666f21"},
+  "payloadVersion": "1.95.0",
+  "fingerprint": "1.95.0:6083dfed",
+  "summary": {"promptBytes": 158903, "promptFnv1a32": "6083dfed", "provenanceCount": 536, "provenanceHash": "67a18127", "provenanceIdsHash": "1f4e2f3b", "citationCount": 87, "citationHash": "1fc0421c", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "de666f21"},
   "prompt": {
-    "bytes": 155033,
-    "sha256": "b6e959e9485ab1248a2d9961e0daadb19d986487ee13c4efe6407f6792ed81c2",
+    "bytes": 158903,
+    "sha256": "3978aaffeec0945c482a96814148ac4019f8dd19b55a3d7084e3bc08eb2c8256",
     "sections": [
-      {"heading": "(before the first ## heading)", "bytes": 498, "sha256": "747cddde5553612636fff4a1a42e955ae85b167b6debea020e760f7b756eb62d"},
+      {"heading": "(before the first ## heading)", "bytes": 498, "sha256": "94be0833f9731889ebf6609799e4a4757ad9c671b52924061f6fbe4279a43f82"},
       {"heading": "## Quote", "bytes": 520, "sha256": "5146e60fd664d5a82bbbf06b3413303e1136d43422948e7ad1e8c645380d4026"},
       {"heading": "## Growth & margins (computed)", "bytes": 2984, "sha256": "0a99f8d4e346e47a0c3816bac522e18117123512e830df57a2ae624db2407749"},
       {"heading": "## Returns (computed)", "bytes": 4404, "sha256": "e6a3241a0880a89b297438994c04127838cbf59b682e8fe516005210afaba4e7"},
@@ -41,7 +41,7 @@
       {"heading": "## Provider transcript/filing excerpt (untrusted source data)", "bytes": 18350, "sha256": "bb6a47f325977783ed016e1d41e2c496850d3e97f3bcdc85f056b2ef053e9be0"},
       {"heading": "## Provider news/press snippets (untrusted source data)", "bytes": 314, "sha256": "5188737400534b60ef1e78266e8a1e16b0ea53af3b87978db4ae3258c80674d1"},
       {"heading": "## Data-quality flags (Stage A validation; untrusted provider data)", "bytes": 796, "sha256": "bd25f9b7783f7e0714ee8cb26ac9a3a541a7bd23915bda9a7b8cd5e2fcffde84"},
-      {"heading": "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "bytes": 7625, "sha256": "ea93b44a8e0094dd60cc2240a65a3d9720631b71fcbfd2a7a1b12c70f10172f6"}
+      {"heading": "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "bytes": 11495, "sha256": "3820ed7c6f574f87cf3b7a6aafd6c321ff7ca17b0b4d52a4e50781a2e4b74812"}
     ]
   },
   "projectionPathPeriodMatrix": [
@@ -5408,6 +5408,14 @@
     {"id": "manifest.technicals", "kind": "payload-gap", "asOf": null, "origin": "technicals"},
     {"id": "manifest.forensics.altman.retainedEarnings", "kind": "payload-gap", "asOf": null, "origin": "forensics.altman.retainedEarnings"},
     {"id": "manifest.forensics.altman.workingCapital", "kind": "payload-gap", "asOf": null, "origin": "forensics.altman.workingCapital"},
+    {"id": "manifest.scores.balanceSheet.fcfConversionBeforeSbc", "kind": "payload-gap", "asOf": null, "origin": "scores.balanceSheet.fcfConversionBeforeSbc"},
+    {"id": "manifest.scores.balanceSheet.sbcPctOfFcf", "kind": "payload-gap", "asOf": null, "origin": "scores.balanceSheet.sbcPctOfFcf"},
+    {"id": "manifest.scores.leadership.buybackTiming", "kind": "payload-gap", "asOf": null, "origin": "scores.leadership.buybackTiming"},
+    {"id": "manifest.scores.quality.altmanZOriginalScale", "kind": "payload-gap", "asOf": null, "origin": "scores.quality.altmanZOriginalScale"},
+    {"id": "manifest.scores.technicals.pctFromHigh52w", "kind": "payload-gap", "asOf": null, "origin": "scores.technicals.pctFromHigh52w"},
+    {"id": "manifest.scores.technicals.relStrength12m1m", "kind": "payload-gap", "asOf": null, "origin": "scores.technicals.relStrength12m1m"},
+    {"id": "manifest.scores.technicals.smaGap", "kind": "payload-gap", "asOf": null, "origin": "scores.technicals.smaGap"},
+    {"id": "manifest.scores.valuation.peOwnHistoryRank", "kind": "payload-gap", "asOf": null, "origin": "scores.valuation.peOwnHistoryRank"},
     {"id": "manifest.sharesFloat", "kind": "payload-gap", "asOf": null, "origin": "sharesFloat"},
     {"id": "manifest.validation.xbrlCrossCheck", "kind": "payload-gap", "asOf": null, "origin": "validation.xbrlCrossCheck"},
     {"id": "manifest.capital.dilution", "kind": "payload-gap", "asOf": null, "origin": "capital.dilution"},
@@ -5430,7 +5438,7 @@
     {"id": "fmp:key-executives", "kind": "payload-text", "asOf": null, "origin": "fmp:key-executives"}
   ],
   "payload": {
-    "payloadVersion": "1.94.0",
+    "payloadVersion": "1.95.0",
     "symbol": "AAPL",
     "companyName": "Apple Inc.",
     "route": {"base": "general", "overlays": [], "sector": "Technology", "industry": "Consumer Electronics"},
@@ -8462,6 +8470,22 @@
       },
       {"field": "forensics.altman.retainedEarnings", "reason": "retainedEarnings missing — X2 not computable; Z-score suppressed rather than assuming zero retained earnings", "severity": "warn"},
       {"field": "forensics.altman.workingCapital", "reason": "totalCurrentAssets/totalCurrentLiabilities missing (unclassified balance sheet) — Z-score unavailable", "severity": "warn"},
+      {"field": "scores.balanceSheet.fcfConversionBeforeSbc", "severity": "warn", "reason": "fcfConversionBeforeSbc withheld: consolidated net income (including noncontrolling interests' share) (computed.capital.current.netIncome) is missing or refused; FCF / consolidated net income (computed.capital.current.fcfConversionBeforeSbc) is missing or refused."},
+      {"field": "scores.balanceSheet.sbcPctOfFcf", "severity": "warn", "reason": "sbcPctOfFcf withheld: SBC (computed.capital.current.cashBridge.stockBasedCompensation) is missing or refused; SBC / FCF before SBC, percent (computed.capital.current.sbcPctOfFcf) is missing or refused."},
+      {"field": "scores.leadership.buybackTiming", "severity": "warn", "reason": "buybackTiming withheld: share of repurchase dollars covered, percent (computed.capital.buybackPriceAnalysis.timingCoveragePct) is missing or refused. This same-year execution-price comparison does not assess contemporaneous intrinsic-value discipline."},
+      {
+        "field": "scores.quality.altmanZOriginalScale",
+        "severity": "warn",
+        "reason": "altmanZOriginalScale withheld: totalCurrentAssets/totalCurrentLiabilities missing (unclassified balance sheet) — Z-score unavailable; retainedEarnings missing — X2 not computable; Z-score suppressed rather than assuming zero retained earnings. original variant Z score before grade-scale mapping (computed.forensics.altman.score) is missing or refused."
+      },
+      {"field": "scores.technicals.pctFromHigh52w", "severity": "warn", "reason": "pctFromHigh52w withheld: last close (computed.technicals.lastClose) is missing or refused; 52-week high (computed.technicals.range52w.high52w) is missing or refused."},
+      {"field": "scores.technicals.relStrength12m1m", "severity": "warn", "reason": "relStrength12m1m withheld: issuer return (computed.technicals.relativeStrength.benchmark.momentum12m1m.symbolReturnPct) is missing or refused; benchmark return (computed.technicals.relativeStrength.benchmark.momentum12m1m.benchmarkReturnPct) is missing or refused."},
+      {"field": "scores.technicals.smaGap", "severity": "warn", "reason": "smaGap withheld: SMA50 (computed.technicals.smaCross.sma50) is missing or refused; SMA200 (computed.technicals.smaCross.sma200) is missing or refused."},
+      {
+        "field": "scores.valuation.peOwnHistoryRank",
+        "severity": "warn",
+        "reason": "peOwnHistoryRank withheld: 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.; Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.; 0 rejected fiscal period(s), 0 rejected quarter window(s), and 1 financially partial/unusable window(s): window 2026-03-28: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y); growth-anchor method(s) unavailable: 5y revenue CAGR — the point estimate is the median of the 3 that were computable; no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC; analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD. no admitted current multiple and compatible historical multiple sample establish a percentile rank. Own-history rank unavailable."
+      },
       {"field": "sharesFloat", "reason": "float unavailable", "severity": "warn"},
       {"field": "validation.xbrlCrossCheck", "reason": "FMP↔XBRL cross-check skipped — companyfacts unavailable (fixture gap)", "severity": "warn"},
       {"field": "capital.dilution", "reason": "weightedAverageShsOut (basic) missing on the latest annual income statement (2025-09-27) — the diluted-vs-basic award overhang is not computable and is reported as unavailable, never as zero", "severity": "info"},

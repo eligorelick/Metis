@@ -11,6 +11,242 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-261 - Filed balance facts replace vendor conflicts; every withheld score names its inputs (2026-11-13)
+
+Principles P8 and P10, with P7 composition, P11 refusal inheritance, P20
+provenance and P21/P27 immutable reports and replay. Owners are
+`edgar/financialEnrichment.ts`, `edgar/temporaryEquityEnrichment.ts`, the existing
+agreement/evidence helpers in `edgar/vendorAgreement.ts`, `stageB/returns.ts`
+and the shared `stageB/grading.ts` / `stageB/scoringEvidence.ts` admission.
+
+### Evidence and choice
+
+D-200 intentionally withheld conflicting cash; D-210 recovered only a vendor
+amount equal to an explicit restricted-inclusive filed total. That explains why
+LLY's directly filed cash appeared in its composition table but not its
+calculations. Both earlier cash decisions are revised below. A direct balance
+fact is already the whole observation: it does not need an earnings-family or
+vendor-classification bridge. Use the newest compatible exact-instant cash
+fact when every available core filed copy agrees under `VENDOR_SEC_TOLERANCE`.
+Retain the vendor observation with `usable: true`, `resolution: filed-family`,
+and attach the filing evidence. Currency, issuer, cutoff, ambiguity, independent
+scope refusals and genuinely SEC-built restatements retain their safeguards.
+No tolerance, day band, currency rule, status vocabulary or score band changes.
+
+The cached LLY 10-K 0000059478-26-000013 (2026-02-12) and 10-Q instances
+0000059478-26-000045 (2026-04-30), 0000059478-26-000081 (2026-08-05) and
+0000059478-26-000108 (2026-10-29) establish, respectively, USD cash of
+7,268M at 2025-12-31, 5,282M at 2026-03-31, 8,950M at 2026-06-30 and
+4,885M at 2026-09-30 under `us-gaap:CashAndCashEquivalentsAtCarryingValue`.
+All four copies of the December 2025 instant agree. The first three vendor
+cash observations are 7,163M, 5,136M and 8,890M; their combined totals equal
+filed cash alone. The cached instance contexts, not just companyfacts, contain
+no consolidated short-term-investment replacement element after September
+2025. `LongTermInvestments` is noncurrent, not such a replacement. Therefore:
+
+- Add separately filed short-term investments only to cash from that same
+  filing, instant, issuer and unit, or use a compatible directly filed total.
+- When the vendor combined total is the filed cash observation alone, retain
+  that proved cash-only liquidity, explicitly disclosed as narrower than a
+  complete cash-plus-investments inventory. Null the uncorroborated vendor
+  investment split and retain it as an observation; never add it again or call
+  the missing investment amount zero. This agrees with the unchanged September
+  2026 row's cash-only amount, without treating its vendor zero as a filed zero.
+- An ambiguous investment fact, independently refused investment component,
+  or incompatible total cannot take the cash-only escape. Statement net debt
+  is recomputed only against admitted same-filing debt, using the compatible
+  copy of cash in that debt filing; house leverage and the bridge retain their
+  existing operating-lease convention.
+
+The 2018 LLY cash refusal remains: its original filing states 7,998.2M, while
+later comparatives state 7,320.7M. These are different filed observations,
+outside the same-observation rule. This change establishes no presentation
+bridge and does not replace that refusal with the more favorable copy.
+
+Every withheld annual ROIC now has a dated manifest cause, including ordinary
+missing operating income, tax, equity, debt, cash or matching balances and
+nonpositive invested capital. Every missing applicable scoring signal, including
+a finite observation with zero supporting evidence, passes the same shared
+manifest writer. Its actual operands and upstream refusal reasons name the
+input; route-inapplicable signals keep their route explanation. ROIC-minus-WACC
+also has its own root-input entry. Scoring arithmetic, weights and thresholds
+are unchanged.
+
+### Breadth and sibling search
+
+The general class is a direct compatible filed balance being refused merely
+because a vendor disagrees, and missing scoring evidence being dropped without
+a manifest cause. The owner's Breadth instruction replaces the earlier stop
+rule for financial-route golden cases.
+
+- The balance side of `admitCashFields` is cash only; it now admits the direct
+  fact. The sibling enrichment comparison covered operating and finance lease
+  liabilities: adopt their exact filed total or complete same-filing split,
+  retaining the existing maturity/completeness checks. Temporary-equity
+  supplementation likewise adopts the complete category after matching the
+  same-filing assets, liabilities and permanent-equity operands. An independent
+  refusal still wins. Replay revisits only these owners' old comparison
+  refusals, with the same field, value and filing identity; a different
+  acquisition timestamp is not a different filed observation.
+- Annual and quarterly instants and core 10-K/10-Q/20-F/40-F forms use the
+  rule; no ticker or business-route branch was added. Synthetic controls cover
+  the vendor investment split, separately filed marketable investments, foreign
+  core-form leases, complete temporary equity and incompatible/ambiguous facts.
+- Shared score admission covers growth, valuation, quality, balance sheet,
+  moat, stewardship and technical signals on industrial, bank, insurer, REIT,
+  utility, foreign and sparse/pre-revenue routes. A gap leaves no invented
+  score. Tests also retain the available and route-inapplicable controls.
+- Remaining lookalikes are different rules: `admitCashFields` cash-flow
+  balances, repurchases, SBC and investing/financing flows require their own
+  duration and restricted-cash definition; `admitOperatingCashFlow` requires
+  the reconciled cash-flow family (D-252); `admitQuarterlyCapex` requires its
+  annual tag and standalone period; `keyless.ts:guardVendorShareFields`
+  requires share/split/per-share basis. They are not exact balance instants.
+  `admitDebtFields` retains complete carrying-debt/lease evidence, while
+  `admitVendorLongTermInvestments` fills missing noncurrent investment scope
+  but has no conflicting exact-counterpart refusal to revise. These are not
+  companies left on a vendor-over-filed exception. Unsupported namespaces or
+  different financial quantities still need their own evidence.
+
+### Approved report changes
+
+Baseline main is pinned to `9f0d54765a5760e460c53342431c21468dd7c0fc`.
+Both LLY replays use the same retained inputs and fixed analyst output; no
+provider/model call or saved-report write occurs. Values below are outcomes,
+not targets selected for the implementation.
+
+| LLY item | Before | After |
+| --- | ---: | ---: |
+| Cash 2025-12-31 / 2026-03-31 / 2026-06-30 | withheld | 7,268M / 5,282M / 8,950M USD |
+| FY2025 statement net debt, before operating-lease exclusion | withheld | 36,597M USD |
+| FY2025 house leverage net debt / EBITDA | withheld | 35,235M USD / 1.245097x |
+| FY2025 net operating assets | withheld | 60,330M USD |
+| Balance-sheet accrual ratio | withheld | 0.3485377112 |
+| Cash-flow accrual ratio / scaler | 0.1581456021 / average assets | 0.2942581893 / average NOA |
+| FY2025 average invested capital / ROIC | withheld | 53,131.3M USD / 39.70922027% |
+| ROIC minus WACC | withheld | 31.90122685 percentage points |
+| Quality / evidence fraction | 68.43 / 0.65 | 73.87 / 1.00 |
+| Moat / evidence fraction | 80.79 / 0.55 | 87.07 / 1.00 |
+| Composite | 63.74 | 68.54 |
+| DCF bridge balance / lease-adjusted net debt | 2026-09-30 / 44,618M | 2025-12-31 / 35,235M |
+| Bridge long-term investments / estimated sale tax | 4,013M / 842.73M | 2,802M / 588.42M |
+| Sales to capital | 0.8059127553x | 1.1053283137x |
+| Terminal ROIC / reinvestment fraction | 7.807993426% / 0.3201846958 | 12.80799343% / 0.1951906061 |
+| DCF dated-reference per share | 518.3660970 USD | 619.3008539 USD |
+
+The December 2025 bridge uses existing admitted debt/equity, the restored cash,
+`OperatingLeaseLiability` and `LongTermInvestments` from the 2026-02-12 10-K.
+Restored NOA uses existing admitted `Assets`, `Liabilities` and debt. FY2025
+NOPAT is unchanged at 21,098.02495045M USD. Its fourth positive ROIC observation
+now meets the existing terminal-excess-return evidence rule; no terminal rule
+was changed. The DCF remains a dated reference, not a newly current valuation.
+
+The 17 golden cases all change the report spec stamp. Thirteen have additional
+disclosure changes (eleven issuers); AMZN and NVDA, in both data-only and fixed-
+analyst cases, change only the report/payload identity. No golden score,
+composite, fair value or scenario price changes. Exact JSON leaf counts below
+include array positions moved by inserted disclosures; each is covered by the
+path inventory after the table.
+
+| Case | Stage B leaves | Report leaves | Cause beyond version identities |
+| --- | ---: | ---: | --- |
+| amzn-data-only | 0 | 1 | None |
+| amzn-fixed-analyst | 0 | 1 | None |
+| nvda-data-only | 0 | 1 | None |
+| nvda-fixed-analyst | 0 | 1 | None |
+| figr-data-only | 261 | 232 | Cash 1,198.141M at 2025-12-31, repeated in 10-Q 0001628280-26-057061 (2026-08-14), replaces vendor cash. No filed current-investment fact corroborates 97M; its diagnostic component and the otherwise unproved -346.943M annual net-debt resolution become unavailable. EBITDA/score were already withheld. Missing signals now name inputs. |
+| qcom-data-only | 200 | 191 | Cash 5,520M plus `MarketableSecuritiesCurrent` 4,635M from 10-Q 0000804328-26-000086 (2026-07-29), both for 2025-09-28, establishes 10,155M liquidity once. Diagnostic balance-sheet TATA becomes 0.02161817203; the primary Beneish score and existing debt refusal stay unchanged. |
+| meta-data-only | 429 | 423 | Existing debt/class-scope and missing score inputs named |
+| meta-fixed-analyst | 429 | 487 | Same; retained analyst checks re-run against the disclosed inputs |
+| mu-data-only | 280 | 247 | Existing unavailable return/score inputs named |
+| mu-fixed-analyst | 280 | 310 | Same; retained analyst checks re-run |
+| jpm-data-only | 230 | 208 | Missing applicable financial-route score operands named; no ROIC substitution |
+| pgr-data-only | 525 | 379 | Missing applicable insurer score operands named; no industrial substitution |
+| o-data-only | 597 | 547 | Existing lease-scope ROIC refusal and missing applicable REIT signals named |
+| duk-data-only | 787 | 616 | Existing incomplete debt, utility credit and other missing signal inputs named |
+| tsm-data-only | 188 | 221 | Existing missing applicable foreign-filer score operands named |
+| rivn-data-only | 376 | 340 | Existing nonpositive pretax/class-scope and missing score inputs named |
+| vktx-data-only | 384 | 277 | Existing nonpositive pretax and sparse/pre-revenue score inputs named |
+
+Every differing golden JSON leaf lies under these reviewed prefixes (brackets
+mean any index and a prefix includes its descendants): Stage B `gaps[]`,
+`returns.gaps[]`, `returns.roic.gaps[]`, `returns.roicVsWacc.note`,
+`capital.gaps[]`, `capital.netDebtToEbitda.resolution`, `forensics.notes[]`,
+`forensics.beneish.notes[]`, `forensics.beneish.tataBalanceSheet`,
+`valuation.gaps[]`, `valuation.multiples.gaps[]`; report `meta.specVersion`,
+`meta.dataCompleteness.warningCount`, `verdict.synthesis`, `quality.notes[]`
+and `appendix.missingData[]`. New entries name actual withheld signals;
+existing entries move by index without changing their cause. FIGR and QCOM's
+numeric diagnostic leaves are explained above. Synthesis changes recount
+disclosed issues, not the score. Payload fingerprints/citation indices and
+Markdown/audit/print/web outputs reflect those same disclosures and stamps.
+
+LLY has 730 changed Stage B leaves in each case, 816 report leaves in data-only
+and 5,329 in fixed-analyst. In addition to the disclosure/stamp prefixes above,
+approved Stage B prefixes are `capital.netDebtToEbitda`, `forensics.accruals`, `forensics.gaps[]`,
+`forensics.beneish.tataBalanceSheet`, `forensics.beneish.notes[]`,
+`returns.roic.series[]`, `returns.roic.latestRoicPct`, `returns.roicVsWacc`,
+`scores`, `projections.series[].{bull,base,bear,weighted}`, `fairValue.reference`,
+`valuation.assumptions`, `valuation.dcf`, `valuation.growthMarginGrid`,
+`valuation.sensitivity`, `valuation.multiples`, and `valuation.notes[]`.
+They are mechanical descendants of the restored capital/NOA inputs: accruals
+use average NOA, quality/moat regain their return signals, the fourth return
+year enables the existing terminal rule, and the statement-date bridge and
+sales-to-capital feed forecast reinvestment, FCF, grids and EV-history samples.
+Other projection metrics, prices, growth/margin/tax assumptions and WACC do
+not change. Changes to `valuation.assumptions.startRevenue.basis` are its
+dated bridge disclosure, not a different revenue amount.
+
+The corresponding LLY report prefixes are `fundamentals.returns[]`,
+`balanceSheet.debtProfile`, `quality.{graded,forensicScores,notes}`,
+`competitive.moatGraded`, `verdict.gradeStrip.{quality,moat}`, `scores`,
+`projections`, `fairValue.reference`, `valuation.{dcf,multiples,scenarios}`,
+`valuation.graded.keyNumbers[]` and `scenarioPresentation.sensitivity`.
+Fixed-analyst `meta`/`appendix` verification/provenance/consistency counts and
+`appendix.verificationLog[]` also change: the same saved analyst judgments
+and source prose are rechecked against the corrected figures and changed
+quality/moat grade contracts. Claim enumeration moves by index; this does
+not rewrite the saved report or imply that old analyst numbers became true.
+All text outputs are the corresponding renderings of these reviewed leaves.
+
+Report 1.76.0, payload 1.95.0 and Stage B
+`STAGE_B_2026_11_FILED_BALANCES_GAPS_69` identify the new meaning. Stage C
+orchestration, method versions, net-debt resolver, score bands and frozen
+legacy cutoffs do not move. P27 synthetic frozen records were refreshed only
+for these new missing-input entries, their citation/prompt hashes and the
+report/payload stamps; the Stage C control's financial subtrees remain pinned.
+
+### Verification receipts
+
+Failing-first synthetic runs reproduced eight cash/ROIC failures, five broader
+lease/score failures, a temporary-equity failure, an ambiguous-investment
+composition failure and a replay-time filing-identity failure before their
+respective fixes. The final changed-test command,
+`npx vitest run --config vitest.config.ts --changed origin/main --maxWorkers 4`,
+passes 662 files / 16,490 tests, with three existing skips. `npm run typecheck`
+and `npm run lint` exit 0; lint retains the existing unused `_dropped` warning
+in `tests/revenueAdmission.scopeUnresolvedCode.test.ts:88`. The focused risk,
+release, current-sample, version-stamp and forensic-control run passes 168 tests.
+
+The first broad run was stopped after missing local better-sqlite3 bindings
+caused database-test failures; only this worktree's Vitest processes were
+terminated, the native dependency was rebuilt and a scratch in-memory query
+verified it. An intermediate broad run found outdated cash-refusal and historic
+disclosure expectations plus scheduler race-barrier timeouts under heavier
+parallel load. These were not reported as passes. Refusal controls now use
+genuinely conflicting filed copies; financial historical pins remain, while
+current synthetic disclosures and the demonstration sample move with D-261.
+The final four-worker run passes the scheduler tests as well.
+
+Final offline outputs `tmp/golden-closure` and `tmp/lly-closure` exactly match
+the reviewed `tmp/golden-final` / `tmp/lly-final`: 119 and 14 files, respectively.
+Against pinned main the golden diff intentionally reports 132 file/manifest
+differences and LLY reports 16. Every differing JSON path is classified by the
+approved inventory above (zero unclassified leaves); the artifact hashes and
+full leaf/text lists stay local because they include vendor data. No paid API,
+networked product test or application-database write occurred. `npm run verify`
+was not run locally; CI owns the full gate. No merge is authorized here.
+
 ## D-259 - Claude Fable 5.2 joins the registry, and the refresh adds newly published models itself (2026-11-13)
 
 Principles P25 (one model registry: models are named and configured in one
@@ -7630,6 +7866,11 @@ Audit 2026-10-27, batch B8, finding DB-001 (High), owner decision OD-5. The owne
 
 ## D-133 - A noncurrent-only vendor lease line is completed from its filing; stakes are filled on the vendor path (2026-10-29)
 
+**Revised by D-261 only for exact balance comparison conflicts:** a compatible
+filed lease balance or a complete matched temporary-equity category may now
+resolve that comparison. Debt completeness, overlapping claims and independent
+scope refusals below are unchanged.
+
 Audit of AMZN report #51 (2026-10-29): VAL-1 to VAL-4, VAL-10, FIG-1, FIG-2, FIG-4, GRD-01, KNW-03 and KNW-04. Extends D-98 (the stakes chain) to the provider path. The [disposition record](2026-10-29-amzn51-lease-scope.md) lists each finding, its commit and the replay.
 
 - **Evidence.**
@@ -11711,7 +11952,9 @@ an available fair value or target set on the replay.
   vendor comparison. SEC-sourced cash uses its own compatible field-level
   filing lineage, preserving a genuine restatement despite the first reporter's
   row filing date. Conflicting cash and dependent combined liquidity/net debt are
-  qualified, preserving both observations. The audited annual comparisons
+  qualified, preserving both observations. **Revised by D-261:** an unambiguous
+  exact-instant filed cash balance replaces the vendor conflict, with independent
+  liquidity composition still required. The audited annual comparisons
   remain CRWV 3,946M versus 3,127M, EXPE 6,976M versus 5,413M, FIGR 1,266.778M
   versus 1,198.141M, and LLY 7,163M versus 7,268M.
 
@@ -14568,6 +14811,11 @@ reviewer did not rerun those full executions. The reviewed change does not
 recertify every original audit finding, subsequent publication or live provider.
 
 ## D-210 — Source-supported recovery of class, statement, debt, cash and SBC scope (2026-11-06)
+
+**Revised by D-261:** recovery of an unambiguous filed cash balance no longer
+requires the vendor to equal restricted-inclusive cash. Exact lease balances
+and complete matched temporary-equity categories also replace vendor conflicts;
+independent composition and scope refusals remain authoritative.
 
 The EXPE live manifest exposed five general source-reading defects. The current
 10-Q's explicit equal-distribution sentence crosses a printed page break; its

@@ -3122,6 +3122,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     }),
   );
 
+  const scoreGaps: ManifestEntry[] = [];
   const rawScores = computeScores({
     route,
     policy,
@@ -3141,7 +3142,20 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     currentPrice,
     asOf: asOfDay,
     quoteAsOf: quotePriceObservationDay(quote),
-  });
+  }, scoreGaps);
+
+  // D-261 (P10, P11): missing capital-return evidence names its root wherever
+  // it withholds an applicable signal. Route-suppressed signals are not gaps.
+  const latestRoicGap = returns.roic.gaps.find(gap => gap.field === `returns.roic.${returns.roic.asOf}`)
+    ?? returns.roic.gaps.find(gap => gap.field === "returns.roic");
+  if (returns.roicVsWacc.spreadPctPts === null && !policy.suppress.includes("roicVsWacc")) {
+    const causes = [returns.roic.latestRoicPct === null ? latestRoicGap?.reason ?? "latest fiscal-year ROIC is unavailable" : null,
+      returns.wacc.waccPct === null ? returns.wacc.gaps.find(gap => gap.severity === "critical")?.reason
+        ?? returns.wacc.gaps[0]?.reason ?? "WACC is unavailable" : null].filter(Boolean).join("; ");
+    const reason = `ROIC minus WACC withheld because ${causes}`;
+    returns.roicVsWacc.note = reason;
+    returns.gaps.push({ field: "returns.roicVsWacc", reason, severity: "warn" });
+  }
 
   // Same point-in-time anchors as computeValuation (audit H2/M3/M4): the NEWER
   // of the latest quarterly vs annual whole rows (balance + diluted shares,
@@ -3354,6 +3368,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     degradation.gaps,
     growth.gaps,
     returns.gaps,
+    scoreGaps,
     capital.gaps,
     forensics.gaps,
     eventGaps,

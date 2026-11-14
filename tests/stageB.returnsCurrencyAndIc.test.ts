@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { computeRoic, computeWacc } from "@/pipeline/stageB/returns";
+import { runStageB } from "@/pipeline/compute";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
 /**
  * Two capital-cost defects.
@@ -131,6 +133,33 @@ describe("ROIC invested capital uses the house cash convention", () => {
     ]);
 
     expect(r.latestRoicPct).toBeNull();
+    expect(r.gaps.find(g => g.field === "returns.roic.2025-12-31")?.reason).toMatch(/cashAndCashEquivalents/);
+  });
+
+  it.each([
+    { balance: { totalDebt: null }, input: "totalDebt" },
+    { balance: { totalStockholdersEquity: null }, input: "equity" },
+    { balance: { totalStockholdersEquity: -600 }, input: "invested capital" },
+  ])("names the root input when ROIC is withheld: $input", ({ balance, input }) => {
+    const r = computeRoic(income, [balanceRow(balance)]);
+    expect(r.latestRoicPct).toBeNull();
+    expect(r.gaps.find(g => g.field === "returns.roic.2025-12-31")?.reason.toLowerCase()).toContain(input.toLowerCase());
+  });
+
+  it("names refused cash in ROIC and both dependent score signals in the manifest", () => {
+    const bundle = completeCurrencyBundle({});
+    if (!bundle.statements.balanceAnnual.ok) throw Error("annual fixture");
+    for (const row of bundle.statements.balanceAnnual.value.data.rows) {
+      delete row.cashAndCashEquivalents;
+      delete row.cashAndShortTermInvestments;
+      delete row.shortTermInvestments;
+      row.fieldConflicts = { cashAndCashEquivalents: { usable: false, vendorValue: 100, secValue: null,
+        reason: "cash currency scope is not established" } };
+    }
+    const result = runStageB(bundle);
+    expect(result.returns.roic.latestRoicPct).toBeNull();
+    for (const field of ["returns.roicVsWacc", "scores.quality.roicVsWaccSpread", "scores.moat.roicLevel"])
+      expect(result.gaps.find(g => g.field === field)?.reason).toMatch(/cash currency scope is not established/);
   });
 
   it("keeps a disclosed zero lease distinct from an unknown split in the ROIC basis", () => {

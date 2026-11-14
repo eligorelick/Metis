@@ -196,7 +196,8 @@ describe("the SEC statement builder writes each debt withholding's code beside i
 describe("vendor/SEC value conflicts carry their code on the field and its dependents", () => {
   it("a vendor cash balance that disagrees with the filed one", () => {
     const point = { end: "2025-12-31", filed: "2026-02-01", form: "10-K", accn: "0000000001-26-000001", val: 500 * M, fy: 2025, fp: "FY" };
-    const facts: CompanyFacts = { cik: 1, entityName: "Synthetic", facts: { "us-gaap": { CashAndCashEquivalentsAtCarryingValue: { units: { USD: [point] } } } } };
+    // D-261: a conflict now needs incompatible filed copies; an unambiguous balance is adopted.
+    const facts: CompanyFacts = { cik: 1, entityName: "Synthetic", facts: { "us-gaap": { CashAndCashEquivalentsAtCarryingValue: { units: { USD: [point, { ...point, val: 550 * M, filed: "2026-05-01", accn: "0000000001-26-000002" }] } } } } };
     const row: FmpStatementRow = { cik: "1", date: point.end, filingDate: point.filed, reportedCurrency: "USD", cashAndCashEquivalents: 400 * M,
       cashAndShortTermInvestments: 450 * M, netDebt: -400 * M };
     const out = admitBalanceCash(row, facts, "annual", "2026-06-01T00:00:00Z").row;

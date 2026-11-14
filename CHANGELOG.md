@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.75.0** and
-payload **1.94.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.76.0** and
+payload **1.95.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,18 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Filed balance facts and named score gaps (2026-11-13, D-261)
+
+- Use unambiguous exact-instant filed cash and lease balances, and complete
+  compatible temporary-equity categories, over conflicting vendor observations.
+  Preserve the observations and filing evidence. Compose liquidity only from
+  proved components; disclose cash-only liquidity without treating missing
+  investments as zero.
+- Name the root input for every withheld applicable scoring signal and every
+  withheld annual ROIC. Restore LLY's FY2025 ROIC and the December 2025 DCF
+  balance anchor. Report 1.76.0, payload 1.95.0 and Stage B implementation 69;
+  stored reports and scoring bands keep their original meaning and bytes.
 
 ## Unreleased - `best` removed from the Claude CLI model list (2026-11-13)
 
