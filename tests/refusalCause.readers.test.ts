@@ -793,10 +793,9 @@ const C3 = (row: FmpBalanceSheetRow) => admitBalanceCash(row, CASH_SCOPED, "annu
 function expectCashReconciled(out: ReturnType<typeof C3>): void {
   expect(out.row.cashAndCashEquivalents).toBe(500 * M);
   expect(out.row.fieldConflicts?.cashAndCashEquivalents).toMatchObject({ usable: true, resolution: "filed-family", vendorValue: 520 * M,
-    reason: expect.stringMatching(/^Vendor cash reconciled at 2025-12-31:/) });
-  // Their separate composition still is not established by the filed cash fact.
-  for (const dependent of ["cashAndShortTermInvestments", "netDebt"]) expect(out.row.fieldConflicts?.[dependent]).toMatchObject({ usable: false,
-    vendorValue: cashRefused.fieldConflicts![dependent]!.vendorValue });
+    reason: expect.stringMatching(/^vendor cash scope reconciled at 2025-12-31: vendor 520M USD equals the filed CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents/) });
+  // The dependents keep the cash refusal they were given; the reader does not read them.
+  for (const dependent of ["cashAndShortTermInvestments", "netDebt"]) expect(out.row.fieldConflicts?.[dependent]).toEqual(cashRefused.fieldConflicts![dependent]);
 }
 
 /** The acquisition pass (`enrichFinancialFields`) over both statements: refusals on stock compensation, investing and financing cash flow and cash. */

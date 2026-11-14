@@ -201,6 +201,8 @@ export interface FiledIncomeLine { value: number; proof: StatementFieldProvenanc
 
 export interface FmpStatementRow extends FmpRawRow {
   /** D-261: a qualified cash-only operand, never a filed combined total. */
+  /** D-261: this row used the new recovery of a cash comparison main refused. */
+  cashConflictReconciled?: true;
   cashBasis?: "cash-only";
   date?: string;
   symbol?: string;

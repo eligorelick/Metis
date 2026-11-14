@@ -622,6 +622,59 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       }
     }
     if (kind === "balance" && field === "cashAndCashEquivalents" && proof === undefined && (out.fieldConflicts?.[field]?.usable !== false || replayCash)) {
+      const inclusiveTag = "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents";
+      let inclusive = instant(facts, inclusiveTag, unit, row.date!, observedAt, undefined, sec.evidence.filings);
+      // A later comparative may establish the definition when it repeats the
+      // exact original unrestricted amount and supplies both scopes together.
+      // Never combine a changed comparative with the original filing.
+      if (!inclusive) {
+        const latestUnrestricted = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined));
+        const latestInclusive = unambiguousNewest(points(facts, inclusiveTag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined));
+        if (latestUnrestricted?.val === value && latestInclusive) {
+          const ownCash = instant(facts, tag, unit, row.date!, observedAt, undefined, [latestInclusive]);
+          if (ownCash?.value === value && latestInclusive.val >= value)
+            inclusive = resolved(latestInclusive.val, [inclusiveTag, tag], [latestInclusive, ...points(facts, tag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined && p.accn === latestInclusive.accn && p.filed === latestInclusive.filed)], unit, observedAt, null, row.date!);
+        }
+      }
+      // Positive admission needs an unambiguous latest point before applying
+      // the sign rule. A newer invalid point cannot expose an older balance.
+      const unrestricted = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p =>
+        p.end === row.date && p.start === undefined && (!validDay(row.filingDate) || p.filed === row.filingDate)));
+      const unrestrictedProved = unrestricted && unrestricted.val >= 0 && unrestricted.val === value &&
+        sec.evidence.filings.some(f => f.accn === unrestricted.accn && f.filed === unrestricted.filed && f.form === unrestricted.form);
+      // Two explicitly filed scopes, from one filing. The unrestricted amount
+      // is read directly; no absent restricted maturity is presumed zero.
+      if (unrestrictedProved && inclusive && inclusive.value > value && Math.abs(vendor - inclusive.value) <= Math.max(1, inclusive.value * 1e-6)) {
+        const reason = `vendor cash scope reconciled at ${row.date}: vendor ${millions(vendor)} ${unit} equals the filed ${inclusiveTag}, which includes restricted cash; its supplying filing corroborates the unchanged unrestricted amount; directly filed unrestricted cash ${millions(value)} ${unit} used; original vendor observation retained`;
+        const evidence = { ...sec.evidence, tags: [...new Set([...sec.evidence.tags, ...inclusive.evidence.tags])], filings: [...sec.evidence.filings, ...inclusive.evidence.filings] };
+        const fieldConflicts: NonNullable<FmpStatementRow["fieldConflicts"]> = { ...out.fieldConflicts, [field]: { usable: true, vendorValue: vendor, secValue: value,
+          resolution: "filed-family" as const, reason, secEvidence: evidence } };
+        const debtProof = out.fieldProvenance?.totalDebt;
+        const sameDebtFiling = debtProof?.source === "edgar" && debtProof.unit === unit && debtProof.periodStart === null &&
+          debtProof.periodEnd === row.date && debtProof.filings.length > 0 && debtProof.filings.every(f =>
+            sec.evidence.filings.some(c => c.accn === f.accn && c.filed === f.filed && c.form === f.form));
+        const canRecomputeDebt = sameDebtFiling && typeof out.totalDebt === "number" && Number.isFinite(out.totalDebt) &&
+          out.fieldConflicts?.totalDebt?.usable !== false && out.fieldConflicts?.netDebt?.usable !== false;
+        const netDebt = canRecomputeDebt ? (out.totalDebt as number) - value : null;
+        for (const dependent of ["cashAndShortTermInvestments", "netDebt"]) {
+          if (fieldConflicts[dependent]?.usable === false) continue;
+          fieldConflicts[dependent] = { usable: dependent === "netDebt" && canRecomputeDebt === true,
+            vendorValue: typeof out[dependent] === "number" ? out[dependent] as number : null,
+            secValue: dependent === "netDebt" ? netDebt : null, secEvidence: evidence,
+            reason: `${reason}; ${dependent === "netDebt" && canRecomputeDebt ? "net debt recomputed from same-filing admitted debt less unrestricted cash" : `${dependent} unavailable until its own composition is reconciled`}` };
+        }
+        const priorCombined = row.fieldConflicts?.cashAndShortTermInvestments;
+        const mainComponentScope = priorCombined?.usable !== false || replayCash &&
+          conflictCauseMatches(priorCombined, "vendorSecCash") && sameFiledInstant(priorCombined.secEvidence, sec.evidence) &&
+          priorCombined.secEvidence?.tags.length === 1 && priorCombined.secEvidence.tags[0] === `us-gaap/${tag}`;
+        out = { ...out, cashAndCashEquivalents: value, cashAndShortTermInvestments: null, netDebt, fieldConflicts,
+          vendorNetDebt: out.vendorNetDebt !== undefined ? out.vendorNetDebt : typeof out.netDebt === "number" && Number.isFinite(out.netDebt) ? out.netDebt : null,
+          fieldProvenance: { ...out.fieldProvenance, [field]: { ...sec.evidence, ...(mainComponentScope ? { calculation: "cash-scope-reconciled" } : {}) },
+            ...(canRecomputeDebt ? { netDebt: { ...sec.evidence, tags: [...new Set([...debtProof!.tags, ...sec.evidence.tags])], calculation: "total-debt-minus-unrestricted-cash" } } : {}) } };
+        gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true,
+          attemptedSources: evidence.tags.map(t => `edgar:companyfacts/${t}`) });
+        continue;
+      }
       // D-261 (P8): cash is itself a directly filed balance, not an incomplete
       // earnings family. An unchanged exact-instant observation needs no vendor
       // classification bridge. Different filed copies still need reconciliation.
@@ -703,60 +756,11 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
           amounts.netDebt = null;
           delete fieldProvenance.netDebt;
         }
-        out = { ...out, ...amounts, cashBasis: cashOnly ? "cash-only" : undefined, fieldConflicts, fieldProvenance,
+        out = { ...out, ...amounts, cashBasis: cashOnly ? "cash-only" : undefined, cashConflictReconciled: true, fieldConflicts, fieldProvenance,
           vendorNetDebt: out.vendorNetDebt !== undefined ? out.vendorNetDebt : original("netDebt") };
         gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true,
           attemptedSources: liquidityEvidence.tags.map(t => `edgar:companyfacts/${t}`) });
         if (cashOnly) gaps.push({ field: `statements.balance.${row.date}.cashBasis`, reason: basis, severity: "info" });
-        continue;
-      }
-      const inclusiveTag = "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents";
-      let inclusive = instant(facts, inclusiveTag, unit, row.date!, observedAt, undefined, sec.evidence.filings);
-      // A later comparative may establish the definition when it repeats the
-      // exact original unrestricted amount and supplies both scopes together.
-      // Never combine a changed comparative with the original filing.
-      if (!inclusive) {
-        const latestUnrestricted = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined));
-        const latestInclusive = unambiguousNewest(points(facts, inclusiveTag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined));
-        if (latestUnrestricted?.val === value && latestInclusive) {
-          const ownCash = instant(facts, tag, unit, row.date!, observedAt, undefined, [latestInclusive]);
-          if (ownCash?.value === value && latestInclusive.val >= value)
-            inclusive = resolved(latestInclusive.val, [inclusiveTag, tag], [latestInclusive, ...points(facts, tag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined && p.accn === latestInclusive.accn && p.filed === latestInclusive.filed)], unit, observedAt, null, row.date!);
-        }
-      }
-      // Positive admission needs an unambiguous latest point before applying
-      // the sign rule. A newer invalid point cannot expose an older balance.
-      const unrestricted = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p =>
-        p.end === row.date && p.start === undefined && (!validDay(row.filingDate) || p.filed === row.filingDate)));
-      const unrestrictedProved = unrestricted && unrestricted.val >= 0 && unrestricted.val === value &&
-        sec.evidence.filings.some(f => f.accn === unrestricted.accn && f.filed === unrestricted.filed && f.form === unrestricted.form);
-      // Two explicitly filed scopes, from one filing. The unrestricted amount
-      // is read directly; no absent restricted maturity is presumed zero.
-      if (unrestrictedProved && inclusive && inclusive.value > value && Math.abs(vendor - inclusive.value) <= Math.max(1, inclusive.value * 1e-6)) {
-        const reason = `vendor cash scope reconciled at ${row.date}: vendor ${millions(vendor)} ${unit} equals the filed ${inclusiveTag}, which includes restricted cash; its supplying filing corroborates the unchanged unrestricted amount; directly filed unrestricted cash ${millions(value)} ${unit} used; original vendor observation retained`;
-        const evidence = { ...sec.evidence, tags: [...new Set([...sec.evidence.tags, ...inclusive.evidence.tags])], filings: [...sec.evidence.filings, ...inclusive.evidence.filings] };
-        const fieldConflicts: NonNullable<FmpStatementRow["fieldConflicts"]> = { ...out.fieldConflicts, [field]: { usable: true, vendorValue: vendor, secValue: value,
-          resolution: "filed-family" as const, reason, secEvidence: evidence } };
-        const debtProof = out.fieldProvenance?.totalDebt;
-        const sameDebtFiling = debtProof?.source === "edgar" && debtProof.unit === unit && debtProof.periodStart === null &&
-          debtProof.periodEnd === row.date && debtProof.filings.length > 0 && debtProof.filings.every(f =>
-            sec.evidence.filings.some(c => c.accn === f.accn && c.filed === f.filed && c.form === f.form));
-        const canRecomputeDebt = sameDebtFiling && typeof out.totalDebt === "number" && Number.isFinite(out.totalDebt) &&
-          out.fieldConflicts?.totalDebt?.usable !== false && out.fieldConflicts?.netDebt?.usable !== false;
-        const netDebt = canRecomputeDebt ? (out.totalDebt as number) - value : null;
-        for (const dependent of ["cashAndShortTermInvestments", "netDebt"]) {
-          if (fieldConflicts[dependent]?.usable === false) continue;
-          fieldConflicts[dependent] = { usable: dependent === "netDebt" && canRecomputeDebt === true,
-            vendorValue: typeof out[dependent] === "number" ? out[dependent] as number : null,
-            secValue: dependent === "netDebt" ? netDebt : null, secEvidence: evidence,
-            reason: `${reason}; ${dependent === "netDebt" && canRecomputeDebt ? "net debt recomputed from same-filing admitted debt less unrestricted cash" : `${dependent} unavailable until its own composition is reconciled`}` };
-        }
-        out = { ...out, cashAndCashEquivalents: value, cashAndShortTermInvestments: null, netDebt, fieldConflicts,
-          vendorNetDebt: out.vendorNetDebt !== undefined ? out.vendorNetDebt : typeof out.netDebt === "number" && Number.isFinite(out.netDebt) ? out.netDebt : null,
-          fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence,
-            ...(canRecomputeDebt ? { netDebt: { ...sec.evidence, tags: [...new Set([...debtProof!.tags, ...sec.evidence.tags])], calculation: "total-debt-minus-unrestricted-cash" } } : {}) } };
-        gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true,
-          attemptedSources: evidence.tags.map(t => `edgar:companyfacts/${t}`) });
         continue;
       }
     }
@@ -821,6 +825,8 @@ export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: Compa
   const leases = admitBalanceLeaseFields(row, facts, row.reportedCurrency!, observedAt);
   const cash = admitCashFields(leases.row, facts, row.reportedCurrency!, scope, observedAt, "balance",
     { labels: [], withheld: new Set(), unverified: new Map() });
+  // Main-admitted liquidity retains its values, evidence and notes.
+  if (cash.row.cashConflictReconciled !== true) return { row: cash.row, gaps: [...leases.gaps, ...cash.gaps] };
   const investments = investmentObservations(facts, row.reportedCurrency!, row.date!, observedAt, sections);
   const combinedProof = cash.row.fieldProvenance?.cashAndShortTermInvestments;
   const filedCombined = combinedProof?.source === "edgar" && typeof cash.row.cashAndShortTermInvestments === "number" &&

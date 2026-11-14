@@ -6,6 +6,7 @@ import { computeRoic } from '@/pipeline/stageB/returns';
 import { runStageB } from '@/pipeline/compute';
 import { completeCurrencyBundle, M } from './helpers/currencyBundle';
 import { withIssuerFacts } from './helpers/confirmedIssuer';
+import type { FmpBalanceSheetRow } from '@/providers/fmp';
 import type { ExtractedSection } from '@/pipeline/types';
 import type { CompanyFacts } from '@/edgar/xbrl';
 const end='2025-12-31', accn='0000000001-26-000001', observed='2026-10-13T12:00:00.000Z';
@@ -33,6 +34,27 @@ describe('D-261 final owner policy',()=>{
   expect(a.gaps.map(g=>g.reason).join(' ')).toContain('AvailableForSaleSecuritiesDebtSecuritiesCurrent');
   expect(a.gaps.map(g=>g.reason).join(' ')).toContain(accn);
  });
+ it.each([false,true])('preserves main-admitted liquidity despite an unadmitted investment observation (%s)', dimensional=>{
+  const row={...balance,cashAndCashEquivalents:50*M,shortTermInvestments:0,cashAndShortTermInvestments:50*M};
+  const section={accession:accn,form:'10-K',filingDate:'2026-02-01',reportDate:end,
+   documentUrl:'https://www.sec.gov/Archives/edgar/data/1/'+accn.replaceAll('-','')+'/example.htm',
+   text:'Fair Value December 31, 2025 Short-term investments: Available-for-sale debt securities 500',
+   statementsText:'',chars:100,sectionName:'tenKNotes',method:'toc-anchor'} as ExtractedSection;
+  const out=admitBalanceCash(row,facts(!dimensional),'annual',observed,dimensional?[section]:[]);
+  expect(out.row).toEqual(row);expect(out.gaps).toEqual([]);
+ });
+ it('preserves the main restricted-inclusive reconciliation and its investment component',()=>{
+  const f=facts(false);f.facts['us-gaap']!.CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents={units:{USD:[fact(70*M)]}};
+  const row:FmpBalanceSheetRow={...balance,filingDate:'2026-02-01',cashAndCashEquivalents:70*M,shortTermInvestments:10*M,cashAndShortTermInvestments:80*M};
+  const out=admitBalanceCash(row,f,'annual',observed).row;
+  expect(out.cashAndCashEquivalents).toBe(50*M);expect(out.shortTermInvestments).toBe(10*M);
+  expect(out.fieldConflicts?.cashAndCashEquivalents?.reason).toContain('vendor cash scope reconciled');
+ });
+ it('preserves a main-admitted average whose liquidity observations have no refusal',()=>{
+  const r=computeRoic([...income,{...income[0]!,date:'2024-12-31'}],[{...balance,cashAndCashEquivalents:50*M,cashAndShortTermInvestments:null},
+   {...balance,date:'2024-12-31',cashAndCashEquivalents:50*M,shortTermInvestments:100*M,cashAndShortTermInvestments:150*M}]);
+  expect(r.latestRoicPct).not.toBeNull();
+ });
  it('honors an independently refused investment even when vendor cash has no conflict',()=>{
   const b={...balance,cashAndCashEquivalents:50*M,cashAndShortTermInvestments:null,shortTermInvestments:null,fieldConflicts:{shortTermInvestments:{usable:false,reason:'investment issuer scope refused'}}};
   expect(resolveNetDebt(b)).toMatchObject({value:null,conflict:true});
@@ -40,7 +62,7 @@ describe('D-261 final owner policy',()=>{
   expect(r.gaps.map(g=>g.reason).join(' ')).toContain('investment issuer scope refused');
  });
  it('does not average cash-only capital against capital that deducts investments',()=>{
-  const r=computeRoic([...income,{...income[0]!,date:'2024-12-31'}],[{...balance,cashAndCashEquivalents:50*M,cashAndShortTermInvestments:null},
+  const r=computeRoic([...income,{...income[0]!,date:'2024-12-31'}],[{...balance,cashConflictReconciled:true as const,cashAndCashEquivalents:50*M,cashAndShortTermInvestments:null},
    {...balance,date:'2024-12-31',cashAndCashEquivalents:50*M,shortTermInvestments:100*M,cashAndShortTermInvestments:150*M}]);
   expect(r.latestRoicPct).toBeNull();
   expect(r.gaps.map(g=>g.reason).join(' ')).toMatch(/liquidity bas/i);

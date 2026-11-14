@@ -1340,6 +1340,7 @@ export interface ReturnsIncomeRow extends Omit<CommonIncomeInputs, "netIncome"> 
 }
 
 export interface ReturnsBalanceRow extends PreferredCapitalInputs {
+  cashConflictReconciled?: true;
   cashBasis?: "cash-only";
   commonEquityPeriodEnd?: string | null;
   /** The admission's refusals, so a refused total debt is named (KNW-03/KNW-04). */
@@ -1944,7 +1945,7 @@ export function computeRoic(
       }
       const basisNow = resolveNetDebt(balNow).cashBasis === "cash-only" ? "cash-only" : "cash-and-investments";
       const basisPrev = resolveNetDebt(balPrev).cashBasis === "cash-only" ? "cash-only" : "cash-and-investments";
-      if (basisNow !== basisPrev) {
+      if ((balNow.cashConflictReconciled || balPrev.cashConflictReconciled) && basisNow !== basisPrev) {
         const reason = `liquidity bases differ: ${balNow.date} uses ${basisNow}, ${balPrev.date} uses ${basisPrev}; average invested capital is withheld`;
         rootCauses.set(row.date, reason); yearNotes.push(reason); continue;
       }

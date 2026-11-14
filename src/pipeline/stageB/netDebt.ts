@@ -304,8 +304,10 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
     return { ...base, value: null, cashBasis: null, conflict: true, reason: leaseConflict };
   }
 
+  const mainComponentScope = inputs.fieldProvenance?.cashAndCashEquivalents?.calculation === "cash-scope-reconciled";
   const refusedCash = ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermInvestments"].find(f => inputs.fieldConflicts?.[f]?.usable === false &&
-    !(f !== "cashAndCashEquivalents" && inputs.cashBasis === "cash-only" && inputs.fieldConflicts[f]?.cause === "liquidity-not-established"));
+    !((f !== "cashAndCashEquivalents" && inputs.fieldConflicts[f]?.cause === "liquidity-not-established" && inputs.cashBasis === "cash-only") ||
+      f === "cashAndShortTermInvestments" && mainComponentScope && cash !== null && shortTermInvestments !== null));
   if (refusedCash) return { ...base, value: null, cashBasis: null, conflict: true,
     reason: `${refusedCash} refused: ${inputs.fieldConflicts![refusedCash]!.reason ?? "incompatible liquidity evidence"}` };
   if (cash !== null && combinedCash === null && shortTermInvestments === null) {

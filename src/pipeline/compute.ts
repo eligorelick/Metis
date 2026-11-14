@@ -637,6 +637,7 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
     // FIN-119-V1: temporary equity is financing capital (and its refusals ride in `fieldConflicts` above).
     ...temporaryEquityFields(r),
     cashBasis: r.cashBasis,
+    cashConflictReconciled: r.cashConflictReconciled,
     cashAndShortTermInvestments: num(r.cashAndShortTermInvestments),
     totalAssets: num(r.totalAssets),
   };
@@ -5219,7 +5220,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   } else if (!financialRoute && netDebtInfo.value !== null) {
     const c = netDebtInfo.components;
     result.notes.push(
-      `${netDebtInfo.version}: ${netDebtInfo.reason}; net debt ${netDebtInfo.value} as of ${netDebtInfo.asOf ?? "?"}; totalDebt ${c.totalDebt}, cashAndShortTermInvestments ${c.cashAndShortTermInvestments ?? "derived from cash + shortTermInvestments"}` +
+      `${netDebtInfo.version}: ${balPoint?.cashConflictReconciled ? netDebtInfo.reason + "; " : ""}net debt ${netDebtInfo.value} as of ${netDebtInfo.asOf ?? "?"}; totalDebt ${c.totalDebt}, cashAndShortTermInvestments ${c.cashAndShortTermInvestments ?? "derived from cash + shortTermInvestments"}` +
         (netDebtInfo.nonOperatingEquitySecurities !== undefined
           ? `, less marketable equity securities ${netDebtInfo.nonOperatingEquitySecurities} that are not cash (${str(balPoint?.marketableEquityBasis) ?? "filed fair value"})`
           : ""),
