@@ -103,6 +103,21 @@ export function scoreAuditTables(scores: Scoring): ReportAuditTable[] {
   return tables;
 }
 
+/**
+ * D-265 (P3, P20): what the two share counts in the bridge show. A divisor at or above the quote count carries the
+ * dilution the quoted count omits; one below it is never explained as dilution. A report built since D-265 records
+ * the sentence (with the filed held-share evidence, or "not established"); an older report is read from its two
+ * stored counts (P21: a read-time view, stored bytes unchanged).
+ */
+function shareBasisText(b: NonNullable<Dcf["bridge"]>): string {
+  if (b.shareBasisNote !== undefined) return b.shareBasisNote;
+  const divisor = b.dilutedShares, quote = b.sharesOutstandingAtQuote;
+  if (divisor !== null && quote !== undefined && divisor > 0 && divisor < quote) {
+    return `The diluted divisor (${formatLargeNumber(divisor)}) is below the ${formatLargeNumber(quote)} shares outstanding at the quote; option and RSU dilution can only raise a diluted count, so it does not explain this difference, and this stored report does not record its cause.`;
+  }
+  return "The diluted weighted-average count carries option and RSU dilution the quoted share count omits.";
+}
+
 export function valuationAuditTables(dcf: Dcf, recordedPerShare: Dcf["perShare"] = dcf.perShare): ReportAuditTable[] {
   const result: ReportAuditTable[] = [];
   if (dcf.sensitivityNotes?.length) result.push({ heading: "Sensitivity conventions", headers: ["Convention"], rows: dcf.sensitivityNotes.map(note => [note]), note: "These are the conventions used in the displayed grids; no alternative arithmetic is substituted." });
@@ -133,7 +148,7 @@ export function valuationAuditTables(dcf: Dcf, recordedPerShare: Dcf["perShare"]
         ? [["Valuation as of", b.asOf ?? "unavailable"]]
         : [["Value stated at (quote date)", `${b.valuationDate}${b.rollForwardFactor === undefined ? "" : ` (rolled forward from ${b.asOf ?? "the statement date"} at the WACC, × ${b.rollForwardFactor.toFixed(4)})`}`],
            ["Balance sheet in the bridge", b.asOf ?? "unavailable"]]),
-    ],note:"Per-share value = common equity value ÷ diluted share denominator. The diluted weighted-average count carries option and RSU dilution the quoted share count omits." +
+    ],note:"Per-share value = common equity value ÷ diluted share denominator. " + shareBasisText(b) +
       (b.valuationDate === undefined ? "" : " Cash flows are discounted from the statement date and rolled forward to the quote date at the WACC; the bridge's balances stay at the statement date.")});
   }
   const gm = dcf.growthMarginGrid;
