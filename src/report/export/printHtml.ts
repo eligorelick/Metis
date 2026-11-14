@@ -101,6 +101,12 @@ import {
   annualSegmentHeading,
   BUSINESS_STORY_HEADING,
   businessStoryBlocks,
+  BUSINESS_BRIEF_HEADING,
+  BRIEF_NOT_ESTABLISHED,
+  BRIEF_PART_NOT_ESTABLISHED,
+  businessBrief,
+  repeatedClaimsNote,
+  withoutRepeatedClaims,
   assessmentLine,
   auditExportFilename,
   citedMark,
@@ -118,8 +124,6 @@ import {
   ratioPercentText,
   showAnnualSegments,
   withoutChartReferences,
-  factorExposureTable,
-  factorContributionSensitivityTable,
   figureRows,
   figureValueText,
   gapCountText,
@@ -139,9 +143,10 @@ import {
   pruneTable,
   reverseDcfValueText,
   runSummary,
-  scoreDriverTable,
   scorecardTable,
-  gradeReliabilityTable,
+  SCORE_DIAGNOSTICS_NOTE,
+  readerSources,
+  DISAGREEMENT_SIDES_NOTE,
   seeAlsoText,
   sourceLabel,
   splitCommonLines,
@@ -323,9 +328,12 @@ function claimReasoning(reasoning: SourcedClaim | SourcedClaim[]): EscapedPrintC
 /** Claims with ONE source marker each (D-62). */
 function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
   if (claims.length === 0) return "";
-  return `<ul class="claims">${claims
+  // D-273: a statement shown in full elsewhere is referenced, not repeated.
+  const { shown, homes } = withoutRepeatedClaims(claims);
+  const note = repeatedClaimsNote(homes);
+  return `<ul class="claims">${shown
     .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${esc(displayClaimText(c, numbers))} <span class="src">${citationHtml(c)}</span>${statusMark(c)}</li>`)
-    .join("")}</ul>`;
+    .join("")}${note ? `<li class="faint">${esc(note)}</li>` : ""}</ul>`;
 }
 
 function figureTable(rows: readonly FigureRow[], metricHeader = "Metric"): string {
@@ -439,12 +447,10 @@ function keyDataBlock(report: Report): string {
 function disagreementsBlock(disagreements: readonly Disagreement[]): string {
   if (disagreements.length === 0) return "";
   const items = disagreements
-    .map((d) => `<li><strong>${esc(d.topic)}</strong> (${esc(d.kind)})<ul>
-        <li>Bull: ${prose(d.bullView)}</li>
-        <li>Bear: ${prose(d.bearView)}</li>
-        <li>Judge: ${prose(d.judgeResolution)}</li></ul></li>`)
+    // D-273: topic and resolution; the two sides are in the audit export.
+    .map((d) => `<li><strong>${esc(d.topic)}</strong> (${esc(d.kind)}): ${prose(d.judgeResolution)}</li>`)
     .join("");
-  return `<h3>Bull/bear disagreements</h3><ul class="disagreements">${items}</ul>`;
+  return `<h3>Bull/bear disagreements</h3><p class="faint">${esc(DISAGREEMENT_SIDES_NOTE)}</p><ul class="disagreements">${items}</ul>`;
 }
 
 function sectionVerdict(report: Report): string {
@@ -460,7 +466,16 @@ function sectionVerdict(report: Report): string {
   const execSummary = v.executiveSummary && v.executiveSummary.length > 0 ? `<h3>Executive summary</h3>${claimList(v.executiveSummary)}` : "";
   // D-62: the debate sits with the verdict it informs.
   const figureNote = plainFigureReaderNote(report);
-  return `<section class="block">${sectionHeading("verdict")}<p class="synthesis">${prose(v.synthesis)}</p>${figureNote ? `<p class="muted">${esc(figureNote)}</p>` : ""}${execSummary}${recentDevelopmentsBlock(v.recentDevelopments)}<h3>Grade strip</h3>${strip}${disagreementsBlock(report.disagreements)}</section>`;
+  return `<section class="block">${sectionHeading("verdict")}${businessBriefBlock(report)}<p class="synthesis">${prose(v.synthesis)}</p>${figureNote ? `<p class="muted">${esc(figureNote)}</p>` : ""}${execSummary}${recentDevelopmentsBlock(v.recentDevelopments)}<h3>Grade strip</h3>${strip}${disagreementsBlock(report.disagreements)}</section>`;
+}
+
+/** D-273: the five-part brief, verified claims only; a part with no support says so. */
+function businessBriefBlock(report: Report): string {
+  const parts = businessBrief(report);
+  if (parts.every(part => part.claims.length === 0)) return `<h3>${esc(BUSINESS_BRIEF_HEADING)}</h3><p class="faint">${esc(BRIEF_NOT_ESTABLISHED)}</p>`;
+  return `<h3>${esc(BUSINESS_BRIEF_HEADING)}</h3><ul class="business-brief">${parts.map(part => `<li><strong>${esc(part.heading)}:</strong> ${part.claims.length === 0
+    ? `<span class="faint">${esc(BRIEF_PART_NOT_ESTABLISHED)}</span>`
+    : part.claims.map(c => `${esc(displayClaimText(c))} <span class="src">${citationHtml(c)}</span>${statusMark(c)}`).join(" ")}</li>`).join("")}</ul>`;
 }
 
 /** Q1: absent on saved reports (nothing printed); an empty list says so. */
@@ -498,8 +513,7 @@ function sectionScores(scores: Scoring): string {
     <p class="faint">${esc(compositeNote(scores))}</p>
     ${assessment ? `<p>${esc(assessment)}</p>` : ""}
     ${table(card.headers, card.rows.map((row) => row.map(esc)))}${card.note ? `<p class="faint">${esc(card.note)}</p>` : ""}
-    ${bodyTables([gradeReliabilityTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)])}
-    <p class="faint">${esc(c.methodology)} <em>(${esc(SCORE_BANDS_READER_NOTE)})</em></p></section>`;
+    <p class="faint">${esc(c.methodology)} ${esc(SCORE_DIAGNOSTICS_NOTE)} <em>(${esc(SCORE_BANDS_READER_NOTE)})</em></p></section>`;
 }
 
 /* ======================================================================== *
@@ -884,11 +898,13 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
     <p>Citation coverage: <strong>${a.verificationRate === null ? DASH : `${(a.verificationRate * 100).toFixed(1)}%`}</strong> of report figures trace to a citation or payload value (provenance, not correctness).</p>${checkLine}`;
   // D-67: one row per underlying data gap; process disclosures and moot entries apart.
   const families = gapSummary(a.missingData, completeness.classification);
-  const gaps = `<h3>Data gaps</h3><p>${esc(`${gapCountText(a.missingData, completeness)} ${dataStateText(completeness)}`)}</p>${table(["Manifest reconciliation", "Displayed groups", "Recorded entries"], manifestReconciliationRows(a.missingData, completeness).map(row => [esc(row.label), String(row.groups), String(row.entries)]))}${bodyTables(dataGapTables(completeness), "h4")}${families.length > 0 ? table(["Gap family", "Entries", "Highest severity (as shown)"], families.map((row) => [esc(row.family), String(row.entries), esc(row.highest)])) : ""}`;
-  const sources = `<h3 id="report-sources">Sources</h3>${table(
+  const gaps = `<h3>Data gaps</h3><p>${esc(`${gapCountText(a.missingData, completeness)} ${dataStateText(completeness)}`)}</p>${bodyTables(dataGapTables(completeness), "h4")}${families.length > 0 ? table(["Gap family", "Entries", "Highest severity (as shown)"], families.map((row) => [esc(row.family), String(row.entries), esc(row.highest)])) : ""}`;
+  // D-273: providers once and stale sources by name; the full list is in the audit export.
+  const shownSources = readerSources(a.sources);
+  const sources = `<h3 id="report-sources">Sources</h3><p>${esc(shownSources.summary)}</p>${shownSources.stale.length > 0 ? table(
     SOURCE_ENTRY_FIELDS.map((field) => field.label),
-    a.sources.map((source) => SOURCE_ENTRY_FIELDS.map((field) => (field.key === "stale" ? (source.stale === undefined ? "unknown" : source.stale ? "yes" : "no") : field.key === "endpoint" ? safeLink(source[field.key], source[field.key]) : esc(source[field.key])))),
-  )}`;
+    shownSources.stale.map((source) => SOURCE_ENTRY_FIELDS.map((field) => (field.key === "stale" ? "yes" : field.key === "endpoint" ? safeLink(source[field.key], source[field.key]) : esc(String(source[field.key]))))),
+  ) : ""}`;
   const path = auditExportFilename(report,context);
   const audit = `<h3>Audit trail</h3><p>The verification log, deterministic checks, full missing-data manifest, score drivers with registry ids, projection series, evidence timing, as-of map and pass-by-pass execution record are in the separate audit export${path ? ` (<span class="mono">${esc(path)}</span>)` : ""}.</p>`;
   return `<section class="block">${sectionHeading("appendix")}${aboutReportBlock(report, completeness, context)}${methodology}${run}${verification}${gaps}${sources}${audit}</section>`;

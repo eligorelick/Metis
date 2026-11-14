@@ -90,6 +90,8 @@ import {
 import type { ManifestEntry } from "@/types/core";
 import { BUSINESS_STORY_HEADING, productLineNamingClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
 import { claimStatusMark } from "@/report/verificationMarks";
+import { citationSourceId } from "@/pipeline/stageC/citations";
+import { developmentClaims, managementActionClaims, RECENT_DEVELOPMENTS_HEADING } from "@/report/qualitativeAnalysis";
 import type {
   Business,
   Competitive,
@@ -842,6 +844,180 @@ export function businessStoryBlocks(
     { key: "industry", heading: "Industry", claims: business.industry ?? [], lines: [] },
   ];
   return blocks.filter(block => block.claims.length > 0 || block.lines.length > 0);
+}
+
+/* ======================================================================== *
+ * D-273: a statement repeated in several places is shown once in full
+ * ======================================================================== */
+
+/** Repeated claim object → the place (section › list) where it is shown in full. */
+const claimHomes = new WeakMap<object, string>();
+const echoIndexed = new WeakSet<object>();
+
+function claimEchoKey(claim: SourcedClaim): string {
+  return [claim.label, claim.text.trim().replace(/\s+/g, " "), citationSourceId(claim) ?? claim.source, claim.asOf ?? "", claimStatusMark(claim) ?? ""].join("\u0000");
+}
+
+/**
+ * D-273 (P22): the reader's claim lists in reading order (the D-273 section
+ * order), each with the label of where it prints. Only these lists take part
+ * in repeat removal; a claim anywhere else always prints.
+ */
+function readerClaimLists(report: Report): Array<readonly [string, readonly SourcedClaim[]]> {
+  const at = (key: Parameters<typeof reportSection>[0], list: string) => `${reportSection(key).printTitle} › ${list}`;
+  const v = report.verdict;
+  const b = report.business;
+  const c = report.competitive;
+  const o = report.outlook;
+  const bs = report.balanceSheet;
+  const lists: Array<readonly [string, readonly SourcedClaim[]]> = [
+    [at("verdict", "Executive summary"), v.executiveSummary ?? []],
+    [at("verdict", RECENT_DEVELOPMENTS_LIST), [...(v.recentDevelopments?.summary ?? []), ...(v.recentDevelopments?.items ?? []).flatMap(developmentClaims)]],
+    [at("business", "What they sell"), b.whatTheySell],
+    [at("business", "Market & industry structure"), b.marketStructure ?? []],
+    ...businessStoryBlocks(b, c).map(block => [at("business", block.heading), [...block.claims, ...block.lines.flatMap(line => line.claims)]] as const),
+    [at("business", "Concentration risks"), b.concentrationRisks],
+    [at("competitive", "Moat grade"), c.moatGraded.reasoning],
+    [at("competitive", "Competitors"), c.competitors ?? []],
+    [at("competitive", "Moat assessment"), c.moatAssessment.flatMap(m => m.reasoning)],
+    [at("outlook", "Segment trajectories"), o.segmentTrajectories],
+    [at("outlook", "TAM"), o.tam ?? []],
+    [at("outlook", "Estimate-revision trend"), o.estimateRevisionTrend],
+    [at("outlook", "Guidance credibility"), o.guidanceCredibility],
+    [at("outlook", "Scenario narratives"), [...o.scenarioNarratives.y1, ...o.scenarioNarratives.y3, ...o.scenarioNarratives.y5]],
+    [at("catalystsRisks", "Catalysts"), report.catalystsRisks.catalysts.flatMap(item => Array.isArray(item.reasoning) ? item.reasoning : [])],
+    [at("catalystsRisks", "Risks"), report.catalystsRisks.risks.flatMap(item => Array.isArray(item.reasoning) ? item.reasoning : [])],
+    [at("fundamentals", "Reasoning"), report.fundamentals.graded.reasoning],
+    [at("fundamentals", "Commentary"), report.fundamentals.commentary],
+    [at("balanceSheet", "Reasoning"), bs.graded?.reasoning ?? []],
+    [at("balanceSheet", "Debt profile"), bs.debtProfile.commentary],
+    [at("balanceSheet", "Coverage"), bs.coverage.commentary],
+    [at("balanceSheet", "Capex trajectory"), bs.capexTrajectory.commentary],
+    [at("balanceSheet", "Capital allocation"), bs.capitalAllocation],
+    [at("valuation", "Reasoning"), report.valuation.graded.reasoning],
+    [at("quality", "Reasoning"), report.quality.graded.reasoning],
+    [at("technicals", "Reasoning"), report.technicals.graded.reasoning],
+    [at("leadership", "Reasoning"), report.leadership.graded.reasoning],
+    [at("leadership", "Management actions"), (report.leadership.managementActions ?? []).flatMap(managementActionClaims)],
+    [at("leadership", "Insider activity"), report.leadership.insiderSummary],
+    [at("macro", "Sensitivity notes"), report.macro.sensitivityNotes],
+  ];
+  return lists;
+}
+const RECENT_DEVELOPMENTS_LIST = RECENT_DEVELOPMENTS_HEADING;
+
+/**
+ * D-273 (P22): index the report a reader surface is about to print. The first
+ * occurrence of a statement (same label, text, citation, date and verification
+ * mark) in reading order is its home and prints in full; every later
+ * occurrence is skipped and its list says where the statement is. A statement
+ * whose marks differ is not the same statement and prints in both places.
+ * Read time only; stored claims and the verification log are unchanged (P21).
+ */
+export function indexRepeatedClaims(report: Report): void {
+  if (echoIndexed.has(report)) return;
+  echoIndexed.add(report);
+  const homes = new Map<string, string>();
+  for (const [home, claims] of readerClaimLists(report)) {
+    for (const claim of claims) {
+      const key = claimEchoKey(claim);
+      const first = homes.get(key);
+      if (first === undefined) homes.set(key, home);
+      else claimHomes.set(claim, first);
+    }
+  }
+}
+
+/** Where a repeated claim is shown in full, or undefined for a claim that prints here. */
+export function repeatedClaimHome(claim: SourcedClaim): string | undefined {
+  return claimHomes.get(claim);
+}
+
+/** The claims a list prints, and the homes of the repeats it skips (in first-seen order). */
+export function withoutRepeatedClaims(claims: readonly SourcedClaim[]): { shown: SourcedClaim[]; homes: string[] } {
+  const shown: SourcedClaim[] = [];
+  const homes: string[] = [];
+  for (const claim of claims) {
+    const home = claimHomes.get(claim);
+    if (home === undefined) shown.push(claim);
+    else if (!homes.includes(home)) homes.push(home);
+  }
+  return { shown, homes };
+}
+
+/** The one line a list prints for its skipped repeats, or null when none. */
+export function repeatedClaimsNote(homes: readonly string[]): string | null {
+  return homes.length === 0 ? null : `Also stated here, shown in full under ${homes.join("; ")}.`;
+}
+
+/* ======================================================================== *
+ * D-273: the opening business brief
+ * ======================================================================== */
+
+export const BUSINESS_BRIEF_HEADING = "Business in brief";
+/** A part with no verified support says so in one line. */
+export const BRIEF_PART_NOT_ESTABLISHED = "Not established from verified sources.";
+/** Printed once instead of five empty parts. */
+export const BRIEF_NOT_ESTABLISHED = "No part of the business brief is established from verified sources: no statement about the business passed verification.";
+/** The most claims one part prints, so the brief stays short. */
+export const BRIEF_CLAIMS_PER_PART = 1;
+
+export interface BusinessBriefPart {
+  key: "sells" | "buyers" | "wins" | "next" | "risks";
+  heading: string;
+  /** Verified claims only, each keeping its own citation; empty means not established. */
+  claims: readonly SourcedClaim[];
+}
+
+/** Words that name who buys; only used to pick buyer statements out of fields that also hold other facts. */
+const BUYER_WORDS = /\b(?:customers?|clients?|distributors?|wholesalers?|buyers?|purchasers?|payers?|resellers?|retailers?|consumers?|subscribers?|advertisers?|patients?|members?|users?)\b/i;
+const SEVERITY_RANK: Readonly<Record<string, number>> = { high: 0, medium: 1, low: 2 };
+const MOAT_RANK: Readonly<Record<MoatAssessment["strength"], number>> = { wide: 0, narrow: 1, none: 2 };
+
+/**
+ * D-273 (P18, P19): a claim may enter the brief only when it is a FACT whose
+ * own verification-log entry passed: a matched figure ("validated") or a cited
+ * statement with no figure ("qualitative"). An unverified, contradicted or
+ * unchecked claim, and every judgment, never enters. Code owns the selection;
+ * no model text raises a claim's standing. Read time, so a saved report obeys too.
+ */
+export function isBriefEligible(claim: SourcedClaim): boolean {
+  return claim.label === "FACT" && SUPPORTING_MARKS.has(claimStatusMark(claim) ?? "");
+}
+
+function briefClaims(...sources: readonly (readonly SourcedClaim[])[]): SourcedClaim[] {
+  const picked: SourcedClaim[] = [];
+  const seen = new Set<string>();
+  for (const claim of sources.flat()) {
+    if (picked.length >= BRIEF_CLAIMS_PER_PART) break;
+    const key = claim.text.trim();
+    if (!isBriefEligible(claim) || seen.has(key)) continue;
+    seen.add(key);
+    picked.push(claim);
+  }
+  return picked;
+}
+
+/**
+ * D-273 (P22): the five-part brief that opens the verdict, assembled by code
+ * from the business fields in a fixed order (the D-271 field first, then the
+ * older field that holds the same story). Call after the report's verification
+ * marks are indexed (prepareReportForSurface does it); with no marks every
+ * part is not established.
+ */
+export function businessBrief(report: Pick<Report, "business" | "competitive" | "catalystsRisks" | "outlook">): BusinessBriefPart[] {
+  const b = report.business;
+  const c = report.competitive;
+  const buyerFacts = (claims: readonly SourcedClaim[] | undefined) => (claims ?? []).filter(claim => BUYER_WORDS.test(claim.text));
+  const moats = [...c.moatAssessment].filter(m => m.strength !== "none").sort((x, y) => MOAT_RANK[x.strength] - MOAT_RANK[y.strength]);
+  const risks = [...report.catalystsRisks.risks].sort((x, y) => (SEVERITY_RANK[x.severity] ?? 3) - (SEVERITY_RANK[y.severity] ?? 3));
+  return [
+    { key: "sells", heading: "What it sells", claims: briefClaims(b.whatTheySell, (b.products ?? []).flatMap(item => item.claims)) },
+    { key: "buyers", heading: "Who buys it", claims: briefClaims(b.customersAndSuppliers ?? [], buyerFacts(b.whatTheySell), buyerFacts(b.concentrationRisks)) },
+    { key: "wins", heading: "Why it wins", claims: briefClaims(b.protection ?? [], moats.flatMap(m => m.reasoning), c.moatGraded.reasoning) },
+    { key: "next", heading: "What is next", claims: briefClaims(b.whatIsComing ?? [], b.managementPlan ?? [], report.catalystsRisks.catalysts.flatMap(item => reasoningClaims(item.reasoning)), report.outlook.guidanceCredibility) },
+    { key: "risks", heading: "What could break it", claims: briefClaims(risks.flatMap(item => reasoningClaims(item.reasoning))) },
+  ];
 }
 
 /* ======================================================================== *
@@ -2288,17 +2464,47 @@ const SCORE_ASPECT_LABEL: Record<(typeof SCORE_ASPECT_ORDER)[number], string> = 
  * constant itself (`scores.bandsVersion`) is a machine id; it is printed in
  * the audit export's scorecard ("Band table: ..."), not in the body.
  */
+/**
+ * D-273 (P22): the judge's resolution restates and settles both sides, so the
+ * reader shows the topic and the resolution once; the full bull and bear
+ * statements are kept verbatim in the audit export.
+ */
+export const DISAGREEMENT_SIDES_NOTE = "Each resolution weighs both analysts' statements; the full bull and bear statements are in the audit export.";
+/**
+ * D-273 (P22): the appendix names the providers once and lists only the
+ * sources marked stale (P2: a stale input is named where it applies); every
+ * source with its endpoint and fetch time is in the audit export.
+ */
+export function readerSources(sources: Report["appendix"]["sources"]): { summary: string; stale: Report["appendix"]["sources"] } {
+  const providers = [...new Set(sources.map(source => source.provider))];
+  const stale = sources.filter(source => source.stale === true);
+  const unknown = sources.filter(source => source.stale === undefined).length;
+  const freshness = [stale.length > 0 ? `${stale.length} marked stale (listed below)` : "none marked stale", ...(unknown > 0 ? [`${unknown} with freshness not recorded`] : [])].join(", ");
+  return {
+    summary: `${sources.length} source ${sources.length === 1 ? "record" : "records"} from ${providers.join(", ") || "no provider"}; ${freshness}. Every source with its endpoint, as-of date and fetch time is in the audit export.`,
+    stale,
+  };
+}
+/** D-273 (P22): where the score diagnostics live once they leave the reader body. */
+export const SCORE_DIAGNOSTICS_NOTE = "The method of each aspect, the score drivers, factor-family exposure and sensitivity, and the missing-input grade ranges are in the audit export.";
 export const SCORE_BANDS_READER_NOTE = "House scoring bands in force when this report was built; the band version is recorded in the audit export";
 
 /**
  * One row per aspect: score, band, weight and evidence, with what it
  * measures (D-62: replaces the separate weights and aspect-score tables).
  */
-export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable {
+/**
+ * `full` keeps each aspect's method text and the reliability sentence: the app
+ * shows them in its collapsed score panel (D-246 frozen facts); the documents
+ * point to the audit export instead (D-273).
+ */
+export function scorecardTable(scores: NonNullable<Report["scores"]>, detail: "document" | "full" = "document"): BodyTable {
+  const full = detail === "full";
   const limited = SCORE_ASPECT_ORDER.filter((key) => hasLimitedEvidence(scores.aspects[key]));
-  return {
+  const table: BodyTable = {
     heading: "Scorecard",
-    headers: ["Aspect", "Score", "Band", "Weight", "Evidence (all signal weights)", "What it measures"],
+    // D-273: the method text is in the audit export; only an unscored aspect's reason stays.
+    headers: ["Aspect", "Score", "Band", "Weight", "Evidence (all signal weights)", full ? "What it measures" : "Why not scored"],
     rows: SCORE_ASPECT_ORDER.map((key) => {
       const aspect = scores.aspects[key];
       const weight = scores.composite.weights[key];
@@ -2309,10 +2515,10 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
         hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band === null ? "—" : qualifiedGradeLabel(withNeutral(aspect.band, aspect.score), scores.qualification?.aspects[key]),
         `${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}%`,
         evidencePercentText(aspect.dataCompleteness),
-        withoutDecisionNumbers(aspect.notApplicableReason ?? aspect.note),
+        full || aspect.score === null ? withoutDecisionNumbers(aspect.notApplicableReason ?? aspect.note) : "",
       ];
     }),
-    note: `Evidence here uses each aspect's full configured signal weight. The reliability table's applicable evidence excludes route-inapplicable inputs. ${limited.map((key) => {
+    note: `Evidence here uses each aspect's full configured signal weight. ${full ? "The reliability table's applicable evidence excludes route-inapplicable inputs. " : ""}${limited.map((key) => {
         const signals = scores.aspects[key].signals ?? [];
         const effective = signals.length > 0
           ? signals.reduce((sum, s) => sum + s.effectiveCompositeWeightPct, 0)
@@ -2324,6 +2530,8 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
         return `${SCORE_ASPECT_LABEL[key]} has evidence for ${evidencePercentText(scores.aspects[key].dataCompleteness)} of its signal weight, ${why}, so no surface shows one; it enters the composite at ${formatPct(effective, 1)} rather than its ${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}% route weight.`;
       }).join(" ")}`.trim(),
   };
+  // D-273: every aspect scored, so no row has a reason; the empty column is not printed.
+  return full || table.rows.some(row => row[5] !== "") ? table : { ...table, headers: table.headers.slice(0, 5), rows: table.rows.map(row => row.slice(0, 5)) };
 }
 
 /** The same missing-input interpretation on the app, Markdown and print scorecards. */

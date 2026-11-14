@@ -33,7 +33,7 @@ import type {
   SourcedClaim,
   TracedNumber,
 } from "@/report/schema";
-import { claimCitation, displayClaimText, displayConfidence, displayProse, figureRows, figureValueText, SCENARIO_TARGET_UNAVAILABLE_TEXT, scenarioWeightView, seeAlsoText, withoutTabled, type ScenarioWeightView } from "@/report/presentation";
+import { claimCitation, displayClaimText, displayConfidence, displayProse, figureRows, figureValueText, repeatedClaimsNote, SCENARIO_TARGET_UNAVAILABLE_TEXT, scenarioWeightView, seeAlsoText, withoutRepeatedClaims, withoutTabled, type ScenarioWeightView } from "@/report/presentation";
 import {
   unitLabel,
   numericCitationTraceLabel,
@@ -103,11 +103,15 @@ export function ClaimList({
   if (claims.length === 0) {
     return <div className="text-[11px] text-faint">{empty}</div>;
   }
+  // D-273: a statement shown in full elsewhere is referenced, not repeated.
+  const { shown, homes } = withoutRepeatedClaims(claims);
+  const note = repeatedClaimsNote(homes);
   return (
     <div className="flex flex-col gap-2">
-      {claims.map((c, i) => (
+      {shown.map((c, i) => (
         <ClaimText key={i} claim={c} numbers={numbers} />
       ))}
+      {note && <div className="claim-repeat-note text-[11px] text-faint">{note}</div>}
     </div>
   );
 }
@@ -115,9 +119,13 @@ export function ClaimList({
 /** New rationale lists read as a paragraph; saved single claims keep their UI. */
 export function ClaimReasoning({ reasoning }: { reasoning: SourcedClaim | SourcedClaim[] }) {
   if (!Array.isArray(reasoning)) return <ClaimList claims={[reasoning]} />;
+  // D-273: a statement shown in full elsewhere is referenced, not repeated.
+  const { shown, homes } = withoutRepeatedClaims(reasoning);
+  const note = repeatedClaimsNote(homes);
   return (
     <p className="claim-paragraph text-[12px] leading-relaxed text-fg">
-      {reasoning.map((claim, index) => (
+      {note && <span className="claim-repeat-note text-faint">{note} </span>}
+      {shown.map((claim, index) => (
         <span key={index} {...evidenceAttributes("claim", claim)}>
           {index > 0 && " "}
           <ClaimLabelChip label={claim.label} />{" "}{displayClaimText(claim)}{" "}

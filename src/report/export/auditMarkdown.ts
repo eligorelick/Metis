@@ -28,7 +28,7 @@ import {
   formatCostUsd,
   roundedDisplayedCostTotal,
 } from "@/report/format";
-import { runSummary, displayedValidationStatus, geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
+import { runSummary, displayedValidationStatus, geographicBasisNote, gradeReliabilityTable, qualityAccrualClarifications, trustRows } from "@/report/presentation";
 import { figureCitationStatus } from "@/report/verificationMarks";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import {
@@ -246,6 +246,8 @@ function renderScores(scores: Scoring): string {
     ),
     "",
     ...scoreAuditTables(scores).flatMap((t) => [`### ${t.heading}`, "", table(t.headers, t.rows), ...(t.note ? ["", markdownProse(t.note)] : []), ""]),
+    // D-273: the missing-input grade ranges left the reader body for this export.
+    ...[gradeReliabilityTable(scores)].flatMap((t) => [`### ${t.heading}`, "", table(t.headers, t.rows), ...(t.note ? ["", markdownProse(t.note)] : []), ""]),
     `_Band table: ${markdownProse(scores.bandsVersion)}._`,
   ].join("\n");
 }
@@ -514,6 +516,15 @@ function renderGradeContracts(report: Report): string {
   return rows.length ? `## Grade contracts\n\n${table(["Section", "Deterministic band", "Proposed grade", "Status", "Reason"], rows)}` : "";
 }
 
+/** D-273: the full bull and bear statements the reader body summarizes by the judge's resolution. */
+function renderDisagreementSides(report: Report): string {
+  if (report.disagreements.length === 0) return "";
+  return ["## Bull/bear statements", "", ...report.disagreements.flatMap(d => [
+    `### ${markdownHeading(d.topic)} (${markdownHeading(d.kind)})`, "",
+    `- Bull: ${markdownListItem(d.bullView)}`, `- Bear: ${markdownListItem(d.bearView)}`, `- Judge: ${markdownListItem(d.judgeResolution)}`, "",
+  ])].join("\n").trimEnd();
+}
+
 export function reportToAuditMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   const prepared = prepareReportForSurface(report, "audit");
   report = prepared.report;
@@ -540,6 +551,7 @@ export function reportToAuditMarkdown(report: Report, context: ReportPresentatio
       "## Recorded pre-policy valuation diagnostics", "These original targets and inverse values are historical audit diagnostics, not admitted current evidence.",
       "```json", JSON.stringify(recordedTargets, null, 2), "```"].join("\n\n") : "",
     renderVerification(report),
+    renderDisagreementSides(report),
     ...primaryCapitalEvidenceTables(report.primaryCapitalEvidence, true).map(t => [`## ${t.heading}`, table(t.headers, t.rows), ...(t.note ? [markdownProse(t.note)] : [])].join("\n\n")),
     report.scores ? renderScores(report.scores) : "",
     renderFigureRegistry(report),
