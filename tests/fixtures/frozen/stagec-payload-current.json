@@ -1,13 +1,13 @@
 {
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
-  "payloadVersion": "1.94.0",
-  "fingerprint": "1.94.0:daa66563",
-  "summary": {"promptBytes": 155033, "promptFnv1a32": "daa66563", "provenanceCount": 536, "provenanceHash": "ad7ee477", "provenanceIdsHash": "1f4e2f3b", "citationCount": 79, "citationHash": "7c7763ca", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "de666f21"},
+  "payloadVersion": "1.96.0",
+  "fingerprint": "1.96.0:2ec1b901",
+  "summary": {"promptBytes": 157630, "promptFnv1a32": "2ec1b901", "provenanceCount": 536, "provenanceHash": "ad7ee477", "provenanceIdsHash": "1f4e2f3b", "citationCount": 87, "citationHash": "0292dcdc", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "2ccbac4a"},
   "prompt": {
-    "bytes": 155033,
-    "sha256": "b6e959e9485ab1248a2d9961e0daadb19d986487ee13c4efe6407f6792ed81c2",
+    "bytes": 157630,
+    "sha256": "851c0acecf2def2feee057dee2ae945c1336b3bfbbf7cf615340b74cd1097810",
     "sections": [
-      {"heading": "(before the first ## heading)", "bytes": 498, "sha256": "747cddde5553612636fff4a1a42e955ae85b167b6debea020e760f7b756eb62d"},
+      {"heading": "(before the first ## heading)", "bytes": 498, "sha256": "cecbd4372de10a49bff8adeedbb1d86c0624dd9dbb17ceb3001919ee21cbc1a5"},
       {"heading": "## Quote", "bytes": 520, "sha256": "5146e60fd664d5a82bbbf06b3413303e1136d43422948e7ad1e8c645380d4026"},
       {"heading": "## Growth & margins (computed)", "bytes": 2984, "sha256": "0a99f8d4e346e47a0c3816bac522e18117123512e830df57a2ae624db2407749"},
       {"heading": "## Returns (computed)", "bytes": 4404, "sha256": "e6a3241a0880a89b297438994c04127838cbf59b682e8fe516005210afaba4e7"},
@@ -15,7 +15,7 @@
       {"heading": "## Forensics (computed)", "bytes": 7550, "sha256": "b095b7c9f1c177c8ea279e726ca3f459a5a43bf43be2442d0a7673a408ac67e3"},
       {"heading": "## Current capital (computed)", "bytes": 3542, "sha256": "94d61a2db9acb46624985d07633d77fa34c9266186bc3907aec3520110de96e0"},
       {"heading": "## Technicals (computed)", "bytes": 724, "sha256": "40dd858706c2c8da597fde1c4e8ab3a3d12ec2a769e7ae410fb67df65a53edbc"},
-      {"heading": "## Valuation (computed)", "bytes": 13047, "sha256": "92fa5894e532bc85684fbca2d256c9433b60eb2b4741407849fbe9db67328f29"},
+      {"heading": "## Valuation (computed)", "bytes": 13114, "sha256": "6de9916ffce88a5dc4ec52b79d9784b862ca0a089fc8079ae343defd53adb6cb"},
       {"heading": "## Comparable peers (computed)", "bytes": 3081, "sha256": "0ce53c8cbc3555ef50d3ad2f0f04baa6980ad7cefb7a14aba74181780766f348"},
       {"heading": "## Deterministic aspect scores (computed — ANCHOR your A–F letter grades to these bands; justify any deviation)", "bytes": 3118, "sha256": "051e2094a397d46015e636e5f3189588e2f4024bcf370c26813dd8328664280b"},
       {"heading": "## Weighted projections (computed — 5y forward, fixed display weights 0.25/0.5/0.25 bull/base/bear; ESTIMATE, interpret — never restate as fact)", "bytes": 7366, "sha256": "27a84fed3209427b01571ad9da72aa4c1072b4ed784d3f93f7900be3f87a5484"},
@@ -41,7 +41,7 @@
       {"heading": "## Provider transcript/filing excerpt (untrusted source data)", "bytes": 18350, "sha256": "bb6a47f325977783ed016e1d41e2c496850d3e97f3bcdc85f056b2ef053e9be0"},
       {"heading": "## Provider news/press snippets (untrusted source data)", "bytes": 314, "sha256": "5188737400534b60ef1e78266e8a1e16b0ea53af3b87978db4ae3258c80674d1"},
       {"heading": "## Data-quality flags (Stage A validation; untrusted provider data)", "bytes": 796, "sha256": "bd25f9b7783f7e0714ee8cb26ac9a3a541a7bd23915bda9a7b8cd5e2fcffde84"},
-      {"heading": "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "bytes": 7625, "sha256": "ea93b44a8e0094dd60cc2240a65a3d9720631b71fcbfd2a7a1b12c70f10172f6"}
+      {"heading": "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "bytes": 10155, "sha256": "b20055e9376b8ba0d902596f72ef816b64da0b1e9424b00e85b373b764709686"}
     ]
   },
   "projectionPathPeriodMatrix": [
@@ -2343,7 +2343,7 @@
         "Valuation date: cash flows are discounted from the statement date 2026-03-28 and rolled forward 99 days to the quote date 2026-07-05 at the WACC (× 1.0235), so the per-share value and the price it is compared with share a date; the equity bridge stays at the 2026-03-28 balance, whose later cash generation is inside the first window's flows (house rule D-65)",
         "DCF equity bridge: EV − net debt − minority interest − preferred equity. 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
         "DCF terminal transition: FCFF 162.79B in year 10 becomes 140.66B in year 11 (-13.6%): reinvestment moves from 2.62% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 93.23%) to 17.91% (terminal growth 2.5% / terminal ROIC 13.96%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure).",
-        "NET_DEBT_V3: net debt 46000000000 as of 2026-03-28; totalDebt 98000000000, cashAndShortTermInvestments 52000000000"
+        "NET_DEBT_V3: total debt minus cash and short-term investments (combined field); net debt 46000000000 as of 2026-03-28; totalDebt 98000000000, cashAndShortTermInvestments 52000000000"
       ],
       "gaps": [
         {"field": "valuation.multiples.enterpriseValue.leases", "reason": "2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.", "severity": "info"},
@@ -5658,6 +5658,14 @@
     {"id": "manifest.returns.wacc.erp", "kind": "payload-gap", "asOf": null, "origin": "returns.wacc.erp"},
     {"id": "manifest.returns.wacc.history", "kind": "payload-gap", "asOf": null, "origin": "returns.wacc.history"},
     {"id": "manifest.route.insufficientHistory", "kind": "payload-gap", "asOf": null, "origin": "route.insufficientHistory"},
+    {"id": "manifest.scores.balanceSheet.fcfConversionBeforeSbc", "kind": "payload-gap", "asOf": null, "origin": "scores.balanceSheet.fcfConversionBeforeSbc"},
+    {"id": "manifest.scores.balanceSheet.sbcPctOfFcf", "kind": "payload-gap", "asOf": null, "origin": "scores.balanceSheet.sbcPctOfFcf"},
+    {"id": "manifest.scores.leadership.buybackTiming", "kind": "payload-gap", "asOf": null, "origin": "scores.leadership.buybackTiming"},
+    {"id": "manifest.scores.quality.altmanZOriginalScale", "kind": "payload-gap", "asOf": null, "origin": "scores.quality.altmanZOriginalScale"},
+    {"id": "manifest.scores.technicals.pctFromHigh52w", "kind": "payload-gap", "asOf": null, "origin": "scores.technicals.pctFromHigh52w"},
+    {"id": "manifest.scores.technicals.relStrength12m1m", "kind": "payload-gap", "asOf": null, "origin": "scores.technicals.relStrength12m1m"},
+    {"id": "manifest.scores.technicals.smaGap", "kind": "payload-gap", "asOf": null, "origin": "scores.technicals.smaGap"},
+    {"id": "manifest.scores.valuation.peOwnHistoryRank", "kind": "payload-gap", "asOf": null, "origin": "scores.valuation.peOwnHistoryRank"},
     {"id": "manifest.valuation.analystEstimates.currency", "kind": "payload-gap", "asOf": null, "origin": "valuation.analystEstimates.currency"},
     {"id": "manifest.valuation.dcf.growthAnchor", "kind": "payload-gap", "asOf": null, "origin": "valuation.dcf.growthAnchor"},
     {"id": "manifest.valuation.dcf.terminalRoic.waccBasis", "kind": "payload-gap", "asOf": null, "origin": "valuation.dcf.terminalRoic.waccBasis"},
@@ -5670,7 +5678,7 @@
     {"id": "fmp:key-executives", "kind": "payload-text", "asOf": null, "origin": "fmp:key-executives"}
   ],
   "payload": {
-    "payloadVersion": "1.94.0",
+    "payloadVersion": "1.96.0",
     "symbol": "AAPL",
     "companyName": "Apple Inc.",
     "route": {"base": "general", "overlays": [], "sector": "Technology", "industry": "Consumer Electronics"},
@@ -6158,7 +6166,7 @@
           "Valuation date: cash flows are discounted from the statement date 2026-03-28 and rolled forward 99 days to the quote date 2026-07-05 at the WACC (× 1.0235), so the per-share value and the price it is compared with share a date; the equity bridge stays at the 2026-03-28 balance, whose later cash generation is inside the first window's flows (house rule D-65)",
           "DCF equity bridge: EV − net debt − minority interest − preferred equity. 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
           "DCF terminal transition: FCFF 162.79B in year 10 becomes 140.66B in year 11 (-13.6%): reinvestment moves from 2.62% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 93.23%) to 17.91% (terminal growth 2.5% / terminal ROIC 13.96%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure).",
-          "NET_DEBT_V3: net debt 46000000000 as of 2026-03-28; totalDebt 98000000000, cashAndShortTermInvestments 52000000000",
+          "NET_DEBT_V3: total debt minus cash and short-term investments (combined field); net debt 46000000000 as of 2026-03-28; totalDebt 98000000000, cashAndShortTermInvestments 52000000000",
           "Provisional: Leadership has limited evidence (score 74/100 on one signal, 45.5% of signals). Technicals has no route-applicable score evidence.",
           "peTtm: price / epsDiluted (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum.",
           "evToEbitda: EV / (operatingIncome + D&A), TTM-computed — vendor ebitda field not trusted. 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 3,196,000,000,000; EV on retained debt basis 3,196,000,000,000. Balance basis: latest quarterly balance sheet 2026-03-28.",
@@ -8908,6 +8916,18 @@
         "severity": "info",
         "attemptedSources": ["fmp:/stable/income-statement?period=quarter", "fmp:/stable/profile.ipoDate"]
       },
+      {"field": "scores.balanceSheet.fcfConversionBeforeSbc", "severity": "info", "reason": "fcfConversionBeforeSbc withheld: consolidated net income (including noncontrolling interests' share) (computed.capital.current.netIncome) is missing or refused; FCF / consolidated net income (computed.capital.current.fcfConversionBeforeSbc) is missing or refused."},
+      {"field": "scores.balanceSheet.sbcPctOfFcf", "severity": "info", "reason": "sbcPctOfFcf withheld: SBC (computed.capital.current.cashBridge.stockBasedCompensation) is missing or refused; SBC / FCF before SBC, percent (computed.capital.current.sbcPctOfFcf) is missing or refused."},
+      {"field": "scores.leadership.buybackTiming", "severity": "info", "reason": "buybackTiming withheld: share of repurchase dollars covered, percent (computed.capital.buybackPriceAnalysis.timingCoveragePct) is missing or refused. This same-year execution-price comparison does not assess contemporaneous intrinsic-value discipline."},
+      {
+        "field": "scores.quality.altmanZOriginalScale",
+        "severity": "info",
+        "reason": "altmanZOriginalScale withheld: totalCurrentAssets/totalCurrentLiabilities missing (unclassified balance sheet) — Z-score unavailable; retainedEarnings missing — X2 not computable; Z-score suppressed rather than assuming zero retained earnings. original variant Z score before grade-scale mapping (computed.forensics.altman.score) is missing or refused."
+      },
+      {"field": "scores.technicals.pctFromHigh52w", "severity": "info", "reason": "pctFromHigh52w withheld: last close (computed.technicals.lastClose) is missing or refused; 52-week high (computed.technicals.range52w.high52w) is missing or refused."},
+      {"field": "scores.technicals.relStrength12m1m", "severity": "info", "reason": "relStrength12m1m withheld: issuer return (computed.technicals.relativeStrength.benchmark.momentum12m1m.symbolReturnPct) is missing or refused; benchmark return (computed.technicals.relativeStrength.benchmark.momentum12m1m.benchmarkReturnPct) is missing or refused."},
+      {"field": "scores.technicals.smaGap", "severity": "info", "reason": "smaGap withheld: SMA50 (computed.technicals.smaCross.sma50) is missing or refused; SMA200 (computed.technicals.smaCross.sma200) is missing or refused."},
+      {"field": "scores.valuation.peOwnHistoryRank", "severity": "info", "reason": "peOwnHistoryRank withheld: no admitted current multiple and compatible historical multiple sample establish a percentile rank. Own-history rank unavailable."},
       {
         "field": "valuation.analystEstimates.currency",
         "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",

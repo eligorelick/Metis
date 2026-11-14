@@ -222,7 +222,8 @@
 // P/E basis are on the filed total net revenue where the filing proves it, so shown figures and an aspect band change
 // meaning for new reports; three reader labels name consolidated net income. No display cutoff is added; stored
 // reports keep their bytes.
-// D-261 (P8, P10): exact filed balances and root-input gaps for all withheld score signals.
+// 1.76.0 (D-263, P19): declared cash outflow magnitudes and FCF clause subjects verify without false conflicts.
+// 1.79.0 D-261 (P8, P10): exact filed balances and root-input gaps for all withheld score signals.
 export const REPORT_SPEC_VERSION = "1.79.0" as const;
 
 /**

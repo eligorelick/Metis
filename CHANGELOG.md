@@ -26,8 +26,9 @@ original versions and bytes; source merge does not deploy or publish a release.
   proved components; disclose cash-only liquidity without treating missing
   investments as zero.
 - Name the root input for every withheld applicable scoring signal and every
-  withheld annual ROIC. Restore LLY's FY2025 ROIC and the December 2025 DCF
-  balance anchor. Report 1.79.0, payload 1.96.0 and Stage B implementation 69;
+  withheld annual ROIC. Restore LLY's FY2025 ROIC on a qualified cash-only
+  basis; retain its dated DCF statement anchor. Report 1.79.0, payload 1.96.0
+  and Stage B implementation 70;
   stored reports and scoring bands keep their original meaning and bytes.
 
 ## Unreleased - Shared reader presentation repairs (P22, P21, D-264)
@@ -44,6 +45,16 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Executive cards link to shared company actions and outlook guidance. A short
   fact-tag legend distinguishes numerical matching from citation coverage.
 - Saved inputs, payloads, figures, reports and verification statuses stay unchanged.
+
+
+## Unreleased - P19 verification marks (D-263)
+
+- Independent review tightened the rule: only established negative-for-outflow producers qualify; cash-use prose has no label-rebuild fallback; only declared prose definitions are masked; label qualifiers and ambiguous legacy operand refusals remain. EBITDA and net-debt definitions now require the actual current producer evidence.
+
+- Verify explicitly declared cash-use magnitudes without treating their unsigned prose amounts as conflicts. Real sign, value and direction conflicts remain contradicted.
+- Bind prose to its clause subject when a parenthetical spells out a producer-declared component definition, covering free cash flow, net debt, EBITDA, margins and coverage ratios.
+- Preserve indexed score-operand source paths on read, removing a false legacy-citation warning and its confidence-cap contribution. Stored report bytes remain unchanged.
+- Report spec moves to 1.76.0. Payload, Stage B and pipeline stamps stay unchanged: prompt text, calculations and orchestration are unchanged.
 
 
 ## Unreleased - `best` removed from the Claude CLI model list (2026-11-13)

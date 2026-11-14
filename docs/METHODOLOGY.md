@@ -17,11 +17,17 @@ must agree under the existing same-observation rule. Temporary-equity categories
 also require matching same-filing assets, liabilities and permanent equity.
 Independent scope and composition refusals remain authoritative. Net debt is
 recomputed only from admitted debt and cash in the same filing. Combined
-liquidity uses a compatible filed total or cash plus separately filed investments
-from one filing. When the vendor combined total equals filed cash alone, it can
-carry that cash-only observation, explicitly qualified: absent filed investments
-are unreported, not zero, and an uncorroborated vendor split is not added again.
-An ambiguous or independently refused investment amount cannot use this path.
+liquidity uses a compatible filed total or same-filing components proved to be
+disjoint by that total or a current-assets reconciliation. Vendor agreement
+proves nothing. Otherwise the combined field stays unavailable with a typed
+liquidity-not-established cause; a qualified cash-only basis says that short-term
+investments are not established from the undimensioned facts available. This
+does not assert absence from the filing. A bank deposit member is not added
+again on a coincidental current-assets equality. Contradictory totals and
+independently refused components remain downstream refusals. The typed cash
+basis follows net debt, invested capital, equity-bridge notes and grade
+qualifications. Derived score/ROIC entries are informational, so repeated
+downstream symptoms do not multiply the root data-warning count.
 A vendor SBC
 quarter equal to a cumulative amount is corrected only when that filing also
 directly states the standalone quarter. Missing lease portions, conflicting

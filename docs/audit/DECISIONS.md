@@ -11,241 +11,1453 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
-## D-261 - Filed balance facts replace vendor conflicts; every withheld score names its inputs (2026-11-13)
+## D-261 - Filed balance facts and root-input gaps; review corrections (2026-11-14)
 
-Principles P8 and P10, with P7 composition, P11 refusal inheritance, P20
-provenance and P21/P27 immutable reports and replay. Owners are
-`edgar/financialEnrichment.ts`, `edgar/temporaryEquityEnrichment.ts`, the existing
-agreement/evidence helpers in `edgar/vendorAgreement.ts`, `stageB/returns.ts`
-and the shared `stageB/grading.ts` / `stageB/scoringEvidence.ts` admission.
+P7, P8, P10, P11 and P12. This entry supersedes the earlier D-261 liquidity claim. D-133, D-200 and D-210 retain their explicit "Revised by D-261" markers.
 
-### Evidence and choice
+### Evidence and rule owners
 
-D-200 intentionally withheld conflicting cash; D-210 recovered only a vendor
-amount equal to an explicit restricted-inclusive filed total. That explains why
-LLY's directly filed cash appeared in its composition table but not its
-calculations. Both earlier cash decisions are revised below. A direct balance
-fact is already the whole observation: it does not need an earnings-family or
-vendor-classification bridge. Use the newest compatible exact-instant cash
-fact when every available core filed copy agrees under `VENDOR_SEC_TOLERANCE`.
-Retain the vendor observation with `usable: true`, `resolution: filed-family`,
-and attach the filing evidence. Currency, issuer, cutoff, ambiguity, independent
-scope refusals and genuinely SEC-built restatements retain their safeguards.
-No tolerance, day band, currency rule, status vocabulary or score band changes.
+1. Exact-instant filed balances replace this owner's vendor comparison refusal only after the existing issuer, currency, unit, cutoff, ambiguity and filed-copy checks. Lease and temporary-equity re-admission read typed causes plus the matching evidence; old sentence patterns live only in refusalCauseRead.ts. The wording ratchet remains 25 in that compatibility reader; its allowance is not raised.
+2. Filed cash is cash, not a proved combined liquidity total. Vendor agreement establishes nothing. A combined value needs a directly filed total or disjoint same-filing components. Without that proof, combined liquidity is a typed liquidity-not-established gap; consumers may use an explicit cash-only basis. No new instance-extraction route was added.
+3. The cashBasis value travels through resolveNetDebt, invested capital, DCF/equity-bridge input mapping and grade qualifications. Cash-only debt arithmetic additionally needs same-instant filed debt evidence; merely completing a vendor lease line does not prove the remaining debt total. A qualified calculation stays provisional.
+4. A potentially overlapping InterestBearingDepositsInBanks component cannot be added to cash on an accidental current-assets equality. A directly filed combined total can establish the sum; other current-investment components require the filed total or the current-assets reconciliation. Ambiguous or independently refused components remain refusals.
+5. Withheld score signals name their own missing operands. Price-based signals name valuation-use status first, rather than copying unrelated lease/peer notes. Derived score and dated ROIC entries are informational; existing root data warnings remain. They do not multiply the warning count or confidence cap.
+6. Incompatible filed totals leave an unusable combined field, honored by net debt and invested capital even when components exist. No downstream component-sum or cash-only escape reconstructs a rejected total. The GitHub review thread is deliberately left for the lead to reply to and resolve.
+7. Both plausible findings were real: a newer cash-only comparative could hide an older complete same-instant family, and ROIC selected a cause by matching note wording. The family anchor now uses the newest complete filing, subject to unchanged cash copies; ROIC records its cause in the computation branch.
+8. This entry cites filing facts and computed results. Uncorroborated vendor observations are retained locally in replay inputs and are not reproduced in committed documentation.
 
-The cached LLY 10-K 0000059478-26-000013 (2026-02-12) and 10-Q instances
-0000059478-26-000045 (2026-04-30), 0000059478-26-000081 (2026-08-05) and
-0000059478-26-000108 (2026-10-29) establish, respectively, USD cash of
-7,268M at 2025-12-31, 5,282M at 2026-03-31, 8,950M at 2026-06-30 and
-4,885M at 2026-09-30 under `us-gaap:CashAndCashEquivalentsAtCarryingValue`.
-All four copies of the December 2025 instant agree. The first three vendor
-cash observations are 7,163M, 5,136M and 8,890M; their combined totals equal
-filed cash alone. The cached instance contexts, not just companyfacts, contain
-no consolidated short-term-investment replacement element after September
-2025. `LongTermInvestments` is noncurrent, not such a replacement. Therefore:
+Cash replacement remains at edgar/financialEnrichment.ts; its balance siblings are complete operating/finance lease liabilities and matching temporary-equity categories. Annual/quarterly instants and admitted 10-K/10-Q/20-F/40-F facts share the rule. Synthetic tests cover an industrial issuer, bank deposit overlap, foreign lease facts, temporary equity, conflicting and ambiguous facts, and available/refused controls. No company-specific condition was added.
 
-- Add separately filed short-term investments only to cash from that same
-  filing, instant, issuer and unit, or use a compatible directly filed total.
-- When the vendor combined total is the filed cash observation alone, retain
-  that proved cash-only liquidity, explicitly disclosed as narrower than a
-  complete cash-plus-investments inventory. Null the uncorroborated vendor
-  investment split and retain it as an observation; never add it again or call
-  the missing investment amount zero. This agrees with the unchanged September
-  2026 row's cash-only amount, without treating its vendor zero as a filed zero.
-- An ambiguous investment fact, independently refused investment component,
-  or incompatible total cannot take the cash-only escape. Statement net debt
-  is recomputed only against admitted same-filing debt, using the compatible
-  copy of cash in that debt filing; house leverage and the bridge retain their
-  existing operating-lease convention.
+Other lookalikes keep their own rules: duration cash-flow/SBC/repurchase fields in admitCashFields, the reconciled operating-cash-flow family, quarterly capex, carrying-debt completeness in admitDebtFields, noncurrent-investment enrichment and share/split scope in keyless.ts. They are not this exact-instant comparison rule. No company route is exempt from the corrected owner. Dimensioned investment facts remain outside this undimensioned admission path and are named as unestablished, never "unreported".
 
-The 2018 LLY cash refusal remains: its original filing states 7,998.2M, while
-later comparatives state 7,320.7M. These are different filed observations,
-outside the same-observation rule. This change establishes no presentation
-bridge and does not replace that refusal with the more favorable copy.
+### Filed proof and LLY results
 
-Every withheld annual ROIC now has a dated manifest cause, including ordinary
-missing operating income, tax, equity, debt, cash or matching balances and
-nonpositive invested capital. Every missing applicable scoring signal, including
-a finite observation with zero supporting evidence, passes the same shared
-manifest writer. Its actual operands and upstream refusal reasons name the
-input; route-inapplicable signals keep their route explanation. ROIC-minus-WACC
-also has its own root-input entry. Scoring arithmetic, weights and thresholds
-are unchanged.
+F1: us-gaap:CashAndCashEquivalentsAtCarryingValue, USD instant facts: 2025-12-31 = 7,268M (10-K 0000059478-26-000013); 2026-03-31 = 5,282M (10-Q 0000059478-26-000045); 2026-06-30 = 8,950M (10-Q 0000059478-26-000081); 2026-09-30 = 4,885M (10-Q 0000059478-26-000108). Later compatible copies of the December instant agree.
 
-### Breadth and sibling search
+The FY2025 10-K also reports 105M of us-gaap:AvailableForSaleSecuritiesDebtSecuritiesCurrent with a carrying-amount dimension, within other current assets. Its absence from undimensioned companyfacts does not mean absence from the filing. It is not admitted as an undimensioned component here. The first three restored cash dates therefore have an investment/combined-liquidity gap. September's existing retained row is unchanged; it was not a comparison refusal or a newly stamped filed family.
 
-The general class is a direct compatible filed balance being refused merely
-because a vendor disagrees, and missing scoring evidence being dropped without
-a manifest cause. The owner's Breadth instruction replaces the earlier stop
-rule for financial-route golden cases.
+F2: same FY2025 filing and its FY2024 comparative: LongTermDebtNoncurrent, DebtCurrent, CommercialPaper, OperatingLeaseLiabilityCurrent/Noncurrent and consolidated equity establish the retained financing and equity operands. Unchanged operating income and IncomeBeforeTax/IncomeTaxExpense establish NOPAT. With F1's restored cash, the existing lease convention gives FY2025 cash-only house net debt 35,235M; closing invested capital 61,770M and average invested capital 53,131.3M; NOPAT 21,098.024950448875M / average capital yields 39.70922027213502% ROIC. These are narrower cash-only calculations, not the full filed cash-plus-investment basis.
 
-- The balance side of `admitCashFields` is cash only; it now admits the direct
-  fact. The sibling enrichment comparison covered operating and finance lease
-  liabilities: adopt their exact filed total or complete same-filing split,
-  retaining the existing maturity/completeness checks. Temporary-equity
-  supplementation likewise adopts the complete category after matching the
-  same-filing assets, liabilities and permanent-equity operands. An independent
-  refusal still wins. Replay revisits only these owners' old comparison
-  refusals, with the same field, value and filing identity; a different
-  acquisition timestamp is not a different filed observation.
-- Annual and quarterly instants and core 10-K/10-Q/20-F/40-F forms use the
-  rule; no ticker or business-route branch was added. Synthetic controls cover
-  the vendor investment split, separately filed marketable investments, foreign
-  core-form leases, complete temporary equity and incompatible/ambiguous facts.
-- Shared score admission covers growth, valuation, quality, balance sheet,
-  moat, stewardship and technical signals on industrial, bank, insurer, REIT,
-  utility, foreign and sparse/pre-revenue routes. A gap leaves no invented
-  score. Tests also retain the available and route-inapplicable controls.
-- Remaining lookalikes are different rules: `admitCashFields` cash-flow
-  balances, repurchases, SBC and investing/financing flows require their own
-  duration and restricted-cash definition; `admitOperatingCashFlow` requires
-  the reconciled cash-flow family (D-252); `admitQuarterlyCapex` requires its
-  annual tag and standalone period; `keyless.ts:guardVendorShareFields`
-  requires share/split/per-share basis. They are not exact balance instants.
-  `admitDebtFields` retains complete carrying-debt/lease evidence, while
-  `admitVendorLongTermInvestments` fills missing noncurrent investment scope
-  but has no conflicting exact-counterpart refusal to revise. These are not
-  companies left on a vendor-over-filed exception. Unsupported namespaces or
-  different financial quantities still need their own evidence.
+F3: the existing deterministic DCF uses the 2025-12-31 statement anchor, unchanged forward operating assumptions and the existing 2026-09-30 equity bridge. The restored fourth positive annual ROIC observation changes terminal excess-return eligibility under the unchanged rule. The resulting model values are derived, not amounts reported by the filer. The value remains a dated reference against the 2026-11-13 quote.
 
-### Approved report changes
-
-Baseline main is pinned to `9f0d54765a5760e460c53342431c21468dd7c0fc`.
-Both LLY replays use the same retained inputs and fixed analyst output; no
-provider/model call or saved-report write occurs. Values below are outcomes,
-not targets selected for the implementation.
-
-| LLY item | Before | After |
-| --- | ---: | ---: |
-| Cash 2025-12-31 / 2026-03-31 / 2026-06-30 | withheld | 7,268M / 5,282M / 8,950M USD |
-| FY2025 statement net debt, before operating-lease exclusion | withheld | 36,597M USD |
-| FY2025 house leverage net debt / EBITDA | withheld | 35,235M USD / 1.245097x |
-| FY2025 net operating assets | withheld | 60,330M USD |
-| Balance-sheet accrual ratio | withheld | 0.3485377112 |
-| Cash-flow accrual ratio / scaler | 0.1581456021 / average assets | 0.2942581893 / average NOA |
-| FY2025 average invested capital / ROIC | withheld | 53,131.3M USD / 39.70922027% |
-| ROIC minus WACC | withheld | 31.90122685 percentage points |
-| Quality / evidence fraction | 68.43 / 0.65 | 73.87 / 1.00 |
-| Moat / evidence fraction | 80.79 / 0.55 | 87.07 / 1.00 |
-| Composite | 63.74 | 68.54 |
-| DCF bridge balance / lease-adjusted net debt | 2026-09-30 / 44,618M | 2025-12-31 / 35,235M |
-| Bridge long-term investments / estimated sale tax | 4,013M / 842.73M | 2,802M / 588.42M |
-| Sales to capital | 0.8059127553x | 1.1053283137x |
-| Terminal ROIC / reinvestment fraction | 7.807993426% / 0.3201846958 | 12.80799343% / 0.1951906061 |
-| DCF dated-reference per share | 518.3660970 USD | 619.3008539 USD |
-
-The December 2025 bridge uses existing admitted debt/equity, the restored cash,
-`OperatingLeaseLiability` and `LongTermInvestments` from the 2026-02-12 10-K.
-Restored NOA uses existing admitted `Assets`, `Liabilities` and debt. FY2025
-NOPAT is unchanged at 21,098.02495045M USD. Its fourth positive ROIC observation
-now meets the existing terminal-excess-return evidence rule; no terminal rule
-was changed. The DCF remains a dated reference, not a newly current valuation.
-
-The 17 golden cases all change the report spec stamp. Thirteen have additional
-disclosure changes (eleven issuers); AMZN and NVDA, in both data-only and fixed-
-analyst cases, change only the report/payload identity. No golden score,
-composite, fair value or scenario price changes. Exact JSON leaf counts below
-include array positions moved by inserted disclosures; each is covered by the
-path inventory after the table.
-
-| Case | Stage B leaves | Report leaves | Cause beyond version identities |
+| LLY figure (both stored cases) | Pinned-main before | After | Proof |
 | --- | ---: | ---: | --- |
-| amzn-data-only | 0 | 1 | None |
-| amzn-fixed-analyst | 0 | 1 | None |
-| nvda-data-only | 0 | 1 | None |
-| nvda-fixed-analyst | 0 | 1 | None |
-| figr-data-only | 261 | 232 | Cash 1,198.141M at 2025-12-31, repeated in 10-Q 0001628280-26-057061 (2026-08-14), replaces vendor cash. No filed current-investment fact corroborates 97M; its diagnostic component and the otherwise unproved -346.943M annual net-debt resolution become unavailable. EBITDA/score were already withheld. Missing signals now name inputs. |
-| qcom-data-only | 200 | 191 | Cash 5,520M plus `MarketableSecuritiesCurrent` 4,635M from 10-Q 0000804328-26-000086 (2026-07-29), both for 2025-09-28, establishes 10,155M liquidity once. Diagnostic balance-sheet TATA becomes 0.02161817203; the primary Beneish score and existing debt refusal stay unchanged. |
-| meta-data-only | 429 | 423 | Existing debt/class-scope and missing score inputs named |
-| meta-fixed-analyst | 429 | 487 | Same; retained analyst checks re-run against the disclosed inputs |
-| mu-data-only | 280 | 247 | Existing unavailable return/score inputs named |
-| mu-fixed-analyst | 280 | 310 | Same; retained analyst checks re-run |
-| jpm-data-only | 230 | 208 | Missing applicable financial-route score operands named; no ROIC substitution |
-| pgr-data-only | 525 | 379 | Missing applicable insurer score operands named; no industrial substitution |
-| o-data-only | 597 | 547 | Existing lease-scope ROIC refusal and missing applicable REIT signals named |
-| duk-data-only | 787 | 616 | Existing incomplete debt, utility credit and other missing signal inputs named |
-| tsm-data-only | 188 | 221 | Existing missing applicable foreign-filer score operands named |
-| rivn-data-only | 376 | 340 | Existing nonpositive pretax/class-scope and missing score inputs named |
-| vktx-data-only | 384 | 277 | Existing nonpositive pretax and sparse/pre-revenue score inputs named |
+| Cash, 2025-12-31 | gap | 7,268M USD | F1 |
+| Cash, 2026-03-31 | gap | 5,282M USD | F1 |
+| Cash, 2026-06-30 | gap | 8,950M USD | F1 |
+| Cash, 2026-09-30 | 4,885M USD | unchanged | F1 |
+| Investments/combined, first three dates | uncorroborated component / combined gap | investment and combined gaps | dimensioned fact is outside admitted path |
+| Net operating assets, FY2025 | gap | gap | combined financial assets unestablished |
+| Closing / average invested capital | gap / gap | 61,770M / 53,131.3M USD | F1, F2, cash-only |
+| Quality / moat / composite | 68.43 / 80.79 / 63.74 | 76.68 / 87.07 / 68.96 | restored ROIC; NOA stays a gap; unchanged grading arithmetic |
+| DCF statement anchor | 2025-12-31 | unchanged | F3 |
+| Dated-reference per share | 518.3660970361865 USD | 583.8761926954309 USD | F3 |
 
-Every differing golden JSON leaf lies under these reviewed prefixes (brackets
-mean any index and a prefix includes its descendants): Stage B `gaps[]`,
-`returns.gaps[]`, `returns.roic.gaps[]`, `returns.roicVsWacc.note`,
-`capital.gaps[]`, `capital.netDebtToEbitda.resolution`, `forensics.notes[]`,
-`forensics.beneish.notes[]`, `forensics.beneish.tataBalanceSheet`,
-`valuation.gaps[]`, `valuation.multiples.gaps[]`; report `meta.specVersion`,
-`meta.dataCompleteness.warningCount`, `verdict.synthesis`, `quality.notes[]`
-and `appendix.missingData[]`. New entries name actual withheld signals;
-existing entries move by index without changing their cause. FIGR and QCOM's
-numeric diagnostic leaves are explained above. Synthesis changes recount
-disclosed issues, not the score. Payload fingerprints/citation indices and
-Markdown/audit/print/web outputs reflect those same disclosures and stamps.
+The 2018 cash refusal remains: CashAndCashEquivalentsAtCarryingValue at 2018-12-31 is 7,998.2M in 10-K 0000059478-19-000082 but 7,320.7M in 10-Q 0000059478-19-000174 and later comparatives. Those filed copies do not establish one unchanged observation.
 
-LLY has 730 changed Stage B leaves in each case, 816 report leaves in data-only
-and 5,329 in fixed-analyst. In addition to the disclosure/stamp prefixes above,
-approved Stage B prefixes are `capital.netDebtToEbitda`, `forensics.accruals`, `forensics.gaps[]`,
-`forensics.beneish.tataBalanceSheet`, `forensics.beneish.notes[]`,
-`returns.roic.series[]`, `returns.roic.latestRoicPct`, `returns.roicVsWacc`,
-`scores`, `projections.series[].{bull,base,bear,weighted}`, `fairValue.reference`,
-`valuation.assumptions`, `valuation.dcf`, `valuation.growthMarginGrid`,
-`valuation.sensitivity`, `valuation.multiples`, and `valuation.notes[]`.
-They are mechanical descendants of the restored capital/NOA inputs: accruals
-use average NOA, quality/moat regain their return signals, the fourth return
-year enables the existing terminal rule, and the statement-date bridge and
-sales-to-capital feed forecast reinvestment, FCF, grids and EV-history samples.
-Other projection metrics, prices, growth/margin/tax assumptions and WACC do
-not change. Changes to `valuation.assumptions.startRevenue.basis` are its
-dated bridge disclosure, not a different revenue amount.
+The exact rejected head f98e9170 had admitted a combined annual cash-only total and published NOA 60,330M, quality 73.87, composite 68.54, a December bridge and DCF 619.3008538711213 USD/share. Those unsupported combined/NOA assertions are withdrawn. The corrected build retains the existing September bridge, leaves NOA unavailable, and reports the qualified values above; the ROIC value itself stays the same as that head.
 
-The corresponding LLY report prefixes are `fundamentals.returns[]`,
-`balanceSheet.debtProfile`, `quality.{graded,forensicScores,notes}`,
-`competitive.moatGraded`, `verdict.gradeStrip.{quality,moat}`, `scores`,
-`projections`, `fairValue.reference`, `valuation.{dcf,multiples,scenarios}`,
-`valuation.graded.keyNumbers[]` and `scenarioPresentation.sensitivity`.
-Fixed-analyst `meta`/`appendix` verification/provenance/consistency counts and
-`appendix.verificationLog[]` also change: the same saved analyst judgments
-and source prose are rechecked against the corrected figures and changed
-quality/moat grade contracts. Claim enumeration moves by index; this does
-not rewrite the saved report or imply that old analyst numbers became true.
-All text outputs are the corresponding renderings of these reviewed leaves.
+### All stored-case checks
 
-Report 1.76.0, payload 1.95.0 and Stage B
-`STAGE_B_2026_11_FILED_BALANCES_GAPS_69` identify the new meaning. Stage C
-orchestration, method versions, net-debt resolver, score bands and frozen
-legacy cutoffs do not move. P27 synthetic frozen records were refreshed only
-for these new missing-input entries, their citation/prompt hashes and the
-report/payload stamps; the Stage C control's financial subtrees remain pinned.
+Baseline: cf3eb2875deddcf92ed3e7685cda4912ce7505d1, as requested. The branch also normally merges main 742d4d2f (D-263), preserving D-264. Report spec 1.79.0 is assigned by the owner; 1.77.0/1.78.0 are reserved for D-260/D-262. Payload 1.96.0 and Stage B FILED_BALANCES_GAPS_70 invalidate the changed computational inputs.
 
-### Verification receipts
+All 17 golden and two LLY cases use retained inputs and fixed analyst output, with network/model access blocked and only scratch storage. All 17 golden cases retain numeric scores, composite, fair value and scenario prices. All data-only warning counts are unchanged. LLY fixed-analyst alone rises from 13 to 14: the retained executive-credibility sentence cites the non-registry object computed.returns.roic and still says ROIC is unavailable. With restored ROIC, deterministic verification discloses that unsupported object-level citation under verify.check.namedIndividual (credibility-source-restricted); this is a real stale-analyst evidence gap, not a derived score warning. No analyst prose is rewritten or newly generated. Outside LLY, FIGR and QCOM lose unproved investment diagnostics; FIGR's prior computed net-debt diagnostic becomes a gap. No replacement number is invented.
 
-Failing-first synthetic runs reproduced eight cash/ROIC failures, five broader
-lease/score failures, a temporary-equity failure, an ambiguous-investment
-composition failure and a replay-time filing-identity failure before their
-respective fixes. The final changed-test command,
-`npx vitest run --config vitest.config.ts --changed origin/main --maxWorkers 4`,
-passes 662 files / 16,490 tests, with three existing skips. `npm run typecheck`
-and `npm run lint` exit 0; lint retains the existing unused `_dropped` warning
-in `tests/revenueAdmission.scopeUnresolvedCode.test.ts:88`. The focused risk,
-release, current-sample, version-stamp and forensic-control run passes 168 tests.
+F4 (FIGR): 2025-12-31 cash is 1,198.141M under CashAndCashEquivalentsAtCarryingValue, 10-K 0002064124-26-000009, repeated in 10-Q 0001628280-26-057061. The investment chain establishes no disjoint component. Debt provenance is noncurrent-lease-line-completed (LongTermDebtNoncurrent plus OperatingLeaseLiability, original 10-K); it does not establish the whole debt total. Consequently capital.netDebtToEbitda.resolution.value changes from the prior computed -346.943M USD to a gap, and its uncorroborated investment component becomes a gap. The public leverage result was already unavailable and remains unavailable.
 
-The first broad run was stopped after missing local better-sqlite3 bindings
-caused database-test failures; only this worktree's Vitest processes were
-terminated, the native dependency was rebuilt and a scratch in-memory query
-verified it. An intermediate broad run found outdated cash-refusal and historic
-disclosure expectations plus scheduler race-barrier timeouts under heavier
-parallel load. These were not reported as passes. Refusal controls now use
-genuinely conflicting filed copies; financial historical pins remain, while
-current synthetic disclosures and the demonstration sample move with D-261.
-The final four-worker run passes the scheduler tests as well.
+F5 (QCOM): CashAndCashEquivalentsAtCarryingValue at 2025-09-28 is 5,520M USD in 10-Q 0000804328-26-000086 (comparative). That cash is unchanged from this baseline. A disjoint same-filing short-term-investment component/combined total is not established by the admitted chain; the old diagnostic investment observation becomes a gap. Debt remains refused under its existing 10-K 0000804328-25-000085 carrying-debt rule. No new net-debt number or score is produced.
 
-Final offline outputs `tmp/golden-closure` and `tmp/lly-closure` exactly match
-the reviewed `tmp/golden-final` / `tmp/lly-final`: 119 and 14 files, respectively.
-Against pinned main the golden diff intentionally reports 132 file/manifest
-differences and LLY reports 16. Every differing JSON path is classified by the
-approved inventory above (zero unclassified leaves); the artifact hashes and
-full leaf/text lists stay local because they include vendor data. No paid API,
-networked product test or application-database write occurred. `npm run verify`
-was not run locally; CI owns the full gate. No merge is authorized here.
+The tables below record every stored case's warning count and JSON leaf totals. A separate offline rebuild of the exact rejected head f98e9170 supplies the reviewed-head warning column; all its inflated derived-warning counts fall or remain unchanged. "Before" always means pinned main, not the rejected PR's inflated score-warning count. Rendered Markdown/HTML/payload changes are projections of these JSON changes and version/provenance identities; D-263's numeric-verification/period-context changes are inherited main behavior, not an additional D-261 policy.
+
+| Case | Main warnings | Reviewed-head warnings | After warnings | Stage B leaves | Report leaves |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| amzn-data-only | 8 | 8 | 8 | 4 | 1 |
+| figr-data-only | 27 | 33 | 27 | 229 | 136 |
+| meta-data-only | 44 | 57 | 44 | 289 | 124 |
+| mu-data-only | 36 | 38 | 36 | 144 | 93 |
+| nvda-data-only | 8 | 8 | 8 | 4 | 1 |
+| qcom-data-only | 4 | 9 | 4 | 143 | 142 |
+| jpm-data-only | 14 | 16 | 14 | 106 | 33 |
+| pgr-data-only | 41 | 43 | 41 | 361 | 166 |
+| o-data-only | 32 | 49 | 32 | 474 | 169 |
+| duk-data-only | 75 | 86 | 75 | 519 | 227 |
+| tsm-data-only | 7 | 11 | 7 | 94 | 59 |
+| rivn-data-only | 33 | 47 | 33 | 250 | 144 |
+| vktx-data-only | 54 | 70 | 54 | 191 | 40 |
+| amzn-fixed-analyst | 9 | 9 | 9 | 4 | 609 |
+| meta-fixed-analyst | 46 | 59 | 46 | 289 | 286 |
+| mu-fixed-analyst | 37 | 39 | 37 | 144 | 143 |
+| nvda-fixed-analyst | 11 | 11 | 11 | 4 | 1 |
+| lly-data-only | 12 | 19 | 12 | 621 | 590 |
+| lly-fixed-analyst | 13 | 21 | 14 | 621 | 4927 |
+
+### Exact changed financial figures (both LLY cases share these values)
+
+The following is the full Stage B numeric delta inventory, including derived DCF years/grids and score mirrors. Missing values are gaps. F1/F2 prove restored operating-capital inputs; F3 explains every derived valuation/score movement. Output copies of these figures in report.json use the same value and proof. Raw vendor component observations are intentionally described as uncorroborated-to-gap above rather than reproduced.
+
+| Stage B leaf | Before | After | Filed-input proof / derivation |
+| --- | ---: | ---: | --- |
+| `capital.netDebtToEbitda.netDebt` | gap | 35235000000 | F1/F2, explicit cash-only basis |
+| `capital.netDebtToEbitda.resolution.components.cashAndCashEquivalents` | gap | 7268000000 | F1/F2, explicit cash-only basis |
+| `capital.netDebtToEbitda.resolution.value` | gap | 36597000000 | F1/F2, explicit cash-only basis |
+| `capital.netDebtToEbitda.value` | gap | 1.2450969998939891 | F1/F2, explicit cash-only basis |
+| `fairValue.reference.perShare.value` | 518.37 | 583.88 | F3, restored F1/F2 ROIC evidence |
+| `returns.roic.latestRoicPct` | gap | 39.70922027213502 | F1/F2, explicit cash-only basis |
+| `returns.roic.series[4].investedCapitalAvg` | gap | 53131300000 | F1/F2, explicit cash-only basis |
+| `returns.roic.series[4].roicPct` | gap | 39.70922027213502 | F1/F2, explicit cash-only basis |
+| `returns.roic.series[4].terminalEvidenceRoicPct` | gap | 39.70922027213502 | F1/F2, explicit cash-only basis |
+| `returns.roicVsWacc.spreadPctPts` | gap | 31.901226846502258 | F1/F2, explicit cash-only basis |
+| `scores.aspects.moat.applicableCompleteness` | 0.55 | 1 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.dataCompleteness` | 0.55 | 1 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.drivers[0].value` | 17.812481441610068 | 39.70922027213502 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.drivers[1].value` | 83.04361834333143 | 17.812481441610068 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.score` | 80.79 | 87.07 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[0].contributionPoints` | 0.8901548302831702 | 3.020489385919899 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[0].effectiveCompositeWeightPct` | 4.5 | 6.75 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[0].operands[0].value` | 26.36549320395039 | 39.70922027213502 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[0].raw` | 17.812481441610068 | 39.70922027213502 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[0].signalWeight` | 0.3 | 0.45 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[0].transformedScore` | 69.78121845073711 | 94.74799090251702 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[0].windowYears` | 2.001368925393566 | gap | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[1].contributionPoints` | 1.65 | 0.8901548302831702 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[1].effectiveCompositeWeightPct` | 3.75 | 4.5 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[1].operands[0].value` | 83.04361834333143 | 26.36549320395039 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[1].raw` | 83.04361834333143 | 17.812481441610068 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[1].signalWeight` | 0.25 | 0.3 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[1].transformedScore` | 94 | 69.78121845073711 | F1/F2, unchanged grading rule |
+| `scores.aspects.moat.signals[1].windowYears` | gap | 3.0006844626967832 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.applicableCompleteness` | 0.65 | 1 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.dataCompleteness` | 0.65 | 1 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.drivers[0].value` | 0.7777777777777778 | 31.901226846502258 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.drivers[1].value` | 11.453100641714352 | 0.7777777777777778 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.drivers[2].value` | 0.15814560211809245 | 11.453100641714352 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.drivers[3].value` | -1.8477161488245366 | 0.15814560211809245 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.score` | 68.43 | 76.68 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[0].contributionPoints` | 0.913333333333333 | 2.205 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[0].effectiveCompositeWeightPct` | 3.3 | 5.25 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[0].operands[0].value` | 7 | 39.70922027213502 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[0].operands[1].value` | 9 | 7.807993425632762 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[0].raw` | 0.7777777777777778 | 31.901226846502258 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[0].signalWeight` | 0.22 | 0.35 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[0].transformedScore` | 77.67676767676767 | 92 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[0].windowYears` | 2.001368925393566 | gap | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[1].contributionPoints` | 1.008 | 0.913333333333333 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[1].effectiveCompositeWeightPct` | 2.4 | 3.3 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[1].operands[0].value` | 11.453100641714352 | 7 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[1].raw` | 11.453100641714352 | 0.7777777777777778 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[1].signalWeight` | 0.16 | 0.22 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[1].transformedScore` | 92 | 77.67676767676767 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[1].windowYears` | gap | 2.001368925393566 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[2].contributionPoints` | -0.08165520953141599 | 1.008 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[2].effectiveCompositeWeightPct` | 2.25 | 2.4 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[2].operands[0].value` | 0.15814560211809245 | 11.453100641714352 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[2].raw` | 0.15814560211809245 | 11.453100641714352 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[2].signalWeight` | 0.15 | 0.16 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[2].transformedScore` | 46.37087957638151 | 92 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[2].windowYears` | 0.999315537303217 | gap | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[3].contributionPoints` | -0.0429064964992996 | -0.08165520953141599 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[3].effectiveCompositeWeightPct` | 1.8 | 2.25 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[3].operands[0].value` | -1.8477161488245366 | 0.15814560211809245 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[3].raw` | -1.8477161488245366 | 0.15814560211809245 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[3].signalWeight` | 0.12 | 0.15 | F1/F2, unchanged grading rule |
+| `scores.aspects.quality.signals[3].transformedScore` | 47.61630575003891 | 46.37087957638151 | F1/F2, unchanged grading rule |
+| `scores.assessments.businessQuality.evidenceCompleteness` | 0.6496256684491978 | 0.8096256684491978 | F1/F2, unchanged grading rule |
+| `scores.assessments.businessQuality.score` | 67.16 | 74.12 | F1/F2, unchanged grading rule |
+| `scores.assessments.evidenceCompleteness` | 0.5372192513368984 | 0.6572192513368984 | F1/F2, unchanged grading rule |
+| `scores.composite.score` | 63.74 | 68.96 | F1/F2, unchanged grading rule |
+| `scores.factorExposure[0].aboveNeutralPoints` | 4.568875473633628 | 6.115644216203069 | F1/F2, unchanged grading rule |
+| `scores.factorExposure[0].weightPct` | 14.000000000000002 | 16.5 | F1/F2, unchanged grading rule |
+| `scores.factorExposure[1].aboveNeutralPoints` | 3.93 | 4.568875473633628 | F1/F2, unchanged grading rule |
+| `scores.factorExposure[1].weightPct` | 9.75 | 14.000000000000002 | F1/F2, unchanged grading rule |
+| `scores.factorExposure[2].aboveNeutralPoints` | 1.7967716273026175 | 3.93 | F1/F2, unchanged grading rule |
+| `scores.factorExposure[3].aboveNeutralPoints` | 0.8678716902497978 | 1.7967716273026175 | F1/F2, unchanged grading rule |
+| `scores.factorExposure[3].weightPct` | 5 | 9.75 | F1/F2, unchanged grading rule |
+| `scores.factorExposure[4].aboveNeutralPoints` | 0.5432788504964027 | 0.8678716902497978 | F1/F2, unchanged grading rule |
+| `scores.factorExposure[4].weightPct` | 4.545454545454545 | 5 | F1/F2, unchanged grading rule |
+| `scores.factorExposure[5].aboveNeutralPoints` | 0.8901548302831702 | 0.5432788504964027 | F1/F2, unchanged grading rule |
+| `scores.factorExposure[5].weightPct` | 4.5 | 4.545454545454545 | F1/F2, unchanged grading rule |
+| `valuation.assumptions.terminal.reinvestmentRate.value` | 0.3201846958263031 | 0.19519060612544706 | F3, restored F1/F2 ROIC evidence |
+| `valuation.assumptions.terminal.roicTermPct.value` | 7.807993425632762 | 12.807993425632763 | F3, restored F1/F2 ROIC evidence |
+| `valuation.dcf.enterpriseValue` | 504556001092.129 | 563082720554.0979 | F3, restored F1/F2 ROIC evidence |
+| `valuation.dcf.equityValue` | 463108271092.129 | 521634990554.0979 | F3, restored F1/F2 ROIC evidence |
+| `valuation.dcf.perShare` | 518.3660970361865 | 583.8761926954309 | F3, restored F1/F2 ROIC evidence |
+| `valuation.dcf.pvTerminal` | 318313927390.8767 | 376840646852.8455 | F3, restored F1/F2 ROIC evidence |
+| `valuation.dcf.terminalShare` | 0.630879281391709 | 0.6692456243054625 | F3, restored F1/F2 ROIC evidence |
+| `valuation.dcf.terminalValue` | 650189254506.8398 | 769736157174.9734 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[0][0]` | 215.64804346790615 | 241.1997677943502 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[0][1]` | 261.2895053248966 | 291.05025568707975 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[0][2]` | 306.9309671818871 | 340.9007435798092 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[1][0]` | 276.63444520563627 | 312.45126103000973 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[1][1]` | 338.1589588843865 | 379.8757252716283 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[1][2]` | 399.6834725631368 | 447.3001895132467 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[2][0]` | 354.63419170178776 | 403.9102271185643 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[2][1]` | 436.5001443689871 | 493.8932099069976 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[2][2]` | 518.3660970361865 | 583.8761926954309 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[3][0]` | 453.53715538281165 | 520.227154446658 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[3][1]` | 561.1940638178036 | 638.8696205996721 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[3][2]` | 668.8509722527955 | 757.5120867526862 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[4][0]` | 577.7912575639901 | 666.746534956546 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[4][1]` | 717.8478571395074 | 821.4563561220506 | F3, restored F1/F2 ROIC evidence |
+| `valuation.growthMarginGrid.perShare[4][2]` | 857.9044567150246 | 976.1661772875551 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[0][0]` | 752.4344313834567 | 843.7121873390049 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[0][1]` | 755.2258679090808 | 893.5878142322427 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[0][2]` | 758.0173044347044 | 958.0872810427338 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[0][3]` | 760.8087409603284 | 1045.0224863581461 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[0][4]` | 763.600177485952 | 1168.9747575703266 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[1][0]` | 615.5831727697841 | 668.4855793134552 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[1][1]` | 617.7610059305529 | 696.0164942668449 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[1][2]` | 619.9388390913217 | 729.6465986016755 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[1][3]` | 622.1166722520906 | 771.7784132914805 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[1][4]` | 624.2945054128593 | 826.2670141757843 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[2][0]` | 514.890048535355 | 547.6422732542616 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[2][1]` | 516.6280727857709 | 564.2907888639518 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[2][2]` | 518.3660970361865 | 583.8761926954309 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[2][3]` | 520.1041212866021 | 607.3147364867307 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[2][4]` | 521.8421455370177 | 635.9480448339667 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[3][0]` | 437.96028826479204 | 459.25409972940537 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[3][1]` | 439.37160607696023 | 469.998664778157 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[3][2]` | 440.7829238891282 | 482.3038367565197 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[3][3]` | 442.19424170129645 | 496.5726654310599 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[3][4]` | 443.6055595134644 | 513.3600657777531 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[4][0]` | 377.46080022065144 | 391.84022846642233 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[4][1]` | 378.62272141542877 | 399.123539377896 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[4][2]` | 379.7846426102061 | 407.2981645511685 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[4][3]` | 380.94656380498344 | 416.5604865778661 | F3, restored F1/F2 ROIC evidence |
+| `valuation.sensitivity.perShare[4][4]` | 382.1084849997606 | 427.1691527282134 | F3, restored F1/F2 ROIC evidence |
+
+### Every changed leaf: disclosure and inherited-main inventory
+
+The inventories below enumerate all changed JSON paths, grouped by exact path shape (a [*] expands to the stated count of changed indexed leaves). For numeric financial leaves, the values/proof are above (FIGR/QCOM F4/F5; LLY F1-F3). For other leaves: gap field/reason/severity/source paths carry the named root cause and informational classification, and array membership/order shifts copy those same entries; ROIC notes describe the typed operand and narrower basis; net-debt notes describe the resolver's actual basis; score qualification/assessment/driver/signal paths carry those same operands, available evidence and provisional status; report copies/reader prose/record identity derive from them. Period-context, record-metric bindings and verification-mark paths introduced by the merged D-263 retain that decision's verified entity/period scope. The spec stamp and payload fingerprint are build identities. LLY fixed-analyst verificationLog and related warning/confidence leaves additionally disclose the unsupported executive-credibility citation described above. No additional independent figure or evidence policy is hidden in the render diff.
+
+<details>
+<summary>amzn-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+returns.roic.notes[*] (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+```
+
+</details>
+
+<details>
+<summary>figr-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.gaps[*].attemptedSources (2 leaves)
+capital.gaps[*].field (2 leaves)
+capital.gaps[*].reason (2 leaves)
+capital.gaps[*].severity (1 leaves)
+capital.gaps[*] (1 leaves)
+capital.netDebtToEbitda.resolution.cashBasis (1 leaves)
+capital.netDebtToEbitda.resolution.components.shortTermInvestments (1 leaves)
+capital.netDebtToEbitda.resolution.reason (1 leaves)
+capital.netDebtToEbitda.resolution.value (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+gaps[*].reason (58 leaves)
+gaps[*].attemptedSources (23 leaves)
+gaps[*].expected (34 leaves)
+gaps[*].field (61 leaves)
+gaps[*].attemptedSources[*] (15 leaves)
+gaps[*] (9 leaves)
+returns.gaps[*].reason (1 leaves)
+returns.gaps[*] (3 leaves)
+scores.qualification.aspects.moat.reasons[*] (1 leaves)
+scores.qualification.aspects.moat.status (1 leaves)
+scores.qualification.aspects.valuation.reasons[*] (1 leaves)
+scores.qualification.composite.reasons[*].aspect (1 leaves)
+scores.qualification.composite.reasons[*].code (1 leaves)
+scores.qualification.composite.reasons[*].detail (1 leaves)
+scores.qualification.composite.reasons[*].field (1 leaves)
+scores.qualification.composite.reasons[*] (2 leaves)
+valuation.gaps[*].reason (1 leaves)
+valuation.multiples.gaps[*].reason (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+verdict.synthesis (1 leaves)
+verdict.gradeStrip.valuation.qualification.reasons[*] (1 leaves)
+verdict.gradeStrip.moat.qualification.status (1 leaves)
+verdict.gradeStrip.moat.qualification.reasons[*] (1 leaves)
+valuation.graded.qualification.reasons[*] (1 leaves)
+competitive.moatGraded.qualification.status (1 leaves)
+competitive.moatGraded.qualification.reasons[*] (1 leaves)
+appendix.missingData[*].reason (42 leaves)
+appendix.missingData[*].field (44 leaves)
+appendix.missingData[*].attemptedSources (7 leaves)
+appendix.missingData[*].attemptedSources[*] (1 leaves)
+appendix.missingData[*].expected (16 leaves)
+appendix.missingData[*] (9 leaves)
+scores.qualification.aspects.valuation.reasons[*] (1 leaves)
+scores.qualification.aspects.moat.status (1 leaves)
+scores.qualification.aspects.moat.reasons[*] (1 leaves)
+scores.qualification.composite.reasons[*].code (1 leaves)
+scores.qualification.composite.reasons[*].aspect (1 leaves)
+scores.qualification.composite.reasons[*].field (1 leaves)
+scores.qualification.composite.reasons[*].detail (1 leaves)
+scores.qualification.composite.reasons[*] (2 leaves)
+```
+
+</details>
+
+<details>
+<summary>meta-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+gaps[*].attemptedSources (37 leaves)
+gaps[*].expected (26 leaves)
+gaps[*].field (95 leaves)
+gaps[*].reason (80 leaves)
+gaps[*].attemptedSources[*] (24 leaves)
+gaps[*] (13 leaves)
+returns.gaps[*] (5 leaves)
+returns.roic.gaps[*] (4 leaves)
+returns.roic.notes[*] (1 leaves)
+returns.roicVsWacc.note (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+appendix.missingData[*].field (49 leaves)
+appendix.missingData[*].expected (26 leaves)
+appendix.missingData[*].reason (34 leaves)
+appendix.missingData[*].attemptedSources (1 leaves)
+appendix.missingData[*] (13 leaves)
+```
+
+</details>
+
+<details>
+<summary>mu-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+gaps[*].attemptedSources (2 leaves)
+gaps[*].expected (4 leaves)
+gaps[*].field (78 leaves)
+gaps[*].reason (52 leaves)
+gaps[*] (2 leaves)
+returns.gaps[*] (1 leaves)
+returns.roic.gaps[*] (1 leaves)
+returns.roic.notes[*] (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+appendix.missingData[*].field (56 leaves)
+appendix.missingData[*].reason (30 leaves)
+appendix.missingData[*].expected (4 leaves)
+appendix.missingData[*] (2 leaves)
+```
+
+</details>
+
+<details>
+<summary>nvda-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+returns.roic.notes[*] (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+```
+
+</details>
+
+<details>
+<summary>qcom-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.resolution.components.shortTermInvestments (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+gaps[*].attemptedSources (10 leaves)
+gaps[*].field (47 leaves)
+gaps[*].reason (34 leaves)
+gaps[*].expected (16 leaves)
+gaps[*].attemptedSources[*] (2 leaves)
+gaps[*] (6 leaves)
+returns.gaps[*].attemptedSources (1 leaves)
+returns.gaps[*].field (1 leaves)
+returns.gaps[*].reason (1 leaves)
+returns.gaps[*] (2 leaves)
+returns.roic.gaps[*] (1 leaves)
+returns.roic.notes[*] (1 leaves)
+returns.roicVsWacc.note (1 leaves)
+scores.qualification.aspects.balanceSheet.reasons[*] (1 leaves)
+scores.qualification.aspects.balanceSheet.status (1 leaves)
+scores.qualification.aspects.moat.reasons[*] (1 leaves)
+scores.qualification.aspects.moat.status (1 leaves)
+scores.qualification.aspects.quality.reasons[*] (1 leaves)
+scores.qualification.aspects.quality.status (1 leaves)
+scores.qualification.aspects.valuation.reasons[*] (1 leaves)
+scores.qualification.aspects.valuation.status (1 leaves)
+scores.qualification.composite.reasons[*].aspect (1 leaves)
+scores.qualification.composite.reasons[*].code (1 leaves)
+scores.qualification.composite.reasons[*].detail (1 leaves)
+scores.qualification.composite.reasons[*].field (1 leaves)
+scores.qualification.composite.reasons[*] (4 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+verdict.synthesis (1 leaves)
+verdict.gradeStrip.valuation.qualification.status (1 leaves)
+verdict.gradeStrip.valuation.qualification.reasons[*] (1 leaves)
+verdict.gradeStrip.quality.qualification.status (1 leaves)
+verdict.gradeStrip.quality.qualification.reasons[*] (1 leaves)
+verdict.gradeStrip.moat.qualification.status (1 leaves)
+verdict.gradeStrip.moat.qualification.reasons[*] (1 leaves)
+verdict.gradeStrip.balanceSheet.qualification.status (1 leaves)
+verdict.gradeStrip.balanceSheet.qualification.reasons[*] (1 leaves)
+balanceSheet.graded.qualification.status (1 leaves)
+balanceSheet.graded.qualification.reasons[*] (1 leaves)
+valuation.graded.qualification.status (1 leaves)
+valuation.graded.qualification.reasons[*] (1 leaves)
+quality.graded.qualification.status (1 leaves)
+quality.graded.qualification.reasons[*] (1 leaves)
+competitive.moatGraded.qualification.status (1 leaves)
+competitive.moatGraded.qualification.reasons[*] (1 leaves)
+appendix.missingData[*].field (45 leaves)
+appendix.missingData[*].reason (32 leaves)
+appendix.missingData[*].attemptedSources (6 leaves)
+appendix.missingData[*].expected (16 leaves)
+appendix.missingData[*].attemptedSources[*] (3 leaves)
+appendix.missingData[*] (6 leaves)
+scores.qualification.aspects.valuation.status (1 leaves)
+scores.qualification.aspects.valuation.reasons[*] (1 leaves)
+scores.qualification.aspects.quality.status (1 leaves)
+scores.qualification.aspects.quality.reasons[*] (1 leaves)
+scores.qualification.aspects.balanceSheet.status (1 leaves)
+scores.qualification.aspects.balanceSheet.reasons[*] (1 leaves)
+scores.qualification.aspects.moat.status (1 leaves)
+scores.qualification.aspects.moat.reasons[*] (1 leaves)
+scores.qualification.composite.reasons[*].code (1 leaves)
+scores.qualification.composite.reasons[*].aspect (1 leaves)
+scores.qualification.composite.reasons[*].field (1 leaves)
+scores.qualification.composite.reasons[*].detail (1 leaves)
+scores.qualification.composite.reasons[*] (4 leaves)
+```
+
+</details>
+
+<details>
+<summary>jpm-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+gaps[*].attemptedSources (8 leaves)
+gaps[*].expected (4 leaves)
+gaps[*].field (44 leaves)
+gaps[*].reason (44 leaves)
+gaps[*].attemptedSources[*] (4 leaves)
+gaps[*] (2 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+appendix.missingData[*].field (10 leaves)
+appendix.missingData[*].expected (4 leaves)
+appendix.missingData[*].attemptedSources (4 leaves)
+appendix.missingData[*].reason (10 leaves)
+appendix.missingData[*].attemptedSources[*] (2 leaves)
+appendix.missingData[*] (2 leaves)
+```
+
+</details>
+
+<details>
+<summary>pgr-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+gaps[*].attemptedSources (8 leaves)
+gaps[*].expected (44 leaves)
+gaps[*].field (147 leaves)
+gaps[*].reason (147 leaves)
+gaps[*].attemptedSources[*] (13 leaves)
+gaps[*] (2 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+appendix.missingData[*].field (87 leaves)
+appendix.missingData[*].reason (64 leaves)
+appendix.missingData[*].expected (6 leaves)
+appendix.missingData[*].attemptedSources (6 leaves)
+appendix.missingData[*] (2 leaves)
+```
+
+</details>
+
+<details>
+<summary>o-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+gaps[*].attemptedSources (41 leaves)
+gaps[*].expected (50 leaves)
+gaps[*].field (161 leaves)
+gaps[*].reason (155 leaves)
+gaps[*].attemptedSources[*] (35 leaves)
+gaps[*] (17 leaves)
+returns.gaps[*] (6 leaves)
+returns.roic.gaps[*] (5 leaves)
+returns.roic.notes[*] (1 leaves)
+returns.roicVsWacc.note (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+appendix.missingData[*].field (70 leaves)
+appendix.missingData[*].expected (6 leaves)
+appendix.missingData[*].reason (67 leaves)
+appendix.missingData[*].attemptedSources (8 leaves)
+appendix.missingData[*] (17 leaves)
+```
+
+</details>
+
+<details>
+<summary>duk-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+gaps[*].attemptedSources (33 leaves)
+gaps[*].expected (74 leaves)
+gaps[*].field (189 leaves)
+gaps[*].reason (179 leaves)
+gaps[*].attemptedSources[*] (17 leaves)
+gaps[*] (11 leaves)
+returns.gaps[*] (6 leaves)
+returns.roic.gaps[*] (5 leaves)
+returns.roic.notes[*] (1 leaves)
+returns.roicVsWacc.note (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+appendix.missingData[*].field (92 leaves)
+appendix.missingData[*].reason (92 leaves)
+appendix.missingData[*].expected (22 leaves)
+appendix.missingData[*].attemptedSources (9 leaves)
+appendix.missingData[*] (11 leaves)
+```
+
+</details>
+
+<details>
+<summary>tsm-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+gaps[*].attemptedSources (12 leaves)
+gaps[*].expected (8 leaves)
+gaps[*].field (33 leaves)
+gaps[*].reason (33 leaves)
+gaps[*] (4 leaves)
+returns.roic.notes[*] (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+appendix.missingData[*].field (15 leaves)
+appendix.missingData[*].reason (15 leaves)
+appendix.missingData[*].expected (8 leaves)
+appendix.missingData[*].attemptedSources (8 leaves)
+appendix.missingData[*].attemptedSources[*] (8 leaves)
+appendix.missingData[*] (4 leaves)
+```
+
+</details>
+
+<details>
+<summary>rivn-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+gaps[*].field (79 leaves)
+gaps[*].reason (72 leaves)
+gaps[*].attemptedSources (33 leaves)
+gaps[*].expected (32 leaves)
+gaps[*].attemptedSources[*] (4 leaves)
+gaps[*].cause (1 leaves)
+gaps[*] (14 leaves)
+returns.gaps[*] (6 leaves)
+returns.roic.gaps[*] (5 leaves)
+returns.roic.notes[*] (1 leaves)
+returns.roicVsWacc.note (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+appendix.missingData[*].field (53 leaves)
+appendix.missingData[*].reason (46 leaves)
+appendix.missingData[*].expected (28 leaves)
+appendix.missingData[*].attemptedSources (1 leaves)
+appendix.missingData[*].cause (1 leaves)
+appendix.missingData[*] (14 leaves)
+```
+
+</details>
+
+<details>
+<summary>vktx-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+gaps[*].field (49 leaves)
+gaps[*].reason (49 leaves)
+gaps[*].attemptedSources (33 leaves)
+gaps[*].expected (26 leaves)
+gaps[*].attemptedSources[*] (2 leaves)
+gaps[*] (16 leaves)
+returns.gaps[*] (6 leaves)
+returns.roic.gaps[*] (5 leaves)
+returns.roic.notes[*] (1 leaves)
+returns.roicVsWacc.note (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+appendix.missingData[*].field (11 leaves)
+appendix.missingData[*].reason (11 leaves)
+appendix.missingData[*].attemptedSources (1 leaves)
+appendix.missingData[*] (16 leaves)
+```
+
+</details>
+
+<details>
+<summary>amzn-fixed-analyst: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+returns.roic.notes[*] (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+meta.provenanceCoverage.factualValidation.validated (1 leaves)
+meta.provenanceCoverage.factualValidation.contradicted (1 leaves)
+meta.provenanceCoverage.factualValidation.rate (1 leaves)
+appendix.provenanceCoverage.factualValidation.validated (1 leaves)
+appendix.provenanceCoverage.factualValidation.contradicted (1 leaves)
+appendix.provenanceCoverage.factualValidation.rate (1 leaves)
+appendix.verificationLog[*].validationStatus (2 leaves)
+appendix.verificationLog[*].numericSupportStatus (2 leaves)
+appendix.verificationLog[*].claimSupportStatus (2 leaves)
+appendix.verificationLog[*].note (17 leaves)
+appendix.verificationLog[*].reason (6 leaves)
+appendix.verificationLog[*].traceKind (6 leaves)
+appendix.verificationLog[*].source (8 leaves)
+appendix.verificationLog[*].claim (278 leaves)
+appendix.verificationLog[*].path (279 leaves)
+appendix.verificationLog[*].evidenceKind (1 leaves)
+appendix.verificationLog[*] (1 leaves)
+```
+
+</details>
+
+<details>
+<summary>meta-fixed-analyst: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+gaps[*].attemptedSources (37 leaves)
+gaps[*].expected (26 leaves)
+gaps[*].field (95 leaves)
+gaps[*].reason (80 leaves)
+gaps[*].attemptedSources[*] (24 leaves)
+gaps[*] (13 leaves)
+returns.gaps[*] (5 leaves)
+returns.roic.gaps[*] (4 leaves)
+returns.roic.notes[*] (1 leaves)
+returns.roicVsWacc.note (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+appendix.missingData[*].field (98 leaves)
+appendix.missingData[*].reason (83 leaves)
+appendix.missingData[*].attemptedSources (40 leaves)
+appendix.missingData[*].expected (26 leaves)
+appendix.missingData[*].attemptedSources[*] (24 leaves)
+appendix.missingData[*].severity (1 leaves)
+appendix.missingData[*] (13 leaves)
+```
+
+</details>
+
+<details>
+<summary>mu-fixed-analyst: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+gaps[*].attemptedSources (2 leaves)
+gaps[*].expected (4 leaves)
+gaps[*].field (78 leaves)
+gaps[*].reason (52 leaves)
+gaps[*] (2 leaves)
+returns.gaps[*] (1 leaves)
+returns.roic.gaps[*] (1 leaves)
+returns.roic.notes[*] (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+appendix.missingData[*].field (80 leaves)
+appendix.missingData[*].reason (54 leaves)
+appendix.missingData[*].attemptedSources (2 leaves)
+appendix.missingData[*].expected (4 leaves)
+appendix.missingData[*] (2 leaves)
+```
+
+</details>
+
+<details>
+<summary>nvda-fixed-analyst: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.current.ebitdaComputed (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+returns.roic.notes[*] (1 leaves)
+valuation.notes[*] (1 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+```
+
+</details>
+
+<details>
+<summary>lly-data-only: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.gaps[*] (1 leaves)
+capital.netDebtToEbitda.netDebt (1 leaves)
+capital.netDebtToEbitda.note (1 leaves)
+capital.netDebtToEbitda.resolution.cashBasis (1 leaves)
+capital.netDebtToEbitda.resolution.components.cashAndCashEquivalents (1 leaves)
+capital.netDebtToEbitda.resolution.components.shortTermInvestments (1 leaves)
+capital.netDebtToEbitda.resolution.reason (1 leaves)
+capital.netDebtToEbitda.resolution.value (1 leaves)
+capital.netDebtToEbitda.value (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+fairValue.reference.perShare.value (1 leaves)
+gaps[*].attemptedSources[*] (22 leaves)
+gaps[*].field (122 leaves)
+gaps[*].reason (116 leaves)
+gaps[*].attemptedSources (28 leaves)
+gaps[*].severity (3 leaves)
+gaps[*].expected (50 leaves)
+gaps[*] (9 leaves)
+returns.gaps[*] (1 leaves)
+returns.roic.gaps[*] (1 leaves)
+returns.roic.latestRoicPct (1 leaves)
+returns.roic.notes[*] (1 leaves)
+returns.roic.series[*].investedCapitalAvg (1 leaves)
+returns.roic.series[*].notes[*] (3 leaves)
+returns.roic.series[*].roicPct (1 leaves)
+returns.roic.series[*].terminalEvidenceRoicPct (1 leaves)
+returns.roicVsWacc.note (1 leaves)
+returns.roicVsWacc.spreadPctPts (1 leaves)
+scores.aspects.moat.applicableCompleteness (1 leaves)
+scores.aspects.moat.band (1 leaves)
+scores.aspects.moat.dataCompleteness (1 leaves)
+scores.aspects.moat.drivers[*].asOf (1 leaves)
+scores.aspects.moat.drivers[*].period (2 leaves)
+scores.aspects.moat.drivers[*].source (2 leaves)
+scores.aspects.moat.drivers[*].value (2 leaves)
+scores.aspects.moat.drivers[*] (1 leaves)
+scores.aspects.moat.score (1 leaves)
+scores.aspects.moat.signals[*].asOf (1 leaves)
+scores.aspects.moat.signals[*].contributionPoints (2 leaves)
+scores.aspects.moat.signals[*].effectiveCompositeWeightPct (2 leaves)
+scores.aspects.moat.signals[*].endDate (1 leaves)
+scores.aspects.moat.signals[*].id (2 leaves)
+scores.aspects.moat.signals[*].operands[*].asOf (2 leaves)
+scores.aspects.moat.signals[*].operands[*].name (2 leaves)
+scores.aspects.moat.signals[*].operands[*].source (2 leaves)
+scores.aspects.moat.signals[*].operands[*].value (2 leaves)
+scores.aspects.moat.signals[*].operands[*] (5 leaves)
+scores.aspects.moat.signals[*].period (2 leaves)
+scores.aspects.moat.signals[*].raw (2 leaves)
+scores.aspects.moat.signals[*].signalWeight (2 leaves)
+scores.aspects.moat.signals[*].startDate (2 leaves)
+scores.aspects.moat.signals[*].transformedScore (2 leaves)
+scores.aspects.moat.signals[*].windowYears (2 leaves)
+scores.aspects.moat.signals[*].family (1 leaves)
+scores.aspects.moat.signals[*] (1 leaves)
+scores.aspects.quality.applicableCompleteness (1 leaves)
+scores.aspects.quality.band (1 leaves)
+scores.aspects.quality.dataCompleteness (1 leaves)
+scores.aspects.quality.drivers[*].period (3 leaves)
+scores.aspects.quality.drivers[*].source (4 leaves)
+scores.aspects.quality.drivers[*].unit (4 leaves)
+scores.aspects.quality.drivers[*].value (4 leaves)
+scores.aspects.quality.drivers[*] (1 leaves)
+scores.aspects.quality.score (1 leaves)
+scores.aspects.quality.signals[*].contributionPoints (4 leaves)
+scores.aspects.quality.signals[*].effectiveCompositeWeightPct (4 leaves)
+scores.aspects.quality.signals[*].family (1 leaves)
+scores.aspects.quality.signals[*].id (4 leaves)
+scores.aspects.quality.signals[*].operands[*].name (5 leaves)
+scores.aspects.quality.signals[*].operands[*].source (5 leaves)
+scores.aspects.quality.signals[*].operands[*].value (5 leaves)
+scores.aspects.quality.signals[*].operands[*].asOf (1 leaves)
+scores.aspects.quality.signals[*].period (3 leaves)
+scores.aspects.quality.signals[*].raw (4 leaves)
+scores.aspects.quality.signals[*].signalWeight (4 leaves)
+scores.aspects.quality.signals[*].startDate (3 leaves)
+scores.aspects.quality.signals[*].transformedScore (4 leaves)
+scores.aspects.quality.signals[*].unit (4 leaves)
+scores.aspects.quality.signals[*].windowYears (3 leaves)
+scores.aspects.quality.signals[*].operands[*] (1 leaves)
+scores.aspects.quality.signals[*] (1 leaves)
+scores.assessments.businessQuality.band (1 leaves)
+scores.assessments.businessQuality.evidenceCompleteness (1 leaves)
+scores.assessments.businessQuality.score (1 leaves)
+scores.assessments.evidenceCompleteness (1 leaves)
+scores.composite.methodology (1 leaves)
+scores.composite.score (1 leaves)
+scores.factorExposure[*].aboveNeutralPoints (6 leaves)
+scores.factorExposure[*].family (6 leaves)
+scores.factorExposure[*].weightPct (5 leaves)
+scores.qualification.aspects.balanceSheet.reasons[*] (3 leaves)
+scores.qualification.aspects.moat.reasons[*] (3 leaves)
+scores.qualification.aspects.moat.status (1 leaves)
+scores.qualification.aspects.quality.reasons[*] (3 leaves)
+scores.qualification.aspects.quality.status (1 leaves)
+scores.qualification.aspects.valuation.reasons[*] (3 leaves)
+scores.qualification.composite.reasons[*].aspect (2 leaves)
+scores.qualification.composite.reasons[*].code (2 leaves)
+scores.qualification.composite.reasons[*].detail (2 leaves)
+scores.qualification.composite.reasons[*].field (2 leaves)
+scores.qualification.composite.reasons[*] (12 leaves)
+valuation.assumptions.notes[*] (5 leaves)
+valuation.assumptions.terminal.reinvestmentRate.basis (1 leaves)
+valuation.assumptions.terminal.reinvestmentRate.value (1 leaves)
+valuation.assumptions.terminal.roicTermPct.basis (1 leaves)
+valuation.assumptions.terminal.roicTermPct.value (1 leaves)
+valuation.dcf.enterpriseValue (1 leaves)
+valuation.dcf.equityValue (1 leaves)
+valuation.dcf.perShare (1 leaves)
+valuation.dcf.pvTerminal (1 leaves)
+valuation.dcf.terminalShare (1 leaves)
+valuation.dcf.terminalValue (1 leaves)
+valuation.gaps[*].reason (1 leaves)
+valuation.growthMarginGrid.perShare[*][*] (15 leaves)
+valuation.notes[*] (11 leaves)
+valuation.sensitivity.notes[*] (1 leaves)
+valuation.sensitivity.perShare[*][*] (25 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+verdict.synthesis (1 leaves)
+verdict.gradeStrip.valuation.qualification.reasons[*] (3 leaves)
+verdict.gradeStrip.quality.grade (1 leaves)
+verdict.gradeStrip.quality.oneLineWhy (1 leaves)
+verdict.gradeStrip.quality.reasoning[*].text (1 leaves)
+verdict.gradeStrip.quality.confidence (1 leaves)
+verdict.gradeStrip.quality.keyNumbers[*].value (14 leaves)
+verdict.gradeStrip.quality.keyNumbers[*].unit (6 leaves)
+verdict.gradeStrip.quality.keyNumbers[*].source (14 leaves)
+verdict.gradeStrip.quality.keyNumbers[*].period (6 leaves)
+verdict.gradeStrip.quality.keyNumbers[*].currency (2 leaves)
+verdict.gradeStrip.quality.keyNumbers[*].sourceId (10 leaves)
+verdict.gradeStrip.quality.keyNumbers[*].asOf (2 leaves)
+verdict.gradeStrip.quality.keyNumbers[*] (1 leaves)
+verdict.gradeStrip.quality.qualification.status (1 leaves)
+verdict.gradeStrip.quality.qualification.reasons[*] (3 leaves)
+verdict.gradeStrip.moat.grade (1 leaves)
+verdict.gradeStrip.moat.oneLineWhy (1 leaves)
+verdict.gradeStrip.moat.reasoning[*].text (1 leaves)
+verdict.gradeStrip.moat.confidence (1 leaves)
+verdict.gradeStrip.moat.keyNumbers[*].value (2 leaves)
+verdict.gradeStrip.moat.keyNumbers[*].source (2 leaves)
+verdict.gradeStrip.moat.keyNumbers[*].asOf (1 leaves)
+verdict.gradeStrip.moat.keyNumbers[*].period (2 leaves)
+verdict.gradeStrip.moat.keyNumbers[*] (1 leaves)
+verdict.gradeStrip.moat.qualification.status (1 leaves)
+verdict.gradeStrip.moat.qualification.reasons[*] (3 leaves)
+verdict.gradeStrip.balanceSheet.qualification.reasons[*] (3 leaves)
+fundamentals.returns[*].values[*] (1 leaves)
+fundamentals.returns[*] (1 leaves)
+balanceSheet.graded.qualification.reasons[*] (3 leaves)
+balanceSheet.debtProfile.commentary[*].text (2 leaves)
+balanceSheet.debtProfile.commentary[*].label (1 leaves)
+balanceSheet.debtProfile.commentary[*].source (1 leaves)
+balanceSheet.debtProfile.commentary[*].asOf (1 leaves)
+balanceSheet.debtProfile.commentary[*] (1 leaves)
+balanceSheet.debtProfile.numbers[*].value (4 leaves)
+balanceSheet.debtProfile.numbers[*].unit (1 leaves)
+balanceSheet.debtProfile.numbers[*].currency (1 leaves)
+balanceSheet.debtProfile.numbers[*].period (3 leaves)
+balanceSheet.debtProfile.numbers[*].source (4 leaves)
+balanceSheet.debtProfile.numbers[*].sourceId (3 leaves)
+balanceSheet.debtProfile.numbers[*].asOf (2 leaves)
+balanceSheet.debtProfile.numbers[*] (2 leaves)
+valuation.graded.qualification.reasons[*] (3 leaves)
+valuation.dcf.assumptions[*].value (2 leaves)
+valuation.dcf.assumptions[*].basis (2 leaves)
+valuation.dcf.sensitivityGrid[*].perShare (25 leaves)
+valuation.dcf.sensitivityNotes[*] (1 leaves)
+valuation.dcf.growthMarginGrid.perShare[*][*] (15 leaves)
+valuation.dcf.bridge.enterpriseValue (1 leaves)
+valuation.dcf.bridge.equityValue (1 leaves)
+valuation.dcf.bridge.presentValueTerminal (1 leaves)
+valuation.scenarios[*].assumptions[*] (3 leaves)
+quality.graded.grade (1 leaves)
+quality.graded.oneLineWhy (1 leaves)
+quality.graded.reasoning[*].text (1 leaves)
+quality.graded.confidence (1 leaves)
+quality.graded.keyNumbers[*].value (14 leaves)
+quality.graded.keyNumbers[*].unit (6 leaves)
+quality.graded.keyNumbers[*].source (14 leaves)
+quality.graded.keyNumbers[*].period (6 leaves)
+quality.graded.keyNumbers[*].currency (2 leaves)
+quality.graded.keyNumbers[*].sourceId (10 leaves)
+quality.graded.keyNumbers[*].asOf (2 leaves)
+quality.graded.keyNumbers[*] (1 leaves)
+quality.graded.qualification.status (1 leaves)
+quality.graded.qualification.reasons[*] (3 leaves)
+competitive.moatGraded.grade (1 leaves)
+competitive.moatGraded.oneLineWhy (1 leaves)
+competitive.moatGraded.reasoning[*].text (1 leaves)
+competitive.moatGraded.confidence (1 leaves)
+competitive.moatGraded.keyNumbers[*].value (2 leaves)
+competitive.moatGraded.keyNumbers[*].source (2 leaves)
+competitive.moatGraded.keyNumbers[*].asOf (1 leaves)
+competitive.moatGraded.keyNumbers[*].period (2 leaves)
+competitive.moatGraded.keyNumbers[*] (1 leaves)
+competitive.moatGraded.qualification.status (1 leaves)
+competitive.moatGraded.qualification.reasons[*] (3 leaves)
+appendix.missingData[*].field (71 leaves)
+appendix.missingData[*].reason (64 leaves)
+appendix.missingData[*].attemptedSources (6 leaves)
+appendix.missingData[*].expected (3 leaves)
+appendix.missingData[*] (12 leaves)
+scenarioPresentation.sensitivity.minPerShare (1 leaves)
+scenarioPresentation.sensitivity.maxPerShare (1 leaves)
+scores.aspects.quality.score (1 leaves)
+scores.aspects.quality.band (1 leaves)
+scores.aspects.quality.dataCompleteness (1 leaves)
+scores.aspects.quality.applicableCompleteness (1 leaves)
+scores.aspects.quality.drivers[*].value (4 leaves)
+scores.aspects.quality.drivers[*].unit (4 leaves)
+scores.aspects.quality.drivers[*].source (4 leaves)
+scores.aspects.quality.drivers[*].period (3 leaves)
+scores.aspects.quality.drivers[*] (1 leaves)
+scores.aspects.quality.signals[*].id (4 leaves)
+scores.aspects.quality.signals[*].raw (4 leaves)
+scores.aspects.quality.signals[*].unit (4 leaves)
+scores.aspects.quality.signals[*].transformedScore (4 leaves)
+scores.aspects.quality.signals[*].signalWeight (4 leaves)
+scores.aspects.quality.signals[*].effectiveCompositeWeightPct (4 leaves)
+scores.aspects.quality.signals[*].contributionPoints (4 leaves)
+scores.aspects.quality.signals[*].family (1 leaves)
+scores.aspects.quality.signals[*].period (3 leaves)
+scores.aspects.quality.signals[*].startDate (3 leaves)
+scores.aspects.quality.signals[*].windowYears (3 leaves)
+scores.aspects.quality.signals[*].operands[*].name (5 leaves)
+scores.aspects.quality.signals[*].operands[*].value (5 leaves)
+scores.aspects.quality.signals[*].operands[*].source (5 leaves)
+scores.aspects.quality.signals[*].operands[*].asOf (1 leaves)
+scores.aspects.quality.signals[*].operands[*] (1 leaves)
+scores.aspects.quality.signals[*] (1 leaves)
+scores.aspects.moat.score (1 leaves)
+scores.aspects.moat.band (1 leaves)
+scores.aspects.moat.dataCompleteness (1 leaves)
+scores.aspects.moat.applicableCompleteness (1 leaves)
+scores.aspects.moat.drivers[*].value (2 leaves)
+scores.aspects.moat.drivers[*].source (2 leaves)
+scores.aspects.moat.drivers[*].asOf (1 leaves)
+scores.aspects.moat.drivers[*].period (2 leaves)
+scores.aspects.moat.drivers[*] (1 leaves)
+scores.aspects.moat.signals[*].id (2 leaves)
+scores.aspects.moat.signals[*].raw (2 leaves)
+scores.aspects.moat.signals[*].transformedScore (2 leaves)
+scores.aspects.moat.signals[*].signalWeight (2 leaves)
+scores.aspects.moat.signals[*].effectiveCompositeWeightPct (2 leaves)
+scores.aspects.moat.signals[*].contributionPoints (2 leaves)
+scores.aspects.moat.signals[*].asOf (1 leaves)
+scores.aspects.moat.signals[*].period (2 leaves)
+scores.aspects.moat.signals[*].startDate (2 leaves)
+scores.aspects.moat.signals[*].endDate (1 leaves)
+scores.aspects.moat.signals[*].windowYears (2 leaves)
+scores.aspects.moat.signals[*].operands[*].name (2 leaves)
+scores.aspects.moat.signals[*].operands[*].value (2 leaves)
+scores.aspects.moat.signals[*].operands[*].source (2 leaves)
+scores.aspects.moat.signals[*].operands[*].asOf (2 leaves)
+scores.aspects.moat.signals[*].operands[*] (5 leaves)
+scores.aspects.moat.signals[*].family (1 leaves)
+scores.aspects.moat.signals[*] (1 leaves)
+scores.composite.score (1 leaves)
+scores.composite.methodology (1 leaves)
+scores.factorExposure[*].family (6 leaves)
+scores.factorExposure[*].weightPct (5 leaves)
+scores.factorExposure[*].aboveNeutralPoints (6 leaves)
+scores.assessments.businessQuality.score (1 leaves)
+scores.assessments.businessQuality.band (1 leaves)
+scores.assessments.businessQuality.evidenceCompleteness (1 leaves)
+scores.assessments.evidenceCompleteness (1 leaves)
+scores.qualification.aspects.valuation.reasons[*] (3 leaves)
+scores.qualification.aspects.quality.status (1 leaves)
+scores.qualification.aspects.quality.reasons[*] (3 leaves)
+scores.qualification.aspects.balanceSheet.reasons[*] (3 leaves)
+scores.qualification.aspects.moat.status (1 leaves)
+scores.qualification.aspects.moat.reasons[*] (3 leaves)
+scores.qualification.composite.reasons[*].code (2 leaves)
+scores.qualification.composite.reasons[*].aspect (2 leaves)
+scores.qualification.composite.reasons[*].field (2 leaves)
+scores.qualification.composite.reasons[*].detail (2 leaves)
+scores.qualification.composite.reasons[*] (12 leaves)
+fairValue.reference.perShare.value (1 leaves)
+```
+
+</details>
+
+<details>
+<summary>lly-fixed-analyst: changed paths</summary>
+
+
+stageB.json
+
+```text
+capital.gaps[*] (1 leaves)
+capital.netDebtToEbitda.netDebt (1 leaves)
+capital.netDebtToEbitda.note (1 leaves)
+capital.netDebtToEbitda.resolution.cashBasis (1 leaves)
+capital.netDebtToEbitda.resolution.components.cashAndCashEquivalents (1 leaves)
+capital.netDebtToEbitda.resolution.components.shortTermInvestments (1 leaves)
+capital.netDebtToEbitda.resolution.reason (1 leaves)
+capital.netDebtToEbitda.resolution.value (1 leaves)
+capital.netDebtToEbitda.value (1 leaves)
+capital.netDebtToEbitda.ebitdaComputed (1 leaves)
+fairValue.reference.perShare.value (1 leaves)
+gaps[*].attemptedSources[*] (22 leaves)
+gaps[*].field (122 leaves)
+gaps[*].reason (116 leaves)
+gaps[*].attemptedSources (28 leaves)
+gaps[*].severity (3 leaves)
+gaps[*].expected (50 leaves)
+gaps[*] (9 leaves)
+returns.gaps[*] (1 leaves)
+returns.roic.gaps[*] (1 leaves)
+returns.roic.latestRoicPct (1 leaves)
+returns.roic.notes[*] (1 leaves)
+returns.roic.series[*].investedCapitalAvg (1 leaves)
+returns.roic.series[*].notes[*] (3 leaves)
+returns.roic.series[*].roicPct (1 leaves)
+returns.roic.series[*].terminalEvidenceRoicPct (1 leaves)
+returns.roicVsWacc.note (1 leaves)
+returns.roicVsWacc.spreadPctPts (1 leaves)
+scores.aspects.moat.applicableCompleteness (1 leaves)
+scores.aspects.moat.band (1 leaves)
+scores.aspects.moat.dataCompleteness (1 leaves)
+scores.aspects.moat.drivers[*].asOf (1 leaves)
+scores.aspects.moat.drivers[*].period (2 leaves)
+scores.aspects.moat.drivers[*].source (2 leaves)
+scores.aspects.moat.drivers[*].value (2 leaves)
+scores.aspects.moat.drivers[*] (1 leaves)
+scores.aspects.moat.score (1 leaves)
+scores.aspects.moat.signals[*].asOf (1 leaves)
+scores.aspects.moat.signals[*].contributionPoints (2 leaves)
+scores.aspects.moat.signals[*].effectiveCompositeWeightPct (2 leaves)
+scores.aspects.moat.signals[*].endDate (1 leaves)
+scores.aspects.moat.signals[*].id (2 leaves)
+scores.aspects.moat.signals[*].operands[*].asOf (2 leaves)
+scores.aspects.moat.signals[*].operands[*].name (2 leaves)
+scores.aspects.moat.signals[*].operands[*].source (2 leaves)
+scores.aspects.moat.signals[*].operands[*].value (2 leaves)
+scores.aspects.moat.signals[*].operands[*] (5 leaves)
+scores.aspects.moat.signals[*].period (2 leaves)
+scores.aspects.moat.signals[*].raw (2 leaves)
+scores.aspects.moat.signals[*].signalWeight (2 leaves)
+scores.aspects.moat.signals[*].startDate (2 leaves)
+scores.aspects.moat.signals[*].transformedScore (2 leaves)
+scores.aspects.moat.signals[*].windowYears (2 leaves)
+scores.aspects.moat.signals[*].family (1 leaves)
+scores.aspects.moat.signals[*] (1 leaves)
+scores.aspects.quality.applicableCompleteness (1 leaves)
+scores.aspects.quality.band (1 leaves)
+scores.aspects.quality.dataCompleteness (1 leaves)
+scores.aspects.quality.drivers[*].period (3 leaves)
+scores.aspects.quality.drivers[*].source (4 leaves)
+scores.aspects.quality.drivers[*].unit (4 leaves)
+scores.aspects.quality.drivers[*].value (4 leaves)
+scores.aspects.quality.drivers[*] (1 leaves)
+scores.aspects.quality.score (1 leaves)
+scores.aspects.quality.signals[*].contributionPoints (4 leaves)
+scores.aspects.quality.signals[*].effectiveCompositeWeightPct (4 leaves)
+scores.aspects.quality.signals[*].family (1 leaves)
+scores.aspects.quality.signals[*].id (4 leaves)
+scores.aspects.quality.signals[*].operands[*].name (5 leaves)
+scores.aspects.quality.signals[*].operands[*].source (5 leaves)
+scores.aspects.quality.signals[*].operands[*].value (5 leaves)
+scores.aspects.quality.signals[*].operands[*].asOf (1 leaves)
+scores.aspects.quality.signals[*].period (3 leaves)
+scores.aspects.quality.signals[*].raw (4 leaves)
+scores.aspects.quality.signals[*].signalWeight (4 leaves)
+scores.aspects.quality.signals[*].startDate (3 leaves)
+scores.aspects.quality.signals[*].transformedScore (4 leaves)
+scores.aspects.quality.signals[*].unit (4 leaves)
+scores.aspects.quality.signals[*].windowYears (3 leaves)
+scores.aspects.quality.signals[*].operands[*] (1 leaves)
+scores.aspects.quality.signals[*] (1 leaves)
+scores.assessments.businessQuality.band (1 leaves)
+scores.assessments.businessQuality.evidenceCompleteness (1 leaves)
+scores.assessments.businessQuality.score (1 leaves)
+scores.assessments.evidenceCompleteness (1 leaves)
+scores.composite.methodology (1 leaves)
+scores.composite.score (1 leaves)
+scores.factorExposure[*].aboveNeutralPoints (6 leaves)
+scores.factorExposure[*].family (6 leaves)
+scores.factorExposure[*].weightPct (5 leaves)
+scores.qualification.aspects.balanceSheet.reasons[*] (3 leaves)
+scores.qualification.aspects.moat.reasons[*] (3 leaves)
+scores.qualification.aspects.moat.status (1 leaves)
+scores.qualification.aspects.quality.reasons[*] (3 leaves)
+scores.qualification.aspects.quality.status (1 leaves)
+scores.qualification.aspects.valuation.reasons[*] (3 leaves)
+scores.qualification.composite.reasons[*].aspect (2 leaves)
+scores.qualification.composite.reasons[*].code (2 leaves)
+scores.qualification.composite.reasons[*].detail (2 leaves)
+scores.qualification.composite.reasons[*].field (2 leaves)
+scores.qualification.composite.reasons[*] (12 leaves)
+valuation.assumptions.notes[*] (5 leaves)
+valuation.assumptions.terminal.reinvestmentRate.basis (1 leaves)
+valuation.assumptions.terminal.reinvestmentRate.value (1 leaves)
+valuation.assumptions.terminal.roicTermPct.basis (1 leaves)
+valuation.assumptions.terminal.roicTermPct.value (1 leaves)
+valuation.dcf.enterpriseValue (1 leaves)
+valuation.dcf.equityValue (1 leaves)
+valuation.dcf.perShare (1 leaves)
+valuation.dcf.pvTerminal (1 leaves)
+valuation.dcf.terminalShare (1 leaves)
+valuation.dcf.terminalValue (1 leaves)
+valuation.gaps[*].reason (1 leaves)
+valuation.growthMarginGrid.perShare[*][*] (15 leaves)
+valuation.notes[*] (11 leaves)
+valuation.sensitivity.notes[*] (1 leaves)
+valuation.sensitivity.perShare[*][*] (25 leaves)
+```
+
+report.json
+
+```text
+meta.specVersion (1 leaves)
+meta.verificationRate (1 leaves)
+meta.provenanceCoverage.numeric.supported (1 leaves)
+meta.provenanceCoverage.numeric.total (1 leaves)
+meta.provenanceCoverage.numeric.rate (1 leaves)
+meta.provenanceCoverage.judgments.cited (1 leaves)
+meta.provenanceCoverage.judgments.rate (1 leaves)
+meta.provenanceCoverage.factualValidation.validated (1 leaves)
+meta.provenanceCoverage.factualValidation.unchecked (1 leaves)
+meta.provenanceCoverage.factualValidation.contradicted (1 leaves)
+meta.provenanceCoverage.factualValidation.rate (1 leaves)
+meta.consistencyChecks.unit.checked (1 leaves)
+meta.consistencyChecks.unit.passed (1 leaves)
+meta.consistencyChecks.namedIndividual.passed (1 leaves)
+meta.consistencyChecks.namedIndividual.failed (1 leaves)
+meta.consistencyChecks.namedIndividual.rate (1 leaves)
+meta.dataCompleteness.warningCount (1 leaves)
+verdict.gradeStrip.valuation.qualification.reasons[*] (3 leaves)
+verdict.gradeStrip.quality.qualification.status (1 leaves)
+verdict.gradeStrip.quality.qualification.reasons[*] (3 leaves)
+verdict.gradeStrip.quality.gradeContract.originalBand (1 leaves)
+verdict.gradeStrip.quality.gradeContract.distance (1 leaves)
+verdict.gradeStrip.quality.gradeContract.status (1 leaves)
+verdict.gradeStrip.quality.gradeContract.reason (1 leaves)
+verdict.gradeStrip.quality.keyNumbers[*].verified (1 leaves)
+verdict.gradeStrip.quality.keyNumbers[*].verificationNote (1 leaves)
+verdict.gradeStrip.quality.assessmentStatus (1 leaves)
+verdict.gradeStrip.moat.qualification.status (1 leaves)
+verdict.gradeStrip.moat.qualification.reasons[*] (3 leaves)
+verdict.gradeStrip.moat.gradeContract.originalBand (1 leaves)
+verdict.gradeStrip.moat.gradeContract.distance (1 leaves)
+verdict.gradeStrip.moat.gradeContract.status (1 leaves)
+verdict.gradeStrip.moat.gradeContract.reason (1 leaves)
+verdict.gradeStrip.moat.keyNumbers[*].verified (1 leaves)
+verdict.gradeStrip.moat.keyNumbers[*].verificationNote (1 leaves)
+verdict.gradeStrip.moat.assessmentStatus (1 leaves)
+verdict.gradeStrip.balanceSheet.qualification.reasons[*] (3 leaves)
+balanceSheet.graded.qualification.reasons[*] (3 leaves)
+valuation.graded.qualification.reasons[*] (3 leaves)
+valuation.graded.keyNumbers[*].verified (1 leaves)
+valuation.graded.keyNumbers[*].verificationNote (1 leaves)
+valuation.dcf.assumptions[*].value (2 leaves)
+valuation.dcf.assumptions[*].basis (2 leaves)
+valuation.dcf.sensitivityGrid[*].perShare (25 leaves)
+valuation.dcf.sensitivityNotes[*] (1 leaves)
+valuation.dcf.bridge.enterpriseValue (1 leaves)
+valuation.dcf.bridge.equityValue (1 leaves)
+valuation.dcf.bridge.presentValueTerminal (1 leaves)
+valuation.dcf.growthMarginGrid.perShare[*][*] (15 leaves)
+valuation.scenarios[*].assumptions[*] (3 leaves)
+quality.graded.qualification.status (1 leaves)
+quality.graded.qualification.reasons[*] (3 leaves)
+quality.graded.gradeContract.originalBand (1 leaves)
+quality.graded.gradeContract.distance (1 leaves)
+quality.graded.gradeContract.status (1 leaves)
+quality.graded.gradeContract.reason (1 leaves)
+quality.graded.keyNumbers[*].verified (1 leaves)
+quality.graded.keyNumbers[*].verificationNote (1 leaves)
+quality.graded.assessmentStatus (1 leaves)
+competitive.moatGraded.qualification.status (1 leaves)
+competitive.moatGraded.qualification.reasons[*] (3 leaves)
+competitive.moatGraded.gradeContract.originalBand (1 leaves)
+competitive.moatGraded.gradeContract.distance (1 leaves)
+competitive.moatGraded.gradeContract.status (1 leaves)
+competitive.moatGraded.gradeContract.reason (1 leaves)
+competitive.moatGraded.keyNumbers[*].verified (1 leaves)
+competitive.moatGraded.keyNumbers[*].verificationNote (1 leaves)
+competitive.moatGraded.assessmentStatus (1 leaves)
+appendix.missingData[*].field (125 leaves)
+appendix.missingData[*].reason (120 leaves)
+appendix.missingData[*].attemptedSources (25 leaves)
+appendix.missingData[*].expected (50 leaves)
+appendix.missingData[*].attemptedSources[*] (22 leaves)
+appendix.missingData[*] (13 leaves)
+appendix.verificationRate (1 leaves)
+appendix.provenanceCoverage.numeric.supported (1 leaves)
+appendix.provenanceCoverage.numeric.total (1 leaves)
+appendix.provenanceCoverage.numeric.rate (1 leaves)
+appendix.provenanceCoverage.judgments.cited (1 leaves)
+appendix.provenanceCoverage.judgments.rate (1 leaves)
+appendix.provenanceCoverage.factualValidation.validated (1 leaves)
+appendix.provenanceCoverage.factualValidation.unchecked (1 leaves)
+appendix.provenanceCoverage.factualValidation.contradicted (1 leaves)
+appendix.provenanceCoverage.factualValidation.rate (1 leaves)
+appendix.consistencyChecks.unit.checked (1 leaves)
+appendix.consistencyChecks.unit.passed (1 leaves)
+appendix.consistencyChecks.namedIndividual.passed (1 leaves)
+appendix.consistencyChecks.namedIndividual.failed (1 leaves)
+appendix.consistencyChecks.namedIndividual.rate (1 leaves)
+appendix.verificationLog[*].outcome (7 leaves)
+appendix.verificationLog[*].validationStatus (275 leaves)
+appendix.verificationLog[*].note (375 leaves)
+appendix.verificationLog[*].reason (277 leaves)
+appendix.verificationLog[*].traceKind (145 leaves)
+appendix.verificationLog[*].claim (949 leaves)
+appendix.verificationLog[*].source (606 leaves)
+appendix.verificationLog[*].path (947 leaves)
+appendix.verificationLog[*].numericSupportStatus (270 leaves)
+appendix.verificationLog[*].claimSupportStatus (124 leaves)
+appendix.verificationLog[*].evidenceKind (236 leaves)
+appendix.verificationLog[*].sourceSpans (24 leaves)
+appendix.verificationLog[*].check (3 leaves)
+appendix.verificationLog[*] (4 leaves)
+scores.aspects.quality.score (1 leaves)
+scores.aspects.quality.band (1 leaves)
+scores.aspects.quality.dataCompleteness (1 leaves)
+scores.aspects.quality.applicableCompleteness (1 leaves)
+scores.aspects.quality.drivers[*].value (4 leaves)
+scores.aspects.quality.drivers[*].unit (4 leaves)
+scores.aspects.quality.drivers[*].period (3 leaves)
+scores.aspects.quality.drivers[*].sourceId (4 leaves)
+scores.aspects.quality.drivers[*].source (4 leaves)
+scores.aspects.quality.drivers[*] (1 leaves)
+scores.aspects.quality.signals[*].id (4 leaves)
+scores.aspects.quality.signals[*].raw (4 leaves)
+scores.aspects.quality.signals[*].unit (4 leaves)
+scores.aspects.quality.signals[*].transformedScore (4 leaves)
+scores.aspects.quality.signals[*].signalWeight (4 leaves)
+scores.aspects.quality.signals[*].effectiveCompositeWeightPct (4 leaves)
+scores.aspects.quality.signals[*].contributionPoints (4 leaves)
+scores.aspects.quality.signals[*].family (1 leaves)
+scores.aspects.quality.signals[*].period (3 leaves)
+scores.aspects.quality.signals[*].startDate (3 leaves)
+scores.aspects.quality.signals[*].windowYears (3 leaves)
+scores.aspects.quality.signals[*].operands[*].name (5 leaves)
+scores.aspects.quality.signals[*].operands[*].value (5 leaves)
+scores.aspects.quality.signals[*].operands[*].source (5 leaves)
+scores.aspects.quality.signals[*].operands[*].asOf (1 leaves)
+scores.aspects.quality.signals[*].operands[*] (1 leaves)
+scores.aspects.quality.signals[*] (1 leaves)
+scores.aspects.moat.score (1 leaves)
+scores.aspects.moat.band (1 leaves)
+scores.aspects.moat.dataCompleteness (1 leaves)
+scores.aspects.moat.applicableCompleteness (1 leaves)
+scores.aspects.moat.drivers[*].value (2 leaves)
+scores.aspects.moat.drivers[*].period (2 leaves)
+scores.aspects.moat.drivers[*].sourceId (2 leaves)
+scores.aspects.moat.drivers[*].source (2 leaves)
+scores.aspects.moat.drivers[*].asOf (1 leaves)
+scores.aspects.moat.drivers[*] (1 leaves)
+scores.aspects.moat.signals[*].id (2 leaves)
+scores.aspects.moat.signals[*].raw (2 leaves)
+scores.aspects.moat.signals[*].transformedScore (2 leaves)
+scores.aspects.moat.signals[*].signalWeight (2 leaves)
+scores.aspects.moat.signals[*].effectiveCompositeWeightPct (2 leaves)
+scores.aspects.moat.signals[*].contributionPoints (2 leaves)
+scores.aspects.moat.signals[*].asOf (1 leaves)
+scores.aspects.moat.signals[*].period (2 leaves)
+scores.aspects.moat.signals[*].startDate (2 leaves)
+scores.aspects.moat.signals[*].endDate (1 leaves)
+scores.aspects.moat.signals[*].windowYears (2 leaves)
+scores.aspects.moat.signals[*].operands[*].name (2 leaves)
+scores.aspects.moat.signals[*].operands[*].value (2 leaves)
+scores.aspects.moat.signals[*].operands[*].source (2 leaves)
+scores.aspects.moat.signals[*].operands[*].asOf (2 leaves)
+scores.aspects.moat.signals[*].operands[*] (5 leaves)
+scores.aspects.moat.signals[*].family (1 leaves)
+scores.aspects.moat.signals[*] (1 leaves)
+scores.composite.score (1 leaves)
+scores.composite.methodology (1 leaves)
+scores.assessments.businessQuality.score (1 leaves)
+scores.assessments.businessQuality.band (1 leaves)
+scores.assessments.businessQuality.evidenceCompleteness (1 leaves)
+scores.assessments.evidenceCompleteness (1 leaves)
+scores.qualification.composite.reasons[*].code (2 leaves)
+scores.qualification.composite.reasons[*].aspect (2 leaves)
+scores.qualification.composite.reasons[*].field (2 leaves)
+scores.qualification.composite.reasons[*].detail (2 leaves)
+scores.qualification.composite.reasons[*] (12 leaves)
+scores.qualification.aspects.valuation.reasons[*] (3 leaves)
+scores.qualification.aspects.quality.status (1 leaves)
+scores.qualification.aspects.quality.reasons[*] (3 leaves)
+scores.qualification.aspects.balanceSheet.reasons[*] (3 leaves)
+scores.qualification.aspects.moat.status (1 leaves)
+scores.qualification.aspects.moat.reasons[*] (3 leaves)
+scores.factorExposure[*].family (6 leaves)
+scores.factorExposure[*].weightPct (5 leaves)
+scores.factorExposure[*].aboveNeutralPoints (6 leaves)
+scenarioPresentation.sensitivity.minPerShare (1 leaves)
+scenarioPresentation.sensitivity.maxPerShare (1 leaves)
+fairValue.reference.perShare.value (1 leaves)
+```
+
+</details>
+
+### Validation and remaining limits
+
+The same-report hash approval file is local under tmp; it binds each changed artifact and manifest field to its before/after identity and D-261/D-263 explanation. Accuracy check: 265 figures across 13 data-only cases; 170 match, 7 existing mismatches, 62 gaps, 26 not-established, all as expected. No accuracy expectation update. Focused tests, refusal wording ratchet, version stamps, currency company page, risk coverage, repository release, typecheck and lint pass; lint retains the pre-existing unused-variable warning in revenueAdmission.scopeUnresolvedCode.test.ts. No full local suite, paid call, live test request, saved-report write or real application-database write. The active frozen-log chain continues from merged main; earlier parallel D-261 refresh entries remain intact in mergedBranchHistory on the merge refresh entries. No guard assertion was changed. Synthetic current/frozen fixtures were explicitly refreshed under D-261 with exact change logs; numeric synthetic scores stay unchanged.
+
+The dimensioned investment admission and the unrelated carrying-debt completeness problem disclosed by FIGR are not broadened here. Both remain named gaps. The review thread is unresolved for lead action; this branch is not merged.
 
 ## D-264 - Reader presentation across company types (2026-11-13)
 
