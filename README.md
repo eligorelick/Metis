@@ -257,7 +257,7 @@ Contributions should preserve source tracing, add regressions and pass `npm run 
 
 ## Troubleshooting
 
-- **Install or native SQLite errors:** check `node --version` is Node 24, then run `npm ci` in the repository root. Do not reuse `node_modules` across operating systems or Node versions.
+- **Install or native SQLite errors:** check `node --version` is Node 24 (`.node-version` pins it for version managers that read that file), then run `npm ci` in the repository root. Do not reuse `node_modules` across operating systems or Node versions.
 - **App does not open:** use the URL printed by the npm server (normally http://127.0.0.1:3000). Check for another process using port 3000. Production startup needs `npm run build` first; local Windows launchers do not build or install dependencies.
 - **Missing figures or unsupported symbol:** configure a truthful `EDGAR_CONTACT`, test optional provider keys in Settings, and read the report's disclosed gaps. Plan restrictions and unsupported instruments do not become guessed values; see [data-source limits](docs/PRIVACY.md#limited-fmp-access).
 - **AI missing or a run held:** check the selected AI connection, provider allowance and spend caps in Settings. A failed connection does not silently switch to paid Claude. See [jobs and recovery](docs/OPERATIONS.md#report-lifecycle-and-recovery) and [Claude guidance](docs/CLAUDE-USAGE.md).
