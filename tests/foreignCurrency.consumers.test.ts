@@ -33,7 +33,10 @@ describe("constant-currency foreign valuation consumers", () => {
       const c = runStageB(b);
       expect(c.forensics.altman?.variant).toBe("private");
       expect(c.forensics.altman?.gaps.find(g => g.field === "forensics.altman.currency")?.reason).toMatch(/no exchange rate dated at the balance-sheet date is admitted/);
-      expect(c.forensics.altman?.components.x4).not.toBe(20);
+      // Z-prime X4 is book equity over liabilities, both from the 2025-12-31 balance (500 / 1,500), and the score is
+      // the same whichever capitalization the profile carries: the converted cap never reaches Altman.
+      expect(c.forensics.altman?.components.x4).toBeCloseTo(500 / 1_500, 12);
+      expect(c.forensics.altman?.score).toBeCloseTo(1.14845, 10);
     }
   });
   it("runs DCF and reverse DCF in USD per ADS without applying the ratio twice", () => {
@@ -54,6 +57,7 @@ describe("constant-currency foreign valuation consumers", () => {
     expect(book?.current).toBeCloseTo(10_000 / (520 / 32), 8);
     // D-267: Altman's market X4 is not converted at the quote-date rate against an older balance (see above).
     expect(c.forensics.altman?.variant).toBe("private");
+    expect(c.forensics.altman?.components.x4).toBeCloseTo(500 / 1_500, 12);
     expect(c.gaps.some(g => g.field === "valuation.priceComparison.currency")).toBe(false);
     expect(validateBundle(foreignBundle()).gaps.some(g => g.field === "validation.currencyMismatch")).toBe(false);
   });

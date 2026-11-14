@@ -77,13 +77,13 @@ describe("retained forensic observation context on real data-only exports", () =
     // The signal is unscored (P17: the existing unscored-aspect rules apply), and the manifest names the cause.
     expect(c.scores.aspects.quality.signals!.find(d => d.id === "altmanZOriginalScale")).toBeUndefined();
     const out = exportsOf(bundle, c);
-    expect(out.audit).toContain("no market value of equity observed on or before the balance-sheet date 2025-12-31");
+    for (const text of [out.markdown, out.audit]) expect(text).toContain("no market value of equity observed on or before the balance-sheet date 2025-12-31");
     expect(bundle).toEqual(before);
 
     // With an observation dated at the balance date the score is computed on it and the row names its date and source.
     const dated = runStageB(fixture(undefined, BALANCE_DATE_CAP), { evIncludeLeases: false });
     expect(dated.forensics.altman).toMatchObject({ variant: "original", asOf: { marketCap: "2025-12-31", marketCapSource: "historical-market-capitalization" } });
-    expect(dated.forensics.altman!.score).toBeGreaterThan(0);
+    expect(dated.forensics.altman!.score).toBeCloseTo(5.2195, 10); // the pre-fix score: same cap, now dated at the balance
     expect(dated.forensics.altman!.components.x4).toBeGreaterThan(0);
     const datedDriver = dated.scores.aspects.quality.signals!.find(d => d.id === "altmanZOriginalScale")!;
     expect(datedDriver.period).toBe("Balance 2025-12-31; income 2025-12-31; market cap 2025-12-31 (historical-market-capitalization)");
