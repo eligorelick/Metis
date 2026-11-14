@@ -1,3 +1,4 @@
+import { ReportView } from "@/components/report/ReportView";
 import fs from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -318,4 +319,30 @@ describe("executive decision verification boundaries", () => {
       expect(result.verifiedReport.leadership.executives[0]!.grade).toBe("not-assessed");
     }
   });
+});
+
+
+it("D-264 points executive cards to one outlook guidance block and preserves stored personal wording", () => {
+  const report = ReportSchema.parse(JSON.parse(fs.readFileSync("fixtures/report/DEMO-sample.json", "utf8")));
+  report.leadership = leadership();
+  report.leadership.executives.push({ ...structuredClone(report.leadership.executives[0]!), name: "Jordan Brown", title: "Chief Financial Officer" });
+  const stored = fact("Alex Smith: operating cash flow was USD 12 billion.");
+  report.leadership.executives[0]!.evidence.capitalAllocation = [stored];
+  const guidance = fact("Synthetic company guidance context retained once.");
+  report.outlook.guidanceCredibility = [guidance];
+  report.appendix.verificationLog = [...actionLog(), { path: "outlook.guidanceCredibility[0]", claim: guidance.text, source: guidance.source, outcome: "unverified", validationStatus: "unchecked" }];
+  const before = JSON.stringify(report);
+  for (const [i, text] of [reportToMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(ReportView, {report}))].entries()) {
+    expect(text).toContain("See the Management actions table");
+    expect(text).toContain("#report-outlook");
+    for (const id of ["report-management-actions", "report-outlook"]) {
+      expect(text).toContain(i === 0 ? `](#${id})` : `href="#${id}"`);
+      expect(text.match(new RegExp(`id="${id}"`, "g"))).toHaveLength(1);
+    }
+    expect(text).not.toContain("shared management chronology");
+    expect(text).not.toContain("Company guidance context");
+    expect(text).toContain(stored.text);
+    if (i < 2) expect(text.split(guidance.text)).toHaveLength(2);
+  }
+  expect(JSON.stringify(report)).toBe(before);
 });

@@ -585,7 +585,7 @@ export function buildQuarterlySegments(
  * components of service sales. A real subtotal holds in every quarter; a
  * parent the data cannot establish is not given.
  */
-function markSubtotals(rows: SegmentRow[]): void {
+export function markSubtotals<T extends Pick<SegmentRow, "member" | "values" | "childOf">>(rows: T[], maxComponents = 3): void {
   const latest = rows.map((r) => r.values[0] ?? null);
   const quarters = rows[0]?.values.length ?? 0;
   const sumsInEveryQuarter = (p: number, combo: readonly number[]): boolean => {
@@ -604,7 +604,10 @@ function markSubtotals(rows: SegmentRow[]): void {
     const parent = latest[p];
     if (parent === null || parent <= 0) continue;
     const others = rows.map((_, i) => i).filter((i) => i !== p && latest[i] !== null && rows[i]!.childOf === null);
-    const found = combos(others, 2).concat(combos(others, 3)).find((combo) => sumsInEveryQuarter(p, combo));
+    let found: number[] | undefined;
+    for (let size = 2; size <= Math.min(maxComponents, others.length) && !found; size++) {
+      found = combos(others, size).find(combo => sumsInEveryQuarter(p, combo));
+    }
     if (found) for (const i of found) rows[i]!.childOf = rows[p]!.member;
   }
 }
