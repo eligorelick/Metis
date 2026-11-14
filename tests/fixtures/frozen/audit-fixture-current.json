@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "2858dd289b2dc6f65637a53d2355268bdfb67c239cab2246de1166aa0f728d4e",
+  "projectionSha256": "00c16a0d681f298a8b1ef64cb02a6659c583619a3f8e9f2be8b0db2c02d27bee",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
     "stageB": {
@@ -244,9 +244,7 @@
             "invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (totalEquity, else parent totalStockholdersEquity + minorityInterest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (NET_DEBT_V3; cash-only where short-term investments are unreported, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY \"EV bridge\")",
             "no separate operating-lease observation is available on these balance sheets; invested capital uses the retained totalDebt basis without a separate operating-lease adjustment. Operating-lease coverage is unverified; no direction of ROIC bias is established"
           ],
-          "gaps": [
-            {"field": "returns.roic.2023-12-31", "reason": "2023-12-31: ROIC withheld because no balance sheet within 45d of 2023-12-31", "severity": "info"}
-          ]
+          "gaps": []
         },
         "rote": {
           "series": [
@@ -291,7 +289,6 @@
           "per-fiscal-year WACC unavailable: no fred:DGS10 observations supplied"
         ],
         "gaps": [
-          {"field": "returns.roic.2023-12-31", "reason": "2023-12-31: ROIC withheld because no balance sheet within 45d of 2023-12-31", "severity": "info"},
           {
             "field": "returns.wacc.history",
             "reason": "no fred:DGS10 observations supplied — ROIC-vs-WACC history compares every fiscal year to the current WACC",
@@ -2034,7 +2031,6 @@
           "expected": true,
           "attemptedSources": ["fred"]
         },
-        {"field": "returns.roic.2023-12-31", "reason": "2023-12-31: ROIC withheld because no balance sheet within 45d of 2023-12-31", "severity": "info"},
         {
           "field": "returns.wacc.history",
           "reason": "no fred:DGS10 observations supplied — ROIC-vs-WACC history compares every fiscal year to the current WACC",
@@ -3626,7 +3622,6 @@
             "attemptedSources": ["fred"],
             "expected": true
           },
-          {"field": "returns.roic.2023-12-31", "reason": "2023-12-31: ROIC withheld because no balance sheet within 45d of 2023-12-31", "severity": "info"},
           {
             "field": "returns.wacc.history",
             "reason": "no fred:DGS10 observations supplied — ROIC-vs-WACC history compares every fiscal year to the current WACC",

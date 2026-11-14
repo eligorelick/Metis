@@ -20,8 +20,8 @@ export function restoreForensicCurrentUseGolden(computed: ComputedMetrics): Comp
   result.gaps = result.gaps.filter(gap => !gap.field.startsWith("scores."));
   const datedRoic = (field: string) => /^returns\.roic\.\d{4}-\d{2}-\d{2}$/.test(field);
   const roicGaps = result.returns.roic.gaps.filter(gap => datedRoic(gap.field));
-  expect(roicGaps.map(gap => gap.field)).toEqual(["returns.roic.2022-12-31", "returns.roic.2023-12-31"]);
-  for (const gap of roicGaps) expect(gap.reason).toMatch(/ROIC withheld because no balance sheet within 45d/);
+  // D-261 final parity rule: this control has no repaired liquidity row.
+  expect(roicGaps).toEqual([]);
   result.returns.roic.gaps = result.returns.roic.gaps.filter(gap => !datedRoic(gap.field));
   result.returns.gaps = result.returns.gaps.filter(gap => !datedRoic(gap.field));
   result.gaps = result.gaps.filter(gap => !datedRoic(gap.field));

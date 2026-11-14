@@ -1590,7 +1590,7 @@ function investedCapital(
     if (resolution.value !== null) {
       return resolution.value + equity.value + temporaryTotal;
     }
-  
+
     // A CONFLICT refusal is not a missing basis: the vendor's combined cash field
     // contradicts its own components, so no cash figure is trustworthy. Falling
     // back to cash-only there would compute invested capital from data the
@@ -1603,7 +1603,7 @@ function investedCapital(
       refusals.push({ reason: resolution.reason ?? "cash components conflict", kind: "cash" });
       return null;
     }
-  
+
     // Short-term investments are genuinely unreported. Cash alone is then the
     // best available liquidity figure — no other metric has a better one either —
     // so disclose the narrower basis rather than suppress a 0.35-weight quality
