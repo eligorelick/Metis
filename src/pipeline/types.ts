@@ -150,7 +150,7 @@ export interface XbrlSummary {
 export interface CompanyFactsInstances {
   /** Filing date of the newest periodic report whose statement facts companyfacts itself carried (D-236), before the merge. */
   companyFactsThrough: string | null;
-  merged: { accession: string; form: string; filingDate: string; periodEnd: string | null; count: number }[];
+  merged: { accession: string; form: string; filingDate: string; periodEnd: string | null; count: number; carryingOnly?: true }[];
   /** D-236: filings companyfacts lacked whose instance could not be read; absent when there are none. */
   unread?: { accession: string; form: string; filingDate: string; reason: string }[];
 }

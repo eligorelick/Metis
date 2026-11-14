@@ -1473,7 +1473,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   // B-23) is one period, not the history the second hop looked for.
   const successorCarriesOwnHistory = inputs.edgar.companyFacts.ok && hasOwnAnnualHistory(
     inputs.edgar.companyFacts.value.data,
-    new Set((inputs.edgar.companyFactsInstances?.merged ?? []).map((filing) => filing.accession)),
+    new Set((inputs.edgar.companyFactsInstances?.merged ?? []).filter(filing => filing.carryingOnly !== true).map((filing) => filing.accession)),
   );
   if (
     predecessor === null &&

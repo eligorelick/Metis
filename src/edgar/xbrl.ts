@@ -43,7 +43,7 @@ export const factPointSchema = z.looseObject({
   form: z.string(),
   filed: z.string(),
   frame: z.string().optional(),
-  /** D-268: whole-line carrying measurement, with no entity/instrument dimensions. */
+  /** D-268: carrying measurement without an instrument partition, with no entity/instrument dimensions. */
   instanceCarryingAmount: z.literal(true).optional(),
 });
 export type FactPoint = z.infer<typeof factPointSchema>;

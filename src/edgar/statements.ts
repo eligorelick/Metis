@@ -76,7 +76,7 @@ import {
   type LabelCopy,
   type PairChoice,
 } from "@/edgar/presentationLineage";
-import { VENDOR_SEC_TOLERANCE } from "@/edgar/vendorAgreement";
+import { filedSumWithinTotal, VENDOR_SEC_TOLERANCE } from "@/edgar/vendorAgreement";
 import { unavailableSplitEvidence, type VendorSplitEvidence } from "@/providers/splitEvents";
 import {
   BALANCE_SHEET_SHARES_TAG,
@@ -3031,6 +3031,31 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     notes,
     `cashAndShortTermInvestments ${ctx}`,
   );
+  // D-268: SEC-built rows must prove the same bound as vendor-row admission.
+  const carryingInvestment = (investmentsPart?.evidencePoints ?? (investmentsPart ? [investmentsPart.point] : []))
+    .some(p => p.instanceCarryingAmount === true);
+  let carryingLiquidityUnknown = false;
+  if (carryingInvestment) {
+    const assets = cc.resolved.get("totalCurrentAssets");
+    const others = [cc.resolved.get("netReceivables"), cc.resolved.get("inventory")].filter((r): r is Resolved => r !== undefined);
+    const parts = cashPart && investmentsPart && assets ? [cashPart, investmentsPart, assets, ...others] : [];
+    const points = parts.flatMap(r => r.evidencePoints ?? [r.point]);
+    const anchor = investmentsPart!.point;
+    const compatible = parts.length >= 3 && parts.every(r => r.unit === investmentsPart!.unit) && points.every(p =>
+      p.start === undefined && p.end === anchor.end && p.accn === anchor.accn && p.filed === anchor.filed && p.form === anchor.form);
+    carryingLiquidityUnknown = !compatible || v.cashAndCashEquivalents == null || v.shortTermInvestments == null ||
+      !filedSumWithinTotal([v.cashAndCashEquivalents!, v.shortTermInvestments!, ...others.map(r => r.value)], assets!.value);
+    if (carryingLiquidityUnknown) {
+      v.cashAndShortTermInvestments = null;
+      cc.replace?.("cashAndShortTermInvestments", null);
+      const reason = "carrying shortTermInvestments lacks a compatible same-filing current-assets bound; combined liquidity and net debt withheld";
+      for (const field of ["cashAndShortTermInvestments", "netDebt"]) notes.withhold(field, ctx, reason, "liquidity-not-established");
+      notes.add(`cashAndShortTermInvestments ${ctx}: ${reason}`);
+    } else {
+      v.cashAndShortTermInvestments = v.cashAndCashEquivalents! + v.shortTermInvestments!;
+      cc.replace?.("cashAndShortTermInvestments", combine(v.cashAndShortTermInvestments, parts));
+    }
+  }
   if (cashScopeUnknown) {
     v.cashAndShortTermInvestments = null;
     const reason = "combined cash includes restricted cash but unrestricted cash is unestablished; liquidity and net debt are withheld rather than treating restrictions as available cash";
@@ -3113,6 +3138,7 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     notes.add(`totalDebt ${ctx}: ${incomplete}`);
   }
   v.netDebt ??= sub(v.totalDebt ?? null, v.cashAndCashEquivalents ?? null);
+  if (carryingLiquidityUnknown) v.netDebt = null;
   // WS6 review (BLOCKER 1): the OPERATING slice of the lease liability, on its
   // own. Under ASC 842 operating-lease cost sits in operating expenses, so EBIT
   // and EBITDA are already AFTER it and only that slice may be netted out of

@@ -1364,7 +1364,7 @@ async function buildEdgarBundle(
     ? pFacts.then((facts) => {
       if (!facts.ok) return [];
       return collectPeriodicInstances(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10),
-        (filing) => !instanceFacts.some(instance => instance.filing.accession === filing.accessionNumber), readInstance);
+        () => true, readInstance);
     })
     : Promise.resolve([]);
 
@@ -1707,17 +1707,24 @@ export function companyFactsInstanceEntries(instances: CompanyFactsInstances | u
     severity: "warn",
     attemptedSources: [f.accession],
   }));
-  if (instances.merged.length === 0) return unread;
-  const filings = instances.merged.map((f) => `${f.form} ${f.accession} (${f.periodEnd === null ? "period end not stated" : `period ended ${f.periodEnd}`}, filed ${f.filingDate})`).join("; ");
+  const carrying = instances.merged.filter(f => f.carryingOnly === true);
+  const carryingEntries: ManifestEntry[] = carrying.length === 0 ? [] : [{
+    field: "edgar.companyFacts.carryingInvestments", severity: "info",
+    attemptedSources: carrying.map(f => f.accession),
+    reason: `Carrying investment totals were added from ${carrying.map(f => `${f.form} ${f.accession} (${f.periodEnd === null ? "period end not stated" : `period ended ${f.periodEnd}`}, filed ${f.filingDate})`).join("; ")}; existing companyfacts statement history is unchanged`,
+  }];
+  const statements = instances.merged.filter(f => f.carryingOnly !== true);
+  if (statements.length === 0) return [...carryingEntries, ...unread];
+  const filings = statements.map((f) => `${f.form} ${f.accession} (${f.periodEnd === null ? "period end not stated" : `period ended ${f.periodEnd}`}, filed ${f.filingDate})`).join("; ");
   return [{
     field: "edgar.companyFacts.newerFilings",
     reason: `SEC companyfacts carried periodic reports only through the one filed ${instances.companyFactsThrough ?? "(none)"}; ` +
-      (instances.merged.length === 1
+      (statements.length === 1
         ? `the facts of ${filings} were read from the filing's own XBRL instance and merged, each citing that filing`
         : `the facts of ${filings} were read from each filing's own XBRL instance and merged, each citing its filing`),
     severity: "info",
-    attemptedSources: instances.merged.map((f) => f.accession),
-  }, ...unread];
+    attemptedSources: statements.map((f) => f.accession),
+  }, ...carryingEntries, ...unread];
 }
 
 /**

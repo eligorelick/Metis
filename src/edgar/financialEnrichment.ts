@@ -9,7 +9,7 @@ import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
 import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
-import { sameFiledInstant, vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
+import { filedSumWithinTotal, sameFiledInstant, vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
 import { ACQUISITION_OTHER_PAYMENT_TAG, COMBINED_CURRENT_DEBT_TAG, CONSOLIDATED_NET_INCOME_TAGS, capitalSpendingTags, floorsFor, tagFloorsFor, tagsFor, type LineItem } from "@/edgar/tagSynonyms";
 import { belowComponentFloor } from "@/edgar/synonymFloor";
@@ -813,7 +813,11 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       gaps.push({ field: `statements.cashflow.${row.date}.${field}`, reason, severity: "info", expected: true });
       continue;
     }
-    if (agreesWithSec(vendor, value, [sec])) continue;
+    const newCarryingInvestment = kind === "balance" && field === "cashAndCashEquivalents" && proof === undefined &&
+      tagsFor("shortTermInvestments").some(t => points(facts, t, unit, observedAt).some(p =>
+        p.instanceCarryingAmount === true && !p.start && p.end === row.date &&
+        sec.evidence.filings.some(f => f.accn === p.accn && f.filed === p.filed && f.form === p.form)));
+    if (agreesWithSec(vendor, value, [sec]) && !newCarryingInvestment) continue;
     if (kind === "cashflow" && scope === "quarter" && field === "stockBasedCompensation" && proof === undefined &&
       out.fieldConflicts?.[field]?.usable !== false && !sec.operands && sec.evidence.periodStart && sec.evidence.filings.length === 1 && value >= 0) {
       const filing = sec.evidence.filings[0]!;
@@ -913,11 +917,15 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
           return typeof v === "number" && Number.isFinite(v) ? v : null;
         };
         const sum = investment ? familyCash.value + investment.value : null;
-        const otherParts = (["netReceivables", "inventory"] as const).flatMap(f => {
-          const part = tagsFor(f).map(inFiling).find(p => p !== null); return part ? [part.value] : [];
+        const otherResolved = (["netReceivables", "inventory"] as const).flatMap(f => {
+          const part = tagsFor(f).map(inFiling).find(p => p !== null); return part ? [part] : [];
         });
+        const otherParts = otherResolved.map(part => part.value);
         const assets = inFiling("AssetsCurrent");
-        const disjoint = sum !== null && (carryingInvestment || combinedFiled !== null && vendorAgreesWithFiled(combinedFiled.value, sum) ||
+        const currentLines = sum === null ? null : sum + otherParts.reduce((a,b) => a+b,0);
+        const carryingBound = carryingInvestment && currentLines !== null && assets !== null &&
+          filedSumWithinTotal([currentLines], assets.value);
+        const disjoint = sum !== null && (carryingBound || combinedFiled !== null && vendorAgreesWithFiled(combinedFiled.value, sum) ||
           investmentTag !== "InterestBearingDepositsInBanks" && assets !== null &&
           vendorAgreesWithFiled(assets.value, sum + otherParts.reduce((a,b) => a+b,0)));
         const contradiction = investmentRefused || combinedFiled !== null && (combinedFiled.value < familyCash.value ||
@@ -925,7 +933,8 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
         const liquidity = contradiction ? null : combinedFiled?.value ?? (disjoint ? sum : null);
         const cashOnly = !contradiction && liquidity === null;
         const liquidityEvidence = { ...familyCash.evidence, tags: [...new Set([...familyCash.evidence.tags,
-          ...(investment?.evidence.tags ?? []), ...(combinedFiled?.evidence.tags ?? [])])] };
+          ...(investment?.evidence.tags ?? []), ...(combinedFiled?.evidence.tags ?? []),
+          ...(carryingBound ? [...assets!.evidence.tags, ...otherResolved.flatMap(p => p.evidence.tags)] : [])])] };
         const basis = contradiction ? "combined liquidity refused: incompatible or ambiguous filed cash/investment operands"
           : cashOnly ? "cash-only (narrower basis): short-term investments not established from the undimensioned facts available; no vendor total proves a combined figure"
             : "the reconciled same-filing cash and disjoint investments";
