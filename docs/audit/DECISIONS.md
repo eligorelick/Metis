@@ -25,13 +25,13 @@ Rows whose liquidity main already admits retain their values, qualifications and
 
 Only a cash comparison main refused can enter the new recovery. Its exact filed cash is admitted, with a typed cashConflictReconciled marker. Full liquidity and dependent capital require a filed total, disjoint admitted components, or the qualified absence-of-investment-facts path. A known unadmitted investment leaves the same calculation unavailable, now naming one investment-family witness, instant, filing and unavailable scope. Reading and admitting dimensioned investment facts beyond this refused-cash explanation is left to separate work.
 
-Full debt is reconciled before leases are removed once. An independently refused investment is honored through the one net-debt-owned cash-only calculation. Main's existing ROIC fallback and its notes are retained through that same calculation; they are not a second arithmetic definition. Mixed-basis/opening-capital guards are limited to newly repaired rows, preserving main's pre-existing single-period fallback for an unusable old opening lease observation. Qualifications are emitted only for consumed figures. Original broad currency/origin assertions and exact dependent-refusal assertions remain restored.
+Full debt is reconciled before leases are removed once. An independently refused investment is honored through the one net-debt-owned cash-only calculation. Unrepaired rows retain main's existing ROIC fallback and notes unchanged; repaired rows use the shared net-debt definition. Mixed-basis/opening-capital guards are limited to newly repaired rows, preserving main's pre-existing single-period fallback for an unusable old opening lease observation. Qualifications are emitted only for consumed figures. Original broad currency/origin assertions and exact dependent-refusal assertions remain restored.
 
 The legacy refusal reader also handles old lease and temporary-equity wording; its scope grew but its ratchet allowance stays unchanged. Typed cause and compatible evidence decide recovery. Annual/quarterly and core foreign-form sibling rules remain, without company-specific conditions or new tolerances. D-133, D-200 and D-210 retain their Revised by D-261 markers.
 
 ### LLY before and after (USD millions except per-share figures and scores)
 
-| Figure | Main e2b32711 | Final | Filed proof / meaning |
+| Figure | Main da0300d7 | Final | Filed proof / meaning |
 | --- | ---: | ---: | --- |
 | Cash 2025-12-31 | gap | 7,268 | CashAndCashEquivalentsAtCarryingValue, 0000059478-26-000013 |
 | Cash 2026-03-31 | gap | 5,282 | same tag, 0000059478-26-000045 |
@@ -61,7 +61,7 @@ No calculated model value, scenario price, net debt, invested capital, ROIC, ave
 | pgr-data-only | 42 | 42 |
 | o-data-only | 33 | 33 |
 | duk-data-only | 83 | 83 |
-| tsm-data-only | 34 | 34 |
+| tsm-data-only | 35 | 35 |
 | rivn-data-only | 37 | 37 |
 | vktx-data-only | 76 | 76 |
 | amzn-fixed-analyst | 9 | 9 |
@@ -75,7 +75,7 @@ All warning counts equal main. Added score-root disclosures are informational. R
 
 ### Verification and records
 
-Failing-first regressions cover both undimensioned and primary-table investment observations on already admitted cash, main's restricted-inclusive component path, unchanged averages and unchanged single-period capital when an old opening lease is unusable. The earlier lease-heavy, independent-refusal, newly repaired mixed-basis, strict-assertion and unused-date controls remain. Focused tests, refusal ratchet, report stamps, both currency tests, typecheck and lint pass; lint retains one existing unused-variable warning. Frozen records were refreshed under D-261 after the normal D-262 merge, with prior branch histories retained beside the active main hash chain.
+Failing-first regressions cover both undimensioned and primary-table investment observations on already admitted cash, main's restricted-inclusive component path, unchanged averages and unchanged single-period capital when an old opening lease is unusable. The earlier lease-heavy, independent-refusal, newly repaired mixed-basis, strict-assertion and unused-date controls remain. Focused tests, refusal ratchet, report stamps, both currency tests, typecheck and lint pass; lint retains one existing unused-variable warning. Frozen records were refreshed under D-261 after normally merging da0300d7 (D-265 and D-267), with prior branch histories retained beside the active main hash chain. The fictional sample was rebuilt with the final stamps.
 
 The same-report harness rebuilds committed code with retained immutable inputs, offline and in scratch storage. All financial deltas and disclosure groups above are intentional; no expectation is changed to conceal a figure difference. No full local suite, paid/model call, live-network test, real application database write, PR merge or review-thread reply.
 
