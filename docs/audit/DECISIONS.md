@@ -11,7 +11,26 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
-## D-273 - A readable report: an opening brief, the business first, less repetition (2026-11-14)
+## D-276 - Brief lines describe the business, not the stock (2026-11-14)
+
+P18 and P22. Owner: `src/report/presentation.ts` (`isBriefEligible`, `briefClaims`). Revises D-273's brief selection; read time only, so saved reports render with it and their bytes do not change.
+
+**Evidence (Part C audit of the fresh JPM report #64).** The opening brief printed "What could break it: The share price was USD 346.19." and "What it sells: Mortgage fees and related income decreased in Home Lending ...". The same rule printed "What could break it: Operating margin (latest) was 50.8% ..." for the stored TSM report #61 and "What it sells: Mounjaro revenue for the quarter ... was USD 10.72 billion." for the fresh LLY report #65. Each line was a verified FACT, but none describes the business or the risk.
+
+**Rule.** A brief line never cites a market or computed record (a source id beginning `payload.`, `computed.` or `fmp:`), so the quote, a computed ratio or a vendor figure never stands in for a business line. The three descriptive parts (what it sells, customers and suppliers, protection and competition) also skip a statement of change, using the verifier's own direction vocabulary (`findDirectionWords`); "what is next" and "what could break it" keep such statements. A part with no remaining line still says it is not established.
+
+**Before and after (read time, no figure or stored byte changes).**
+
+| Report | Part | Before | After |
+|---|---|---|---|
+| JPM #64 | What it sells | Mortgage fees and related income decreased in Home Lending ... | Under the J.P. Morgan and Chase brands, the Firm serves millions of customers ... |
+| JPM #64 | What could break it | The share price was USD 346.19. | In October 2026, a merchant filed a new putative antitrust class action ... over card interchange fees. |
+| LLY #65 | What it sells | Mounjaro revenue for the quarter ended 2026-09-30 was USD 10.72 billion. | The 10-Q states that in the second quarter of 2026 the company launched Foundayo (orforglipron) in the U.S. for the treatment of obesity. |
+| TSM #61 | What could break it | Operating margin (latest) was 50.8% for the fiscal year ended 2025-12-31. | The annual report says foundry customers generally do not place purchase orders far in advance ... |
+
+LLY #63 is unchanged. The golden LLY cases are byte-identical in stageB.json, payload.txt, report.json and report.md. Tests: a bank-shaped case (quote, computed ratio, change statement) with a control from another issuer shape where a change statement still answers the risk and what-is-next parts. Not changed: whether a cited relationship is the issuer's (the JPM audit's Apple-counterparty wording) is model wording, not a selection rule.
+
+## D-273 - A readable report: an opening brief, the business first, less repetition (2026-11-14) (Revised by D-276)
 
 P18, P21 and P22. Owners: `src/report/sectionManifest.ts` (the one reading
 order), `src/report/presentation.ts` (the brief, the repeat rule, the moved

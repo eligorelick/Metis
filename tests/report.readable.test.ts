@@ -153,6 +153,25 @@ describe("opening business brief (D-273)", () => {
     for (const heading of ["Protection and competition", "What is next"]) expect(briefLine(markdown, heading)).toBe(`- **${heading}:** ${BRIEF_PART_NOT_ESTABLISHED}`);
   });
 
+  // Part C audit (bank, JPM #64): "What could break it: The share price was USD 346.19." and "What it sells:
+  // Mortgage fees ... decreased ...". A brief line never cites a market or computed record, and the
+  // descriptive parts skip statements of change; risks and what is next keep them.
+  it("keeps market and computed figures out of the brief and changes out of the descriptive parts", () => {
+    const report = storyReport({
+      sells: ["Mortgage fees and related income decreased in Home Lending.", "The bank takes deposits and makes commercial and consumer loans."],
+      risks: ["The share price was USD 346.19.", "Operating margin was 50.8% for the fiscal year.", "A merchant filed a putative antitrust class action over card interchange fees."],
+    });
+    report.catalystsRisks.risks[0]!.reasoning[0]!.source = "payload.quote.price";
+    report.catalystsRisks.risks[0]!.reasoning[1]!.source = "computed.quality.operating-margin";
+    expect(partTexts(report)).toMatchObject({
+      sells: ["The bank takes deposits and makes commercial and consumer loans."],
+      risks: ["A merchant filed a putative antitrust class action over card interchange fees."],
+    });
+    // Control (an unrelated issuer shape): a change statement still answers "what could break it" and "what is next".
+    const control = storyReport({ risks: ["Card net charge-offs rose in the quarter."], coming: ["Wafer output increases when the new fab opens in 2027."] });
+    expect(partTexts(control)).toMatchObject({ risks: ["Card net charge-offs rose in the quarter."], next: ["Wafer output increases when the new fab opens in 2027."] });
+  });
+
   it("fills each part from the field that answers it (one positive case per part)", () => {
     const report = storyReport({
       sells: ["The company sells industrial pumps and spare parts."],

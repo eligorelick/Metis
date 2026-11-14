@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Brief lines describe the business (P18, P22, D-276) (2026-11-14)
+
+- The opening brief never shows a market or computed figure (such as the share price) as a business line, and its descriptive parts skip statements of change. Read time only; no figure or stored byte changes.
+
 ## Unreleased - Excerpt claim confirmation (P18, P19, D-274) (2026-11-14)
 
 - Verify each independently described excerpt figure and confirm only when all pass; preserve shared period, modality and scope refusals and the ordered two-level table rule.
