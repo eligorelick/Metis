@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.77.0 / payload 1.95.0, Stage B `STAGE_B_2026_11_FILED_INCOME_WINDOWS_69` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.78.0 / payload 1.96.0, Stage B `STAGE_B_2026_11_FILED_FLOWS_70` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -1778,17 +1778,55 @@ the report's `TTM to end (start to end)` period, so the correct filed value
 does not fail tracing merely because its duration was absent or spelled
 differently. Neither construction establishes standalone quarters or capex.
 
-**Cash-capex convention (P9, confirmed 2026-11-02).** Standardized FCF keeps
-the retained statement/vendor cash-capex field. That field is not established
-as PP&E-only and can include software inconsistently across quarters; the
-existing mixed-basis disclosure remains required. No PP&E-only or
-PP&E-plus-software normalization is applied. Adopting either basis would
-change the common FCF convention and require remeasurement of every issuer's
-FCF, P/FCF and DCF seed. In the retained FIG example, PP&E-only capex differs
-by 1.302 million from the retained vendor basis on 231.012 million FCF (0.6%
-rounded). This decision preserves arithmetic and does not claim period-by-period
-software comparability or issuer-defined FCF reconciliation. A provider figure of
-exactly 0 is the one exception: see "Cash capital spending of zero (D-239)".
+**Cash-capex convention (P8, P13, D-262; revises D-150).** Exact-period filed
+cash PP&E spending replaces conflicting vendor capex, its PP&E alias and the
+standardized FCF that subtracts it. The ordered tag family is owned by
+`tagSynonyms.ts`: the PP&E total first, then other PP&E, then productive
+assets. A competing same-filing, same-period capital-purchase tag blocks substitution; order alone does not prove a total. These are alternatives, never additive components. Acquired research,
+businesses and financial investments are not added. Annual figures and
+quarters use the same definition where the filed tag covers them. A quarter
+may be a direct fact or the difference of compatible cumulative facts; every
+operand keeps its filing evidence. A vendor annual figure need not agree
+before a filed quarter can stand. Original filing precision may stand when
+later comparative operands merely re-round it under the existing presentation
+lineage rule. Material or ambiguous re-presentations remain unproved.
+
+No filed counterpart means the retained convention and its limitations remain:
+it can include software or other spending inconsistently. A software-only line
+is not silently combined with PP&E. A zero without filed proof is still
+undisclosed (D-239); a directly proved PP&E amount can replace a conflicting
+vendor zero. Issuer-defined FCF remains separate. The existing same-observation
+allowance distinguishes reporting precision from a conflict; no new tolerance
+or score band is introduced.
+
+**Sibling additive flows (P8, D-262).** Income and cash-flow rows apply the
+same exact-period admission to statement-specific D&A (income expense never inferred from a cash add-back), SBC cash-flow
+add-backs, dividends, common-share repurchases and issuance, acquisitions,
+working-capital changes, cash tax/interest payments, finance-lease principal,
+investing/financing totals, research, selling/administrative costs, interest
+income (interest-only tags, never combined dividends) and bank net interest income. Independent operating-expense parts disclose a mixed basis with separately admitted subtotals. Absent filed interest expense at a vendor zero is expected information. Full D&A/R&D must pass the existing
+component floors; partial D&A does not replace a total. Total dividends do not
+come from common dividends unless preferred dividends are explicitly zero.
+Primary cash-repurchase evidence has precedence over bulk cost-inclusive tags.
+An additional acquisition payment with unresolved overlap prevents treating a
+component as the whole vendor acquisition line. Vendor observations remain in
+the conflict record. Refused inputs and independently refused dependents stay
+refused; only a recorded value conflict with matching exact filed evidence may
+reopen. Missing compatible counterparts are disclosed as unverified.
+
+Interest expense uses only the existing ordered expense tags, with annual and
+compatible quarterly reconstruction. Cash interest, capitalized borrowing costs
+and interest net of income are not expense synonyms. A missing or ambiguous
+expense fact leaves the vendor expense explicitly unverified. Revenue, tax and
+earnings still require their specialized reconciled families. Conflicting cost,
+gross-profit and operating-expense totals can use a complete filed operating
+identity on the already admitted revenue and one filing scope; an isolated EBIT
+does not establish expense placement. Total debt/equity issuance, mixed
+investment buckets, extension-only disclosures and unreviewed IFRS mappings
+retain their scope gates. US-GAAP facts in 20-F/40-F filings use the same rule;
+no currency, taxonomy or annual-to-TTM conversion is guessed. TTM reads admitted
+quarters or the existing proved fiscal-year/YTD identity. The D-262 decision
+records the consumed-field inventory and the before/after replays.
 
 
 **Free cash flow subtracts stock-based compensation by default.** The

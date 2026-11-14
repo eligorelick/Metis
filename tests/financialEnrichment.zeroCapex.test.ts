@@ -84,7 +84,7 @@ describe("D-239: a provider zero for cash capital spending is a figure only as a
     expect(out.row.freeCashFlow).toBeNull();
     expect(out.row.operatingCashFlow).toBe(-147_782_000_000);
     expect(out.row.fieldConflicts?.capitalExpenditure).toMatchObject({ usable: false, vendorValue: 0, secValue: null });
-    expect(out.row.fieldConflicts?.capitalExpenditure?.reason).toBe("Cash capital spending undisclosed at 2025-12-31: the provider records 0 and the SEC facts establish no capital-spending line (PaymentsToAcquirePropertyPlantAndEquipment, PaymentsToAcquireProductiveAssets, PaymentsToDevelopSoftware) for the fiscal year ending that day; a provider zero marks a line it did not find, not a filed zero. Capital spending and dependent standardized FCF withheld; vendor observations retained.");
+    expect(out.row.fieldConflicts?.capitalExpenditure?.reason).toBe("Cash capital spending undisclosed at 2025-12-31: the provider records 0 and the SEC facts establish no capital-spending line (PaymentsToAcquirePropertyPlantAndEquipment, PaymentsToAcquireOtherPropertyPlantAndEquipment, PaymentsToAcquireProductiveAssets, PaymentsToDevelopSoftware) for the fiscal year ending that day; a provider zero marks a line it did not find, not a filed zero. Capital spending and dependent standardized FCF withheld; vendor observations retained.");
     expect(out.row.fieldConflicts?.freeCashFlow).toMatchObject({ usable: false, vendorValue: -147_782_000_000, secValue: null });
     expect(out.row.fieldConflicts?.freeCashFlow?.reason).toContain("Standardized FCF withheld because cash capex was refused: Cash capital spending undisclosed at 2025-12-31");
     expect(out.row.fieldProvenance?.capitalExpenditure).toBeUndefined();
@@ -232,7 +232,7 @@ describe("D-239: a provider zero for cash capital spending is a figure only as a
       const entries = zeroCapexEntries([{ date: "2024-12-31", scope: "annual", filed: false }, { date: "2025-12-31", scope: "annual", filed: false },
         { date: "2025-12-31", scope: "quarter", filed: false }, { date: "2026-03-31", scope: "quarter", filed: true }]);
       expect(entries).toEqual([{ field: "statements.cashflow.capitalExpenditure", severity: "warn",
-        reason: "Cash capital spending is undisclosed, not zero, for fiscal years ending 2025-12-31, 2024-12-31; and quarters ending 2026-03-31, 2025-12-31: the provider records 0 and the SEC facts establish no zero capital-spending line (PaymentsToAcquirePropertyPlantAndEquipment, PaymentsToAcquireProductiveAssets, PaymentsToDevelopSoftware) for those periods (the filings state an amount for 2026-03-31). A provider zero marks a line it did not find, not a filed zero. Capital spending and the standardized free cash flow that subtracts it are withheld for those periods; the provider observations are retained." }]);
+        reason: "Cash capital spending is undisclosed, not zero, for fiscal years ending 2025-12-31, 2024-12-31; and quarters ending 2026-03-31, 2025-12-31: the provider records 0 and the SEC facts establish no zero capital-spending line (PaymentsToAcquirePropertyPlantAndEquipment, PaymentsToAcquireOtherPropertyPlantAndEquipment, PaymentsToAcquireProductiveAssets, PaymentsToDevelopSoftware) for those periods (the filings state an amount for 2026-03-31). A provider zero marks a line it did not find, not a filed zero. Capital spending and the standardized free cash flow that subtracts it are withheld for those periods; the provider observations are retained." }]);
     });
 
     it("is absent when nothing was refused", () => {
