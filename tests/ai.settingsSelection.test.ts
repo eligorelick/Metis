@@ -54,10 +54,19 @@ it("offers every Claude model alias while another one is selected", async () => 
   expect(model.value).toBe("default");
   // A free-text box with suggestions hides every suggestion that does not match the text already in it.
   expect(container.querySelector("input[list]")).toBeNull();
-  expect(Array.from(model.options).map(o => o.value)).toEqual(["default", "opus", "sonnet", "haiku", "fable", "best", "custom"]);
+  expect(Array.from(model.options).map(o => o.value)).toEqual(["default", "opus", "sonnet", "haiku", "fable", "custom"]);
   await change(model, "opus");
   await save();
   expect(request).toHaveBeenLastCalledWith("/api/ai/connections", expect.objectContaining({ body: JSON.stringify({ action: "select", selection: { provider: "claude", connectionId: "claude-account", model: "opus" } }) }));
+});
+it("keeps a saved best alias usable after it left the dropdown", async () => {
+  // `best` is the CLI's other name for opus; a selection saved before it was removed must still load and save.
+  const request = vi.fn(async () => Response.json(claudeView({ provider: "claude", connectionId: "claude-account", model: "best" }))); vi.stubGlobal("fetch", request);
+  await act(async () => root.render(createElement(AiConnections)));
+  expect(container.querySelectorAll("select")[1].value).toBe("custom");
+  expect(container.querySelector<HTMLInputElement>('input[aria-label="Claude model ID"]')!.value).toBe("best");
+  await save();
+  expect(request).toHaveBeenLastCalledWith("/api/ai/connections", expect.objectContaining({ body: JSON.stringify({ action: "select", selection: { provider: "claude", connectionId: "claude-account", model: "best" } }) }));
 });
 it("accepts a full Claude model ID and shows a saved one", async () => {
   const request = vi.fn(async () => Response.json(claudeView({ provider: "claude", connectionId: "claude-account", model: "claude-opus-5-5" }))); vi.stubGlobal("fetch", request);

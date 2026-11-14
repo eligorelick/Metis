@@ -1,6 +1,7 @@
 /** Browser-safe connection and model identifiers. No credential fields. */
 export type SubscriptionProvider = "chatgpt" | "gemini" | "claude";
-export const CLAUDE_MODELS = ["default", "opus", "sonnet", "haiku", "fable", "best"] as const;
+// `best` is left out: Claude Code documents it as the same model as `opus`, not the strongest one.
+export const CLAUDE_MODELS = ["default", "opus", "sonnet", "haiku", "fable"] as const;
 export const CHATGPT_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 export type ChatGptEffort = (typeof CHATGPT_EFFORTS)[number];
 export interface ChatGptRunOptions {
