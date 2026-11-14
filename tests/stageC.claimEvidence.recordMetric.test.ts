@@ -281,3 +281,19 @@ it("D-278 marks a conflict only when the figure's description names only the rec
   expect(checkPlainFigures("Revenue for the quarter ended 2026-09-30 was $24,397 million.", options)[0].outcome).toBe("confirmed");
   expect(checkPlainFigures("The share price on 2026-11-13 was USD 341.19.", options)[0].outcome).toBe("contradiction");
 });
+
+// D-278 review round 1: a figure that lost its candidate keeps a visible warning even when an unrelated record
+// happens to hold the same amount; it never becomes the unmarked "value matched".
+it("D-278 keeps a dropped conflict visible when another record holds the stated amount", () => {
+  const revenue: NumericProvenanceRecord = { ...inc, id: "payload.statements.income-statement-quarterly.revenue-2026-09-30", kind: "provider", origin: "fmp",
+    label: "revenue, quarter ended 2026-09-30", value: 24397e6, period: "2026-09-30", asOf: "2026-09-30" };
+  const cash: NumericProvenanceRecord = { ...inc, id: "payload.cash", kind: "provider", origin: "fmp",
+    label: "cash balance", value: 25397e6, period: "2026-09-30", asOf: "2026-09-30" };
+  const registry = [revenue, cash];
+  const options = { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) };
+  const outcome = checkPlainFigures("The company generated revenue for the quarter ended 2026-09-30 of $25,397 million.", options)[0].outcome;
+  expect(outcome).toBe("not-found");
+  // Control: the same amount stated without a dropped candidate still finds its record.
+  const plain = checkPlainFigures("Cash balance on 2026-09-30 was $25,397 million.", options)[0].outcome;
+  expect(["confirmed", "value-match"]).toContain(plain);
+});

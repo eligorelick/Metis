@@ -25,6 +25,8 @@ P19. Owner: `src/pipeline/stageC/claimEvidence.ts` (`checkPlainFigures`); the no
 
 Tests: the LLY reproductions (product revenue and benefits against total revenue) with controls that the record's own metric at a different value is still a conflict, the equal value confirms, and a share-price conflict on another record shape remains. All earlier D-263 conflict tests (parentheticals, cash direction, bounds, technical frames) pass unchanged.
 
+**Review round 1 (GPT-6.1 Sol, high).** A figure whose candidate is dropped for an extra qualifier could fall to the value lookup and be marked "value matched" (which the reader does not annotate) by an unrelated record that happens to hold the same amount, e.g. a misstated revenue amount equal to the cash balance. Fix: after a dropped candidate, the value lookup only accepts records whose metric the clause names; otherwise the figure prints "Not matched to a source". Test: the reviewer reproduction (revenue 24,397 vs a cash record at 25,397) is now not-found, with a control that the cash statement still matches. Golden against main: still only the NVDA relative-strength false note removed (its +0.38 pp now matches the 12-1 month record); the NVDA "gross margin of about 75%" value match is unchanged.
+
 ## D-277 - Filed member labels belong to the code-owned heading names (2026-11-14)
 
 P18, P21 and P27. Owner decision: lead. Owner: `src/pipeline/stageC/passes.ts:bundleSegmentNameKeys`. Revises D-271 review round 2's source inventory, preserving its whole-name gate and the generation/read-time FACT checks.
