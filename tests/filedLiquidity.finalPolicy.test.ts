@@ -61,8 +61,8 @@ describe('D-261 final owner policy',()=>{
     {...current,date:'2024-12-31',operatingLeaseLiability:100*M,capitalLeaseObligations:0}]);
   expect(r.latestRoicPct).not.toBeNull();
  });
- it('honors an independently refused investment even when vendor cash has no conflict',()=>{
-  const b={...balance,cashAndCashEquivalents:50*M,cashAndShortTermInvestments:null,shortTermInvestments:null,fieldConflicts:{shortTermInvestments:{usable:false,reason:'investment issuer scope refused'}}};
+ it('honors an independently refused investment on a repaired row',()=>{
+  const b={...balance,cashConflictReconciled:true as const,cashAndCashEquivalents:50*M,cashAndShortTermInvestments:null,shortTermInvestments:null,fieldConflicts:{shortTermInvestments:{usable:false,reason:'investment issuer scope refused'}}};
   expect(resolveNetDebt(b)).toMatchObject({value:null,conflict:true});
   const r=computeRoic(income,[b]);expect(r.latestRoicPct).toBeNull();
   expect(r.gaps.map(g=>g.reason).join(' ')).toContain('investment issuer scope refused');

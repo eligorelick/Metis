@@ -82,6 +82,7 @@ export interface CapitalCashFlowRow {
 }
 
 export interface CapitalBalanceRow {
+  cashConflictReconciled?: true;
   cashBasis?: "cash-only";
   fieldConflicts?: FmpStatementRow["fieldConflicts"];
   shortTermDebt?: number | null;
@@ -742,6 +743,7 @@ export function computeCapital(
     const resolution = resolveNetDebt({
       date: latestBal?.date,
       cashBasis: latestBal?.cashBasis,
+      cashConflictReconciled: latestBal?.cashConflictReconciled,
       totalDebt: latestBal?.totalDebt,
       capitalLeaseObligations: latestBal?.capitalLeaseObligations,
       operatingLeaseLiability: latestBal?.operatingLeaseLiability,

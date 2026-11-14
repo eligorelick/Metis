@@ -764,6 +764,7 @@ export interface DcfIncomeRow extends FiscalDatedRow {
 
 /** Selected whole balance-sheet slice used by the DCF builder (FMP field names). */
 export interface DcfBalanceRow {
+  cashConflictReconciled?: true;
   cashBasis?: "cash-only";
   cashAndCashEquivalents?: number | null;
   shortTermInvestments?: number | null;
@@ -2363,10 +2364,12 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const leaseOut = leaseExcluded || bal === null ? { amount: 0, note: null, clause: null } : operatingLeaseOutOfDebt(bal, inputs.includeLeasesInEv === true);
   const leaseBasis = { fcx1Excluded: leaseExcluded, includeLeasesInEv: inputs.includeLeasesInEv === true, currentRowExcludesLease: leaseOut.note === null };
   const icDebt = bal && bal.fieldConflicts?.totalDebt?.usable !== false && isNum(bal.totalDebt) ? bal.totalDebt - (leaseExcluded ? bal.operatingLeaseLiability as number : leaseOut.amount) : null;
-  const liquidityResolution = resolveNetDebt(bal ?? {});
-  const admittedLiquidity = liquidityResolution.value !== null && (isNum(bal?.cashAndShortTermInvestments) || bal?.cashBasis === "cash-only");
-  const liquidity = bal && isNum(bal.totalDebt) && liquidityResolution.value !== null ? bal.totalDebt - liquidityResolution.value : null;
-  if (liquidityResolution.cashBasis === "cash-only") notes.push(liquidityResolution.reason);
+  const liquidityResolution = bal?.cashConflictReconciled ? resolveNetDebt(bal) : null;
+  const liquidity = bal?.cashConflictReconciled
+    ? isNum(bal.totalDebt) && liquidityResolution?.value != null ? bal.totalDebt - liquidityResolution.value : null
+    : isNum(bal?.cashAndShortTermInvestments) ? bal.cashAndShortTermInvestments : null;
+  const admittedLiquidity = liquidity !== null;
+  if (liquidityResolution?.cashBasis === "cash-only") notes.push(liquidityResolution.reason);
   const equity = resolveConsolidatedEquity(bal ?? {});
   // FIN-119-V1: temporary equity (redeemable preferred and redeemable NCI) is financing capital. A refused operand leaves
   // the capital unknown, never zero (D-87): the DCF is withheld as it is for missing equity.
@@ -2389,7 +2392,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       ...(equity.value === null ? ["consolidated equity (totalEquity / totalStockholdersEquity)"] : []),
       ...(!admittedLiquidity ? [operand("cashAndShortTermInvestments"), ...(bal.fieldConflicts?.cashAndCashEquivalents?.usable === false ? [operand("cashAndCashEquivalents")] : [])] : []),
     ];
-    gaps.push(mainCapitalGap(`balance-sheet fields missing for invested capital: ${missing.join(", ")}${bal ? ` at ${bal.date}` : ""}`, "invested-capital-balance-fields-missing"));
+    const lead = liquidityResolution?.conflict ? `invested capital liquidity refused: ${liquidityResolution.reason}`
+      : `balance-sheet fields missing for invested capital: ${missing.join(", ")}${bal ? ` at ${bal.date}` : ""}`;
+    gaps.push(mainCapitalGap(lead, "invested-capital-balance-fields-missing"));
     return { assumptions: null, notes, gaps };
   }
   // FIN-303 (pre-flight I6): invested capital that the lease subtraction itself emptied (positive lease-inclusive, not
@@ -2634,7 +2639,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     asOf: { statements: ttm?.date ?? null, estimates: analyst.asOf },
     notes,
   };
-  if (liquidityResolution.cashBasis === "cash-only") gaps.push({ field: "valuation.dcf.cashBasis", reason: `${bal?.date}: ${liquidityResolution.reason}`, severity: "info" });
+  if (liquidityResolution?.cashBasis === "cash-only") gaps.push({ field: "valuation.dcf.cashBasis", reason: `${bal?.date}: ${liquidityResolution.reason}`, severity: "info" });
   return { assumptions, notes, gaps };
 }
 

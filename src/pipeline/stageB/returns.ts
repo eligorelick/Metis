@@ -1585,6 +1585,7 @@ function investedCapital(
     shortTermInvestments: b.shortTermInvestments ?? null,
     cashAndShortTermInvestments: b.cashAndShortTermInvestments ?? null,
     cashBasis: b.cashBasis,
+    cashConflictReconciled: b.cashConflictReconciled,
     allowLegacyCashOnly: true,
     fieldConflicts: b.fieldConflicts,
     fieldProvenance: b.fieldProvenance,

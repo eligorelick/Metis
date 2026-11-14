@@ -702,6 +702,7 @@ function toCapitalBalance(r: FmpBalanceSheetRow, leaseEvidenceContext: LeaseEvid
     cashAndCashEquivalents: num(r.cashAndCashEquivalents),
     shortTermInvestments: num(r.shortTermInvestments),
     cashBasis: r.cashBasis,
+    cashConflictReconciled: r.cashConflictReconciled,
     cashAndShortTermInvestments: num(r.cashAndShortTermInvestments),
     ...(num(r.marketableEquitySecurities) !== null ? { marketableEquitySecurities: num(r.marketableEquitySecurities) } : {}),
   };
@@ -4355,6 +4356,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     preferredStock: num(row.preferredStock),
     ...(row.fieldConflicts !== undefined ? { fieldConflicts: row.fieldConflicts } : {}),
     cashBasis: row.cashBasis,
+    cashConflictReconciled: row.cashConflictReconciled,
     cashAndCashEquivalents: num(row.cashAndCashEquivalents), shortTermInvestments: num(row.shortTermInvestments),
     cashAndShortTermInvestments: num(row.cashAndShortTermInvestments),
     longTermInvestments: num(row.longTermInvestments),
@@ -5306,6 +5308,7 @@ function netDebtFromBalance(
 ): NetDebtResolution {
   return resolveNetDebt({
     cashBasis: bal?.cashBasis,
+    cashConflictReconciled: bal?.cashConflictReconciled,
     date: bal ? str(bal.date) : null,
     totalDebt: bal ? num(bal.totalDebt) : null,
     capitalLeaseObligations: bal ? num(bal.capitalLeaseObligations) : null,

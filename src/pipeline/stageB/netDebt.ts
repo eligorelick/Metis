@@ -192,6 +192,7 @@ export function operatingLeaseOutOfDebt(
 }
 
 export interface NetDebtInputs extends LeaseDebtInputs {
+  cashConflictReconciled?: true;
   /** Preserve main's existing ROIC fallback; other consumers require explicit filed admission. */
   allowLegacyCashOnly?: boolean;
   cashBasis?: "cash-only";
@@ -307,9 +308,9 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
   }
 
   const mainComponentScope = inputs.fieldProvenance?.cashAndCashEquivalents?.cashScopeReconciled === true;
-  const refusedCash = ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermInvestments"].find(f => inputs.fieldConflicts?.[f]?.usable === false &&
+  const refusedCash = inputs.cashConflictReconciled ? ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermInvestments"].find(f => inputs.fieldConflicts?.[f]?.usable === false &&
     !((f !== "cashAndCashEquivalents" && inputs.fieldConflicts[f]?.cause === "liquidity-not-established" && inputs.cashBasis === "cash-only") ||
-      f === "cashAndShortTermInvestments" && mainComponentScope && cash !== null && shortTermInvestments !== null));
+      f === "cashAndShortTermInvestments" && mainComponentScope && cash !== null && shortTermInvestments !== null)) : undefined;
   if (refusedCash) return { ...base, value: null, cashBasis: null, conflict: true,
     reason: `${refusedCash} refused: ${inputs.fieldConflicts![refusedCash]!.reason ?? "incompatible liquidity evidence"}` };
   if ((inputs.cashBasis === "cash-only" || inputs.allowLegacyCashOnly) && cash !== null && combinedCash === null && shortTermInvestments === null) {
@@ -377,7 +378,9 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
     value: null,
     cashBasis: null,
     // Fix round 2, M3: name the row's cash-only net debt only when it carries one (a keyless row often does not).
-    reason: "combined cash-and-short-term-investments unavailable; cashAndCashEquivalents or shortTermInvestments missing" +
+    reason: (cash === null && inputs.fieldConflicts?.cashAndCashEquivalents?.usable === false
+      ? `cashAndCashEquivalents withheld (${inputs.fieldConflicts.cashAndCashEquivalents.reason ?? "refused at admission"}); ` : "") +
+      "combined cash-and-short-term-investments unavailable; cashAndCashEquivalents or shortTermInvestments missing" +
       (vendorNetDebt !== null ? "; the row's cash-only net debt is not used" : ""),
   };
 }
