@@ -55,6 +55,12 @@ describe('D-261 final owner policy',()=>{
    {...balance,date:'2024-12-31',cashAndCashEquivalents:50*M,shortTermInvestments:100*M,cashAndShortTermInvestments:150*M}]);
   expect(r.latestRoicPct).not.toBeNull();
  });
+ it('preserves main single-period capital when an old opening lease observation is unusable',()=>{
+  const current={...balance,cashAndCashEquivalents:50*M,shortTermInvestments:100*M,cashAndShortTermInvestments:150*M};
+  const r=computeRoic([...income,{...income[0]!,date:'2024-12-31'}],[current,
+    {...current,date:'2024-12-31',operatingLeaseLiability:100*M,capitalLeaseObligations:0}]);
+  expect(r.latestRoicPct).not.toBeNull();
+ });
  it('honors an independently refused investment even when vendor cash has no conflict',()=>{
   const b={...balance,cashAndCashEquivalents:50*M,cashAndShortTermInvestments:null,shortTermInvestments:null,fieldConflicts:{shortTermInvestments:{usable:false,reason:'investment issuer scope refused'}}};
   expect(resolveNetDebt(b)).toMatchObject({value:null,conflict:true});

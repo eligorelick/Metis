@@ -1943,7 +1943,7 @@ export function computeRoic(
         continue;
       }
       const priorLiquidity = resolveNetDebt(balPrev);
-      if (priorLiquidity.conflict) {
+      if (priorLiquidity.conflict && (balNow.cashConflictReconciled || balPrev.cashConflictReconciled || balPrev.fieldConflicts?.shortTermInvestments?.usable === false)) {
         rootCauses.set(row.date, priorLiquidity.reason); yearNotes.push(priorLiquidity.reason); continue;
       }
       const basisNow = resolveNetDebt({ ...balNow, allowLegacyCashOnly: true }).cashBasis === "cash-only" ? "cash-only" : "cash-and-investments";
