@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Bounded carrying investment subtotals (P7, P8, D-268)
 
+- Clear pre-existing typed liquidity refusals at both admission gates only with bounded carrying proof; retain independent refusals and original observations, including on a repeated cash-admission view. Equal plain facts win in either XML order.
+
 - Preserve plain facts across investment lookup lists and sibling lines. Carrying note subtotals never supply cash or fallback component sums; liquidity composition requires a same-filing current-assets bound.
 - Separate carrying-only supplementation from statement acquisition disclosures and successor history. Revisit admitted cash only when newly proved investment evidence arrives.
 - Report 1.85.0, payload 1.103.0, Stage B CARRYING_INVESTMENTS_77. All original-input financial outputs remain unchanged. The separately refreshed four-instance LLY case recovers FY2025 ROIC 39.7485% and changes September bridge net debt 44,618M to 44,544M; model value becomes 739.3363643527257 USD/share. Saved inputs stay unchanged.

@@ -59,6 +59,7 @@ deposits retain their overlap guard. Independent refusals remain sticky.
 New investment evidence also revisits liquidity when cash already agrees with
 the filing; otherwise the September 74M subtotal would be silently ignored.
 No new tolerance, balancing plug or company condition is introduced.
+The AssetsCurrent bound is a ceiling, not an overlap proof; separation from cash rests on the short-term-investment concept definitions excluding cash equivalents and the block whenever a plain balance-sheet investment-family fact exists at that filing and instant.
 SEC-built rows enforce the same bound and typed refusal as vendor-row admission;
 both paths use `filedSumWithinTotal` in the existing comparison owner.
 
@@ -121,17 +122,57 @@ in 0000059478-26-000013. ROIC moves **gap -> 39.748496481549836%**.
 This restores the fourth observed above-WACC fiscal year (2022-2025), meeting
 `TERMINAL_EXCESS_RETURN_MIN_YEARS = 4`. The existing terminal-return rule then
 moves terminal ROIC **7.807993425632762% (WACC) -> 12.807993425632763%
-(WACC + capped 5pp)** and reinvestment **32.01846958263031% ?
+(WACC + capped 5pp)** and reinvestment **32.01846958263031% ->
 19.519060612544706%**. Together with the September bridge's 74M reduction,
 the model value changes **662.078517539688 -> 739.3363643527257 USD/share**.
 These are deterministic model outputs, not filed prices or a new valuation rule.
 Bull/base/bear outputs move **1,009.57/662.08/411.64 -> 1,135.40/739.34/456.98 USD/share**.
 The recovered annual liquidity also restores NOA/accrual coverage and historical
-EV observations. Quality/moat/composite move **68.43/80.79/62.90 ?
+EV observations. Quality/moat/composite move **68.43/80.79/62.90 ->
 73.86/87.09/66.86**; balance-sheet score **74.37 -> 74.38**, valuation score
 **33.98 -> 29.72**. Other aspect scores are unchanged. The scratch numerical-delta
 artifact enumerates derived grids, multiples, score operands and model outputs;
 they inherit the FY2025 liquidity/ROIC and September bridge sources above.
+
+### Confirmation bot-thread follow-up
+
+Equal plain and carrying observations are tested in both XML orders, including
+plain first. The earlier F2 fix already keeps them in separate dedup groups and
+drops the carrying copy whenever a plain family observation exists. The plain
+point remains unmarked and cannot masquerade as carrying-only supplementation.
+
+A separate failing-first regression confirmed that pre-existing typed
+`liquidity-not-established` refusals reached the family proof but were rejected
+again by `dependentOfCash`. Both gates now use the same same-filing/instant,
+same-currency carrying proof and AssetsCurrent bound. Only that typed cause
+clears. This covers a raw refused row and the result of an earlier cash
+admission whose cash provenance was already established. Independent investment,
+combined-liquidity and net-debt refusals remain refused, including independent
+vendor/SEC conflicts. Root-gap propagation may relabel a vendor conflict only
+when its evidence proves inheritance from that row's original cash refusal;
+it cannot turn an independent refusal into a recoverable liquidity cause.
+
+The earlier four-instance LLY scratch did not exercise this bug: FY2025's
+short-term investment had no prior refusal, while combined liquidity and net
+debt inherited the cash comparison's vendor/SEC conflict with the same cash
+tag/instant/filing evidence. The existing `replayCash` branch cleared those
+inherited conflicts. That explains the already computed 7,373M, rather than
+showing that typed-liquidity recovery worked. No vendor observations are
+changed or copied into this decision record. This corrects implementation of
+the declared D-268 rule; report/payload/Stage B stamps remain 1.85.0/1.103.0/_77.
+The prepared-row recovery retains the original vendor observation and is
+idempotent once the typed refusals are cleared.
+
+Follow-up verification: 113 focused investment/cash/refusal tests pass, including
+both equal-fact XML orders, raw and prepared typed-refusal recovery, independent
+refusals on each dependent field, and missing/exceeded/different-filing/instant
+proof controls. Typecheck and lint pass (the existing unused-variable warning
+remains). All 19 original-input Stage B outputs are byte-identical to pinned
+main e8d3b567a0db554ac9f134ff1a344b7c0472e4ff; all exported outputs also match
+the previous PR delivery byte for byte. Accuracy remains 171 match / 7 mismatch /
+61 gap / 26 not-established across 265 figures, with no expectation update.
+The separately refreshed four-instance LLY output is unchanged, including
+7,373M FY2025 liquidity. No stored input/report/database was modified.
 
 ### Regressions, stamps and checks
 
