@@ -1701,11 +1701,14 @@ function boundedResearch(notes: string, sources: AnalystResearch["sources"], web
 
 /** Research is optional; a failed provider/auth/policy request is not. */
 function optionalResearchLimitation(outcome: Extract<RunPassOutcome, { ok: false }>, request: RunPassArgs): WebResearchLimitation | undefined {
-  if (parseSubscriptionModel(request.model)?.provider !== "chatgpt" || outcome.error.kind !== "transport" || request.signal?.aborted || outcome.error.aborted || outcome.error.notLaunched) return undefined;
+  const provider = parseSubscriptionModel(request.model)?.provider;
+  // The Claude sign-in route has the same local action and time limits (D-269);
+  // its capability refusal is ChatGPT-only (an HTTP 400 on the tools parameter).
+  if (provider !== "chatgpt" && provider !== "claude" || outcome.error.kind !== "transport" || request.signal?.aborted || outcome.error.aborted || outcome.error.notLaunched) return undefined;
   const failure = outcome.error.providerFailure;
   if (failure?.code === "local_web_action_limit") return "action_limit";
   if (failure?.code === "local_web_time_limit") return "time_limit";
-  if (failure?.code === "subscription_sharing_unsupported_capability" && failure.httpStatus === 400 &&
+  if (provider === "chatgpt" && failure?.code === "subscription_sharing_unsupported_capability" && failure.httpStatus === 400 &&
       /^(?:tools|tools\[0\](?:\.type)?)$/.test(failure.param ?? "")) return "capability_unavailable";
   return undefined;
 }
