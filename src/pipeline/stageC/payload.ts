@@ -210,6 +210,9 @@ export interface PayloadFigure {
   estimateTiming?: EstimateModelTiming;
   /** Exact registry ID for numeric figures emitted by payload assembly. */
   provenanceId?: string;
+  cashFlowDirection?: "outflow";
+  /** Equivalent component definitions declared by the metric producer. */
+  componentDefinitions?: readonly string[];
   label: string;
   value: number | string | null;
   unit: string;
@@ -244,6 +247,7 @@ export interface PayloadSection {
 /** A compact statement extract: one line item across periods. */
 export interface StatementLineExtract {
   lineItem: string;
+  cashFlowDirection?: "outflow";
   unit: string;
   source: string;
   /** period label (fiscal period end ISO) -> value; null when undisclosed. */
@@ -663,7 +667,16 @@ function peerScreenSection(peerCoverage: PeerCoverage, collectionNotes: Readonly
   return payloadSection({ title: "Peer screen exclusions and collection notes", figures: [], notes });
 }
 
-/** Stage B computed-metrics sections — the analytical spine of the payload. */
+/** D-263: formulas of these producers, not definitions inferred from prose. */
+const CURRENT_CAPITAL_DEFINITIONS: Readonly<Record<string, readonly string[]>> = {
+  "cashBridge.standardizedFcf": ["operating cash flow less capital expenditure", "operating cash flow less cash capital expenditure"],
+  "cashBridge.afterSbcStandardizedFcf": ["operating cash flow less cash capital expenditure less stock-based compensation"],
+  interestCoverage: ["ebit divided by interest expense"],
+  netDebtToEbitda: ["net debt divided by ebitda"],
+  fcfConversionBeforeSbc: ["standardized free cash flow divided by net income"],
+};
+
+/** Stage B computed-metrics sections: the analytical spine of the payload. */
 function computedSections(
   computed: ComputedMetrics,
   currencies: ComputedCurrencies,
@@ -717,9 +730,9 @@ function computedSections(
   const lastGross = g.margins.gross.series.at(-1);
   const lastOper = g.margins.operating.series.at(-1);
   const lastNet = g.margins.net.series.at(-1);
-  if (lastGross) growthFigures.push({ label: "gross margin (latest)", value: lastGross.pct, unit: "%", source: "computed.growth.margins.gross", asOf: lastGross.date, ...fiscalYearOf(annualLabels, lastGross.date, lastGross.date) });
-  if (lastOper) growthFigures.push({ label: "operating margin (latest)", value: lastOper.pct, unit: "%", source: "computed.growth.margins.operating", asOf: lastOper.date, ...fiscalYearOf(annualLabels, lastOper.date, lastOper.date) });
-  if (lastNet) growthFigures.push({ label: "net margin (latest)", value: lastNet.pct, unit: "%", source: "computed.growth.margins.net", asOf: lastNet.date, ...fiscalYearOf(annualLabels, lastNet.date, lastNet.date) });
+  if (lastGross) growthFigures.push({ label: "gross margin (latest)", value: lastGross.pct, unit: "%", componentDefinitions: ["gross profit divided by revenue"], source: "computed.growth.margins.gross", asOf: lastGross.date, ...fiscalYearOf(annualLabels, lastGross.date, lastGross.date) });
+  if (lastOper) growthFigures.push({ label: "operating margin (latest)", value: lastOper.pct, unit: "%", componentDefinitions: ["operating income divided by revenue"], source: "computed.growth.margins.operating", asOf: lastOper.date, ...fiscalYearOf(annualLabels, lastOper.date, lastOper.date) });
+  if (lastNet) growthFigures.push({ label: "net margin (latest)", value: lastNet.pct, unit: "%", componentDefinitions: ["net income divided by revenue"], source: "computed.growth.margins.net", asOf: lastNet.date, ...fiscalYearOf(annualLabels, lastNet.date, lastNet.date) });
   const operatingSupport=operatingHistorySupport(g.margins.operating,annualLabels);
   sections.push(payloadSection({ title: "Growth & margins (computed)", figures: growthFigures,
     notes: [...g.notes,...(operatingSupport ? [operatingSupport] : [])] }));
@@ -770,8 +783,8 @@ function computedSections(
     { label: "capex/revenue (latest)", value: cap.capexIntensity.latestPct, unit: "%", source: "computed.capital.capexIntensity", asOf: cap.asOf, ...capexYear },
     { label: "capex/revenue slope", value: cap.capexIntensity.slopePctPtsPerYear, unit: "pp/yr", source: "computed.capital.capexIntensity", asOf: cap.asOf },
     { label: "capex/D&A (latest)", value: cap.maintenanceVsGrowthCapex.capexToDALatest, unit: "x", source: "computed.capital.maintenanceVsGrowthCapex", asOf: cap.asOf, ...capexYear },
-    { label: "net debt/EBITDA", value: cap.netDebtToEbitda.value, unit: "x", source: "computed.capital.netDebtToEbitda", asOf: cap.netDebtToEbitda.asOf },
-    { label: "interest coverage", value: cap.interestCoverage.value, unit: "x", source: "computed.capital.interestCoverage", asOf: cap.asOf },
+    { componentDefinitions: ["net debt divided by ebitda"], label: "net debt/EBITDA", value: cap.netDebtToEbitda.value, unit: "x", source: "computed.capital.netDebtToEbitda", asOf: cap.netDebtToEbitda.asOf },
+    { componentDefinitions: ["ebit divided by interest expense"], label: "interest coverage", value: cap.interestCoverage.value, unit: "x", source: "computed.capital.interestCoverage", asOf: cap.asOf },
     { label: "SBC, cash-flow add-back / revenue", value: cap.sbc.pctOfRevenue, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
     { label: "SBC, cash-flow add-back / FCF", value: cap.sbc.pctOfFcf, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
     // N3: the dilution overhang had no consumer in the payload, the data-only
@@ -1007,6 +1020,11 @@ function computedSections(
       const label = (key === "cashBridge.stockBasedCompensation" ? "SBC, cash-flow add-back" : key === "allocatedSbcExpense" ? "SBC, allocated expense" : undefined)
         ?? (key === "debtBridge.totalDebtIncludingLeases" ? currentCapital.debtBridge.providerDebtPerimeterLabel : undefined) ?? (key.startsWith("debtBridge.") ? LEASE_DEBT_LABELS[key.slice("debtBridge.".length)] : undefined) ?? key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
       figures.push({ label, value, unit, currency: unit === "currency" ? currentCapital.currency : null,
+        ...(key === "netDebt" && value !== null && value === currentCapital.debtBridge.netDebtIncludingLeases && !currentCapital.debtBridge.marketableEquitySecurities
+          ? { componentDefinitions: ["total debt less cash and short-term investments"] } : {}),
+        ...(key === "ebitda" && currentCapital.ebitdaComputed === true ? { componentDefinitions: ["ebit plus depreciation and amortization", "earnings before interest, taxes, depreciation and amortization"] } : {}),
+        ...(CURRENT_CAPITAL_DEFINITIONS[key] ? { componentDefinitions: CURRENT_CAPITAL_DEFINITIONS[key] } : {}),
+        ...(key === "cashBridge.cashCapitalExpenditure" ? { cashFlowDirection: "outflow" as const } : {}),
         source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period,
         ...(construction ? {
           periodContext: { kind: "duration" as const, start: construction.start, end: construction.end, basis: "rolling-12-month" as const },
@@ -1461,6 +1479,10 @@ const BALANCE_LINE_ITEMS: { key: keyof FmpBalanceSheetRow; label: string; unit: 
   { key: "cashAndShortTermInvestments", label: "cash + STI", unit: "currency" },
 ];
 
+// D-263: explicit cash-use field contracts, never guessed from labels or signs.
+// Net financing/investing totals, losses and net cash/debt are deliberately absent.
+const CASH_USE_FIELDS: ReadonlySet<string> = new Set(["capitalExpenditure", "commonStockRepurchased"]);
+
 const CASHFLOW_LINE_ITEMS: { key: keyof FmpCashFlowRow; label: string; unit: string }[] = [
   { key: "netIncome", label: "net income (cash-flow)", unit: "currency" },
   { key: "operatingCashFlow", label: "operating cash flow", unit: "currency" },
@@ -1591,6 +1613,7 @@ function extractStatement<TRow extends FmpRawRow>(
     lineItem: periodKind === "instant" && li.key === "totalDebt" && kept.some(r => incompleteLeaseCoverage(r as FmpBalanceSheetRow) !== null)
       ? "debt including disclosed lease portion (full lease coverage unverified; see period notes)" : periodKind === "instant" && li.key === "totalDebt" ? "Debt used in this report" : li.label,
     unit: li.unit,
+    ...(periodKind === "duration" && CASH_USE_FIELDS.has(String(li.key)) ? { cashFlowDirection: "outflow" as const } : {}),
     source,
     byPeriod: kept.map((r, i) => {
       const periodContext = statementPeriodContext(r, String(li.key), periodKind);
@@ -3076,8 +3099,8 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
     if (row.revenue !== null) figures.push({ ...base, label: `revenue, ${at}`, value: row.revenue, unit: "currency", currency });
     if (row.revenueYoyPct !== null) figures.push({ ...base, label: `revenue growth year over year, ${at}`, value: row.revenueYoyPct, unit: "%" });
     if (row.revenueQoqPct !== null) figures.push({ ...base, label: `revenue growth quarter over quarter, ${at}`, value: row.revenueQoqPct, unit: "%" });
-    if (row.grossMarginPct !== null) figures.push({ ...base, label: `gross margin, ${at}`, value: row.grossMarginPct, unit: "%" });
-    if (row.operatingMarginPct !== null) figures.push({ ...base, label: `operating margin, ${at}`, value: row.operatingMarginPct, unit: "%" });
+    if (row.grossMarginPct !== null) figures.push({ ...base, componentDefinitions: ["gross profit divided by revenue"], label: `gross margin, ${at}`, value: row.grossMarginPct, unit: "%" });
+    if (row.operatingMarginPct !== null) figures.push({ ...base, componentDefinitions: ["operating income divided by revenue"], label: `operating margin, ${at}`, value: row.operatingMarginPct, unit: "%" });
     if (row.freeCashFlow !== null) figures.push({ ...base, label: `free cash flow (operating cash flow less capex), ${at}`, value: row.freeCashFlow, unit: "currency", currency });
     // D-63 (audit P1-B): the issuer's own reconciliation figures by quarter.
     const recon = { ...base, source: "edgar:8-K EX-99 reconciliation" };
@@ -3400,6 +3423,8 @@ function attachProvenanceRegistry(
       label: figure.label,
       kind,
       value: figure.value,
+      ...(figure.cashFlowDirection ? { cashFlowDirection: figure.cashFlowDirection } : {}),
+      ...(figure.componentDefinitions ? { componentDefinitions: figure.componentDefinitions } : {}),
       unit,
       ...(/^(?:fraction|frac)$/i.test(figure.unit.trim()) ? { unitScale: "fraction" as const } : {}),
       currency: resolvedCurrency,
@@ -3517,6 +3542,7 @@ function attachProvenanceRegistry(
           label: line.lineItem,
           kind: "provider",
           value: cell.value,
+          ...(line.cashFlowDirection ? { cashFlowDirection: line.cashFlowDirection } : {}),
           unit,
           currency: monetary ? canonical.currency : null,
           period: cell.period,

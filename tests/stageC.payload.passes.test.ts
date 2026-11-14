@@ -1,3 +1,5 @@
+import * as filingDisclosureProducer from "@/pipeline/filingDisclosures";
+import { validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
 import { unavailableValuationUseFixture } from "./helpers/valuationUse";
 import { expectFrozenRecord, promptDigest, sha256Text, toFrozenJson, type FrozenJson } from "./helpers/frozenRecord";
 /**
@@ -1117,7 +1119,7 @@ describe("payload determinism + provenance", () => {
       "degradation f591b71ec31aefa2",
       "growth 3b108cfa32943129",
       "returns b32e80844ad5bd4b",
-      "capital 1e4c3fff2067cefb",
+      "capital cf1aba56d586ba01",
       "forensics 0d59d3ffecb6f45c",
       "technicals 0d0c7b3f39a71e07",
       "valuation (frozen record)",
@@ -2931,7 +2933,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.77.0"); // D-261: bank revenue report semantics
+    expect(report.meta.specVersion).toBe("1.79.0"); // D-261: bank revenue report semantics
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -6150,4 +6152,63 @@ describe("sections carried from a cut-off response are checked before they are k
     });
     expect(checked).toEqual({ kept: { thesis: bull.thesis, catalysts: [] }, dropped: ["keyDrivers", "priceTarget"] });
   });
+});
+
+describe("D-263 review producer declarations", () => {
+  it("retains the sign of net acquisition inflows and positive-convention payments", () => {
+    const { bundle, computed } = buildInputs();
+    Object.assign(computed.forensics.accruals!, { acquisitionCashPaid: -1.234e9, acquisitionCashPaidUnallocated: null, notes: ["Acquisitions from retained rows"] });
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const record = payload.provenanceRegistry!.find(r => r.origin === "computed.forensics.accruals.acquisitionCashPaid")!;
+    expect(record).toBeDefined();
+    expect(record.cashFlowDirection).toBeUndefined();
+    expect(validateClaimNumericSupport({ label: "FACT", text: `${record.label} as of ${record.asOf} was USD 1.234 billion.`, source: record.id, asOf: record.asOf }, { record, sourceId: record.id, excerpts: [], reportingCurrency: "USD" }).status).toBe("contradicted");
+    expect(payload.computed.flatMap(s => s.figures).filter(f => /acquisitionCashPaidUnallocated|financeLeasePrincipalPayments/.test(f.source)).every(f => f.cashFlowDirection === undefined)).toBe(true);
+    computed.forensics.accruals!.acquisitionCashPaidUnallocated = 1234;
+    const unallocated = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }))
+      .computed.flatMap(s => s.figures).find(f => f.source === "computed.forensics.accruals.acquisitionCashPaidUnallocated");
+    expect(unallocated).toBeDefined();
+    expect(unallocated!.cashFlowDirection).toBeUndefined();
+  });
+  it("does not declare a reconstructed EBITDA formula for an unproven vendor EBITDA", () => {
+    const { bundle, computed } = buildInputs();
+    Object.assign(computed.capital.current!, { ebitda: 1234, ebitdaComputed: undefined });
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    expect(payload.computed.flatMap(s => s.figures).find(f => f.source === "computed.capital.current.ebitda")?.componentDefinitions).toBeUndefined();
+  });
+  it.each(["lease", "equity"])("uses current net-debt evidence for a different %s perimeter", perimeter => {
+    const { bundle, computed } = buildInputs();
+    const current = computed.capital.current!;
+    computed.capital.netDebtToEbitda.netDebt = computed.capital.netDebtToEbitda.resolution.value;
+    delete computed.capital.netDebtToEbitda.resolution.nonOperatingEquitySecurities;
+    Object.assign(current, { netDebt: 10, debtBridge: { ...current.debtBridge, netDebtIncludingLeases: perimeter === "lease" ? 20 : 10, marketableEquitySecurities: perimeter === "equity" ? 5 : undefined } });
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    expect(payload.computed.flatMap(s => s.figures).find(f => f.source === "computed.capital.current.netDebt")?.componentDefinitions).toBeUndefined();
+  });
+});
+
+it("D-263 review admits the proven current debt definition regardless of annual exclusions", () => {
+  const { bundle, computed } = buildInputs();
+  computed.capital.netDebtToEbitda.resolution.nonOperatingEquitySecurities = 5;
+  const current = computed.capital.current!;
+  Object.assign(current, { netDebt: 10, debtBridge: { ...current.debtBridge, netDebtIncludingLeases: 10, marketableEquitySecurities: undefined } });
+  const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+  expect(payload.computed.flatMap(s => s.figures).find(f => f.source === "computed.capital.current.netDebt")?.componentDefinitions).toEqual(["total debt less cash and short-term investments"]);
+});
+
+it("D-263 review does not declare an outflow convention for positive-only shareholder distributions", () => {
+  const { bundle, computed } = buildInputs();
+  const disclosures = filingDisclosureProducer.buildFilingDisclosures(bundle, computed.route.cashFlowApplicability);
+  if (!disclosures) throw new Error("fixture requires filing disclosures");
+  const spy = vi.spyOn(filingDisclosureProducer, "buildFilingDisclosures").mockReturnValue({ ...disclosures, capitalReturn: {
+    returned: 1234, returnedPeriod: "2026-06-30", authorizationRemaining: null, authorizationAdded: null,
+    dividendPerShare: null, dividendChangeFrom: null, dividendChangeTo: null, dividendPayDate: null, dividendRecordDate: null,
+    source: { form: "8-K", accession: "synthetic", filingDate: "2026-07-01", exhibit: "EX-99.1", url: "https://example.test/release" },
+  } });
+  try {
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const figure = payload.issuerFilings?.figures.find(f => f.label.startsWith("returned to shareholders"));
+    expect(figure).toBeDefined();
+    expect(figure!.cashFlowDirection).toBeUndefined();
+  } finally { spy.mockRestore(); }
 });

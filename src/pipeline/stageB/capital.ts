@@ -300,6 +300,8 @@ export interface CapitalResult {
     value: number | null;
     netDebt: number | null;
     ebitda: number | null;
+    /** D-263: affirmative construction proof; absent for the vendor fallback. */
+    ebitdaComputed?: true;
     asOf: string | null;
     resolution: NetDebtResolution;
     note?: string;
@@ -780,6 +782,7 @@ export function computeCapital(
     const latestInc: CapitalIncomeRow | undefined = inc.length > 0 ? inc[0] : undefined;
     const cfMatch = latestInc !== undefined ? rowForDate(cf, latestInc.date) : undefined;
     let ebitda: number | null = null;
+    let ebitdaComputed: true | undefined;
     const ebitLatest = latestInc !== undefined
       ? isFiniteNumber(latestInc.operatingIncome)
         ? latestInc.operatingIncome
@@ -798,6 +801,7 @@ export function computeCapital(
         : null;
     if (ebitLatest !== null && daLatest !== null) {
       ebitda = ebitLatest + daLatest;
+      ebitdaComputed = true;
       ndNotes.push("EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)");
     } else if (latestInc !== undefined && isFiniteNumber(latestInc.ebitda)) {
       ebitda = latestInc.ebitda;
@@ -828,6 +832,7 @@ export function computeCapital(
       value,
       netDebt,
       ebitda,
+      ...(ebitdaComputed ? { ebitdaComputed } : {}),
       asOf: latestBal?.date ?? null,
       resolution,
       note: ndNotes.length > 0 ? ndNotes.join("; ") : undefined,

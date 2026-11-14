@@ -45,6 +45,10 @@ const flagOf = (c: ComputedMetrics) => c.forensics.flags.find(f => f.id === "rec
 // Values are measured on pre-fix 6cf2de24, not derived from the implementation.
 function invariantHash(c: ComputedMetrics) {
   const pinned = restoreN4aPeerWordingGolden(restoreCapexBasisGolden(c, 1), 2);
+  // D-263: construction proof adds no financial value. Keep this historical
+  // calculation pin; producer-proof behavior is covered in currentCapital tests.
+  delete pinned.capital.netDebtToEbitda.ebitdaComputed;
+  if (pinned.capital.current) delete pinned.capital.current.ebitdaComputed;
   // N2 P/TBV review changes only this deduction disclosure in the control.
   // Pin its exact text once, then preserve the complete historical hash.
   const tbv = pinned.valuation.multiples!.multiples.find(row => row.key === "priceToTbv")!;

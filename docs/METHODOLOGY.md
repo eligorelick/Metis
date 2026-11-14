@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.77.0 / payload 1.96.0, Stage B `STAGE_B_2026_11_FILED_BALANCES_GAPS_70` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.79.0 / payload 1.96.0, Stage B `STAGE_B_2026_11_FILED_BALANCES_GAPS_70` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -8667,6 +8667,30 @@ midpoint. An issuer without confirmed SEC facts is not judged. Stored run
 inputs are not rewritten: the rule runs when a report is built, and the
 company page's free-cash-flow bars read the same admitted rows.
 
+
+### Cash outflow amounts and clause subjects (P19, D-263)
+
+A producer may declare cashFlowDirection: outflow only for a stored convention
+that is negative for cash outflow. Statement cash capex and repurchases, and the
+current cash-capex record, establish that convention. Acquisition cash paid is
+positive for payments and negative for net inflows; unallocated payments,
+finance-lease principal and shareholder distributions are positive/null. They
+retain signed matching. Losses, net cash and all undeclared records also retain
+signed matching. Existing display rounding, period, currency and unit checks hold.
+Uncited cash-use clauses never rebuild their labels to remove unestablished words;
+the whole clause must validate directly before an absolute magnitude can confirm.
+
+A prose parenthetical is masked only if it exactly matches an explicitly declared
+producer definition. Incidental asides stay intact, as do all record-label
+qualifiers. FCF, net debt, EBITDA, margin and coverage definitions require their
+own producer's basis. EBITDA declares EBIT plus D&A only with affirmative proof
+from the actual construction; a vendor EBITDA fallback supplies no such proof.
+Net debt declarations use the emitted current snapshot's own debt perimeter.
+
+Only score operands with the writer's dotted coordinate path containing [index]
+bypass rendered-citation parsing. Malformed or ambiguous tokens, empty sources
+and conflicting source/as-of dates remain unsupported and disclosed. Saved bytes
+are never rewritten.
 
 ### Reader presentation and immutable records (D-264)
 

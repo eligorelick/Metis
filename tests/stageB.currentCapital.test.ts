@@ -279,3 +279,12 @@ it("uses the established filed start for a 53-week current-capital window (FIN-1
   expect(r.current?.periodStartIsApproximate).not.toBe(true);
   expect(attachCurrentCapital(annual(),{income,cashFlow:cash,balance,currency:"USD"}).current?.periodStartIsApproximate).toBe(true);
 });
+
+it("D-263 review carries EBITDA construction proof from the actual current producer", () => {
+  const built = attachCurrentCapital(annual(), { income, cashFlow: cash, balance, currency: "USD" });
+  expect(built.current?.ebitdaComputed).toBe(true);
+  const vendorCash = { ...cash, depreciationAndAmortization: 0 };
+  const fallback = attachCurrentCapital(annual(), { income: { ...income, ebitda: 99 }, cashFlow: vendorCash, balance, currency: "USD" });
+  expect(fallback.current?.ebitda).toBe(99);
+  expect(fallback.current?.ebitdaComputed).toBeUndefined();
+});

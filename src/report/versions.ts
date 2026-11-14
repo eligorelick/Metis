@@ -223,7 +223,7 @@
 // meaning for new reports; three reader labels name consolidated net income. No display cutoff is added; stored
 // reports keep their bytes.
 // D-261 (P8, P10): exact filed balances and root-input gaps for all withheld score signals.
-export const REPORT_SPEC_VERSION = "1.77.0" as const;
+export const REPORT_SPEC_VERSION = "1.79.0" as const;
 
 /**
  * Current payload format version.
