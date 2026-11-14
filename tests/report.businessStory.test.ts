@@ -267,6 +267,26 @@ describe("product-line headings are code-checked labels (D-271, P18)", () => {
     for (const headings of renderedLineHeadings(ReportSchema.parse(report))) expect(new Set(headings)).toEqual(new Set([UNNAMED_PRODUCT_LINE_HEADING]));
   });
 
+  it("admits filed product, geography and bank member labels despite coarse provider rows (D-277)", () => {
+    const bundle = { segmentation: {
+      product: { ok: true, value: { data: { rows: [{ data: { Product: 100, "Collaboration and Other Revenue": 5 } }] } } },
+    }, edgar: { quarterlySegments: { ok: true, value: { data: { axes: [
+      { axis: "ProductOrServiceAxis", rows: [{ member: "issuer:VerandolMember", label: "Verandol" }, { label: "Corvista" }] },
+      { axis: "StatementGeographicalAxis", rows: [{ label: "United States" }] },
+      { axis: "StatementBusinessSegmentsAxis", rows: [{ label: "Wealth Management" }] },
+    ] } } } } } as unknown as Parameters<typeof bundleSegmentNameKeys>[0];
+    const items = ["Verandol", "Corvista", "United States", "wealth management", "Product", "Invented franchise", "Verandol dominates the market", "issuer:VerandolMember"]
+      .map(name => line(name, fact(`${name} is described in the claims.`)));
+    const names = bundleSegmentNameKeys(bundle);
+    expect(gateProductLineHeadings(items, names)!.map(item => item.productLine)).toEqual([
+      "Verandol", "Corvista", "United States", "wealth management", "Product",
+      UNNAMED_PRODUCT_LINE_HEADING, UNNAMED_PRODUCT_LINE_HEADING, UNNAMED_PRODUCT_LINE_HEADING,
+    ]);
+    expect(gateProductLineHeadings(items, names)!.map(item => item.claims)).toEqual(items.map(item => item.claims));
+    const refused = { edgar: { quarterlySegments: { ok: false } } } as unknown as Parameters<typeof bundleSegmentNameKeys>[0];
+    expect(bundleSegmentNameKeys(refused).size).toBe(0);
+  });
+
   // Review round 2 (lead fix, P18): at assembly a heading must be a segment name in the bundle's own
   // segmentation data, so neither an assertion backed only by a statement of an evidence gap nor a
   // judge-authored segment row can turn model text into a caption.

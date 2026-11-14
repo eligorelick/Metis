@@ -11,6 +11,28 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-277 - Filed member labels belong to the code-owned heading names (2026-11-14)
+
+P18, P21 and P27. Owner decision: lead. Owner: `src/pipeline/stageC/passes.ts:bundleSegmentNameKeys`. Revises D-271 review round 2's source inventory, preserving its whole-name gate and the generation/read-time FACT checks.
+
+**Evidence and cause.** Fresh LLY report 65 (job `e4cccbcb-ee93-42a2-a184-b59f9a750184`) replaced nine of ten product headings and all three competitor headings with the fixed fallback. Provider annual segmentation is coarser than the issuer's filed product members. The quarterly segment table already reads `bundle.edgar.quarterlySegments.value.data.axes[].rows[].label`, built by `buildQuarterlySegments` from filed XBRL. Assembly omitted that source. The bundle includes product and geographic axes; business-segment axes use the same code path for banks and other issuers.
+
+**Rule and scope.** Also collect those filed row labels when the quarterly-segments result is successful. Use the existing `productLineHeadingKey` and whole-name equality; never take member QNames, axis captions, prior-presentation notes, model claims or judge-authored segment rows as additional names. Missing or failed filed results add nothing. This applies to every issuer shape using that source, including business segments and geography. Neither the model's assertion nor a statement that evidence is absent can make a label code-owned. No tolerance, financial admission or calculation changes. No company conditions.
+
+**Alternatives and risks.** Provider-only names reproduce the defect; claim text or judge rows would violate P18 and reopen the D-271 assertion exploit. Reusing the existing filed table labels preserves the filing reader's selection, cutoff and naming rules without a second parser. Coverage remains bounded by retained bundle evidence. Saved reports and databases are untouched; this changes newly assembled reports and explicit local reassemblies only. Report spec 1.89.0 and Stage C stage-c-1.6.46 identify the changed assembly meaning. Payload and Stage B stamps remain unchanged.
+
+**Regressions.** Added synthetic coarse-provider pharmaceutical, geographic and bank business-member shapes, a missing-name control, a member-QName control, and failed-filed-result control. The original D-271 reproduction, "Verandol dominates the market", still falls back even when Verandol is a filed name. Claims remain byte-identical. No existing behavior assertion was weakened; only current version pins changed in `report.versionStamps.test.ts` and the persisted-report assertions in `jobRunner.test.ts` and `stageC.payload.passes.test.ts`.
+
+**Approved report changes (pinned base `f97588e29d6824c6fb296d499cd16def5fd937d2`).**
+
+- Full same-report set: all 17 cases (`amzn-data-only`, `amzn-fixed-analyst`, `duk-data-only`, `figr-data-only`, `jpm-data-only`, `meta-data-only`, `meta-fixed-analyst`, `mu-data-only`, `mu-fixed-analyst`, `nvda-data-only`, `nvda-fixed-analyst`, `o-data-only`, `pgr-data-only`, `qcom-data-only`, `rivn-data-only`, `tsm-data-only`, `vktx-data-only`) change only `report.json` leaves `meta.specVersion` and `meta.pipelineVersion`, their displayed strings in Markdown/print/audit/web, and the web evidence inspector's report-identity hash. Stage B and payload bytes are identical; every figure and status is identical before/after.
+- The two supplied LLY report-63 cases have the same metadata-only delta. Their snapshot is absent from `metis-check/check.db`, so both runs used the provided final-round database copy read-only. These stored cases do not exercise assembly's new heading gate. LLY-only accuracy check reports no configured data-only case; the full accuracy check covers 265 figures in 13 cases and matches all existing expectations (173 match, 5 mismatch, 61 gap, 26 not-established). No expectation changes.
+- Fresh LLY report-65 assembly replay: read the supplied live/c2 database copy with `DatabaseSync(..., { readOnly: true })`, recovered the frozen bundle and successful judge artifact, and reassembled under both base and changed code with the same generated time, stored verification log and pipeline label. Exactly nine heading leaves change from the fallback: `business.products[0,1,3,4,5,6,9].productLine` become Mounjaro, Zepbound, Jardiance, Verzenio, Trulicity, Taltz, Immunology; `competitive.competitorsByProductLine[0,2].productLine` become Zepbound, Mounjaro. The only other JSON change is `meta.specVersion`. Every claim and figure is identical. Markdown rendering of the two assembled objects changes eight visible headings (seven products and Zepbound competitors), plus the spec label in two metadata rows. The Mounjaro competitor label is admitted into JSON but still renders as fallback because its naming FACT remains unchecked under the saved verification log (type-2 and receptor terminology was flagged as ambiguous quantities). That independent claim-verification behavior is unchanged. This is an assembly comparison, not a full fresh model run or mutation of the saved report.
+- Foundayo and Kisunla (and the Foundayo competitor heading) stay fallback: neither name is in this snapshot's filed member rows or provider names. The audit's assumption that every product has a filed member is not true of the retained table source. No broader source admission is authorized here.
+- Sample DEMO changes only its spec/pipeline labels. Frozen audit projection changes only the spec label and projection hash; the stagec-payload refresh was attempted and refused because its bytes already match. No financial frozen leaf changed.
+
+**Validation.** The new regression failed before the owner fix. Focused business-story, version and documentation checks, TypeScript, changed-file ESLint and the required changed-test sweep are recorded in the PR. CI runs the full suite. The required changed-test sweep passed 646 files and 16,468 tests (one skipped) and found two stale stamp assertions in jobRunner and stageC.payload.passes; those assertions now pin the new versions with identical strictness, and both affected tests passed on a focused rerun. No paid/model calls or evidence-database writes.
+
 ## D-276 - Brief lines describe the business, not the stock (2026-11-14)
 
 P18 and P22. Owner: `src/report/presentation.ts` (`isBriefEligible`, `briefClaims`). Revises D-273's brief selection; read time only, so saved reports render with it and their bytes do not change.
@@ -278,6 +300,8 @@ case list against new showed differences only in `tsm-data-only`. `accuracy:chec
 with `--update-expectation`, and their notes now state the filed match.
 
 ## D-271 - A home for the business story, for every company type (2026-11-14)
+
+**Revised by D-277:** assembly also admits the code-built filed quarterly XBRL member labels, using the same whole-name match.
 
 P18, P20, P21 and P22. Owners: `src/report/schema.ts` (fields and the heading
 rule), `src/pipeline/stageC/passes.ts` (generation), `src/pipeline/stageC/prompts.ts`
