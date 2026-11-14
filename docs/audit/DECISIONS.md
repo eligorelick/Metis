@@ -79,7 +79,7 @@ the sub-0.1% agreement wording; runStageB through the bridge table, the D-60 not
 the post-cutoff fact; a disclosure-only control (with and without the trust fact every value, multiple, EV and score
 is identical); the read-time view of a stored bridge without the field. Failing on main first (13 of 14).
 
-**Same-report check (all 17 stored cases and the two LLY cases).** No numeric leaf of any `stageB.json` changed;
+**Same-report check (all 17 stored cases and the two LLY cases; committed head against main e2b32711).** No numeric leaf of any `stageB.json` changed;
 the only new numeric leaves are the disclosure fields `valuation.dcf.bridge.shareBasis.*` (divisor, quote count,
 difference, and for LLY the filed held-share fact). Text changes: the multiples' basis strings, the peer
 comparison basis, the D-60 note and the bridge note. Cases whose diluted divisor is below the quote count:
@@ -91,15 +91,16 @@ comparison basis, the D-60 note and the bridge note. Cases whose diluted divisor
 - `o-data-only` (REIT, no DCF bridge, 0.51% below): the multiples' basis text says the difference is not dilution
   and its cause is not established (no held-share fact is filed on or before the cutoff).
 - `tsm-data-only` (ADS quote, under 0.1% below): the bridge note and basis text say the two counts agree within
-  0.1% and attribute nothing; the quoted-unit owner's notes are unchanged.
+  0.1% and attribute nothing; the D-60 valuation note stays absent (under its threshold, as before) and the
+  quoted-unit owner's notes are unchanged.
 
 Every other case's divisor is at or above the quote count (ordinary dilution); their bridge note is unchanged and
 their basis text gains only the measured "Share basis" sentence. FIGR, META, RIVN and VKTX show no multiple or
 bridge that sets the two counts side by side and are byte-identical in `stageB.json`.
 
 **Approved report changes.** Basis text of the shown multiples and the peer comparison in every case with a quote
-and a diluted count (AMZN, DUK, JPM, LLY, MU, NVDA, O, PGR, QCOM, TSM); the D-60 note and bridge note for LLY and
-TSM; the new `valuation.dcf.bridge.shareBasis` disclosure object in every DCF case; the payload's multiples notes.
+and a diluted count (AMZN, DUK, JPM, LLY, MU, NVDA, O, PGR, QCOM, TSM); the D-60 note and bridge note for LLY, the
+bridge note for TSM; the new `valuation.dcf.bridge.shareBasis` disclosure object in every DCF case; the payload's multiples notes.
 No figure, grade, band or headline changes.
 
 **Stamps.** Report spec 1.81.0, payload 1.99.0, Stage B `STAGE_B_2026_11_SHARE_BASIS_DISCLOSURE_73`: Stage B
