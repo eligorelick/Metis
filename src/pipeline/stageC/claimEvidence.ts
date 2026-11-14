@@ -266,13 +266,34 @@ function technicalPlainFrame(text: string, q: Quantity, all: Quantity[], own: Co
   return endpoint ? { label: `52w ${endpoint}`, source: r => r.kind === "computed" && r.origin === "computed.technicals.range52w" && r.label === `52w ${endpoint}` && r.unit === "currency-per-share" } : undefined;
 }
 
-/** Context checks run BEFORE evidence-wide value lookup, including for coincidental equal values elsewhere. */
+/** D-263: only an explicitly declared definition can be removed from prose.
+ * A record label remains intact: its parentheticals may define accounting basis.
+ */
+function declaredDefinitions(record: NumericProvenanceRecord): readonly string[] {
+  return record.componentDefinitions ?? [];
+}
+function componentContext(text: string, definitions: readonly string[]): { text: string; definitions: string[] } {
+  const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+  const known = new Set(definitions.map(normalize));
+  const found: string[] = [];
+  const masked = text.replace(/\(([^()]*)\)/g, (match, contents: string) => {
+    if (!known.has(normalize(contents))) return match;
+    found.push(normalize(contents));
+    return " ".repeat(match.length);
+  });
+  return { text: masked, definitions: found };
+}
+
+/** Context checks run before evidence-wide value lookup, including coincidental equal values. */
 export function checkPlainFigures(text: string, options: PlainFigureOptions): PlainFigureResult[] {
+  const original = text;
+  const components = componentContext(text, options.registry.flatMap(record => [...declaredDefinitions(record)]));
+  text = components.text;
   const all = quantities(text);
   return all.filter(q => q.unit === "currency" || q.unit === "currency-per-share" || q.unit === "percent" ||
     q.unit === "percentage-points" || q.unit === "percentage-points-per-year" || q.unit === "ratio" || q.unit === "days").map(q => {
     const own = context(text, q, all), figure = text.slice(q.start, q.end);
-    const isolated = text.slice(own.start, own.end).split("").map((ch, i) =>
+    const isolated = original.slice(own.start, own.end).split("").map((ch, i) =>
       all.some(other => other !== q && i + own.start >= other.start && i + own.start < other.end) ? " " : ch).join("");
     const frame = technicalPlainFrame(text, q, all, own);
     const lookup = plainLookupQuantity(text, q, all);
@@ -295,9 +316,17 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
       let result = frame ? undefined : validate(isolated);
       let display = record.unit === "ratio" && record.unitScale === "fraction" && q.unit === "percent" ? record.value * 100 : record.value;
       if (!result || (result.status !== "validated" && !(result.status === "contradicted" && result.reason === "value-mismatch"))) {
+        // D-263 (second review): a rebuilt label may still find a value conflict, but it never confirms where the
+        // clause held a declared definition or the record is a declared cash outflow (the rebuild drops the clause's
+        // own words, including an opposed cash-use direction). Only the record that declares a found definition is
+        // read under it; any other record stays unbound, so a definition cannot select a different metric.
+        const ownsDefinition = declaredDefinitions(record).some(d => components.definitions.includes(d.trim().toLowerCase().replace(/\s+/g, " ")));
+        if (components.definitions.length > 0 && !ownsDefinition) continue;
+        const confirmationBlocked = ownsDefinition || declaredOutflow(record);
         if (frame && !frame.source(record)) continue;
         if (!frame && descriptionConflictsWithRecord({ metric: own.own, segment: own.own }, record, options.ignoreWords)) continue;
-        const reading = frame ? { label: frame.label } : readings.find(({ tokens }) => tokens.length > 0 && words.some((_, i) => namesMetric(words.slice(i, i + tokens.length), tokens)));
+        const reading = frame ? { label: frame.label } : readings.find(({ tokens }) => tokens.length > 0 && words.some((_, i) => namesMetric(words.slice(i, i + tokens.length), tokens)))
+          ?? (ownsDefinition ? readings.find(({ tokens }) => tokens.length > 0 && words.length > 0 && words.every(w => tokens.includes(w))) : undefined);
         if (!reading) continue;
         const sourceWords = [...metricTokens(reading.label, options.ignoreWords, { keepDirectionWords: true }), ...(frame?.label.startsWith("SMA") ? ["average"] : [])];
         const defining = new Set([...DEFINITION_MODIFIERS, "growth", "decline", "increase", "decrease", "change", "spread", "ratio", "conversion", "margin", "after", "before", "discount", "threshold"]);
@@ -308,10 +337,11 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
         const money = q.unit === "currency" && record.unit === "currency-per-share" ? `${raw} per share` : raw;
         const periods = [...own.periods.map(p => `for ${p.raw}`), ...own.bases.map(p => `compared with ${p.raw}`)].join(" ");
         result = validate(`${reading.label}: ${money} ${periods}`);
+        if (confirmationBlocked && result.status === "validated") continue;
         if (frame?.flip) display = -display;
       }
       if (result.status === "validated" || (result.status === "contradicted" && result.reason === "value-mismatch")) {
-        if (statementOutflow(record) && q.value > 0 && /\b(?:buybacks|share repurchases|capital expenditure|capex)\b/i.test(own.label)) display = Math.abs(display);
+        if (declaredOutflow(record) && q.value > 0 && !q.explicitSign && result.status === "validated") display = Math.abs(display);
         const boundSupported = q.bound === "lower" ? (q.strict ? display > q.value : display >= q.value)
           : q.bound === "upper" ? (q.strict ? display < q.value : display <= q.value) : false;
         if (/\b(?:must|would need|would have to|well beyond|threshold)\b/i.test(own.own)) continue;
@@ -1098,11 +1128,11 @@ function currentCapitalFcfReading(record: NumericProvenanceRecord): "standardize
   if (record.id === "computed.current-capital.after-sbc-standardized-fcf" && record.origin === "computed.capital.current.cashBridge.afterSbcStandardizedFcf" && record.label === "after sbc standardized fcf") return "after-sbc";
   return null;
 }
-/** D-187 revises D-160 only for negative statement buyback/capex observations. */
-function statementOutflow(record: NumericProvenanceRecord): boolean {
-  return record.kind === "provider" && record.unit === "currency" && record.value < 0 &&
+/** D-263 extends D-187 with explicit producer metadata; legacy statement contracts remain valid. */
+function declaredOutflow(record: NumericProvenanceRecord): boolean {
+  return record.unit === "currency" && record.value < 0 && (record.cashFlowDirection === "outflow" || (record.kind === "provider" &&
     /^payload\.statements\.cash-flow-(?:annual|quarterly)\.\d{4}-\d{2}-\d{2}\./.test(record.id) &&
-    /^(?:capex|buybacks) \(negative\)$/.test(record.label ?? "");
+    /^(?:capex|buybacks) \(negative\)$/.test(record.label ?? "")));
 }
 /** The coverage is metadata explicitly printed by this producer, never inferred from a score. */
 function financialPiotroskiCoverage(record: NumericProvenanceRecord): { evaluated: number; total: number } | null {
@@ -1175,7 +1205,7 @@ function typedClaimContext(text: string, record: NumericProvenanceRecord): strin
   if (record.origin === "computed.technicals.relativeStrength.6mo") text = text.replace(/\bover the six months\b/gi, "over six months    ");
   if (record.unit === "currency" && record.value < 0 && record.label === "income tax expense")
     text = text.replace(/, a benefit(?=\.)/gi, blank);
-  if (statementOutflow(record)) text = text.replace(/\(cash outflow\)|\bof cash outflow\b/gi, blank);
+  if (declaredOutflow(record)) text = text.replace(/\(cash outflow\)|\bof cash outflow\b/gi, blank);
   if (record.unitScale === "fraction" && record.value === 0 && /^computed\.scores\.[a-z]+\.dataCompleteness$/i.test(record.origin))
     text = text.replace(/, so (?:no quantitative (?:[a-z-]+ )?score exists|the quantitative valuation grade defaults to the neutral band|the capital-stewardship proxy produced no score)/gi, blank);
   if (record.unit === "count" && /^computed\.valuation\.peerCoverage\.[\w-]+\.count$/.test(record.origin) && record.value === 0)
@@ -1757,6 +1787,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   registry?: readonly NumericProvenanceRecord[];
 }): ClaimNumericSupport {
   const record = options.record;
+  if (record) claim = { ...claim, text: componentContext(claim.text, declaredDefinitions(record)).text };
   if (record === undefined) {
     // Attribution identifies the cited document, not the figure's definition.
     // Keep all negation, basis words, dates and quantities, and require the
@@ -1914,8 +1945,8 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       if (currency === null) return support("unchecked", "currency-mismatch", "prose currency is not established");
       if (currency !== record.currency) return support("unchecked", "currency-mismatch", "prose currency is not established by the cited numeric record");
     }
-    const magnitude = statementOutflow(record) && direction === null && findDirectionWords(claim.text).length === 0 && !/\binflows?\b/i.test(claim.text) &&
-      normalizedQuantity.value > 0 && /\b(?:buybacks|share repurchases|capital expenditure|capex)\b/i.test(own.label);
+    const magnitude = declaredOutflow(record) && direction === null && findDirectionWords(claim.text).length === 0 && !/\binflows?\b/i.test(claim.text) &&
+      normalizedQuantity.value > 0 && !normalizedQuantity.explicitSign;
     const signed = magnitude ? { ...normalizedQuantity, value: -normalizedQuantity.value }
       : direction !== null && normalizedQuantity.value >= 0 ? { ...normalizedQuantity, value: normalizedQuantity.value * direction.polarity } : normalizedQuantity;
     return equalValue(signed, record.value)

@@ -41,6 +41,14 @@ original versions and bytes; source merge does not deploy or publish a release.
   proved income and cash-flow siblings; incomplete scopes remain disclosed.
 - New reports use report 1.78.0, payload 1.95.0 and Stage B
   `STAGE_B_2026_11_FILED_FLOWS_69`. Stored reports keep their original bytes.
+## Unreleased - P19 verification marks (D-263)
+
+- Independent review tightened the rule: only established negative-for-outflow producers qualify; cash-use prose has no label-rebuild fallback; only declared prose definitions are masked; label qualifiers and ambiguous legacy operand refusals remain. EBITDA and net-debt definitions now require the actual current producer evidence.
+
+- Verify explicitly declared cash-use magnitudes without treating their unsigned prose amounts as conflicts. Real sign, value and direction conflicts remain contradicted.
+- Bind prose to its clause subject when a parenthetical spells out a producer-declared component definition, covering free cash flow, net debt, EBITDA, margins and coverage ratios.
+- Preserve indexed score-operand source paths on read, removing a false legacy-citation warning and its confidence-cap contribution. Stored report bytes remain unchanged.
+- Report spec moves to 1.76.0. Payload, Stage B and pipeline stamps stay unchanged: prompt text, calculations and orchestration are unchanged.
 
 ## Unreleased - `best` removed from the Claude CLI model list (2026-11-13)
 

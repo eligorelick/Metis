@@ -324,6 +324,7 @@
           "value": -0.4642857142857143,
           "netDebt": -1300000000,
           "ebitda": 2800000000,
+          "ebitdaComputed": true,
           "asOf": "2025-12-31",
           "resolution": {
             "version": "NET_DEBT_V3",
@@ -384,6 +385,7 @@
           "netDebtToEbitda": -0.4642857142857143,
           "netDebt": -1300000000,
           "ebitda": 2800000000,
+          "ebitdaComputed": true,
           "ebit": 2500000000,
           "interestExpense": 150000000,
           "fcfBeforeSbc": 1800000000,

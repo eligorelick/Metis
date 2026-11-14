@@ -218,6 +218,156 @@
   },
   {
     "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-263",
+    "reason": "P19 producer metadata declares cash-use signs and component definitions for deterministic verification; calculation values and model-visible prompt text stay unchanged.",
+    "scope": [
+      "$.payload.computed",
+      "$.payload.statements",
+      "$.payload.quarterlyTrend",
+      "$.provenanceRegistry",
+      "$.summary.provenanceHash"
+    ],
+    "beforeSha256": "f90848c2e57a07702d5d2491d00b9cbffb1fd800546aee150cd8f830420fa2da",
+    "afterSha256": "d1848e7fd39b37b57ad1e2f70b1804109d0b93110b1c24f8ad0abfff3264c31c",
+    "changedLeaves": 63,
+    "changedPaths": [
+      "$.summary.provenanceHash",
+      "$.provenanceRegistry[24].componentDefinitions[0]",
+      "$.provenanceRegistry[25].componentDefinitions[0]",
+      "$.provenanceRegistry[26].componentDefinitions[0]",
+      "$.provenanceRegistry[43].componentDefinitions[0]",
+      "$.provenanceRegistry[44].componentDefinitions[0]",
+      "$.provenanceRegistry[87].componentDefinitions[0]",
+      "$.provenanceRegistry[88].componentDefinitions[0]",
+      "$.provenanceRegistry[89].componentDefinitions[0]",
+      "$.provenanceRegistry[90].componentDefinitions[0]",
+      "$.provenanceRegistry[90].componentDefinitions[1]",
+      "$.provenanceRegistry[92].cashFlowDirection",
+      "$.provenanceRegistry[93].componentDefinitions[0]",
+      "$.provenanceRegistry[93].componentDefinitions[1]",
+      "$.provenanceRegistry[97].componentDefinitions[0]",
+      "$.provenanceRegistry[98].componentDefinitions[0]",
+      "$.provenanceRegistry[99].componentDefinitions[0]",
+      "$.provenanceRegistry[100].componentDefinitions[0]",
+      "$.provenanceRegistry[100].componentDefinitions[1]",
+      "$.provenanceRegistry[102].cashFlowDirection",
+      "$.provenanceRegistry[103].componentDefinitions[0]",
+      "$.provenanceRegistry[103].componentDefinitions[1]",
+      "$.provenanceRegistry[304].cashFlowDirection",
+      "$.provenanceRegistry[305].cashFlowDirection",
+      "$.provenanceRegistry[306].cashFlowDirection",
+      "$.provenanceRegistry[307].cashFlowDirection",
+      "$.provenanceRegistry[308].cashFlowDirection",
+      "$.provenanceRegistry[319].cashFlowDirection",
+      "$.provenanceRegistry[320].cashFlowDirection",
+      "$.provenanceRegistry[321].cashFlowDirection",
+      "$.provenanceRegistry[322].cashFlowDirection",
+      "$.provenanceRegistry[323].cashFlowDirection",
+      "$.provenanceRegistry[332].cashFlowDirection",
+      "$.provenanceRegistry[333].cashFlowDirection",
+      "$.provenanceRegistry[334].cashFlowDirection",
+      "$.provenanceRegistry[335].cashFlowDirection",
+      "$.provenanceRegistry[342].componentDefinitions[0]",
+      "$.provenanceRegistry[346].componentDefinitions[0]",
+      "$.provenanceRegistry[350].componentDefinitions[0]",
+      "$.provenanceRegistry[353].componentDefinitions[0]",
+      "$.payload.computed[0].figures[17].componentDefinitions[0]",
+      "$.payload.computed[0].figures[18].componentDefinitions[0]",
+      "$.payload.computed[0].figures[19].componentDefinitions[0]",
+      "$.payload.computed[2].figures[7].componentDefinitions[0]",
+      "$.payload.computed[2].figures[8].componentDefinitions[0]",
+      "$.payload.computed[4].figures[0].componentDefinitions[0]",
+      "$.payload.computed[4].figures[1].componentDefinitions[0]",
+      "$.payload.computed[4].figures[2].componentDefinitions[0]",
+      "$.payload.computed[4].figures[4].componentDefinitions[0]",
+      "$.payload.computed[4].figures[5].componentDefinitions[0]",
+      "$.payload.computed[4].figures[5].componentDefinitions[1]",
+      "$.payload.computed[4].figures[7].cashFlowDirection",
+      "$.payload.computed[4].figures[8].componentDefinitions[0]",
+      "$.payload.computed[4].figures[8].componentDefinitions[1]",
+      "$.payload.computed[4].figures[13].componentDefinitions[0]",
+      "$.payload.statements[4].lineItems[4].cashFlowDirection",
+      "$.payload.statements[4].lineItems[7].cashFlowDirection",
+      "$.payload.statements[5].lineItems[4].cashFlowDirection",
+      "$.payload.statements[5].lineItems[7].cashFlowDirection",
+      "$.payload.quarterlyTrend.figures[2].componentDefinitions[0]",
+      "$.payload.quarterlyTrend.figures[6].componentDefinitions[0]",
+      "$.payload.quarterlyTrend.figures[10].componentDefinitions[0]",
+      "$.payload.quarterlyTrend.figures[13].componentDefinitions[0]"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-263",
+    "reason": "P19 numeric prose verification changes report meaning, so the report spec stamp moves while historical saved report bytes and calculation values remain unchanged.",
+    "scope": [
+      "$.projection.report.meta.specVersion",
+      "$.projectionSha256"
+    ],
+    "beforeSha256": "738cfcfcc5658feaa1e6360c74d36260bc60c7153c36216699d50f7be76ac975",
+    "afterSha256": "922d5868a3b1f0b4527fd538c9dd462ccd38928b92d355479752ddafecf04602",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-263",
+    "reason": "P19 breadth audit additionally declares finance-lease principal and filed shareholder cash-return records as cash uses; all figures and prompt text remain unchanged.",
+    "scope": [
+      "$.payload.computed",
+      "$.payload.issuerFilings",
+      "$.provenanceRegistry",
+      "$.summary.provenanceHash"
+    ],
+    "beforeSha256": "d1848e7fd39b37b57ad1e2f70b1804109d0b93110b1c24f8ad0abfff3264c31c",
+    "afterSha256": "a139adcfb7b361ca1b7d34e3f48590e8cbcaefa8938e49fd19f6ebe7786a2e2e",
+    "changedLeaves": 1,
+    "changedPaths": [
+      "$.payload.computed[4].figures[9].cashFlowDirection"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-263",
+    "reason": "P19 independent review: finance-lease principal is positive or null by construction, so it cannot declare a negative-for-outflow convention; all figures and prompt bytes stay unchanged.",
+    "scope": [
+      "$.payload.computed"
+    ],
+    "beforeSha256": "a139adcfb7b361ca1b7d34e3f48590e8cbcaefa8938e49fd19f6ebe7786a2e2e",
+    "afterSha256": "d1848e7fd39b37b57ad1e2f70b1804109d0b93110b1c24f8ad0abfff3264c31c",
+    "changedLeaves": 1,
+    "changedPaths": [
+      "$.payload.computed[4].figures[9].cashFlowDirection"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-263",
+    "reason": "P19 independent review requires affirmative construction proof for the actual EBITDA producer; only proof metadata and its projection hash change, never calculation values.",
+    "scope": [
+      "$.projection.stageB.capital.netDebtToEbitda.ebitdaComputed",
+      "$.projection.stageB.capital.current.ebitdaComputed",
+      "$.projectionSha256"
+    ],
+    "beforeSha256": "922d5868a3b1f0b4527fd538c9dd462ccd38928b92d355479752ddafecf04602",
+    "afterSha256": "1cdc597504cfb978d82a0d1207f25db7366e72d50e3714ada6c0536b045a2572",
+    "changedLeaves": 3,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.stageB.capital.netDebtToEbitda.ebitdaComputed",
+      "$.projection.stageB.capital.current.ebitdaComputed"
+    ]
+  },
+  {
+    "date": "2026-11-14",
     "target": "audit-fixture",
     "decision": "D-262",
     "reason": "D-262 changes the declared filed PP&E precedence and report version; synthetic DEMO arithmetic and all unrelated leaves remain pinned.",

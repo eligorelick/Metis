@@ -222,6 +222,7 @@
 // P/E basis are on the filed total net revenue where the filing proves it, so shown figures and an aspect band change
 // meaning for new reports; three reader labels name consolidated net income. No display cutoff is added; stored
 // reports keep their bytes.
+// 1.76.0 (D-263, P19): declared cash outflow magnitudes and FCF clause subjects verify without false conflicts.
 // 1.78.0 (D-262, P8/P13): exact-period filed additive flows replace conflicting vendor observations.
 export const REPORT_SPEC_VERSION = "1.78.0" as const;
 
