@@ -5713,15 +5713,20 @@ export function fiscalCashDividendPayout(rows: readonly FmpCashFlowRow[], income
   return rows.slice(0,3).map(row=>{
     const income=incomes.find(i=>i.date===row.date);
     const dividendProof=row.fieldProvenance?.commonDividendsPaid;
-    const incomeProof=income?.fieldProvenance?.netIncomeAvailableToCommon ?? income?.fieldProvenance?.netIncome;
+    const incomeField=income?.fieldProvenance?.netIncomeAvailableToCommon ? "netIncomeAvailableToCommon" as const : "netIncome" as const;
+    const incomeProof=income?.fieldProvenance?.[incomeField];
     const start=dividendProof?.periodStart ?? null, end=isoDay(row.date);
     const proofs=[dividendProof,incomeProof];
-    const commonIncome=num(row.netIncome), cash=num(row.commonDividendsPaid);
+    // P13: the income operand is the proven field of the income row, never the cash-flow row's copy.
+    const commonIncome=num(income?.[incomeField]), cash=num(row.commonDividendsPaid);
+    // P7/P13 (D-272 review round 2): both operands must be read from one filing (a shared accession).
+    const oneFiling=!!dividendProof && !!incomeProof && dividendProof.filings.some(d=>incomeProof.filings.some(i=>i.accn===d.accn));
     const reason=!start || !end || !incomeProof?.periodStart || start!==incomeProof.periodStart || end!==incomeProof.periodEnd || end!==dividendProof?.periodEnd
       ? "Exact matching filed fiscal-year windows for common dividends and common income are not established."
       : proofs.some(p=>!p || p.unit!==dividendProof!.unit || p.filings.length===0 || p.filings.some(f=>f.filed>cutoff) || p.observedAt.slice(0,10)>cutoff)
       ? "Compatible filed currency and cutoff evidence for both payout operands is missing."
-      : commonIncomeFlowRefusal(income ? commonFlowScope(income,income.fieldProvenance?.netIncomeAvailableToCommon ? "netIncomeAvailableToCommon" : "netIncome","annual") : undefined,commonFlowScope(row,"commonDividendsPaid","annual"))!==null || income?.fieldConflicts?.netIncome?.usable===false || income?.fieldConflicts?.netIncomeAvailableToCommon?.usable===false || row.fieldConflicts?.commonDividendsPaid?.usable===false || commonIncome===null || commonIncome<=0 || cash===null || cash>0
+      : !oneFiling ? "Common dividends and common income are not established from one filing."
+      : commonIncomeFlowRefusal(income ? commonFlowScope(income,incomeField,"annual") : undefined,commonFlowScope(row,"commonDividendsPaid","annual"))!==null || income?.fieldConflicts?.netIncome?.usable===false || income?.fieldConflicts?.netIncomeAvailableToCommon?.usable===false || row.fieldConflicts?.commonDividendsPaid?.usable===false || commonIncome===null || commonIncome<=0 || cash===null || cash>0
       ? "Admitted common cash dividends or positive income available to common is unavailable." : null;
     const source=proofs.flatMap(p=>p ? p.filings.map(f=>`${f.form} ${f.accn} filed ${f.filed}; ${p.tags.join(", ")}`) : []).join("; ");
     const dates=proofs.flatMap(p=>p?.filings.map(f=>f.filed) ?? []).sort();

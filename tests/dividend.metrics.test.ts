@@ -31,9 +31,16 @@ it("converts a proven ADS ordinary-share dividend, and refuses missing ratio or 
 const proof=(tag:string)=>({source:"edgar" as const,unit:"USD",periodStart:"2025-01-01",periodEnd:"2025-12-31",observedAt:"2026-02-01",tags:[tag],filings:[{accn:"synthetic",filed:"2026-02-01",form:"10-K"}]});
 it("computes annual cash payout only for admitted common income in the exact same filed window",()=>{
  const dividend={date:"2025-12-31",netIncome:100,commonDividendsPaid:-25,fieldProvenance:{commonDividendsPaid:proof("us-gaap/PaymentsOfDividendsCommonStock")}};
- const income={date:"2025-12-31",fieldProvenance:{netIncome:proof("us-gaap/NetIncomeLoss")}};
+ const income={date:"2025-12-31",netIncome:100,fieldProvenance:{netIncome:proof("us-gaap/NetIncomeLoss")}};
  expect(fiscalCashDividendPayout([dividend],[income],"2026-07-01")[0]).toMatchObject({value:25,dividends:25,commonIncome:100,start:"2025-01-01",end:"2025-12-31"});
- expect(fiscalCashDividendPayout([{...dividend,netIncome:undefined}],[income],"2026-07-01")[0]!.value).toBeNull();
+ // Review round 2 (P13): the income operand is the income row's proven field, not the cash-flow row's copy.
+ expect(fiscalCashDividendPayout([{...dividend,netIncome:999}],[income],"2026-07-01")[0]).toMatchObject({value:25,commonIncome:100});
+ expect(fiscalCashDividendPayout([dividend],[{...income,netIncome:undefined}],"2026-07-01")[0]!.value).toBeNull();
+ // Review round 2 (P7): operands from two different filings are refused; a shared accession among several stands.
+ const otherFiling={...proof("us-gaap/NetIncomeLoss"),filings:[{accn:"other-10-K",filed:"2026-02-01",form:"10-K"}]};
+ expect(fiscalCashDividendPayout([dividend],[{...income,fieldProvenance:{netIncome:otherFiling}}],"2026-07-01")[0]).toMatchObject({value:null,reason:"Common dividends and common income are not established from one filing."});
+ const both={...otherFiling,filings:[...otherFiling.filings,{accn:"synthetic",filed:"2026-02-01",form:"10-K"}]};
+ expect(fiscalCashDividendPayout([dividend],[{...income,fieldProvenance:{netIncome:both}}],"2026-07-01")[0]!.value).toBe(25);
  expect(fiscalCashDividendPayout([dividend],[{...income,fieldProvenance:{netIncome:{...proof("net"),periodStart:"2025-04-01"}}}],"2026-07-01")[0]!.value).toBeNull();
  expect(fiscalCashDividendPayout([{...dividend,commonDividendsPaid:0}],[income],"2026-07-01")[0]!.value).toBe(0);
 });
@@ -57,7 +64,7 @@ import { runStageB } from "@/pipeline/compute";
 import { assembleContextPayload } from "@/pipeline/stageC/payload";
 it("registers a sourced fiscal-year dividend calculation as computed and keeps its period",()=>{
  const b=completeCurrencyBundle({});const c=runStageB(b);
- c.capital.cashDividendPayout=fiscalCashDividendPayout([{date:"2025-12-31",netIncome:100,commonDividendsPaid:-25,fieldProvenance:{commonDividendsPaid:proof("us-gaap/PaymentsOfDividendsCommonStock")}}],[{date:"2025-12-31",fieldProvenance:{netIncome:proof("us-gaap/NetIncomeLoss")}}],"2026-07-01");
+ c.capital.cashDividendPayout=fiscalCashDividendPayout([{date:"2025-12-31",netIncome:100,commonDividendsPaid:-25,fieldProvenance:{commonDividendsPaid:proof("us-gaap/PaymentsOfDividendsCommonStock")}}],[{date:"2025-12-31",netIncome:100,fieldProvenance:{netIncome:proof("us-gaap/NetIncomeLoss")}}],"2026-07-01");
  const payload=assembleContextPayload(b,c,{checks:[],flags:[],gaps:[]});
  expect(payload.provenanceRegistry?.find(r=>r.label?.includes("fiscal-year common cash dividend payout ratio"))).toMatchObject({kind:"computed",value:25,periodContext:{kind:"duration",start:"2025-01-01",end:"2025-12-31"}});
 });

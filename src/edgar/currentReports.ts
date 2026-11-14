@@ -24,7 +24,7 @@
  * Pure: no network, no clock.
  */
 
-import { parseAnnualDocumentTable, parseGuidanceTables } from "@/edgar/guidanceTables";
+import { annualGuidanceSectionAfterTable, parseAnnualDocumentTable, parseGuidanceTables } from "@/edgar/guidanceTables";
 import { htmlToText, type ParsedDocument } from "@/edgar/extract";
 import { explicitHtmlHiddenState } from "@/edgar/htmlHidden";
 
@@ -571,9 +571,14 @@ export function parseGuidance(rawText: string, document?: ParsedDocument): Issue
     proseText = proseText.replace(htmlToText(table[0]), ".");
   }
   const prose = parseGuidanceWithoutAnnual(proseText);
-  const outsideTables = document!.pre.replace(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi, "");
-  const paragraphItems = [...outsideTables.matchAll(/<(p|div)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)]
-    .flatMap(block => splitSentences(htmlToText(block[2]!)).flatMap(sentence => parseGuidanceSentence(sentence, null)));
+  // Review round 2 (P9): quarterly prose beside the annual table counts only
+  // inside the guidance section the issuer's own structure bounds (after the
+  // table, before the next heading or table). Quoted speech, forward-looking
+  // boilerplate and scenario language never set a guidance value.
+  const paragraphItems = [...annualGuidanceSectionAfterTable(document!).matchAll(/<(p|div)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)]
+    .map(block => htmlToText(block[2]!))
+    .filter(text => !/["“”]|\bforward-looking\b|\bsafe harbor\b|\bscenarios?\b/i.test(text))
+    .flatMap(text => splitSentences(text).flatMap(sentence => parseGuidanceSentence(sentence, null)));
   // Annual table refusal must not swallow independently dated quarterly guidance.
   // Conversely, flattened prose may never rescue refused annual table values.
   const quarterly = [...(other?.items ?? []), ...(prose?.items ?? []), ...paragraphItems].filter((item,index,all) => item.period.fiscalQuarter !== null && all.findIndex(i => i.metric===item.metric && i.basis===item.basis && i.period.label===item.period.label)===index);

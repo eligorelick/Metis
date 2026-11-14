@@ -4,6 +4,8 @@ import { explicitHtmlHiddenState } from "@/edgar/htmlHidden";
 
 const CURRENT_QUARTER = /^Q([1-4])\s+FY\s*'?(20\d{2}|\d{2})\s+(?:Estimates|Current Guidance)$/i;
 const TABLE_COLUMN_CUE = /\b(?:Q[1-4]\b[^.]{0,60}\bEstimates|(?:Previous|Current) Guidance)\b/i;
+/** The lead-in that introduces an issuer's full-year guidance table (one definition, P13). */
+const ANNUAL_GUIDANCE_INTRO = /The following table summarizes (?:the company's )?(?:updated )?full-year (20\d{2}) (?:non-GAAP )?financial guidance\b/i;
 const ENDPOINT_RANGE = /^(US\$|\$|€|£)\s*(\d+(?:\.\d+)?)\s*(B|M|billion|million)?\s*[-–—]\s*(US\$|\$|€|£)?\s*(\d+(?:\.\d+)?)\s*(B|M|billion|million)?$/i;
 
 /** Preserve footnotes through layout/tag wrappers until a distinct disclosure. */
@@ -227,7 +229,7 @@ export function parseAnnualDocumentTable(text: string, document: ParsedDocument)
   if (document.fullText !== text || explicitHtmlHiddenState(document.pre) !== "clear") return null;
   for (const table of document.pre.matchAll(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi)) {
     const context = htmlToText(document.pre.slice(Math.max(0, table.index - 4000), table.index));
-    const intro = /The following table summarizes (?:the company's )?(?:updated )?full-year (20\d{2}) (?:non-GAAP )?financial guidance\b/i.exec(context);
+    const intro = ANNUAL_GUIDANCE_INTRO.exec(context);
     if (!intro) continue;
     const refused: IssuerGuidance = { period: null, items: [], qualifiers: [], unparsed: [htmlToText(table[0])] };
     if (table[0].length > 60000 || /<table\b/i.test(table[0].slice(6)) || /\browspan\s*=/i.test(table[0])) return refused;
@@ -285,6 +287,23 @@ export function parseAnnualDocumentTable(text: string, document: ParsedDocument)
     return { period, items, qualifiers, unparsed: [] };
   }
   return null;
+}
+
+/**
+ * D-272 review round 2 (P9): the passage the issuer's own structure bounds as
+ * its annual guidance section. It starts after the first table introduced as
+ * full-year guidance (the same table parseAnnualDocumentTable reads) and ends
+ * at the next heading or table. Empty when no such table exists.
+ */
+export function annualGuidanceSectionAfterTable(document: ParsedDocument): string {
+  for (const table of document.pre.matchAll(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi)) {
+    const context = htmlToText(document.pre.slice(Math.max(0, table.index - 4000), table.index));
+    if (!ANNUAL_GUIDANCE_INTRO.test(context)) continue;
+    const after = document.pre.slice(table.index + table[0].length);
+    const stop = /<(?:h[1-6]|table)\b/i.exec(after);
+    return stop ? after.slice(0, stop.index) : after;
+  }
+  return "";
 }
 
 /** Old compact formats plus bounded single-quarter tables with document evidence. */

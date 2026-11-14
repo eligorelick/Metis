@@ -24,7 +24,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Show provider results versus consensus and code-computed differences, with unverified EPS basis; distinguish all-person Form 4 statistics from selected sellers and show the quarterly concentration. No statement or valuation rule changes.
 
 - Review round 1: require dates on person rows, preserve independent quarterly guidance, bind accounting basis to the table, label supersession by fiscal period, and register quarterly insider operands with plain result labels.
-- Add indicated dividend yield where declaration/frequency/share/currency proof permits, and exact fiscal-year common cash payout ratios from admitted operands. Both are disclosures without score or valuation use. LLY FY2025 payout is 26.09%; its indicated yield remains a named missing-declaration gap.
+- Add indicated dividend yield where declaration/frequency/share/currency proof permits, and exact fiscal-year common cash payout ratios from admitted operands. Both are disclosures without score or valuation use. LLY FY2025 payout is 26.09%; its indicated yield remains a named missing-declaration gap. Review round 2: quarterly prose beside an annual guidance table counts only inside the issuer-bounded guidance section (never quotes, boilerplate or scenarios), and both payout operands must come from one filing (O FY2023/FY2024 and PGR FY2023 become disclosed gaps).
 
 ## Unreleased - A4 TSM same-report capture (P2, D-275) (2026-11-14)
 

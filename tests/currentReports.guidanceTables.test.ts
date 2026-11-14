@@ -88,6 +88,24 @@ it.each(["", "<tr><td>Unsupported metric</td><td>$1 to $2</td></tr>"])("D-272 pr
  if (!extra) expect(guidance?.items).toContainEqual(expect.objectContaining({metric:"revenue",period:expect.objectContaining({fiscalQuarter:null}),low:12e9,high:13e9}));
  else expect(guidance?.unparsed.join(" ")).toContain("Unsupported metric");
 });
+// Review round 2 (P9): prose outside the issuer-bounded guidance section, quoted speech, forward-looking
+// boilerplate and scenario language never set a quarterly value; the annual table rows still stand.
+const q4 = "For the fourth quarter of 2027, the company expects revenue of $4.0 billion to $4.2 billion";
+it.each([
+ ["before the guidance table", `<p>${q4}.</p>`, ""],
+ ["after a later heading", "", `<h2>Forward-Looking Statements</h2><p>${q4}.</p>`],
+ ["forward-looking boilerplate beside the table", "", `<p>This release contains forward-looking statements. ${q4} in a downside scenario.</p>`],
+ ["a quoted third party", "", `<p>“${q4},” said an analyst at a brokerage firm.</p>`],
+])("D-272 does not read quarterly guidance from %s", (_case, before, after)=>{
+ const doc=annualReviewDoc("",before,after);
+ const guidance=parseGuidance(doc.fullText,doc);
+ expect(guidance?.items.filter(i=>i.period.fiscalQuarter===4)).toEqual([]);
+ expect(guidance?.items).toContainEqual(expect.objectContaining({metric:"revenue",period:expect.objectContaining({fiscalQuarter:null}),low:12e9,high:13e9}));
+});
+it("D-272 control: the same quarterly sentence inside the bounded guidance section is read",()=>{
+ const doc=annualReviewDoc("","",`<p>${q4}.</p>`);
+ expect(parseGuidance(doc.fullText,doc)?.items).toContainEqual(expect.objectContaining({metric:"revenue",period:expect.objectContaining({fiscalQuarter:4}),low:4e9,high:4.2e9}));
+});
 it("D-272 binds explicit GAAP basis to its row despite nearby non-GAAP discussion",()=>{
  const doc=annualReviewDoc("","<p>Non-GAAP adjusted earnings are discussed elsewhere.</p>","<p>The non-GAAP reconciliation follows.</p>");
  expect(parseGuidance(doc.fullText,doc)?.items.find(i=>i.metric==="eps")).toMatchObject({basis:"gaap",low:2,high:3});
