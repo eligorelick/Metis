@@ -40,6 +40,7 @@ import {
   auditExportPath,
   compactLongIntegers,
   consensusTables,
+  insiderEvidenceTables,
   dataGapTables,
   dataStateText,
   displayProse,
@@ -1598,7 +1599,7 @@ export function LeadershipSection({
   report = {},
   grading = {},
 }: {
-  report?: Partial<Pick<Report, "filingDisclosures" | "appendix" | "outlook">>;
+  report?: Partial<Pick<Report, "filingDisclosures" | "appendix" | "outlook" | "marketData">>;
   grading?: SectionGrading;
   leadership: Leadership;
   index: number;
@@ -1637,6 +1638,7 @@ export function LeadershipSection({
       <div className="grid gap-4 lg:grid-cols-2">
         <SubBlock label="Insider activity" semanticToken="insider activity">
           <ClaimList claims={leadership.insiderSummary} empty="No analyst insider summary recorded." />
+          {report && <ExtraAuditTables tables={insiderEvidenceTables(report)} />}
         </SubBlock>
         <SubBlock label="board / comp notes">
           <ClaimList claims={roster.governance} empty="No analyst governance notes recorded." />

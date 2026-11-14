@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.86.0** and
-payload **1.104.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.87.0** and
+payload **1.105.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -20,10 +20,18 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - A readable report: brief first, business before figures, less repetition (P18, P21, P22, D-273)
 
-- The verdict opens with a five-part brief (what it sells, who buys it, why it wins, what is next, what could break it) that code assembles only from FACT claims that passed verification, each from the field that answers it and never a statement of a limitation or absence, each with its citation; a part with no such claim says "Not established from verified sources."
+- The verdict opens with a five-part brief (what it sells, customers and suppliers, protection and competition, what is next, what could break it) that code assembles only from FACT claims that passed verification, each from the field that answers it and never a statement of a limitation or absence, each with its citation; a part with no such claim says "Not established from verified sources."
 - Sections read business first in the app, Markdown and print: verdict, business, competitive landscape, outlook, catalysts and risks, then the figure sections. Saved reports render in this order too; their bytes do not change.
 - A statement already shown in full in an earlier list is referenced, not printed again. Score drivers, factor exposure and sensitivity, the bull and bear statements, the full source list and the manifest reconciliation move from the Markdown and print documents to the audit export with a pointer (the app keeps them in its collapsed panels, D-246); stale sources, gaps, qualifications and disclaimers stay. Filing-note tables name one shared filing once; scenario cards and quarterly-trend notes state a repeated label once. Each score keeps its qualifying text. LLY #63 is 7.4% shorter; the golden cases 5.5–12.3%.
 - No version stamp moves; no figure changes.
+
+## Unreleased - D-272 (report 1.87.0 / payload 1.105.0; Stage B DIVIDEND_DISCLOSURES_78)
+
+- Read dated annual Prior/Updated guidance tables with their footnotes; retain whole release product and clinical tables separately. Disclose unreadable latest outlooks.
+- Show provider results versus consensus and code-computed differences, with unverified EPS basis; distinguish all-person Form 4 statistics from selected sellers and show the quarterly concentration. No statement or valuation rule changes.
+
+- Review round 1: require dates on person rows, preserve independent quarterly guidance, bind accounting basis to the table, label supersession by fiscal period, and register quarterly insider operands with plain result labels.
+- Add indicated dividend yield where declaration/frequency/share/currency proof permits, and exact fiscal-year common cash payout ratios from admitted operands. Both are disclosures without score or valuation use. LLY FY2025 payout is 26.09%; its indicated yield remains a named missing-declaration gap. Review round 2: quarterly prose beside an annual guidance table counts only inside the issuer-bounded guidance section (never quotes, boilerplate or scenarios), and both payout operands must come from one filing (O FY2023/FY2024 and PGR FY2023 become disclosed gaps).
 
 ## Unreleased - A4 TSM same-report capture (P2, D-275) (2026-11-14)
 

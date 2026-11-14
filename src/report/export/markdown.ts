@@ -96,6 +96,7 @@ import {
   compactLongIntegers,
   confidenceText,
   consensusTables,
+  insiderEvidenceTables,
   dataGapTables,
   displayProse,
   displayClaimText,
@@ -780,7 +781,7 @@ function renderTechnicals(report: Report, ctx: GradeContext = {}): string {
   return lines.join("\n").trimEnd();
 }
 
-function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDisclosures" | "appendix" | "outlook">> = {}, ctx: GradeContext = {}): string {
+function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDisclosures" | "appendix" | "outlook" | "marketData">> = {}, ctx: GradeContext = {}): string {
   const lines: string[] = [sectionHeading("leadership"), ""];
   const roster = leadershipRosterPresentation(l);
   lines.push(gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, ctx), "");
@@ -826,6 +827,7 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
     ), "");
   }
   lines.push(...subsection("### Insider activity", claimList(l.insiderSummary)));
+  lines.push(...auditTableBlocks(insiderEvidenceTables(report)));
   lines.push(...subsection("### Provider executive roster", claimList(roster.roster)));
   lines.push(...subsection("### Governance", claimList(roster.governance)));
   lines.push(...auditTableBlocks(filingDisclosureTables(report.filingDisclosures, "leadership")));

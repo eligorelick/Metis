@@ -1,3 +1,5 @@
+import { insiderQuarterIndex, insiderStatisticsWindow, insiderStatisticRows, insiderQuarterContaining, insiderEvidence, insiderQuarterFigures, INSIDER_SCOPE, resultsHistory } from "@/pipeline/providerEvidence";
+export { insiderStatisticsWindow } from "@/pipeline/providerEvidence";
 import { PAYLOAD_VERSION } from "@/report/versions";
 import { fairValueReferenceText } from "@/report/fairValueText";
 import { withComputationContext } from "@/edgar/computationContext";
@@ -41,7 +43,7 @@ import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimate
 
 import type { ManifestEntry, CompanyRoute } from "@/types/core";
 import { withoutGapCauses } from "@/pipeline/stageA/manifest";
-import { quotePriceObservationDay, type FmpInsiderTradeStatisticsRow } from "@/providers/fmp";
+import { quotePriceObservationDay } from "@/providers/fmp";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
@@ -1808,6 +1810,10 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, c
       { label: `est EPS ${periodLabel}`, value: numOrNull(e.epsAvg), unit: "currency/share", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf, estimateTiming },
     );
   }
+  for (const row of resultsHistory(bundle, issuer)) {
+    const names:Record<string,string>={revenueActual:"revenue actual",revenueEstimated:"revenue estimate",revenueDifference:"revenue difference",epsActual:"provider EPS actual (accounting basis unverified)",epsEstimated:"provider EPS estimate (accounting basis unverified)",epsDifference:"provider EPS difference (accounting basis unverified)"};
+    for (const [metric, value] of Object.entries(row.values)) figures.push({ label: `reported versus consensus ${row.date} ${names[metric]}`, value, unit: metric.startsWith("eps") ? "currency/share" : "currency", period: row.fiscalLabel ?? (row.periodStart ? row.periodEnd : null), ...(row.periodStart && row.periodEnd ? {periodContext:{kind:"duration" as const,start:row.periodStart,end:row.periodEnd}} : {}), source: "fmp:earnings", asOf: row.asOf, ...(row.currency ? { currency: row.currency } : {}) });
+  }
   const ptc = firstRow(bundle.priceTargetConsensus);
   const ptcAsOf = bundle.priceTargetConsensus.ok ? bundle.priceTargetConsensus.value.asOf : null;
   if (ptc) {
@@ -1924,100 +1930,6 @@ function peersSection(bundle: DataBundle): PayloadSection {
   });
 }
 
-/**
- * AI-117: FMP's insider statistics are calendar-quarter rows whose
- * `totalPurchases`/`totalSales` are open-market or private transaction counts (Form 4
- * codes P and S), not shares. The window is the trailing four complete
- * calendar quarters; the quarter containing `asOf` is left out, and a gap in
- * the served quarters ends the window.
- */
-export interface InsiderStatisticsWindow {
-  /** Newest first, consecutive, complete. */
-  quarters: { year: number; quarter: 1 | 2 | 3 | 4 }[];
-  /** First day of the oldest quarter, last day of the newest. */
-  start: string;
-  end: string;
-  purchases: number | null;
-  sales: number | null;
-  acquiredTransactions: number | null;
-  disposedTransactions: number | null;
-  sharesAcquired: number | null;
-  sharesDisposed: number | null;
-  /** The served quarter that contains `asOf`. */
-  inProgress: { year: number; quarter: number } | null;
-}
-
-function insiderQuarterIndex(year: number, quarter: number): number {
-  return year * 4 + (quarter - 1);
-}
-
-function insiderQuarterContaining(asOf: string): number | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(asOf);
-  if (!m) return null;
-  const month = Number(m[2]);
-  if (month < 1 || month > 12) return null;
-  return insiderQuarterIndex(Number(m[1]), Math.ceil(month / 3));
-}
-
-function insiderStatisticRows(rows: readonly FmpInsiderTradeStatisticsRow[]): (FmpInsiderTradeStatisticsRow & { year: number; quarter: 1 | 2 | 3 | 4 })[] {
-  const seen = new Set<number>();
-  const kept: (FmpInsiderTradeStatisticsRow & { year: number; quarter: 1 | 2 | 3 | 4 })[] = [];
-  for (const row of rows) {
-    const { year, quarter } = row;
-    if (!Number.isInteger(year) || !Number.isInteger(quarter) || quarter! < 1 || quarter! > 4) continue;
-    const index = insiderQuarterIndex(year!, quarter!);
-    if (seen.has(index)) continue;
-    seen.add(index);
-    kept.push({ ...row, year: year!, quarter: quarter as 1 | 2 | 3 | 4 });
-  }
-  return kept;
-}
-
-export function insiderStatisticsWindow(rows: readonly FmpInsiderTradeStatisticsRow[], asOf: string): InsiderStatisticsWindow | null {
-  const current = insiderQuarterContaining(asOf);
-  if (current === null) return null;
-  const served = insiderStatisticRows(rows);
-  const complete = served
-    .filter((row) => insiderQuarterIndex(row.year, row.quarter) < current)
-    .sort((a, b) => insiderQuarterIndex(b.year, b.quarter) - insiderQuarterIndex(a.year, a.quarter));
-  const taken: typeof complete = [];
-  for (const row of complete) {
-    if (taken.length === 4) break;
-    const last = taken[taken.length - 1];
-    if (last && insiderQuarterIndex(last.year, last.quarter) - insiderQuarterIndex(row.year, row.quarter) !== 1) break;
-    taken.push(row);
-  }
-  const newest = taken[0];
-  const oldest = taken[taken.length - 1];
-  if (!newest || !oldest) return null;
-  const sum = (key: "totalPurchases" | "totalSales" | "acquiredTransactions" | "disposedTransactions" | "totalAcquired" | "totalDisposed"): number | null => {
-    let total = 0;
-    for (const row of taken) {
-      const v = row[key];
-      if (!isNum(v)) return null;
-      total += v;
-    }
-    return total;
-  };
-  const quarterEnd = (year: number, quarter: number) => {
-    const month = quarter * 3;
-    return `${year}-${String(month).padStart(2, "0")}-${month === 6 || month === 9 ? "30" : "31"}`;
-  };
-  const inProgress = served.find((row) => insiderQuarterIndex(row.year, row.quarter) === current);
-  return {
-    quarters: taken.map((row) => ({ year: row.year, quarter: row.quarter })),
-    start: `${oldest.year}-${String((oldest.quarter - 1) * 3 + 1).padStart(2, "0")}-01`,
-    end: quarterEnd(newest.year, newest.quarter),
-    purchases: sum("totalPurchases"),
-    sales: sum("totalSales"),
-    acquiredTransactions: sum("acquiredTransactions"),
-    disposedTransactions: sum("disposedTransactions"),
-    sharesAcquired: sum("totalAcquired"),
-    sharesDisposed: sum("totalDisposed"),
-    inProgress: inProgress ? { year: inProgress.year, quarter: inProgress.quarter } : null,
-  };
-}
-
 const INSIDER_WINDOW_WORDS = ["", "one", "two", "three", "four"] as const;
 
 /** Q1: the window and the number of people the per-person trade lines cover. */
@@ -2082,6 +1994,8 @@ function personTradeNotes(observed: readonly FmpRawRow[], shown: number, builtAt
 function insidersSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
+  figures.push(...insiderQuarterFigures(bundle));
+  figures.push({ label: "Form 4 statistics reporting-person scope", value: INSIDER_SCOPE, unit: "", source: "pipeline:insider-coverage", asOf: bundle.builtAt.slice(0,10) });
   const statsAsOf = bundle.insiderStats.ok ? bundle.insiderStats.value.asOf : null;
   const statRows = rowsOf(bundle.insiderStats);
   const win = statsAsOf === null ? null : insiderStatisticsWindow(statRows, statsAsOf);
@@ -2182,6 +2096,7 @@ function insidersSection(bundle: DataBundle): PayloadSection {
       });
     }
   }
+  notes.push(...insiderEvidence(bundle).filter(note=>note!==INSIDER_SCOPE));
   return payloadSection({ title: "Insider activity & sentiment", figures, notes });
 }
 
@@ -2745,6 +2660,9 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     const where = `8-K ${latest.accession}; filed ${latest.filingDate}`;
     const primaryRelease = latest.releaseExhibit === null && latest.releaseUrl !== null;
     narrative(latest.releaseNarrative, `${primaryRelease ? "8-K primary document" : "8-K EX-99.1"} - earnings release, ${period} (${where})`, primaryRelease ? `edgar:8-K ${latest.accession}` : "edgar:8-K EX-99.1", PAYLOAD_BUDGETS.earningsReleaseChars);
+    for (const [index, text] of (latest.releaseTables ?? []).entries()) {
+      out.push({ title: `Earnings release product revenue / clinical highlights table ${index + 1} (${where})`, text, source: `edgar:8-K ${latest.accession}`, asOf: latest.filingDate, truncated: false, originalChars: text.length });
+    }
     narrative(latest.commentaryNarrative, `8-K EX-99.2 — CFO commentary, ${period} (${where})`, "edgar:8-K EX-99.2", PAYLOAD_BUDGETS.cfoCommentaryChars);
   }
   // R1 (FIGR paid audit): the newest operating update filed after the results
@@ -2812,6 +2730,7 @@ const GUIDANCE_METRIC_LABELS: Record<GuidanceRow["metric"], string> = {
   "adjusted-ebitda-margin-expansion": "adjusted EBITDA margin expansion",
   "gross-margin": "gross margin",
   "operating-expenses": "operating expenses",
+  "performance-margin": "performance margin",
   "operating-margin": "operating margin",
   "operating-income": "operating income",
   "other-income": "other income (expense)",
@@ -2918,6 +2837,15 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
     if (cr.dividendPerShare !== null) figures.push({ ...base, unit: "currency/share", label: cr.dividendFrequency === null ? "cash dividend per share (frequency not stated)" : `${cr.dividendFrequency ?? "quarterly"} cash dividend per share`, value: cr.dividendPerShare });
     if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share before the increase", value: cr.dividendChangeFrom });
     if (cr.dividendPayDate !== null) notes.push(`Next ${cr.dividendFrequency ? `${cr.dividendFrequency} ` : ""}dividend payable ${cr.dividendPayDate}${cr.dividendRecordDate ? ` to holders of record on ${cr.dividendRecordDate}` : ""} (8-K ${cr.source.accession}).`);
+  }
+  if(disclosures.dividends) {
+    const i=disclosures.dividends.indicated;
+    if(i.value!==null) figures.push({label:"indicated dividend yield (annualized declared rate)",value:i.value,unit:"%",period:i.declarationAsOf,source:"computed.dividends.indicatedYield",asOf:i.quoteDate});
+    notes.push(`Indicated dividend yield operands: declared per share ${i.declaredPerShare ?? "unavailable"}; proven payments per year ${i.paymentsPerYear ?? "unavailable"}; ordinary shares per quoted unit ${i.ordinarySharesPerQuotedUnit ?? "unavailable"}; quote ${i.price ?? "unavailable"} ${i.currency ?? "currency unestablished"} at ${i.quoteDate ?? "unavailable"} (${i.quoteSource}). ${i.basis} Source ${i.source}; declaration as-of ${i.declarationAsOf ?? "unavailable"}.${i.reason ? ` Gap: ${i.reason}` : ""}`);
+    for(const r of disclosures.dividends.cashPayout) {
+      if(r.value!==null) figures.push({label:`fiscal-year common cash dividend payout ratio ${r.end ?? "unknown"}`,value:r.value,unit:"%",period:r.end,source:"computed.capital.fiscalCashDividendPayout",asOf:r.asOf,...(r.start && r.end ? {periodContext:{kind:"duration" as const,start:r.start,end:r.end}}:{})});
+      notes.push(`Fiscal-year common cash dividend payout: dividends ${r.dividends ?? "unavailable"} / income available to common ${r.commonIncome ?? "unavailable"}, ${r.currency ?? "currency unestablished"}, ${r.start ?? "unestablished"} to ${r.end ?? "unestablished"}; ${r.source}; as-of ${r.asOf ?? "unavailable"}.${r.reason ? ` Gap: ${r.reason}` : ""}`);
+    }
   }
   for (const check of disclosures.guidanceChecks) {
     notes.push(`${check.period} ${guidanceMetricLabel(check.metric, check.basis)}: actual ${check.position === "within" ? "within" : check.position} the guided range (outlook from 8-K filed ${check.guidance.filingDate}; actual from ${check.actualSource}).`);
@@ -3431,7 +3359,8 @@ function attachProvenanceRegistry(
     const id = uniqueId(`${prefix}.${semanticSlug(registryLabel)}`);
     figure.provenanceId = id;
     figure.currency = resolvedCurrency;
-    figure.period ??= periodFromLabel(figure.label);
+    // Earnings report dates in labels are announcement dates, never fiscal windows.
+    if(figure.source!=="fmp:earnings") figure.period ??= periodFromLabel(figure.label);
     figure.asOf = asOf;
     registry.push({
       id,
@@ -3461,7 +3390,10 @@ function attachProvenanceRegistry(
     section: PayloadSection,
     kind: NumericProvenanceRecord["kind"],
   ): void => {
-    for (const figure of section.figures) registerFigure(prefix, figure, kind);
+    for (const figure of section.figures) {
+      const dividendComputation=figure.source==="computed.dividends.indicatedYield" || figure.source==="computed.capital.fiscalCashDividendPayout";
+      registerFigure(prefix,figure,dividendComputation ? "computed" : kind);
+    }
   };
 
   const registerStageBNumber = (
@@ -3785,7 +3717,7 @@ function assembleContextPayloadInContext(
     const text = [...new Set(leadership.officerTenures.map(t => t.quote))].join("\n");
     filings.push({ source: biography.documentUrl, asOf: biography.filingDate, title: `${biography.form} officer tenure (${biography.accession}; filed ${biography.filingDate})`, text, truncated: false, originalChars: text.length });
   }
-  const disclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability);
+  const disclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability, computed.capital?.cashDividendPayout);
   const anchor = computed.valuation.kind === "dcf" ? computed.valuation.assumptions?.revenueAnchor : undefined;
   const guidedAccession = /^sec:8-K EX-99\.1 (\d{10}-\d{2}-\d{6})$/.exec(anchor?.evidence?.guidedQuarter?.source ?? "")?.[1] ?? null;
   const latestEnd = anchor?.runRate?.latestQuarterEnd;

@@ -4,6 +4,8 @@ import { explicitHtmlHiddenState } from "@/edgar/htmlHidden";
 
 const CURRENT_QUARTER = /^Q([1-4])\s+FY\s*'?(20\d{2}|\d{2})\s+(?:Estimates|Current Guidance)$/i;
 const TABLE_COLUMN_CUE = /\b(?:Q[1-4]\b[^.]{0,60}\bEstimates|(?:Previous|Current) Guidance)\b/i;
+/** The lead-in that introduces an issuer's full-year guidance table (one definition, P13). */
+const ANNUAL_GUIDANCE_INTRO = /The following table summarizes (?:the company's )?(?:updated )?full-year (20\d{2}) (?:non-GAAP )?financial guidance\b/i;
 const ENDPOINT_RANGE = /^(US\$|\$|€|£)\s*(\d+(?:\.\d+)?)\s*(B|M|billion|million)?\s*[-–—]\s*(US\$|\$|€|£)?\s*(\d+(?:\.\d+)?)\s*(B|M|billion|million)?$/i;
 
 /** Preserve footnotes through layout/tag wrappers until a distinct disclosure. */
@@ -220,6 +222,89 @@ const GROWTH = /([+-]?\d+(?:\.\d+)?)\s*[-–—]\s*([+-]?\d+(?:\.\d+)?)\s*%/g;
 const HEADERS = /\bMetric\s+(?:Q([1-4])\s+(20\d{2})|Full Year\s+(20\d{2}))(?:\s+(Previous Guidance\s+Current Guidance|Current Guidance\s+Previous Guidance))?/g;
 const ROWS = /\b(Adjusted EBITDA margin expansion|Adjusted EBITDA|Gross Bookings|Revenue)\*{0,2}\s+/g;
 const STOP = /\*\*\s*A reconciliation|\bQuarterly Dividend\b|\bConference Call\b|\bForward-Looking Statements\b/;
+
+/** D-272 (P9): annual guidance requires a dated company introduction and
+ * actual source cells. Empty filing-layout spacers carry no values. */
+export function parseAnnualDocumentTable(text: string, document: ParsedDocument): IssuerGuidance | null {
+  if (document.fullText !== text || explicitHtmlHiddenState(document.pre) !== "clear") return null;
+  for (const table of document.pre.matchAll(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi)) {
+    const context = htmlToText(document.pre.slice(Math.max(0, table.index - 4000), table.index));
+    const intro = ANNUAL_GUIDANCE_INTRO.exec(context);
+    if (!intro) continue;
+    const refused: IssuerGuidance = { period: null, items: [], qualifiers: [], unparsed: [htmlToText(table[0])] };
+    if (table[0].length > 60000 || /<table\b/i.test(table[0].slice(6)) || /\browspan\s*=/i.test(table[0])) return refused;
+    const rows = [...table[0].matchAll(/<tr\b[^>]*>[\s\S]*?<\/tr\s*>/gi)].map(row => ({ raw: row, cells: [...row[0].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]\s*>/gi)].map(c => htmlToText(c[1]!)).filter(Boolean) })).filter(r => r.cells.length);
+    const header = rows[0];
+    if (!header) return refused;
+    const revised = header.cells.join(" ") === "Prior Updated";
+    if (!revised && !new RegExp(`^${intro[1]} Guidance$`, "i").test(header.cells.join(" "))) return refused;
+    const period: FiscalPeriod = { label: `FY${intro[1]}`, fiscalYear: Number(intro[1]), fiscalQuarter: null };
+    const spanOf = (r: RegExpExecArray) => {
+      const prefix = htmlToText(document.pre.slice(0, table.index + r.index));
+      const start = prefix.length + (prefix ? 1 : 0), value = htmlToText(r[0]);
+      return text.slice(start, start + value.length) === value ? { start, end: start + value.length, text: value } : null;
+    };
+    const headerSpan = spanOf(header.raw);
+    if (!headerSpan) return refused;
+    const items: GuidanceItem[] = [], qualifiers: string[] = [];
+    const range = (value: string) => {
+      const m = /^(\$)?\s*(\d+(?:\.\d+)?)(%)?\s*(?:to|[-\u2013\u2014])\s*\$?\s*(\d+(?:\.\d+)?)(%)?\s*(billion|million)?$/i.exec(value);
+      if (!m || Boolean(m[3]) !== Boolean(m[5])) return null;
+      const scale = m[6]?.toLowerCase() === "billion" ? 1e9 : m[6]?.toLowerCase() === "million" ? 1e6 : 1;
+      const low = Number(m[2]) * scale, high = Number(m[4]) * scale;
+      return low <= high ? { low, high, mid: (low + high) / 2, money: !!m[1], percent: !!m[3], scaled: scale !== 1 } : null;
+    };
+    for (const row of rows.slice(1)) {
+      if (row.cells.length === 1 && /^\(\d+\)/.test(row.cells[0]!)) { qualifiers.push(row.cells[0]!); continue; }
+      const label = row.cells[0]!.replace(/\(\d+\)/g, "").trim();
+      const plainLabel = label.replace(/^(?:GAAP|non-GAAP|adjusted)\s+/i, "").replace(/^diluted\s+/i, "");
+      const metric = ({ Revenue: "revenue", "Performance Margin": "performance-margin", "Tax Rate": "tax-rate", "Earnings per Share": "eps", "EPS": "eps", "Gross Margin": "gross-margin", "Operating Margin": "operating-margin", "Operating Expenses": "operating-expenses" } as Record<string, GuidanceItem["metric"]>)[Object.keys({ Revenue:1, "Performance Margin":1,"Tax Rate":1,"Earnings per Share":1,EPS:1,"Gross Margin":1,"Operating Margin":1,"Operating Expenses":1 }).find(k=>k.toLowerCase()===plainLabel.toLowerCase()) ?? ""];
+      if (!metric || row.cells.length !== (revised ? 3 : 2) || items.some(i => i.metric === metric)) return refused;
+      const current = range(row.cells.at(-1)!); const prior = revised ? range(row.cells[1]!) : null;
+      if (!current || (revised && !prior)) return refused;
+      if (prior && (prior.money !== current.money || prior.percent !== current.percent || prior.scaled !== current.scaled)) return refused;
+      const percent = metric === "performance-margin" || metric === "tax-rate" || metric === "gross-margin" || metric === "operating-margin";
+      if (percent ? !current.percent || current.money || current.scaled : !current.money || current.percent || (metric === "eps" ? current.scaled : !current.scaled)) return refused;
+      const span = spanOf(row.raw); if (!span) return refused;
+      items.push({ metric, basis: /^(?:non-GAAP|adjusted)\b/i.test(label) ? "non-gaap" : /^GAAP\b/i.test(label) ? "gaap" : /non-GAAP/i.test(intro[0]) && metric !== "revenue" ? "non-gaap" : "unspecified", period, unit: percent ? "%" : metric === "eps" ? "currency-per-share" : "currency", symbol: percent ? null : "$", low: current.low, mid: current.mid, high: current.high, form: "range", sentence: span.text, span, headerSpan, ...(prior ? { previous: { low: prior.low, mid: prior.mid, high: prior.high } } : {}) });
+    }
+    const after = document.pre.slice(table.index + table[0].length);
+    // Only immediately following numbered footnotes belong to this table.
+    // A new paragraph/section/table ends the run; nearby accounting discussion
+    // cannot silently change the basis of a row.
+    for (const block of after.matchAll(/<(p|div|h[1-6]|table)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)) {
+      const note=htmlToText(block[2]!);
+      if(!note) continue;
+      if(!/^\(\d+\)/.test(note) || note.length>3000 || /<table\b/i.test(block[2]!)) break;
+      qualifiers.push(note);
+    }
+    // Footnotes can define the accounting basis after the data rows.
+    for (const item of items) {
+      if (item.basis !== "unspecified" || item.metric === "revenue") continue;
+      const refs = [...item.sentence.matchAll(/\((\d+)\)/g)].map(m=>m[1]);
+      if (qualifiers.some(note => refs.some(ref => note.startsWith(`(${ref})`)) && /non-GAAP/i.test(note))) item.basis = "non-gaap";
+    }
+    return { period, items, qualifiers, unparsed: [] };
+  }
+  return null;
+}
+
+/**
+ * D-272 review round 2 (P9): the passage the issuer's own structure bounds as
+ * its annual guidance section. It starts after the first table introduced as
+ * full-year guidance (the same table parseAnnualDocumentTable reads) and ends
+ * at the next heading or table. Empty when no such table exists.
+ */
+export function annualGuidanceSectionAfterTable(document: ParsedDocument): string {
+  for (const table of document.pre.matchAll(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi)) {
+    const context = htmlToText(document.pre.slice(Math.max(0, table.index - 4000), table.index));
+    if (!ANNUAL_GUIDANCE_INTRO.test(context)) continue;
+    const after = document.pre.slice(table.index + table[0].length);
+    const stop = /<(?:h[1-6]|table)\b/i.exec(after);
+    return stop ? after.slice(0, stop.index) : after;
+  }
+  return "";
+}
 
 /** Old compact formats plus bounded single-quarter tables with document evidence. */
 export function parseGuidanceTables(text: string, document?: ParsedDocument): IssuerGuidance | null {

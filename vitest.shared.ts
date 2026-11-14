@@ -324,6 +324,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/presentation.ts",
   "src/report/export/auditMarkdown.ts",
   "src/pipeline/marketData.ts",
+  "src/pipeline/providerEvidence.ts",
   "src/pipeline/forwardEstimates.ts",
   "src/pipeline/releaseQuarterEarnings.ts",
   "src/report/supplementalNumericAudit.ts",
