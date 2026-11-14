@@ -54,7 +54,7 @@ describe("Claude research arguments and stream observation (D-269)", () => {
     expect(research[research.indexOf("--tools") + 1]).toBe("WebSearch,WebFetch");
     // Lead decision (D-269): WebSearch unrestricted; WebFetch only on allowlisted domains and their subdomains, never bare.
     const allowed = research.slice(research.indexOf("--allowedTools") + 1, research.indexOf("--disallowedTools"));
-    expect(allowed).toEqual(["WebSearch", ...[...CLAUDE_WEBFETCH_FIXED_DOMAINS, "issuer.example"].flatMap(domain => [`WebFetch(domain:${domain})`, `WebFetch(domain:*.${domain})`])]);
+    expect(allowed).toEqual(["WebSearch", ...CLAUDE_WEBFETCH_FIXED_DOMAINS.flatMap(domain => [`WebFetch(domain:${domain})`, `WebFetch(domain:*.${domain})`]), "WebFetch(domain:issuer.example)"]);
     expect(allowed).not.toContain("WebFetch");
     expect(research[research.indexOf("--output-format") + 1]).toBe("stream-json"); expect(research).toContain("--verbose");
     expect(research.slice(-4)).toEqual(["--model", "claude-opus-5-5", "--effort", "high"]);
@@ -126,9 +126,9 @@ describe("Claude research arguments and stream observation (D-269)", () => {
   it("builds the WebFetch allowlist from the fixed list and the profile's issuer domain", () => {
     expect(CLAUDE_WEBFETCH_FIXED_DOMAINS).toEqual(expect.arrayContaining(["sec.gov", "fda.gov", "federalreserve.gov", "ftc.gov", "europa.eu", "nasdaq.com", "nyse.com"]));
     expect(issuerWebFetchHost("https://www.lilly.com")).toBe("www.lilly.com");
-    expect(claudeWebFetchAllowlist(issuerWebFetchHost("https://www.lilly.com"))).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS, "lilly.com"], hosts: [] });
-    expect(claudeWebFetchAllowlist(issuerWebFetchHost("www.tsmc.com"))).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS, "tsmc.com"], hosts: [] });
-    expect(claudeWebFetchAllowlist(issuerWebFetchHost("https://www.example.de/"))).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS, "example.de"], hosts: [] });
+    expect(claudeWebFetchAllowlist(issuerWebFetchHost("https://www.lilly.com"))).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: ["www.lilly.com", "lilly.com"] });
+    expect(claudeWebFetchAllowlist(issuerWebFetchHost("www.tsmc.com"))).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: ["www.tsmc.com", "tsmc.com"] });
+    expect(claudeWebFetchAllowlist(issuerWebFetchHost("https://www.example.de/"))).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: ["www.example.de", "example.de"] });
     // Under a generic ccTLD second level the issuer gets its exact host only.
     expect(claudeWebFetchAllowlist(issuerWebFetchHost("https://investor.example-bank.co.uk/ir/"))).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: ["investor.example-bank.co.uk"] });
     expect(claudeWebFetchAllowlist(null)).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: [] });
@@ -242,18 +242,23 @@ describe("Claude research arguments and stream observation (D-269)", () => {
   it.each(["https://co.uk", "com.au", "co.jp", "org.uk", "https://github.io", "https://x.github.io"])("gives no issuer host for a bare public suffix or shared host: %s",
     website => expect(issuerWebFetchHost(website)).toBeNull());
 
-  it("grants the issuer's registrable parent with subdomains, or its exact host only", () => {
+  it("grants the issuer its exact host (and the bare name of a www host), never a wildcard", () => {
     const rules = (website: string) => { const args = claudeRunArgs("claude-opus-5-5", undefined, { webFetch: claudeWebFetchAllowlist(issuerWebFetchHost(website)) });
       return args.slice(args.indexOf("--allowedTools") + 1, args.indexOf("--disallowedTools")).slice(1 + 2 * CLAUDE_WEBFETCH_FIXED_DOMAINS.length); };
-    expect(rules("https://www.lilly.com")).toEqual(["WebFetch(domain:lilly.com)", "WebFetch(domain:*.lilly.com)"]);
+    expect(rules("https://www.lilly.com")).toEqual(["WebFetch(domain:www.lilly.com)", "WebFetch(domain:lilly.com)"]);
     expect(rules("https://ir.example.co.uk")).toEqual(["WebFetch(domain:ir.example.co.uk)"]);
     expect(rules("https://www.co.jp")).toEqual(["WebFetch(domain:www.co.jp)"]);
     // A deeper host never widens to its parent: a hosting platform missing from the
     // shared-hosting list would otherwise hand its whole namespace to the fetch rules.
     expect(rules("https://acme.ngrok.io")).toEqual(["WebFetch(domain:acme.ngrok.io)"]);
     expect(rules("https://investor.lilly.com")).toEqual(["WebFetch(domain:investor.lilly.com)"]);
-    expect(rules("https://lilly.com")).toEqual(["WebFetch(domain:lilly.com)", "WebFetch(domain:*.lilly.com)"]);
-    expect(rules("https://www.www.lilly.com")).toEqual(["WebFetch(domain:www.www.lilly.com)"]);
+    expect(rules("https://lilly.com")).toEqual(["WebFetch(domain:lilly.com)"]);
+    // Review round 2: public suffixes missing from any local list never become wildcards.
+    for (const website of ["https://issuer.workers.dev", "https://issuer.ca.us", "https://issuer.uk.com", "https://workers.dev", "https://uk.com"]) {
+      expect(rules(website).some(rule => rule.includes("*"))).toBe(false);
+    }
+    expect(rules("https://issuer.workers.dev")).toEqual(["WebFetch(domain:issuer.workers.dev)"]);
+    expect(rules("https://www.www.lilly.com")).toEqual(["WebFetch(domain:www.www.lilly.com)", "WebFetch(domain:www.lilly.com)"]);
     expect(registrableWebFetchParent("ir.example.co.uk")).toBeNull();
     expect(registrableWebFetchParent("a.b.com.au")).toBeNull();
     expect(registrableWebFetchParent("investor.lilly.com")).toBe("lilly.com");
@@ -263,8 +268,19 @@ describe("Claude research arguments and stream observation (D-269)", () => {
       fetch("toolu_2", "https://other.example.co.uk/x"), fetchResult("toolu_2", 200), final("Notes.")]) observer.line(JSON.stringify(event));
     expect(observer.finish().fetchedUrls).toEqual(["https://ir.example.co.uk/results"]);
     // Entries that bypass the builders are filtered again before they reach the CLI.
-    const forged = claudeRunArgs("claude-opus-5-5", undefined, { webFetch: { domains: ["co.uk", "sec.gov"], hosts: ["127.0.0.1", "com.au"] } });
-    expect(forged.join(" ")).not.toMatch(/domain:(\*\.)?(co\.uk|com\.au|127\.0\.0\.1)\)/);
+    const forged = claudeRunArgs("claude-opus-5-5", undefined, { webFetch: { domains: ["co.uk", "sec.gov", "lilly.com", "workers.dev"], hosts: ["127.0.0.1", "com.au"] } });
+    expect(forged.join(" ")).not.toMatch(/domain:(\*\.)?(co\.uk|com\.au|127\.0\.0\.1|lilly\.com|workers\.dev)\)/);
+  });
+
+  it("reports the call-based action count on every failure path (review round 2)", () => {
+    const observer = claudeResearchObserver(8, claudeWebFetchAllowlist("issuer.example"));
+    observer.line(JSON.stringify(init()));
+    observer.line(JSON.stringify(fetch("toolu_1", "https://www.sec.gov/a")));
+    let error: unknown;
+    try { observer.line("{not json"); } catch (caught) { error = caught; }
+    expect(error).toBeInstanceOf(ClaudeResearchError);
+    expect((error as ClaudeResearchError).webSearches).toBe(1);
+    expect(observer.observed()).toBe(1);
   });
 
   it("rejects a reused tool id with a different call instead of counting one action and keeping its first URL", () => {

@@ -113,23 +113,17 @@ attacker's site in a second fetch. Doubt denies access, so:
     localhost-like or other local-use name, a wildcard-DNS name, a shared-hosting name
     where anyone can publish a subdomain (such as `github.io` or `azurewebsites.net`),
     or a bare public suffix (`co.uk`, `com.au`, `org.uk`).
-  - **Wildcard only for a registrable parent** (`claudeWebFetchAllowlist`,
-    `registrableWebFetchParent`; review round 1, 2026-11-14). The issuer's parent (last
-    two labels) gets `d` and `*.d` only when it is plausibly registrable: a generic TLD
-    of three or more letters, or a two-letter ccTLD whose second-level label is not a
-    generic public second level (co, com, net, org, gov, edu, ac, ne, or, go, gob, gv,
-    ltd, plc and similar). It also requires that the profile names the parent itself or
-    its `www.` host. For example, `https://www.lilly.com` gives `lilly.com` and
-    `*.lilly.com`.
-  - **Otherwise the exact host only.** `https://ir.example.co.uk` gives that host and
-    nothing under `co.uk`, and `www.co.jp` gives only that host. A deeper host such as
-    `https://investor.lilly.com` or `https://acme.ngrok.io` also gets its exact host only.
-    A hosting platform missing from the shared-hosting list would otherwise hand its
-    whole namespace to the fetch rules. This narrowing came from the automated security
-    review on the round-1 commit.
-  - **Fail closed, no dependency.** A public suffix can never become a wildcard. No
-    public-suffix list is installed, so none was added; the cost is that an issuer under
-    a ccTLD's generic second level gets its exact site, not its subdomains.
+  - **Exact hosts only, never a wildcard** (`claudeWebFetchAllowlist`; independent review
+    round 2, 2026-11-14, lead fix). The issuer gets its exact profile host, and when that host
+    is the `www.` host also the bare name: `https://www.lilly.com` gives `www.lilly.com`
+    and `lilly.com`; `https://investor.lilly.com` gives only that host. Round 1 had granted
+    `d` and `*.d` for a plausibly registrable parent; round 2 reproduced public suffixes
+    that heuristic still accepted (`issuer.workers.dev` gave `*.workers.dev`; also
+    `issuer.ca.us` and `issuer.uk.com`, all on the official Public Suffix List). Without a
+    public-suffix list a parent cannot be proven registrable, so doubt denies (P26): the
+    issuer never gets a wildcard. Cost: sister subdomains of the issuer (an investor-relations
+    host beside `www`) are not fetchable unless the profile names them.
+  - **Fail closed, no dependency.** No public-suffix list is installed, so none was added.
   - **Re-validated twice.** The transport re-validates the host, and `runClaude` and
     `claudeRunArgs` let only fixed or re-validated entries reach the CLI's rules.
 - *A refused fetch is a failed action.* A WebFetch outside the allowlist that the CLI
@@ -212,8 +206,8 @@ denials, and model usage for `claude-opus-5-5` plus `claude-haiku-5-5` (the CLI'
 helper model for fetch and search), whose `webSearchRequests` matched the observed
 searches. Replayed through `claudeResearchObserver`: 1 action and 1 source; 1 action and
 10 sources; 2 actions and 19 distinct sources. After the allowlist, a fourth request with
-the exact `claudeRunArgs` list (25 allow rules: WebSearch, the eleven fixed domains and
-`lilly.com`, each with its `*.` form) fetched `https://www.sec.gov/` (HTTP 200), and
+the then-current `claudeRunArgs` list (25 allow rules: WebSearch, the eleven fixed domains and
+`lilly.com`, each with its `*.` form; the issuer wildcard was removed in review round 2) fetched `https://www.sec.gov/` (HTTP 200), and
 the CLI refused `https://www.reuters.com/` before fetching (one WebFetch permission
 denial). Replayed: research accepted, 2 actions, the only fetched source `www.sec.gov`.
 Replayed under the allowlist, the first request's fetch of a non-listed company site is
@@ -253,11 +247,20 @@ domain rules and never contains a bare `WebFetch`.
 number affected).** Each was reproduced as a failing test first, then fixed:
 
 1. A public suffix could become a broad fetch permission (`co.uk` gave `*.co.uk`). Fixed
-   by the registrable-parent rule above.
+   by the registrable-parent rule, which review round 2 replaced with exact issuer hosts (above).
 2. A reused tool id could bypass the action cap and misattribute provenance. A reused id
    now rejects the research unless it exactly repeats the same block.
 3. Malformed error metadata or a nested final event could be accepted. Field types are
    now strict, init must come first, and a nested event of any type rejects.
+
+**Independent review round 2 (2026-11-14, REJECT, two findings; no computed number
+affected; fixed by the lead).** (1) Public suffixes missing from the heuristic still became
+issuer wildcards (`issuer.workers.dev`, `issuer.ca.us`, `issuer.uk.com`): the issuer now
+gets exact hosts only (above), and forged domain entries other than the fixed list are
+dropped before the CLI. (2) Failure paths reported only completed actions (one WebFetch
+call followed by malformed JSON reported 0; timeouts likewise): every failure and the
+timeout path now report the call-based count, so observed activity is never hidden. Both
+reproductions are tests in `tests/ai.claude.test.ts`.
 
 One earlier test row, "an action that never completed" (rejected), was replaced by the
 reviewer's rule. Such a call is now a counted failed action that is never a source,

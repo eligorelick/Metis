@@ -127,27 +127,24 @@ export function issuerWebFetchHost(website: unknown): string | null {
 /** What WebFetch may read: `domains` with their subdomains, and `hosts` exactly. */
 export interface WebFetchAllowlist { domains: readonly string[]; hosts: readonly string[] }
 /**
- * The WebFetch allowlist for one research request: the fixed list, plus the
- * issuer's registrable parent with its subdomains when plausible and the profile
- * names the parent or its www host (www.lilly.com gives lilly.com and *.lilly.com),
- * otherwise the issuer's exact host only (ir.example.co.uk and acme.ngrok.io give
- * that host and nothing above it).
+ * The WebFetch allowlist for one research request: the fixed list (each with its
+ * subdomains), plus the issuer's exact profile host, and when that host is the
+ * www host also the bare name (www.lilly.com gives www.lilly.com and lilly.com).
+ * The issuer never gets a wildcard: without a public suffix list a parent cannot be
+ * proven registrable (workers.dev, uk.com, ca.us), so doubt denies (P26; D-269
+ * review round 2).
  */
 export function claudeWebFetchAllowlist(issuerHost?: string | null): WebFetchAllowlist {
   const host = issuerHost ? issuerWebFetchHost(issuerHost) : null;
-  // Widen to the parent only when the profile names the parent itself or its www
-  // host; a deeper host (acme.ngrok.io) could sit on a hosting platform the
-  // shared-hosting list lacks, so it keeps its exact host only.
-  const registrable = host ? registrableWebFetchParent(host) : null;
-  const parent = registrable && (host === registrable || host === "www." + registrable) ? registrable : null;
-  return { domains: [...new Set([...CLAUDE_WEBFETCH_FIXED_DOMAINS, ...(parent ? [parent] : [])])],
-    hosts: host && !parent && !CLAUDE_WEBFETCH_FIXED_DOMAINS.some(domain => host === domain || host.endsWith("." + domain)) ? [host] : [] };
+  const fixed = (name: string) => CLAUDE_WEBFETCH_FIXED_DOMAINS.some(domain => name === domain || name.endsWith("." + domain));
+  const bare = host?.startsWith("www.") ? issuerWebFetchHost(host.slice(4)) : null;
+  const hosts = [host, bare].filter((name): name is string => name !== null && !fixed(name));
+  return { domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: [...new Set(hosts)] };
 }
 /** Only fixed domains, re-validated registrable parents and re-validated hosts reach the CLI. */
 function validatedAllowlist(allowlist: WebFetchAllowlist): WebFetchAllowlist {
   return {
-    domains: allowlist.domains.filter(domain => CLAUDE_WEBFETCH_FIXED_DOMAINS.includes(domain) ||
-      issuerWebFetchHost(domain) === domain && registrableWebFetchParent(domain) === domain),
+    domains: allowlist.domains.filter(domain => CLAUDE_WEBFETCH_FIXED_DOMAINS.includes(domain)),
     hosts: allowlist.hosts.filter(host => issuerWebFetchHost(host) === host),
   };
 }
@@ -248,9 +245,9 @@ export function claudeResearchObserver(maxActions: number, webFetch: WebFetchAll
   let serverSearches = 0;
   const count = () => Math.max([...actions.values()].reduce((sum, action) => sum + action.weight, 0),
     serverSearches + [...actions.values()].filter(action => action.tool === "WebFetch").length);
-  const completed = () => [...actions.values()].filter(action => action.done).reduce((sum, action) => sum + action.weight, 0);
   const reject = (message: string, code: "local_web_action_limit" | "local_web_research_boundary" = "local_web_research_boundary"): never => {
-    throw new ClaudeResearchError(message, code, code === "local_web_action_limit" ? count() : completed());
+    // D-269 review round 2: every failure reports the call-based count, so observed activity is never hidden.
+    throw new ClaudeResearchError(message, code, count());
   };
   const enforceLimit = () => {
     if (count() > maxActions) reject(`Claude web research exceeded the local observed-action limit (${maxActions}). The CLI was stopped; remote work may already have run. No paid fallback was attempted.`, "local_web_action_limit");
@@ -351,7 +348,7 @@ export function claudeResearchObserver(maxActions: number, webFetch: WebFetchAll
       const fetchedSources = [...sources.values()].sort((a, b) => a.url.localeCompare(b.url));
       return { ...final!, webSearches: count(), fetchedSources, fetchedUrls: fetchedSources.map(source => source.url), researchText: final!.text };
     },
-    observed: completed,
+    observed: count,
   };
 }
 

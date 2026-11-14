@@ -92,7 +92,7 @@ it("adds only a validated issuer domain from the profile website to the Claude W
   fake.runClaude.mockResolvedValue({ text: "Notes.", model: "claude-opus-5-5", input: 1, output: 1, observedModels: ["claude-opus-5-5"],
     webSearches: 0, fetchedUrls: [], fetchedSources: [], researchText: "Notes." });
   const result = await runSubscriptionPass({ ...research, tools: [claudeWebResearchTool(8, "https://www.lilly.com")] }, "account");
-  expect(fake.runClaude.mock.calls[0][5]).toEqual({ maxActions: 8, webFetch: { domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS, "lilly.com"], hosts: [] } });
+  expect(fake.runClaude.mock.calls[0][5]).toEqual({ maxActions: 8, webFetch: { domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: ["www.lilly.com", "lilly.com"] } });
   expect(fake.runClaude.mock.calls[0][2]).toContain("lilly.com");
   // A research request in which nothing ran is recorded as zero, not omitted.
   expect(result).toMatchObject({ ok: true, value: { data: { execution: { webSearches: 0, webResearchUsed: false } } } });

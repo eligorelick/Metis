@@ -88,7 +88,7 @@ describe("Claude research requests through the CLI (D-269)", () => {
     const args = fake.spawn.mock.calls.at(-1)![1] as string[];
     expect(args).toEqual(expect.arrayContaining(["--output-format", "stream-json", "--verbose", "--tools", "WebSearch,WebFetch", "--safe-mode", "--strict-mcp-config", "--no-session-persistence"]));
     expect(args.slice(args.indexOf("--allowedTools") + 1, args.indexOf("--disallowedTools"))).toEqual(["WebSearch",
-      "WebFetch(domain:sec.gov)", "WebFetch(domain:*.sec.gov)", "WebFetch(domain:lilly.com)", "WebFetch(domain:*.lilly.com)", "WebFetch(domain:ir.example.co.uk)"]);
+      "WebFetch(domain:sec.gov)", "WebFetch(domain:*.sec.gov)", "WebFetch(domain:ir.example.co.uk)"]);
     expect(await runClaude(fake.store!.claude!.id, "sonnet", "writer")).toMatchObject({ text: "{}" });
     const writer = fake.spawn.mock.calls.at(-1)![1] as string[];
     expect(writer[writer.indexOf("--tools") + 1]).toBe(""); expect(writer).not.toContain("--allowedTools");
