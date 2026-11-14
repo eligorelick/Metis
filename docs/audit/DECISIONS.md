@@ -96,16 +96,21 @@ qualifications P12 requires where the figure is shown, so moving them needs a
 lead decision.
 
 **Word counts** (words with a letter or digit, rendered Markdown, same inputs,
-main f071ed04 against this change):
+main 73b9a44a against this change; LLY against f071ed04, whose code main
+73b9a44a does not change):
 
 | Case | Before | After | Change |
 | --- | --- | --- | --- |
-| LLY #63, stored analyst output (`lly-fixed-analyst`) | 34,666 | 31,720 | -8.5% |
-| LLY data-only | 16,350 | 14,236 | -12.9% |
-| AMZN fixed analyst | 19,415 | 17,430 | -10.2% |
-| META fixed analyst | 19,347 | 17,654 | -8.8% |
-| MU fixed analyst | 20,239 | 18,457 | -8.8% |
-| NVDA fixed analyst | 26,090 | 24,005 | -8.0% |
+| LLY #63, stored analyst output (`lly-fixed-analyst`) | 34,666 | 31,793 | -8.3% |
+| LLY data-only | 16,350 | 14,309 | -12.5% |
+| AMZN fixed analyst | 19,415 | 17,515 | -9.8% |
+| META fixed analyst | 19,347 | 17,727 | -8.4% |
+| MU fixed analyst | 20,239 | 18,530 | -8.4% |
+| NVDA fixed analyst | 26,090 | 24,123 | -7.5% |
+
+The 13 data-only golden cases are 9.6% to 15.0% shorter. The composite method
+text stays in the body, as D-62 decided, and the stale-source table keeps its
+Stale column.
 
 The brief's 20% target is not reached; the rest would come from the blocks
 listed under "Kept on purpose".
@@ -114,7 +119,7 @@ listed under "Kept on purpose".
 payload, Stage B or figure changes, and saved reports keep their bytes (P21).
 This is a read-time view of the same claims and tables.
 
-**Same-report check.** All 17 golden cases and both LLY cases: stageB.json,
+**Same-report check** (golden cases pinned at main 73b9a44a). All 17 golden cases and both LLY cases: stageB.json,
 payload.txt and report.json are byte-identical, so no numeric leaf changes. The
 reader files (report.md, print.html, web-dossier.html) change as described
 above, and audit.md only gains the bull/bear statements and the grade-range
