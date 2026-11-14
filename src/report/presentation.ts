@@ -672,13 +672,16 @@ export function pruneTable(
 /**
  * Raw base-unit integers inside stored sentences ("starting revenue
  * 302969000000 reporting-currency units", "diluted shares 24285000000") shown
- * compactly ("302.97B"). Display only; ten or more digits, so years, counts
- * and accession numbers are untouched.
+ * compactly ("302.97B"). Display only; ten or more digits, so years and counts
+ * are untouched. D-279 (P22): a quantity never starts with a zero, so a
+ * zero-padded identifier (an SEC accession, dashed or not, or a padded CIK)
+ * is never compacted, and nothing inside a URL is rewritten.
  */
 export function compactLongIntegers(text: string): string {
-  return text.replace(/(^|[^\d.,\-])(-?\d{10,})(?!\d|[.,]\d|-\d)/g, (_, lead: string, digits: string) => `${lead}${formatLargeNumber(Number(digits))}`)
-    .replace(/([\dKMBT])\s+reporting-currency units/g, "$1 (reporting currency)")
-    .replace(/\(reporting-currency units\)/g, "(reporting currency)");
+  return text.split(/((?:https?:\/\/|www\.)[^\s<>"']+)/i).map((part, index) => index % 2 === 1 ? part
+    : part.replace(/(^|[^\d.,\-])(-?[1-9]\d{9,})(?!\d|[.,]\d|-\d)/g, (_, lead: string, digits: string) => `${lead}${formatLargeNumber(Number(digits))}`)
+      .replace(/([\dKMBT])\s+reporting-currency units/g, "$1 (reporting currency)")
+      .replace(/\(reporting-currency units\)/g, "(reporting currency)")).join("");
 }
 
 /**
