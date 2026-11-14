@@ -382,6 +382,42 @@ every figure matches its expectation. Only JPM's intended payout expectation
 hash changed, with the filed cash-payment proof above. No full suite, paid
 call, application-database write or GitHub review reply occurred.
 
+### Final independent review A-H
+
+A/B. The new competitor gate no longer disables legacy quarter reconciliation
+or refusal. An independently agreeing annual PP&E basis governs the quarter;
+separate software does not displace it. The original -189M regression is
+restored with its derived-period proof assertion. The cumulative and unexplained
+quarter controls respectively recover and refuse under the original owner.
+C. Capital-spending competitors are owned by capitalSpendingTags() in
+`tagSynonyms.ts`, derived from the capex synonyms plus explicit capital
+components. Construction-in-process and software payments are included. A
+regression exercises every family member, including future additions.
+D/E. Exact-period competitors count across admitted filings within cutoff.
+The latest explicit zero does not compete; absence alone never proves zero.
+F. CostDepreciationAmortizationAndDepletion alone cannot prove the statement's
+full D&A. With no affirmative total proof in this owner, scalar substitution
+is declined and the observation retains its status. Cash D&A is unchanged.
+G. Mixed-basis information is emitted only when available parts previously
+agreed and stop agreeing after correction, under the existing same-observation
+rule. A test confirms it remains in the dated manifest but does NOT reach the
+statement row's displayed qualification. The reader is not widened here.
+H. The existing bank owner in statements.ts uses bankInterestIncome, whose
+operating-total family already includes InterestAndDividendIncomeOperating.
+That existing route is restored; non-bank interest still excludes dividends.
+
+Against 448cee20, only AMZN data-only and fixed-analyst calculated figures
+move: FY2016 FCF 10,466M to 9,399M and the available nine-year FCF CAGR
+-3.35961424% to -2.19806629%. There is no composite or aspect-score change.
+The retained FY2016 outlay 7,804M is corroborated by
+PaymentsToAcquireProductiveAssets, 10-K 0001018724-19-000004 filed 2019-02-01,
+and PaymentsForProceedsFromProductiveAssets, 10-K 0001018724-18-000005 filed
+2018-02-02. The former filing's operating cash flow is 17,203M, so one filing
+supports 17,203 - 7,804 = 9,399M. An earlier 6,737M PP&E line in
+0001018724-17-000011 does not establish that wider current quantity. All
+other 17-case and LLY calculated figures remain as at 448cee20 before the
+subsequent main integration; the final pinned-main replay follows below.
+
 Other defect left for the lead: saved fixed-analyst LLY prose still describes
 Q3 2026 FCF as below the prior year. This is the separate claim-verification
 issue in stageC/consistency.ts's direction block; no analyst is rerun here.
