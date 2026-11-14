@@ -128,13 +128,18 @@ export function issuerWebFetchHost(website: unknown): string | null {
 export interface WebFetchAllowlist { domains: readonly string[]; hosts: readonly string[] }
 /**
  * The WebFetch allowlist for one research request: the fixed list, plus the
- * issuer's registrable parent with its subdomains when plausible (www.lilly.com
- * gives lilly.com and *.lilly.com), otherwise the issuer's exact host only
- * (ir.example.co.uk gives that host and nothing under co.uk).
+ * issuer's registrable parent with its subdomains when plausible and the profile
+ * names the parent or its www host (www.lilly.com gives lilly.com and *.lilly.com),
+ * otherwise the issuer's exact host only (ir.example.co.uk and acme.ngrok.io give
+ * that host and nothing above it).
  */
 export function claudeWebFetchAllowlist(issuerHost?: string | null): WebFetchAllowlist {
   const host = issuerHost ? issuerWebFetchHost(issuerHost) : null;
-  const parent = host ? registrableWebFetchParent(host) : null;
+  // Widen to the parent only when the profile names the parent itself or its www
+  // host; a deeper host (acme.ngrok.io) could sit on a hosting platform the
+  // shared-hosting list lacks, so it keeps its exact host only.
+  const registrable = host ? registrableWebFetchParent(host) : null;
+  const parent = registrable && (host === registrable || host === "www." + registrable) ? registrable : null;
   return { domains: [...new Set([...CLAUDE_WEBFETCH_FIXED_DOMAINS, ...(parent ? [parent] : [])])],
     hosts: host && !parent && !CLAUDE_WEBFETCH_FIXED_DOMAINS.some(domain => host === domain || host.endsWith("." + domain)) ? [host] : [] };
 }

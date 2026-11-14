@@ -248,6 +248,12 @@ describe("Claude research arguments and stream observation (D-269)", () => {
     expect(rules("https://www.lilly.com")).toEqual(["WebFetch(domain:lilly.com)", "WebFetch(domain:*.lilly.com)"]);
     expect(rules("https://ir.example.co.uk")).toEqual(["WebFetch(domain:ir.example.co.uk)"]);
     expect(rules("https://www.co.jp")).toEqual(["WebFetch(domain:www.co.jp)"]);
+    // A deeper host never widens to its parent: a hosting platform missing from the
+    // shared-hosting list would otherwise hand its whole namespace to the fetch rules.
+    expect(rules("https://acme.ngrok.io")).toEqual(["WebFetch(domain:acme.ngrok.io)"]);
+    expect(rules("https://investor.lilly.com")).toEqual(["WebFetch(domain:investor.lilly.com)"]);
+    expect(rules("https://lilly.com")).toEqual(["WebFetch(domain:lilly.com)", "WebFetch(domain:*.lilly.com)"]);
+    expect(rules("https://www.www.lilly.com")).toEqual(["WebFetch(domain:www.www.lilly.com)"]);
     expect(registrableWebFetchParent("ir.example.co.uk")).toBeNull();
     expect(registrableWebFetchParent("a.b.com.au")).toBeNull();
     expect(registrableWebFetchParent("investor.lilly.com")).toBe("lilly.com");

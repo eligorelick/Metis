@@ -118,10 +118,15 @@ attacker's site in a second fetch. Doubt denies access, so:
     two labels) gets `d` and `*.d` only when it is plausibly registrable: a generic TLD
     of three or more letters, or a two-letter ccTLD whose second-level label is not a
     generic public second level (co, com, net, org, gov, edu, ac, ne, or, go, gob, gv,
-    ltd, plc and similar). For example, `https://www.lilly.com` gives `lilly.com` and
+    ltd, plc and similar). It also requires that the profile names the parent itself or
+    its `www.` host. For example, `https://www.lilly.com` gives `lilly.com` and
     `*.lilly.com`.
   - **Otherwise the exact host only.** `https://ir.example.co.uk` gives that host and
-    nothing under `co.uk`, and `www.co.jp` gives only that host.
+    nothing under `co.uk`, and `www.co.jp` gives only that host. A deeper host such as
+    `https://investor.lilly.com` or `https://acme.ngrok.io` also gets its exact host only.
+    A hosting platform missing from the shared-hosting list would otherwise hand its
+    whole namespace to the fetch rules. This narrowing came from the automated security
+    review on the round-1 commit.
   - **Fail closed, no dependency.** A public suffix can never become a wildcard. No
     public-suffix list is installed, so none was added; the cost is that an issuer under
     a ccTLD's generic second level gets its exact site, not its subdomains.
