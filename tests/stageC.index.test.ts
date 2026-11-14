@@ -475,6 +475,19 @@ describe("subscription research wiring", () => {
     expect(transport.mock.calls.every(call => call[1] === "selected-account")).toBe(true);
   });
 
+  it("adds the profile's issuer domain to the Claude research request, and never an IP-literal website (D-269)", async () => {
+    for (const [website, expected] of [["https://www.example-issuer.com", { issuerDomain: "example-issuer.com" }], ["http://127.0.0.1:3000", {}]] as const) {
+      vi.restoreAllMocks();
+      const transport = vi.spyOn(subscriptionTransport, "runSubscriptionPass").mockResolvedValue({ ...refusal, error: { ...refusal.error, model: "claude/example" } });
+      const { bundle, computed, validation } = buildInputs();
+      if (bundle.profile.ok) bundle.profile.value.data.rows[0] = { ...bundle.profile.value.data.rows[0], website };
+      const deps: PassDeps<ContextPayload> = { analysisModel: "claude/example", connectionId: "selected-account",
+        payload: pipelinePasses.assembleContextPayload(bundle, computed, validation) };
+      await expect(pipelinePasses.runAnalystPass!(deps, "bull")).rejects.toThrow("fixture stop");
+      expect(transport.mock.calls[0][0].tools).toEqual([{ type: "claude_web_research", maxActions: 8, ...expected }]);
+    }
+  });
+
   it("keeps Claude Code judges tool-free (D-269)", async () => {
     const transport = vi.spyOn(subscriptionTransport, "runSubscriptionPass").mockResolvedValue({ ...refusal, error: { ...refusal.error, model: "claude/example" } });
     const analyst = adapterPassResult(fakeAnalystCase());

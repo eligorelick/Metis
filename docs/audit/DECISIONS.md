@@ -31,7 +31,8 @@ current news beyond the filings (gaps G4 and G5).
 existing `toolsFor` contract with `ANALYST_MAX_WEB_SEARCHES` (8). Writers and the judge
 stay tool-free; the verify pass makes no model call. The research request runs the
 user's own installed, unmodified CLI in print mode with only its built-in tools:
-`--tools "WebSearch,WebFetch"` and `--allowedTools WebSearch WebFetch`, keeping
+`--tools "WebSearch,WebFetch"`, with `--allowedTools` naming WebSearch and only allowlisted
+WebFetch domains (below), keeping
 `--safe-mode`, `--setting-sources ""`, the hook and memory settings,
 `--disallowedTools mcp__*`, `--strict-mcp-config` with the empty MCP configuration,
 `--no-session-persistence`, `--permission-mode dontAsk` and the private working
@@ -48,8 +49,9 @@ provider, so the ChatGPT prompt is byte-for-byte unchanged.
 - The `system`/`init` event must offer no tool other than WebSearch and WebFetch and
   no MCP server; an assistant `tool_use` of any other name, any other tool-like block
   (such as a server-side tool), an event from a nested agent (`parent_tool_use_id`), a
-  tool result for an unknown action, a permission denial, a malformed line or an
-  event after the final result stops the CLI and rejects the research.
+  tool result for an unknown action, a permission denial other than a refused WebFetch
+  outside the allowlist, a malformed line or an event after the final result stops the
+  CLI and rejects the research.
 - Each WebFetch counts as one action and each WebSearch as the number of searches its
   typed result reports (`searchCount`, at least one); the final `result` event's
   per-model `webSearchRequests` is a second check. The first observed action beyond
@@ -62,7 +64,8 @@ provider, so the ChatGPT prompt is byte-for-byte unchanged.
   findings; every other rejection (`local_web_research_boundary`) is terminal and never
   replayed. No failure switches to a paid route.
 - Provenance comes only from typed tool events: the result links a WebSearch reports,
-  and a WebFetch's input URL when its typed result reports HTTP 2xx. A failed tool
+  and a WebFetch's input URL when its host is on the allowlist and its typed result
+  reports HTTP 2xx. A failed or refused tool
   call still counts but creates no provenance; a typed result is attributed only when
   its event carries exactly one tool result. URLs are canonicalised with
   `canonicalizeFetchedUrl`, credentials and non-web schemes are dropped, and at most
@@ -72,47 +75,89 @@ provider, so the ChatGPT prompt is byte-for-byte unchanged.
   the Claude research request; tool-free Claude passes keep their execution record
   unchanged.
 
-**Local and private addresses (P26).** WebFetch runs on the user's own computer, so a
-web page could try to steer the model toward this machine's services, including Metis's
-own local server. Two layers, from one list (`NON_PUBLIC_WEBFETCH_HOSTS`: private and
-reserved IPv4 blocks, IPv6 literals, local-use names such as `localhost`, `.local`,
-`.internal` and `.home.arpa`, and public wildcard-DNS services such as `nip.io` and
-`localtest.me` that map names onto private addresses):
+**WebFetch reads only an allowlist (P26, lead decision 2026-11-14).** WebFetch runs on
+the user's own computer. Left open, a web page could steer it to a name that resolves to
+a private address (DNS rebinding or a private DNS record) or have it send data to an
+attacker's site in a second fetch. Doubt denies access, so:
 
-- *Before a fetch runs.* Each pattern is passed to the CLI as a deny rule,
-  `--disallowedTools "WebFetch(domain:<pattern>)"`, which the CLI checks before it
-  executes the tool. Live checks on 2.1.323 (2026-11-14) confirmed exact, leading and
-  trailing wildcards, that `*` spans dots, and that with the full list a public page
-  (`www.sec.gov`, HTTP 200) still fetched while `app.localtest.me` was refused by the CLI
-  with no fetch. The CLI then reports a permission denial, which rejects the research.
-- *When the call is announced.* The stream observer rejects any WebFetch whose URL is not
-  a public web address (`publicWebUrl`: http or https, no credentials, a dotted name, no
-  IP literal in any form the URL parser normalises, and not on the list) and stops the
-  CLI (`local_web_research_boundary`). The same rule drops such links from search-result
-  provenance. This layer reads the CLI's output, so it is a second check, not the
-  boundary.
+- *WebSearch is unrestricted.* It runs on Anthropic's side, and no page is fetched from
+  the user's computer.
+- *WebFetch may read only an allowlist.* `--allowedTools` names `WebSearch` and, for each
+  allowed domain `d`, `WebFetch(domain:d)` and `WebFetch(domain:*.d)`, never a bare
+  `WebFetch`. Under `--permission-mode dontAsk` the CLI refuses every other fetch before
+  it runs. The list (`CLAUDE_WEBFETCH_FIXED_DOMAINS`) is short:
+  - `sec.gov` (filings and SEC releases);
+  - `fda.gov` and `cms.gov` (US drug and device approvals; Medicare pricing and
+    coverage, which drive pharma, medtech and insurer theses);
+  - `federalreserve.gov` and `ftc.gov` (bank regulation and rates; competition and
+    merger review);
+  - `bls.gov` and `census.gov` (official US industry and market statistics, for gap G4);
+  - `nasdaq.com` and `nyse.com` (the listing exchanges);
+  - `europa.eu` (EU institutions, including the EMA at `ema.europa.eu` and the European
+    Commission) and `gov.uk` (UK government, including the MHRA and the CMA). These
+    cover the official foreign regulators most theses need.
+- *The issuer's own domain is added* when the bundle's company profile gives a website:
+  deterministic data, never model text (`issuerWebFetchDomain`, read in `toPassDeps`
+  through the payload's assembly context). It is the plain public hostname with a
+  leading `www.` removed, the same derivation the issuer-website readers use (for
+  example `https://www.lilly.com` gives `lilly.com`). There is no issuer domain if the
+  value is absent or malformed, or is an IP literal, a localhost-like or other local-use
+  name, a wildcard-DNS name, or a shared-hosting suffix where anyone can publish a
+  subdomain (such as `github.io` or `azurewebsites.net`). The transport re-validates the
+  domain, and `runClaude` lets only fixed or re-validated domains reach the CLI's rules.
+- *A refused fetch is a failed action.* A WebFetch outside the allowlist that the CLI
+  refuses counts toward the eight actions and never becomes a source. Its permission
+  denial does not reject the research; a denial of any other tool, or of an
+  unobserved call, still does. A fetch whose host is off the allowlist is never a
+  source even if it somehow returned HTTP 200.
+- *How the CLI matches domains* (live-checked on 2.1.323, 2026-11-14):
+  - `domain:sec.gov` matches only `sec.gov`, refusing `www.sec.gov`, hence the `*.d`
+    rule;
+  - `*.sec.gov` matched `www.sec.gov`, and refused `www.sec.gov.example.org` and
+    `xsec.gov`, so the rules are anchored at both ends;
+  - `*` spans dots.
+- *Defence in depth stays.* The private-address deny rules (`NON_PUBLIC_WEBFETCH_HOSTS`:
+  private and reserved IPv4 blocks, IPv6 literals, local-use names, and wildcard-DNS
+  services such as `nip.io` and `localtest.me`) still go to `--disallowedTools`. The
+  stream observer still stops the CLI on any WebFetch to a non-public address
+  (`publicWebUrl`) and drops such links from search provenance.
 
-In a further live probe the CLI made no request to a local test listener when asked to
-fetch `127.0.0.1` and `localhost`. Residual risk, not covered by either layer: a public
-name that resolves to a private address (DNS rebinding or a private DNS record), and a
-redirect from a public page, which the CLI's own guidance says it reports back to the
-model rather than following across hosts (not independently verified). Metis's own
-server refuses a request whose Host header is not a loopback or configured name
-(`assertAllowedHost` in `src/app/requestSecurity.ts`), so a rebound public name cannot
-read it, but another unauthenticated service on the user's network could answer. Closing this fully
-needs either a local egress proxy that checks resolved addresses, or research with
-WebSearch only (no WebFetch); that choice is left to the owner.
+In an earlier live probe, the CLI made no request to a local test listener when asked to
+fetch `127.0.0.1` and `localhost`.
+
+Residual limits:
+
+- Pages on the allowed domains can still contain injected text. Like every web page, it
+  is untrusted evidence, never instructions (`subscriptionMessages`,
+  `buildAnalystResearchMaterial`), and it never supplies a figure Metis computes.
+- If the issuer's own domain, or one of the listed public sites, resolved to a private
+  address, the CLI's name rules would not see it.
+- WebSearch queries are composed by the model and sent to Anthropic's search service.
+- A redirect from an allowed page to another host is, by the CLI's own guidance,
+  reported back to the model rather than followed (not independently verified). The
+  follow-up fetch then meets the same allowlist.
+- Metis's own server also refuses any request whose Host header is not a loopback or
+  configured name (`assertAllowedHost` in `src/app/requestSecurity.ts`).
 
 **Choices considered.**
 
 - *Reject research when a fetch fails.* The ChatGPT route rejects on a failed hosted
-  action, but a WebFetch to a page that answers 403 or 404 is routine, so rejecting the
-  whole research on it would discard valid findings. A failed call is counted and
-  produces no provenance instead.
+  action, but a WebFetch to a page that answers 403 or 404, or to a site off the
+  allowlist, is routine, so rejecting the whole research would discard valid findings.
+  A failed or refused call is counted and produces no provenance instead. Accepted by the
+  lead on 2026-11-14.
 - *Reject research with no web action.* ChatGPT forces a search with `tool_choice`; the
   CLI has no such option, and the Claude API route already accepts research in which
   the model chose not to search. The Claude sign-in route matches the API route: notes
-  are accepted with no sources and `webResearchUsed` false.
+  are accepted with no sources and `webResearchUsed` false. Accepted by the lead on
+  2026-11-14, on condition that the disclosure states the count truthfully.
+- *Execution disclosure.* On a Claude Code pass the run-details note says "N observed web
+  research actions (Claude Code web searches and page fetches, refused fetches
+  included)". A research request that ran none says "Web research was available to
+  this pass, but 0 web searches or page fetches ran, so it used only the supplied
+  evidence." The ChatGPT notes and tool-free Claude notes are unchanged
+  (`buildExecutionMetadataEntry` in `src/report/execution.ts`). The count is one number
+  for searches and fetches together, as on ChatGPT; it is not split by kind.
 - *`--restricted`.* The installed CLI (2.1.323) documents that it keeps WebFetch when
   `--tools` names it, so it would not block the two tools. It is not used: `--tools`
   already removes every other built-in, the init-event check proves the offered set on
@@ -139,12 +184,18 @@ search and ten result links); a final `result` with subtype `success`, no permis
 denials, and model usage for `claude-opus-5-5` plus `claude-haiku-5-5` (the CLI's own
 helper model for fetch and search), whose `webSearchRequests` matched the observed
 searches. Replayed through `claudeResearchObserver`: 1 action and 1 source; 1 action and
-10 sources; 2 actions and 19 distinct sources.
+10 sources; 2 actions and 19 distinct sources. After the allowlist, a fourth request with
+the exact `claudeRunArgs` list (25 allow rules: WebSearch, the eleven fixed domains and
+`lilly.com`, each with its `*.` form) fetched `https://www.sec.gov/` (HTTP 200), and
+the CLI refused `https://www.reuters.com/` before fetching (one WebFetch permission
+denial). Replayed: research accepted, 2 actions, the only fetched source `www.sec.gov`.
+Replayed under the allowlist, the first request's fetch of a non-listed company site is
+no longer a source.
 
 **Approved report changes.** None. The same-report check against pinned main `57ba3f54`
 found no differing leaf in the 17 stored cases (119 files, check database) or the two LLY
 cases (14 files, the round's working-copy database, read-only), and again with no differing
-leaf against main `e8d3b567` after merging it (17 cases). The golden harness runs
+leaf against main `e8d3b567` after merging it, including after the WebFetch allowlist and the disclosure wording (17 stored cases and the two LLY cases). The golden harness runs
 no model, and this change touches only the model transport and its wiring. The accuracy
 check on the after set reports every figure as expected (265 figures in 13 cases).
 
@@ -152,15 +203,24 @@ check on the after set reports every figure as expected (265 figures in 13 cases
 observer: counts, provenance only from typed events, the limit before the result, the
 `searchCount` and `webSearchRequests` checks, a failed fetch, prose URLs ignored,
 fourteen rejection shapes, sixteen non-public fetch targets, the CLI deny rules and public
-controls), `tests/ai.claudeLifecycle.test.ts` (the spawned CLI: split
+controls, the allowlist built from the profile domain, twenty IP-literal, localhost-like,
+shared-hosting and malformed profile values that give no issuer domain, and a refused
+non-listed fetch that counts but is never a source), `tests/ai.claudeLifecycle.test.ts` (the spawned CLI: split
 chunks, kill at the limit, the deadline, a failing exit), `tests/ai.claudeTransport.test.ts`
-(research wiring, unchanged tool-free record, terminal rejections, refused
-configurations), `tests/stageC.index.test.ts` (research before a tool-free writer; a
-tool-free judge) and `tests/stageC.payload.passes.test.ts` (limits continue to the
+(research wiring, the allowlist and prompt, unchanged tool-free record, terminal
+rejections, refused configurations including an invalid issuer domain),
+`tests/stageC.index.test.ts` (research before a tool-free writer; the profile domain
+added and an IP-literal website not; a tool-free judge),
+`tests/report.webResearchDisclosure.test.ts` (searches and fetches stated, zero stated,
+ChatGPT and tool-free notes unchanged) and `tests/stageC.payload.passes.test.ts` (limits continue to the
 writer; other failures terminal). The existing ChatGPT research tests pass unchanged.
-One test was restructured, not loosened: the ChatGPT "keeps non-optional research
-failures terminal" body became a shared helper that the new Claude cases also call,
-with the same assertions.
+Test revisions, none loosened (accepted by the lead): the ChatGPT "keeps non-optional
+research failures terminal" body became a shared helper that the new Claude cases also
+call, with the same assertions; `tests/ai.claudeTransport.test.ts` mocks `@/ai/claude`
+with `importOriginal` so the real error class is available. This branch's own earlier
+assertion that research allows a bare `WebFetch` was replaced, as the allowlist decision
+requires, by the stricter assertion that the allowed list is exactly WebSearch plus the
+domain rules and never contains a bare `WebFetch`.
 
 ## D-261 - Preserve admitted liquidity; repair refused cash (2026-11-14, narrowed owner policy)
 

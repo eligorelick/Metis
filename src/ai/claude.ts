@@ -62,7 +62,49 @@ export const NON_PUBLIC_WEBFETCH_HOSTS: readonly string[] = [
   ...Array.from({ length: 16 }, (_, index) => `172.${16 + index}.*.*`), "*:*", "[*",
   ...["nip.io", "sslip.io", "xip.io", "localtest.me", "lvh.me", "traefik.me", "vcap.me"].flatMap(service => [service, `*.${service}`]),
 ];
-const NON_PUBLIC_HOST = new RegExp(`^(?:${NON_PUBLIC_WEBFETCH_HOSTS.map(glob => glob.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")).join("|")})$`);
+const hostGlobs = (globs: readonly string[]) => new RegExp(`^(?:${globs.map(glob => glob.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")).join("|")})$`);
+const NON_PUBLIC_HOST = hostGlobs(NON_PUBLIC_WEBFETCH_HOSTS);
+/**
+ * The only sites WebFetch may read (D-269, lead decision; P26 doubt denies):
+ * filings, the regulators and statistics agencies analyst theses most often
+ * turn on, and the two US listing exchanges. Each domain also allows its
+ * subdomains. WebSearch is not restricted; it runs on Anthropic's side.
+ */
+export const CLAUDE_WEBFETCH_FIXED_DOMAINS: readonly string[] = [
+  "sec.gov", // filings and SEC releases
+  "fda.gov", "cms.gov", // US drug and device approvals; Medicare pricing and coverage
+  "federalreserve.gov", "ftc.gov", // bank regulation and rates; competition and merger review
+  "bls.gov", "census.gov", // official US industry and market statistics
+  "nasdaq.com", "nyse.com", // listing exchanges
+  "europa.eu", // EU institutions, including the EMA (ema.europa.eu) and the European Commission
+  "gov.uk", // UK government, including the MHRA and the CMA
+];
+// Hosting suffixes on which anyone can publish a subdomain; never an issuer's own domain.
+const SHARED_HOSTING = hostGlobs(["github.io", "blogspot.com", "wordpress.com", "wixsite.com", "squarespace.com", "herokuapp.com",
+  "azurewebsites.net", "cloudfront.net", "amazonaws.com", "appspot.com", "netlify.app", "vercel.app", "pages.dev", "web.app",
+  "firebaseapp.com", "googleusercontent.com", "sharepoint.com", "myshopify.com", "weebly.com", "godaddysites.com"].flatMap(domain => [domain, "*." + domain]));
+/**
+ * The issuer's own website domain from the bundle's company profile (deterministic
+ * data, never model text): a plain public hostname with any leading "www." removed,
+ * as the issuer-website readers already treat it. An IP literal, a local-use name,
+ * a shared-hosting suffix or anything unparseable gives no issuer domain.
+ */
+export function issuerWebFetchDomain(website: unknown): string | null {
+  if (typeof website !== "string" || !website.trim() || website.length > 2_048) return null;
+  const raw = website.trim();
+  const url = publicWebUrl(/^https?:\/\//i.test(raw) ? raw : "https://" + raw);
+  if (!url) return null;
+  const host = new URL(url).hostname.toLowerCase().replace(/\.$/, "").replace(/^www\./, "");
+  if (host.length > 253 || !host.includes(".") || !host.split(".").every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) ||
+      /^[\d.]+$/.test(host) || NON_PUBLIC_HOST.test(host) || SHARED_HOSTING.test(host)) return null;
+  return host;
+}
+/** The WebFetch allowlist for one research request: the fixed list plus a validated issuer domain. */
+export function claudeWebFetchDomains(issuerDomain?: string | null): string[] {
+  const issuer = issuerDomain ? issuerWebFetchDomain(issuerDomain) : null;
+  return [...new Set([...CLAUDE_WEBFETCH_FIXED_DOMAINS, ...(issuer ? [issuer] : [])])];
+}
+const allowedFetchHost = (domains: readonly string[]) => hostGlobs(domains.flatMap(domain => [domain, "*." + domain]));
 
 /**
  * Print-mode arguments for the unmodified CLI. Writing, judge and verify are
@@ -70,13 +112,17 @@ const NON_PUBLIC_HOST = new RegExp(`^(?:${NON_PUBLIC_WEBFETCH_HOSTS.map(glob => 
  * WebFetch, streamed as typed events so the action count and provenance come
  * from tool events, never prose; every other isolation flag is kept.
  */
-export function claudeRunArgs(model: string, effort?: ChatGptEffort, research = false): string[] {
+export function claudeRunArgs(model: string, effort?: ChatGptEffort, research?: { webFetchDomains: readonly string[] }): string[] {
   if (!validModelId(model)) throw new Error("Invalid Claude model");
   if (effort && !CHATGPT_EFFORTS.includes(effort)) throw new Error("Invalid Claude effort");
   return ["--print", ...(research ? ["--output-format", "stream-json", "--verbose"] : ["--output-format", "json"]),
     "--safe-mode", "--setting-sources", "",
     "--settings", JSON.stringify({ disableAllHooks: true, autoMemoryEnabled: false }),
-    ...(research ? ["--tools", CLAUDE_RESEARCH_TOOLS.join(","), "--allowedTools", ...CLAUDE_RESEARCH_TOOLS] : ["--tools", ""]),
+    // A WebFetch rule "domain:x" matches only the host x (live-checked on
+    // 2.1.323), so each allowed domain gets x and *.x; under dontAsk the CLI
+    // refuses any other fetch before it runs.
+    ...(research ? ["--tools", CLAUDE_RESEARCH_TOOLS.join(","), "--allowedTools", "WebSearch",
+      ...research.webFetchDomains.flatMap(domain => [`WebFetch(domain:${domain})`, `WebFetch(domain:*.${domain})`])] : ["--tools", ""]),
     "--disallowedTools", "mcp__*", ...(research ? NON_PUBLIC_WEBFETCH_HOSTS.map(host => `WebFetch(domain:${host})`) : []),
     "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
     "--no-session-persistence", "--permission-mode", "dontAsk",
@@ -145,7 +191,8 @@ const INVALID_EVENT = "Claude returned invalid web-research event metadata. No p
  * WebSearch's result links and a WebFetch's input URL when the fetch returned
  * HTTP 2xx. URLs in the model's prose never create provenance.
  */
-export function claudeResearchObserver(maxActions: number) {
+export function claudeResearchObserver(maxActions: number, webFetchDomains: readonly string[] = CLAUDE_WEBFETCH_FIXED_DOMAINS) {
+  const fetchable = allowedFetchHost(webFetchDomains);
   const actions = new Map<string, { tool: ClaudeResearchTool; url?: string; weight: number; done: boolean }>();
   const sources = new Map<string, { url: string; title: string; pageAge: null }>();
   let final: ClaudeResult | undefined;
@@ -210,7 +257,10 @@ export function claudeResearchObserver(maxActions: number) {
             ? item.tool_use_result as { code?: unknown; results?: unknown; searchCount?: unknown } : undefined;
           if (!typed) continue;
           if (action!.tool === "WebFetch") {
-            if (Number.isSafeInteger(typed.code) && (typed.code as number) >= 200 && (typed.code as number) < 300) addSource(action!.url);
+            // A source only when the fetch succeeded on an allowed site; a refused
+            // fetch outside the allowlist is a failed action, never a source.
+            const fetched = publicWebUrl(action!.url);
+            if (fetched && fetchable.test(new URL(fetched).hostname) && Number.isSafeInteger(typed.code) && (typed.code as number) >= 200 && (typed.code as number) < 300) addSource(fetched);
             continue;
           }
           if (Number.isSafeInteger(typed.searchCount) && (typed.searchCount as number) > 1) action!.weight = typed.searchCount as number;
@@ -224,7 +274,12 @@ export function claudeResearchObserver(maxActions: number) {
         }
       } else if (item.type === "result") {
         try { final = parseClaudeResultEvent(item); } catch { reject(UNCOMPLETED); }
-        if (Array.isArray(item.permission_denials) && item.permission_denials.length > 0) reject("Claude Code denied a requested tool action during web research. No paid fallback was attempted.");
+        // The CLI refuses WebFetch outside the allowlist; such a refusal is a
+        // failed fetch already counted above. Any other denial rejects the research.
+        if (Array.isArray(item.permission_denials) && item.permission_denials.some(denial => {
+          const entry = (denial && typeof denial === "object" ? denial : {}) as { tool_name?: unknown; tool_use_id?: unknown };
+          return entry.tool_name !== "WebFetch" || typeof entry.tool_use_id !== "string" || actions.get(entry.tool_use_id)?.tool !== "WebFetch";
+        })) reject("Claude Code denied a requested tool action during web research. No paid fallback was attempted.");
         const usage = item.modelUsage as Record<string, { webSearchRequests?: unknown }>;
         serverSearches = Object.values(usage).reduce((sum, entry) => sum + (Number.isSafeInteger(entry?.webSearchRequests) && (entry.webSearchRequests as number) > 0 ? entry.webSearchRequests as number : 0), 0);
         enforceLimit();
@@ -319,8 +374,8 @@ export async function connectClaude(): Promise<void> {
 }
 
 export async function runClaude(id: string, model: string, prompt: string, signal?: AbortSignal, effort?: ChatGptEffort): Promise<ClaudeResult>;
-export async function runClaude(id: string, model: string, prompt: string, signal: AbortSignal | undefined, effort: ChatGptEffort | undefined, research: { maxActions: number }): Promise<ClaudeResearchResult>;
-export async function runClaude(id: string, model: string, prompt: string, signal?: AbortSignal, effort?: ChatGptEffort, research?: { maxActions: number }): Promise<ClaudeResult | ClaudeResearchResult> {
+export async function runClaude(id: string, model: string, prompt: string, signal: AbortSignal | undefined, effort: ChatGptEffort | undefined, research: { maxActions: number; webFetchDomains: readonly string[] }): Promise<ClaudeResearchResult>;
+export async function runClaude(id: string, model: string, prompt: string, signal?: AbortSignal, effort?: ChatGptEffort, research?: { maxActions: number; webFetchDomains: readonly string[] }): Promise<ClaudeResult | ClaudeResearchResult> {
   const generation = runtime().generation;
   const identity = await withAiStore(store => {
     claimAiRuntime(store);
@@ -332,8 +387,10 @@ export async function runClaude(id: string, model: string, prompt: string, signa
   if (runtime().generation !== generation || readAiStore()?.claude?.id !== id) throw new Error("Claude connection was canceled.");
   if (!research) return parseClaudeResult(await invoke(claudeRunArgs(model, effort), prompt, signal, 45 * 60_000));
   if (!Number.isSafeInteger(research.maxActions) || research.maxActions < 1) throw new Error("Invalid Claude research limit");
-  const observer = claudeResearchObserver(research.maxActions);
-  await invoke(claudeRunArgs(model, effort, true), prompt, signal, CLAUDE_RESEARCH_TIMEOUT_MS, observer);
+  // Only fixed or validated domains reach the CLI's permission rules.
+  const webFetchDomains = research.webFetchDomains.filter(domain => CLAUDE_WEBFETCH_FIXED_DOMAINS.includes(domain) || issuerWebFetchDomain(domain) === domain);
+  const observer = claudeResearchObserver(research.maxActions, webFetchDomains);
+  await invoke(claudeRunArgs(model, effort, { webFetchDomains }), prompt, signal, CLAUDE_RESEARCH_TIMEOUT_MS, observer);
   return observer.finish();
 }
 

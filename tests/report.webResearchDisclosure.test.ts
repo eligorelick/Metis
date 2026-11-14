@@ -52,4 +52,22 @@ describe("observed web research in plan execution disclosures", () => {
     expect(entry.note).toContain("retained web research");
     expect(evidenceScopeSummary(report)).toBe("bull used web research with supplied evidence");
   });
+
+  // D-269: the Claude Code route states how many searches and fetches ran, and a research request that ran none as zero.
+  it("states Claude Code research actions, including zero, and leaves tool-free and ChatGPT notes unchanged", () => {
+    const claude = { ...input, requestedModel: "claude/opus", effectiveModel: "claude/claude-opus-5-5" };
+    const searched = buildExecutionMetadataEntry({ ...claude, execution: { webSearches: 3, webResearchUsed: true } });
+    expect(searched.note).toContain("Claude Code account allowance was used");
+    expect(searched.note).toContain("3 observed web research actions (Claude Code web searches and page fetches, refused fetches included)");
+    const none = buildExecutionMetadataEntry({ ...claude, execution: { webSearches: 0, webResearchUsed: false } });
+    expect(none.webSearches).toBe(0);
+    expect(none.note).toContain("Web research was available to this pass, but 0 web searches or page fetches ran, so it used only the supplied evidence.");
+    const judge = buildExecutionMetadataEntry({ ...claude, step: "synthesize", execution: { modelObserved: true } });
+    expect(judge.note).toContain("This pass used the supplied evidence without additional web search.");
+    expect(buildExecutionMetadataEntry({ ...input, execution: { webSearches: 0 } }).note).toContain("This pass used the supplied evidence without additional web search.");
+    expect(buildExecutionMetadataEntry({ ...input, execution: { webSearches: 2 } }).note).toContain("2 observed web research actions; this count");
+    const report = loadTask28Fixture();
+    report.meta.execution = [none, searched];
+    expect(evidenceScopeSummary(report)).toContain("used only the supplied evidence");
+  });
 });
