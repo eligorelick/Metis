@@ -1036,7 +1036,19 @@ const MOAT_RANK: Readonly<Record<MoatAssessment["strength"], number>> = { wide: 
  */
 export function isBriefEligible(claim: SourcedClaim): boolean {
   return claim.label === "FACT" && SUPPORTING_MARKS.has(claimStatusMark(claim) ?? "") && !LIMITATION_WORDS.test(claim.text) &&
-    !MARKET_OR_COMPUTED_SOURCE.test(citationSourceId(claim) ?? (typeof claim.source === "string" ? claim.source : ""));
+    !briefCitationIds(claim).some(id => MARKET_OR_COMPUTED_SOURCE.test(id));
+}
+
+/**
+ * Review round 1 (P18): every identity a citation can carry, so an old
+ * bracketed citation the parser cannot resolve ("[payload.quote.price ·
+ * 2026-11-13 · 2026-11-13]") is still read by its leading id, and the source id
+ * field is checked too. Any market or computed identity excludes the claim.
+ */
+function briefCitationIds(claim: SourcedClaim): string[] {
+  const raw = typeof claim.source === "string" ? claim.source.trim() : "";
+  const lead = raw.replace(/^\[\s*/, "").split(/\s*[·|\]]\s*/)[0] ?? "";
+  return [citationSourceId(claim) ?? "", raw, lead, typeof claim.sourceId === "string" ? claim.sourceId : ""].filter(Boolean);
 }
 
 /**
