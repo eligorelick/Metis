@@ -237,8 +237,10 @@
 // own FACT claim. No figure changes; stored reports keep their bytes.
 // 1.87.0 (D-272): annual guidance tables, provider results and insider evidence, dividend disclosures.
 // 1.88.0 (D-274, P18/P19): independently verify excerpt figures and explicit metric units.
-// 1.89.0 (D-279, P4): a vendor enterprise value is shown only when its same-date balance establishes the listing currency; otherwise it is withheld with its cause.
-export const REPORT_SPEC_VERSION = "1.89.0" as const;
+// 1.89.0 (D-277, P18): assembly admits filed quarterly segment member labels as heading names.
+// 1.90.0 (D-278, P19): a "Differs from the record" note needs the figure to name only the record's metric.
+// 1.91.0 (D-279, P4): a vendor enterprise value is shown only when its same-date balance establishes the listing currency; otherwise it is withheld with its cause.
+export const REPORT_SPEC_VERSION = "1.91.0" as const;
 
 /**
  * Current payload format version.
@@ -412,7 +414,8 @@ export const PAYLOAD_VERSION = "1.105.0" as const;
 // 1.6.44: primary repurchase evidence survives acquisition, calculation, analyst context and export.
 // 1.6.45 (D-271): sector-neutral business checklist for the analysts and judge, research order (market and competitors
 // before news), the judge writes the business story, and generation replaces a product-line heading its claims do not name.
-export const PIPELINE_VERSION = "stage-c-1.6.45" as const;
+// 1.6.46 (D-277): include code-built filed segment labels in the whole-name heading gate.
+export const PIPELINE_VERSION = "stage-c-1.6.46" as const;
 
 /** The evidence-rules contract this build writes on new reports. */
 export const EVIDENCE_CONTRACT_VERSION = "EVIDENCE_CONTRACT_1" as const;

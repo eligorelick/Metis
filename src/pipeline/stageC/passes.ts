@@ -4537,7 +4537,8 @@ export function applySegmentShares(
 /**
  * D-271, review round 2 (lead fix, P18: code owns labels): the product and
  * geographic segment names in the bundle's own segmentation data (filed or
- * provider rows, never model text), as heading keys.
+ * provider rows, never model text), plus filed quarterly member labels (D-277),
+ * as heading keys.
  */
 export function bundleSegmentNameKeys(bundle: DataBundle | undefined): Set<string> {
   const keys = new Set<string>();
@@ -4547,6 +4548,17 @@ export function bundleSegmentNameKeys(bundle: DataBundle | undefined): Set<strin
       const data = row?.data;
       if (data === undefined || data === null || typeof data !== "object") continue;
       for (const name of Object.keys(data)) { const key = productLineHeadingKey(name); if (key) keys.add(key); }
+    }
+  }
+  // D-277 (P18): the same code-built filed member labels used by the quarterly
+  // segment table; never judge-authored business.segments or claim text.
+  const filed = bundle?.edgar?.quarterlySegments;
+  if (filed?.ok) {
+    for (const axis of filed.value.data.axes) {
+      for (const row of axis.rows) {
+        const key = productLineHeadingKey(row.label);
+        if (key) keys.add(key);
+      }
     }
   }
   return keys;
@@ -4559,7 +4571,8 @@ export function bundleSegmentNameKeys(bundle: DataBundle | undefined): Set<strin
  * report's own segment rows keep judge-authored names, so neither the claims
  * nor those rows make a heading code-owned. At assembly a heading stands only
  * when it equals, as a whole name, a segment name in the bundle's segmentation
- * data; otherwise the fixed heading replaces it and the claims are kept. The
+ * data or filed quarterly segment member labels (D-277); otherwise the fixed
+ * heading replaces it and the claims are kept. The
  * read-time rule (a naming FACT must be validated or qualitative) still applies.
  */
 export function gateProductLineHeadings<T extends { productLine: string }>(items: readonly T[] | undefined, names: ReadonlySet<string>): T[] | undefined {

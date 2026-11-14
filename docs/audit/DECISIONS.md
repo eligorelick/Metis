@@ -42,11 +42,12 @@ it and their bytes do not change.
 | tsm-data-only | Provider enterprise value at 2026-09-30 (key data; `marketData.enterpriseValue`, `enterpriseValueNote`; audit export gains the withheld note) | "$72.77T" | withheld: "the vendor row states no currency and its same-date balance does not establish it in the displayed currency (statements in TWD, quote in USD — no FX conversion is attempted)" | The issuer files in TWD: the FY2025 20-F (accession 0001628280-26-025362, period ended 2025-12-31) tags its IFRS balance sheet and income statement in TWD, and the same-date balance is established in TWD; the ADS trades in USD. No rate converts it here. |
 | tsm-data-only | WACC basis filing link (Markdown, print, web) | `.../data/1046179/162.83T/` | `.../data/1046179/000162828026025362/` | the accession of that 20-F |
 
-No other case changes: every other stored case and both LLY cases are byte-identical (the new check withholds no
-other provider EV). Accuracy check: 173 match / 5 mismatch / 61 gap / 26 not-established, unchanged; no
+No other figure or text changes: every other stored case and both LLY cases differ only in version metadata and the
+identity hashes that follow it (the new check withholds no other provider EV). Accuracy check: 173 match / 5 mismatch / 61 gap / 26 not-established, unchanged; no
 expectation moves.
 
-**Version.** A shown figure becomes withheld for new reports, so report spec moves 1.88.0 to 1.89.0 (as for D-133).
+**Version.** A shown figure becomes withheld for new reports, so report spec moves to 1.91.0 (as for D-133; first
+delivered as 1.89.0 and renumbered after D-277 took 1.89.0 and D-278 took 1.90.0).
 Payload, Stage B and score bands are unchanged (market data is not part of the model's payload). Stamp checklist:
 the METHODOLOGY declared-versions sentence, `npm run sample:build` (DEMO sample stamp only), `npm run freeze:refresh`
 for the audit fixture (scope: the report stamp and its projection digests), and the stamp pins in
@@ -78,6 +79,44 @@ skip; its single failure was the control above, fixed and rerun with the stamp, 
   (`src/edgar/instanceFacts.ts`, D-268) admits only undimensioned facts and the carrying-amount axis. Preferring an
   ADS-member fact needs a new admitted dimension (P3/P5) plus routing into the reconciliation: larger than this
   package. D-275's acceptance of 327.35 stands until then.
+
+## D-278 - A conflict note needs the figure to name only the record's metric (2026-11-14)
+
+P19. Owner: `src/pipeline/stageC/claimEvidence.ts` (`checkPlainFigures`); the note text is written in `src/pipeline/stageC/passes.ts`.
+
+**Evidence (Part C audits).** Fresh LLY #65: "(Differs from the record: $184 million stated, USD 24,397 million recorded.)" on a Foundayo revenue sentence, and the same note for "approximately $900 million of benefits"; both bound to total quarterly revenue (AUDIT-LLY LLY-12). Fresh JPM #64 (JPM-14) and TSM #66 (TSM-08) show the same class. Stored NVDA golden case: "+0.38 percentage points stated, -2.62 percentage points recorded" bound the 12-1 month relative strength to the 6-month record. Each note told the reader a figure conflicted with a record that measures something else.
+
+**Rule.** A plain-prose figure is reported as differing from a record only when every metric word of its own description (parenthetical asides, a stated cash direction and bounds excepted, as D-263 decided; a code-owned technical frame already proves the metric) is a word of that record's own label. A qualifier the record lacks (a product name, "benefits", "12-1 month") makes it a different quantity: the record is dropped for that figure, and the figure is reported as "not matched" or "value matched; context not confirmed" (unverified). A dropped candidate still counts as ambiguity, so it never lets the remaining candidates confirm: confirmations are unchanged. The verifier's own grammar already treats "total" and "reported" as meaningful, so "Total revenue" is not the plain revenue record here either.
+
+**Before and after (same-report check, 17 cases and both LLY cases against main f97588e2).** stageB.json and payload.txt are byte-identical everywhere. The only report change is NVDA fixed-analyst, `technicals.read.relativeStrength`: the note "Differs from the record: +0.38 percentage points stated, -2.62 percentage points recorded." becomes "Value matched; context not confirmed: +0.38 percentage points; -2.62 percentage points." Both LLY cases are byte-identical. The fresh reports' notes were written at generation and are not rewritten (P21); new reports get the rule.
+
+**Stamp.** Report meaning moves to 1.90.0 (after D-277 took 1.89.0); payload, Stage B and pipeline stamps are unchanged; the DEMO sample and the frozen audit fixture are re-recorded with only the stamp and its digests changing.
+
+Tests: the LLY reproductions (product revenue and benefits against total revenue) with controls that the record's own metric at a different value is still a conflict, the equal value confirms, and a share-price conflict on another record shape remains. All earlier D-263 conflict tests (parentheticals, cash direction, bounds, technical frames) pass unchanged.
+
+**Review round 1 (GPT-6.1 Sol, high).** A figure whose candidate is dropped for an extra qualifier could fall to the value lookup and be marked "value matched" (which the reader does not annotate) by an unrelated record that happens to hold the same amount, e.g. a misstated revenue amount equal to the cash balance. A first fix (accept only records of the metric the clause names) still let the same metric for another period hide the error (review round 2: September revenue misstated as June's 25,397). Final fix (P19, doubt means unverified): after a dropped candidate the figure never takes a value match; it prints "Not matched to a source". Tests: both reproductions (an unrelated cash record and the June revenue record holding the stated amount) keep a visible note; the cash statement itself still matches. Golden against main: NVDA relative strength changes from the false "Differs from the record: +0.38 pp stated, -2.62 pp recorded" to "Not matched to a source: +0.38 percentage points"; NVDA "gross margin of about 75%" changes from an unmarked value match to "Not matched to a source: 75%" (the fail-closed cost: a dropped candidate made it ambiguous). No figure, status or Stage B byte changes in any case. Review thread (Codex bot): the extra-word check compared exact words, so a plural of the record's own metric ("gross margins" against "gross margin") lost a real conflict; it now uses the same singular/plural reading as the metric match (namesMetric). Test: the plural conflict stays a contradiction, with singular and equal-value controls; golden unchanged.
+
+## D-277 - Filed member labels belong to the code-owned heading names (2026-11-14)
+
+P18, P21 and P27. Owner decision: lead. Owner: `src/pipeline/stageC/passes.ts:bundleSegmentNameKeys`. Revises D-271 review round 2's source inventory, preserving its whole-name gate and the generation/read-time FACT checks.
+
+**Evidence and cause.** Fresh LLY report 65 (job `e4cccbcb-ee93-42a2-a184-b59f9a750184`) replaced nine of ten product headings and all three competitor headings with the fixed fallback. Provider annual segmentation is coarser than the issuer's filed product members. The quarterly segment table already reads `bundle.edgar.quarterlySegments.value.data.axes[].rows[].label`, built by `buildQuarterlySegments` from filed XBRL. Assembly omitted that source. The bundle includes product and geographic axes; business-segment axes use the same code path for banks and other issuers.
+
+**Rule and scope.** Also collect those filed row labels when the quarterly-segments result is successful. Use the existing `productLineHeadingKey` and whole-name equality; never take member QNames, axis captions, prior-presentation notes, model claims or judge-authored segment rows as additional names. Missing or failed filed results add nothing. This applies to every issuer shape using that source, including business segments and geography. Neither the model's assertion nor a statement that evidence is absent can make a label code-owned. No tolerance, financial admission or calculation changes. No company conditions.
+
+**Alternatives and risks.** Provider-only names reproduce the defect; claim text or judge rows would violate P18 and reopen the D-271 assertion exploit. Reusing the existing filed table labels preserves the filing reader's selection, cutoff and naming rules without a second parser. Coverage remains bounded by retained bundle evidence. Saved reports and databases are untouched; this changes newly assembled reports and explicit local reassemblies only. Report spec 1.89.0 and Stage C stage-c-1.6.46 identify the changed assembly meaning. Payload and Stage B stamps remain unchanged.
+
+**Regressions.** Added synthetic coarse-provider pharmaceutical, geographic and bank business-member shapes, a missing-name control, a member-QName control, and failed-filed-result control. The original D-271 reproduction, "Verandol dominates the market", still falls back even when Verandol is a filed name. Claims remain byte-identical. No existing behavior assertion was weakened; only current version pins changed in `report.versionStamps.test.ts` and the persisted-report assertions in `jobRunner.test.ts` and `stageC.payload.passes.test.ts`.
+
+**Approved report changes (pinned base `f97588e29d6824c6fb296d499cd16def5fd937d2`).**
+
+- Full same-report set: all 17 cases (`amzn-data-only`, `amzn-fixed-analyst`, `duk-data-only`, `figr-data-only`, `jpm-data-only`, `meta-data-only`, `meta-fixed-analyst`, `mu-data-only`, `mu-fixed-analyst`, `nvda-data-only`, `nvda-fixed-analyst`, `o-data-only`, `pgr-data-only`, `qcom-data-only`, `rivn-data-only`, `tsm-data-only`, `vktx-data-only`) change only `report.json` leaves `meta.specVersion` and `meta.pipelineVersion`, their displayed strings in Markdown/print/audit/web, and the web evidence inspector's report-identity hash. Stage B and payload bytes are identical; every figure and status is identical before/after.
+- The two supplied LLY report-63 cases have the same metadata-only delta. Their snapshot is absent from `metis-check/check.db`, so both runs used the provided final-round database copy read-only. These stored cases do not exercise assembly's new heading gate. LLY-only accuracy check reports no configured data-only case; the full accuracy check covers 265 figures in 13 cases and matches all existing expectations (173 match, 5 mismatch, 61 gap, 26 not-established). No expectation changes.
+- Fresh LLY report-65 assembly replay: read the supplied live/c2 database copy with `DatabaseSync(..., { readOnly: true })`, recovered the frozen bundle and successful judge artifact, and reassembled under both base and changed code with the same generated time, stored verification log and pipeline label. Exactly nine heading leaves change from the fallback: `business.products[0,1,3,4,5,6,9].productLine` become Mounjaro, Zepbound, Jardiance, Verzenio, Trulicity, Taltz, Immunology; `competitive.competitorsByProductLine[0,2].productLine` become Zepbound, Mounjaro. The only other JSON change is `meta.specVersion`. Every claim and figure is identical. Markdown rendering of the two assembled objects changes eight visible headings (seven products and Zepbound competitors), plus the spec label in two metadata rows. The Mounjaro competitor label is admitted into JSON but still renders as fallback because its naming FACT remains unchecked under the saved verification log (type-2 and receptor terminology was flagged as ambiguous quantities). That independent claim-verification behavior is unchanged. This is an assembly comparison, not a full fresh model run or mutation of the saved report.
+- Foundayo and Kisunla (and the Foundayo competitor heading) stay fallback: neither name is in this snapshot's filed member rows or provider names. The audit's assumption that every product has a filed member is not true of the retained table source. No broader source admission is authorized here.
+- Sample DEMO changes only its spec/pipeline labels. Frozen audit projection changes only the spec label and projection hash; the stagec-payload refresh was attempted and refused because its bytes already match. No financial frozen leaf changed.
+
+**Validation.** The new regression failed before the owner fix. Focused business-story, version and documentation checks, TypeScript, changed-file ESLint and the required changed-test sweep are recorded in the PR. CI runs the full suite. The required changed-test sweep passed 646 files and 16,468 tests (one skipped) and found two stale stamp assertions in jobRunner and stageC.payload.passes; those assertions now pin the new versions with identical strictness, and both affected tests passed on a focused rerun. No paid/model calls or evidence-database writes.
 
 ## D-276 - Brief lines describe the business, not the stock (2026-11-14)
 
@@ -346,6 +385,8 @@ case list against new showed differences only in `tsm-data-only`. `accuracy:chec
 with `--update-expectation`, and their notes now state the filed match.
 
 ## D-271 - A home for the business story, for every company type (2026-11-14)
+
+**Revised by D-277:** assembly also admits the code-built filed quarterly XBRL member labels, using the same whole-name match.
 
 P18, P20, P21 and P22. Owners: `src/report/schema.ts` (fields and the heading
 rule), `src/pipeline/stageC/passes.ts` (generation), `src/pipeline/stageC/prompts.ts`
