@@ -101,6 +101,9 @@ export function sanitizeLegacyEntityConflicts(
   // reported "2 legacy statements" for one (audit 2026-09-06, F194).
   const withheldTexts = new Set<string>();
   let invalidCitationCount = 0;
+  // D-263: score operands carry typed source coordinates, including array indexes.
+  const scoreOperands = new Set<object>(Object.values(cloned.scores?.aspects ?? {})
+    .flatMap(aspect => aspect.signals?.flatMap(signal => signal.operands) ?? []));
   // Counted claim entries withheld below, as recorded before the rewrite.
   const withdrawn: VerificationLogEntry[] = [];
   const walk = (value: unknown): unknown => {
@@ -127,7 +130,7 @@ export function sanitizeLegacyEntityConflicts(
       return structuredClone(value);
     }
     const carrier = value as CitationCarrier;
-    const hasCitationShape = typeof carrier.source === "string" && "asOf" in value;
+    const hasCitationShape = !scoreOperands.has(value) && typeof carrier.source === "string" && "asOf" in value;
     const normalizedSource = hasCitationShape ? citationSourceId(carrier) : null;
     const normalizedAsOf = hasCitationShape ? citationAsOf(carrier) : null;
     const output: Record<string, unknown> = {};

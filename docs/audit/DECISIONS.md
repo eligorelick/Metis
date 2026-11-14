@@ -9157,6 +9157,8 @@ Tests: `tests/r2.operatingExpenseReview.test.ts`.
 
 ### D-160: Producer-bound numeric prose readings
 
+Revised by D-263 (following D-187): explicitly declared cash uses permit unsigned magnitudes.
+
 The frozen paid FIGR report contained correct scores, completeness fractions,
 negative tax expense, signed cash flows and the financial Piotroski variant
 that failed only because annotations, implicit dimensionless units or producer
@@ -10345,6 +10347,8 @@ before/after fair value, WACC, DCF per share and composite.
   report; saved bundles/reports are unchanged.
 
 ## D-187 - Producer-bound headline readings and statement outflow magnitudes (2026-11-03)
+
+Revised by D-263: outflow scope now follows explicit producer metadata, with the historical statement contract retained.
 
 **Decision.** Correct numeric prose may use an equivalent name only under its
 producing record's contract. Add readings for ADS quote prices, DCF base-case
@@ -14723,3 +14727,135 @@ expectations/release-document failures; 467 focused tests and the complete gate
 then passed after test/document corrections. The live same-account bull analyst
 also completed with three web actions, reported usage and no API charge; full
 live-pipeline completion is not claimed by this receipt.
+
+
+## D-263 - Cash-use magnitudes, component definitions and citation shapes (2026-11-13)
+
+**Principles and evidence.** P19 reserves contradicted for a value or direction
+conflict; P21 preserves saved bytes. Offline LLY #63 and the fixed-analyst replay
+showed two positive-magnitude cash-capex claims compared to the negative outflow
+record, and standardized FCF compared to its operating-cash-flow operand. The
+reader also rejected 33 score operands because their source coordinates contain
+array indexes. They are typed score operand records, not rendered citation tokens.
+The writer legitimately stored those coordinates. The repair therefore narrows
+the reader to citation carriers, preserving old ambiguous-citation refusal.
+The extra warning was one of the 13 data warnings capping fundamentals confidence;
+its removal leaves 12, still medium. No saved bytes or application database change.
+
+**Decision and breadth.** Extend D-187's historical provider capex/buyback contract
+with explicit cash-use metadata at the numeric producer. Statement extraction
+uses field identity for capex/PPE purchases, repurchases, dividends (common,
+preferred and net), acquisitions, repayments, taxes, interest and finance-lease
+principal. Current-capital capex, finance-lease principal, filed shareholder cash returns and
+forensic acquisition payments declare the same metadata. This rule applies across annual, quarter, YTD and trailing windows,
+including domestic and foreign filers and every company route. It does not add
+optional raw fields to the prompt or create records for undisclosed fields.
+Positive source values already match positive prose normally. Negative sources
+allow unsigned positive magnitudes only when metric, period, unit and currency
+are established and no explicit positive sign, inflow or opposing direction is
+stated. Net issuance, net investing/financing flows, losses, income-tax expense,
+net debt and net cash retain signed matching. No new tolerance or status is added.
+
+Component definitions in parentheses do not select their operands as subjects.
+The formula must be declared in the producing label or metric metadata; otherwise
+the claim is unverified, never promoted from an evidence-wide number coincidence.
+The common rule handles FCF, net debt, EBITDA, margins and coverage ratios.
+Known formulas are attached at current-capital, annual-ratio, annual-margin and
+quarterly-margin producers. Net debt's simple debt-minus-cash/STI formula is
+admitted only without a lease-basis adjustment or excluded equity securities;
+other net-debt bases remain unchecked unless the producer states that definition.
+Qualifiers, dates and numeric operands are not erased. Ambiguous candidate records
+with a display-rounding match remain at most unverified; true unique differences
+remain differences. Old source contracts continue to read under D-187.
+
+**Sibling search.** AMZN's two cash-capex claims had the identical sign-convention
+defect and are repaired. All four golden fixed-analyst cases were scanned for
+remaining value/direction conflicts and reader difference notes. Stale stored
+projection, score and ratio values remain contradicted; these are neither cash
+uses nor component-subject errors. NVDA's plain relative-strength sentence has a
+separate 12-1-month versus six-month binding issue in `claimEvidence.ts`'s
+`technicalPlainFrame`/`checkPlainFigures` (rendered by `passes.ts`'s plain-figure
+annotation). It has no component definition or cash outflow, and is left for its
+period/technical-metric owner work. No company route retains the old behavior for
+admitted cash-use records; unknown formula/basis evidence remains a disclosed
+verification gap rather than a guessed definition.
+
+**Versioning and verification.** Report spec moves 1.75.0 to 1.76.0 for verification
+meaning. Payload 1.94.0, Stage B and pipeline stamps remain unchanged: prompt text,
+calculations and orchestration do not change. Synthetic current sample and stamp
+assertions follow the report stamp. Frozen Stage C metadata and the synthetic
+report projection are refreshed under this decision, with every metadata/hash
+leaf recorded in the refresh log. Regression tests cover declared versus undeclared
+cash uses, wrong values/signs/directions, industrial annual, bank quarter, foreign
+trailing and utility YTD duration contexts, component families, wrong definitions,
+basis qualifiers, ambiguous matching records and legacy citation refusal. Plain-prose
+label reconstruction also preserves explicit inflow/opposing-direction refusals.
+
+**Approved report changes.** Main is pinned to
+`9f0d54765a5760e460c53342431c21468dd7c0fc`. All 17 golden cases plus both LLY
+cases have only `meta.specVersion` 1.75.0 -> 1.76.0 and its displayed spec-stamp
+text, except the following verification/read-time differences. Every Stage B JSON,
+payload text and fingerprint is unchanged. Banks (JPM), insurers (PGR), REITs (O),
+regulated utilities (DUK), foreign (TSM), loss-making (RIVN) and pre-revenue (VKTX)
+have no changed calculation, qualification, score, grade or mark. The other
+stamp-only cases are FIGR, META, MU, NVDA and QCOM data-only and META/MU/NVDA
+fixed-analyst. AMZN data-only is also stamp-only.
+
+- LLY fixed-analyst: `fundamentals.commentary[16]` standardized FCF USD 19.66bn
+  becomes validated; `balanceSheet.capexTrajectory.commentary[3]` and
+  `catalystsRisks.risks[5].reasoning[1]` cash capex USD 10.98bn become validated
+  against the unchanged -10,983,700,000 cash-use record. FCF remains 19,660,900,000,
+  not the 30,644,600,000 CFO operand. These are verification changes to existing
+  records, not newly admitted or replaced filed amounts. The related filed
+  accounting families are cash purchases of PPE (`PaymentsToAcquirePropertyPlantAndEquipment`)
+  and CFO (`NetCashProvidedByUsedInOperatingActivities`); this decision does not
+  change their source/period admission or the current TTM reconstruction.
+- LLY `meta` and `appendix.provenanceCoverage.factualValidation`: validated 76 -> 79,
+  contradicted 2 -> 0, unchecked 241 -> 240, rate 76/319 -> 79/319. Printed matches
+  68 -> 71. The same three log rows update status, support, trace and note fields;
+  the resolved verdict plain-figure mismatch log row disappears and subsequent
+  log indexes shift. `quality.graded.reasoning[12]` stays unchecked; its arithmetic
+  parenthesis now has the more precise unsupported-component-definition note.
+- Both LLY reader cases: score operand `source` coordinates remain intact; the
+  read-time `legacy.citationValidation` entry disappears. Rendered missing-data
+  counts, grouping/sort, completeness and confidence-capping reasons follow:
+  13 -> 12 data warnings, still medium; stored missing-data/score/grade leaves do
+  not change. Reader Markdown, audit, print and dossier reflect those corrections.
+- AMZN fixed-analyst: `balanceSheet.capexTrajectory.commentary[0]` and
+  `competitive.moatAssessment[0].reasoning[0]`, USD 173.03bn cash capex, become
+  validated against unchanged -173,028,000,000. The filed family is
+  `PaymentsToAcquireProductiveAssets`: 2025 10-K 0001018724-26-000004 and current
+  2026 Q2 10-Q 0001018724-26-000026 (FY + current YTD - prior YTD, with both YTDs
+  from the latter filing). `meta` and `appendix` factualValidation validated
+  33 -> 35, contradicted 4 -> 2, rate 33/125 -> 35/125; the corresponding log
+  support/status/note/trace leaves update. Its resolved unsigned-capex verdict
+  mismatch log row disappears, shifting subsequent log indexes. Reader matches
+  33 -> 35 and combined contradictions 11 -> 9; true unrelated conflicts stay.
+
+There are 85 changed golden artifacts (five report artifacts for each of 17
+cases), of which 16 cases are stamp-only and one has the semantic changes above.
+Both LLY cases have stamp changes, plus the reader changes above; only the
+fixed-analyst case changes verification. No raw data or replay exports are committed.
+
+
+**Final local receipts.** The final delivery replay matches the reviewed breadth
+replay byte for byte in every case artifact. Exact hash-bound intentional-delta
+manifests (local only) make golden:diff exit 0: 85 explained changes across 17
+cases/119 files, and 10 explained changes across two LLY cases/14 files.
+TypeScript passes. Lint exits 0 with one existing unused-variable warning in
+`tests/revenueAdmission.scopeUnresolvedCode.test.ts`. The final targeted verifier,
+legacy-reader and version-stamp run passes 182 tests. The first broad changed-test
+run exposed stale spec assertions/frozen records (corrected here) and resource
+related CLI/race timeouts; its complete rerun uses two workers. Frozen-record
+refresh scope refusals were corrected to the actual changed paths; the audit
+refresh wrote its two allowed leaves before a resource-related child-process
+timeout, and the subsequent ordinary tests verify that record independently.
+
+The completed changed-test rerun reports **640 files passed; 15,889 tests passed,
+one skipped** (973.40s). Its redirected PowerShell wrapper reports the Vite ESM
+configuration warning as a NativeCommandError; the Vitest summary has no failures.
+The subsequently added explicit-inflow fallback regression is included in the
+separate final 182-test passing run. The last metadata-only producer declarations
+also pass the frozen-payload refresh test; final delivery golden hashes remain
+identical to the reviewed breadth replay. No test timeout or evidence tolerance
+was increased. The full verify gate is left to CI as instructed.

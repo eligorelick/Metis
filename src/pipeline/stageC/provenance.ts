@@ -63,6 +63,10 @@ export interface NumericProvenanceRecord {
   subject?: string;
   kind: "provider" | "computed";
   value: number;
+  /** D-263: producer-declared cash use; prose may name its unsigned magnitude. */
+  cashFlowDirection?: "outflow";
+  /** Equivalent component definitions declared by the metric producer. */
+  componentDefinitions?: readonly string[];
   unit: CanonicalUnit;
   /** Explicit source/display declaration; never inferred for ordinary ratios or multiples. */
   unitScale?: "fraction";

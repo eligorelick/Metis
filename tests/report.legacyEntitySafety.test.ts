@@ -402,3 +402,12 @@ it("RPT-209 does not manufacture absent completeness metadata", () => {
  expect(safe.appendix.missingData.some(g => g.field === "legacy.entityValidation")).toBe(true);
  expect(safe.meta.dataCompleteness).toBeUndefined();
 });
+
+it("D-263 preserves indexed score operand paths without treating them as citations", () => {
+  const report = fixtureReport("DEMO");
+  const operand = { name: "start value", value: 100, source: "computed.growth.revenueCagrs[2].startValue", asOf: "2025-12-31" };
+  report.scores!.aspects.fundamentals.signals = [{ id: "growth", raw: 1, unit: "%", transformedScore: 50, signalWeight: 1, evidenceFraction: 1, effectiveCompositeWeightPct: 1, contributionPoints: 1, family: "growth", asOf: null, period: null, startDate: null, endDate: null, windowYears: null, fallbackReason: null, operands: [operand] }];
+  const result = sanitizeLegacyEntityConflicts(report, SYNTHETIC_ENTITY_REGISTRY).report;
+  expect(result.scores!.aspects.fundamentals.signals![0].operands[0].source).toBe(operand.source);
+  expect(result.appendix.missingData.some(gap => gap.field === "legacy.citationValidation")).toBe(false);
+});

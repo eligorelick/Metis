@@ -149,7 +149,7 @@ describe("new version stamps", () => {
     expect(specVersionBefore(REPORT_SPEC_VERSION, ANNUALIZATION_CONVENTION_SPEC)).toBe(false);
   });
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.75.0"); // D-258: bank revenue and reader labels
+    expect(REPORT_SPEC_VERSION).toBe("1.76.0"); // D-263: numeric prose verification
     expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
     expect(PAYLOAD_VERSION).toBe("1.94.0"); // D-258: bank revenue
     expect(PIPELINE_VERSION).toBe("stage-c-1.6.44"); // Bound annual schedule evidence and source reconciliation disclosures.
@@ -191,7 +191,7 @@ describe("new version stamps", () => {
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.75.0"); // D-258
+    expect(newReport().meta.specVersion).toBe("1.76.0"); // D-263
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     expect(payload.payloadVersion).toBe("1.94.0"); // D-258

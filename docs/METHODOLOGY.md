@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.75.0 / payload 1.94.0, Stage B `STAGE_B_2026_11_BANK_REVENUE_68` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.76.0 / payload 1.94.0, Stage B `STAGE_B_2026_11_BANK_REVENUE_68` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -8648,3 +8648,24 @@ withheld, and a score aspect left without evidence counts at the neutral
 midpoint. An issuer without confirmed SEC facts is not judged. Stored run
 inputs are not rewritten: the rule runs when a report is built, and the
 company page's free-cash-flow bars read the same admitted rows.
+
+
+### Cash outflow amounts and clause subjects (P19, D-263)
+
+A cash-use record may explicitly declare `cashFlowDirection: outflow` at its producer.
+The verifier permits a positive prose magnitude only for a negative currency record
+whose prose names that cash use and states no inflow or opposing
+direction. Other records retain signed matching and the existing display rounding.
+The older statement capex/buyback producer contract remains supported (D-187).
+A parenthetical component definition explains its clause subject; its operand names
+do not select a different metric's record. Definitions must match the producer's
+own label or explicitly declared formula. This applies to free cash flow, net debt,
+EBITDA, margins and coverage ratios. Unknown definitions, differing bases and
+ambiguous records stay unchecked. Period qualifiers and numerical operands are not
+masked. The same checks serve cited claims and uncited reader prose.
+Statement extraction declares cash-use metadata by field identity for capex,
+repurchases, dividend payments, acquisition cash, debt repayments, taxes, interest
+and finance-lease principal. It creates no new source records for undisclosed fields.
+Income-tax expense, losses, net cash and net financing totals are not cash-use records.
+Score operands carry source coordinates, including array indexes, rather than rendered
+citation tokens. The legacy citation parser applies to citations, not those operands.
