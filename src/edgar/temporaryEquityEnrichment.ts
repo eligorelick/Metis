@@ -1,6 +1,7 @@
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { tagsFor } from "@/edgar/tagSynonyms";
 import { sameFiledInstant, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
+import { conflictCauseMatches } from "@/edgar/refusalCauseRead";
 import { CORE_FACT_FORMS, parseFactPoints, conceptFactsSchema, type CompanyFacts } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
@@ -78,8 +79,7 @@ export function supplementTemporaryEquity<T extends FmpBalanceSheetRow>(row: T, 
       continue;
     }
     const prior = row.fieldConflicts?.[field];
-    const ownRefusal = prior?.usable === false && prior.cause === undefined &&
-      prior.reason.startsWith(`temporary-equity vendor/SEC conflict for ${field}:`) && prior.secValue === value &&
+    const ownRefusal = prior?.usable === false && conflictCauseMatches(prior, "vendorSecTemporaryEquity") && prior.secValue === value &&
       sameFiledInstant(prior.secEvidence, evidence);
     if (prior?.usable === false && !ownRefusal) continue;
     const vendor = ownRefusal ? prior.vendorValue : row[field];
@@ -87,7 +87,7 @@ export function supplementTemporaryEquity<T extends FmpBalanceSheetRow>(row: T, 
       if (finite(vendor) && same(vendor, value) && row.fieldConflicts?.[field]?.usable !== false) continue;
       const reason = `${field} uses filed ${value} ${evidence.unit} after matching same-filing SEC assets, liabilities and permanent equity; vendor ${vendor} retained as an observation (D-261)`;
       out = { ...out, [field]: value, fieldProvenance: { ...out.fieldProvenance, [field]: evidence },
-        fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: finite(vendor) ? vendor : null, secValue: value, usable: true, resolution: "filed-family", reason, secEvidence: evidence } } };
+        fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: finite(vendor) ? vendor : null, secValue: value, usable: true, resolution: "filed-family", cause: "vendor-sec-value-conflict", reason, secEvidence: evidence } } };
       gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true });
       continue;
     }

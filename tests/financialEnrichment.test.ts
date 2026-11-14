@@ -7,6 +7,9 @@ import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { withIssuerFacts } from "./helpers/confirmedIssuer";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
+import { resolveNetDebt } from "@/pipeline/stageB/netDebt";
+import { computeRoic } from "@/pipeline/stageB/returns";
+import { runStageB } from "@/pipeline/compute";
 
 const observedAt = "2026-10-13T12:00:00.000Z";
 const point = (val: number, extra: Record<string, unknown> = {}) => ({ end: "2026-06-30", val, accn: "0000000001-26-000002", filed: "2026-07-30", form: "10-Q", fy: 2026, fp: "Q2", ...extra });
@@ -22,6 +25,61 @@ describe("D-261 filed balance cash replaces a vendor split", () => {
   const cashTag = "CashAndCashEquivalentsAtCarryingValue";
   const vendor: FmpBalanceSheetRow = { cik: "1", date: "2026-06-30", filingDate: "2026-07-30", reportedCurrency: "USD",
     cashAndCashEquivalents: 480e6, shortTermInvestments: 20e6, cashAndShortTermInvestments: 500e6, totalDebt: 800e6, netDebt: 320e6 };
+  it("never files a combined total merely because the vendor total equals filed cash", () => {
+    const out = admitBalanceCash(vendor, facts({ [cashTag]: [point(500e6)] }), "quarter", observedAt);
+    expect(out.row.cashAndShortTermInvestments).toBeNull();
+    expect(out.row.fieldProvenance?.cashAndShortTermInvestments).toBeUndefined();
+    expect(out.row.cashBasis).toBe("cash-only");
+    expect(out.gaps.map(g => g.reason).join(" ")).toContain("short-term investments not established from the undimensioned facts available");
+    expect(out.gaps.map(g => g.reason).join(" ")).not.toContain("unreported in this filing");
+    expect(resolveNetDebt(out.row)).toMatchObject({ value: 300e6, cashBasis: "cash-only" });
+  });
+  it("carries cash-only evidence through the invested-capital note, DCF note and grade qualification", () => {
+    const b = completeCurrencyBundle({});
+    const cp = point(500e6, { end: "2025-12-31", filed: "2026-02-01", form: "10-K", accn: "0000000001-26-000001" });
+    withIssuerFacts(b, facts({ [cashTag]: [cp] }));
+    for (const key of ["balanceAnnual", "balanceQuarterly"] as const) {
+      const result = b.statements[key];
+      if (!result.ok) throw Error("fixture");
+      for (const row of result.value.data.rows.filter(r => r.date === cp.end)) Object.assign(row, {
+        cashAndCashEquivalents: 480e6, cashAndShortTermInvestments: 500e6, shortTermInvestments: 20e6,
+        fieldProvenance: { totalDebt: { source: "edgar", unit: "USD", periodStart: null, periodEnd: cp.end,
+          observedAt: b.builtAt, tags: ["us-gaap/LongTermDebt"], filings: [{ accn: cp.accn, filed: cp.filed, form: cp.form }] } },
+      });
+    }
+    const result = runStageB(b);
+    expect(result.returns.roic.series.find(y => y.date === cp.end)?.notes.join(" ")).toMatch(/cash.only.*narrower/i);
+    expect(result.valuation.notes.join(" ")).toMatch(/cash.only/i);
+    for (const aspect of ["quality", "moat", "balanceSheet", "valuation"] as const)
+      expect(result.scores.qualification?.aspects[aspect].reasons.some(r => /cash.only.*narrower/i.test(r.detail))).toBe(true);
+  });
+  it("does not add a bank deposit component that may already be inside filed cash", () => {
+    const out = admitBalanceCash({ ...vendor, cashAndCashEquivalents: 20e6, shortTermInvestments: 80e6, cashAndShortTermInvestments: 100e6 },
+      facts({ [cashTag]: [point(100e6)], InterestBearingDepositsInBanks: [point(80e6)], AssetsCurrent: [point(100e6)] }), "quarter", observedAt);
+    expect(out.row.cashAndCashEquivalents).toBe(100e6);
+    expect(out.row.cashAndShortTermInvestments).toBeNull();
+    expect(out.row.shortTermInvestments).toBeNull();
+    expect(resolveNetDebt(out.row).value).not.toBe(620e6);
+  });
+  it("carries an incompatible filed combined total into net debt and ROIC as a refusal", () => {
+    const out = admitBalanceCash(vendor, facts({ [cashTag]: [point(500e6)], ShortTermInvestments: [point(40e6)],
+      CashCashEquivalentsAndShortTermInvestments: [point(520e6)] }), "quarter", observedAt).row;
+    expect(out.cashAndCashEquivalents).toBe(500e6);
+    expect(out.cashAndShortTermInvestments).toBeNull();
+    expect(resolveNetDebt(out)).toMatchObject({ value: null, conflict: true });
+    const roic = computeRoic([{ date: vendor.date!, operatingIncome: 100e6, incomeBeforeTax: 100e6, incomeTaxExpense: 20e6 }],
+      [{ ...out, date: vendor.date!, totalStockholdersEquity: 300e6 }]);
+    expect(roic.latestRoicPct).toBeNull();
+    expect(roic.gaps.map(g => g.reason).join(" ")).toMatch(/combined|liquidity/i);
+  });
+  it("uses the latest complete same-instant filing when a newer comparative repeats only cash", () => {
+    const f = facts({ [cashTag]: [point(500e6), point(500e6, { filed: "2026-09-01", accn: "0000000001-26-000003" })],
+      ShortTermInvestments: [point(40e6)], AssetsCurrent: [point(540e6)] });
+    const out = admitBalanceCash(vendor, f, "quarter", observedAt).row;
+    expect(out.cashAndCashEquivalents).toBe(500e6);
+    expect(out.cashAndShortTermInvestments).toBe(540e6);
+    expect(out.fieldProvenance?.cashAndShortTermInvestments?.filings[0]?.filed).toBe("2026-07-30");
+  });
   it("adopts unambiguous cash, retains the observations and does not add unfiled investments twice", () => {
     const f = facts({ [cashTag]: [point(500e6), point(500e6, { filed: "2026-09-01", accn: "0000000001-26-000003" })] });
     const out = admitBalanceCash(vendor, f, "quarter", observedAt);
@@ -147,6 +205,21 @@ describe("SEC field enrichment of existing vendor statements", () => {
         reason: "vendor/SEC conflict for operatingLeaseLiability at 2026-06-30: old comparison",
         secEvidence: { ...proof, observedAt: "2026-10-12T00:00:00Z" } } } };
     expect(admitBalanceCash(old, f, "quarter", observedAt).row.operatingLeaseLiability).toBe(30);
+  });
+  it("reads a lease comparison's typed cause regardless of its wording, and rejects unrelated causes", () => {
+    const f = leases();
+    const proof = { source: "edgar" as const, unit: "USD", periodStart: null, periodEnd: "2026-06-30", observedAt,
+      tags: ["us-gaap/OperatingLeaseLiability"], filings: [{ accn: point(0).accn, filed: point(0).filed, form: "10-Q" }] };
+    const old: FmpBalanceSheetRow = { date: "2026-06-30", reportedCurrency: "USD", operatingLeaseLiability: 99,
+      fieldConflicts: { operatingLeaseLiability: { usable: false, vendorValue: 99, secValue: 30, secEvidence: proof,
+        cause: "vendor-sec-value-conflict", reason: "wording changed without changing the filed observation" } } };
+    expect(admitBalanceCash(old, f, "quarter", observedAt).row.operatingLeaseLiability).toBe(30);
+    const unrelated = structuredClone(old);
+    unrelated.fieldConflicts!.operatingLeaseLiability!.cause = "debt-components-incomplete";
+    expect(admitBalanceCash(unrelated, f, "quarter", observedAt).row.fieldConflicts?.operatingLeaseLiability?.usable).toBe(false);
+    const written = enrichFinancialFields(sourced([{ date: "2026-06-30", reportedCurrency: "USD", operatingLeaseLiability: 99 }]), sourced<FmpCashFlowRow>([]),
+      facts({ OperatingLeaseLiability: [point(30), point(35, { accn: "0000000001-26-000099", filed: "2026-09-01" })] }), "quarter", observedAt);
+    expect(written.balance.ok && written.balance.value.data.rows[0]!.fieldConflicts?.operatingLeaseLiability?.cause).toBe("vendor-sec-value-conflict");
   });
   it("does not derive principal using later restated operands or facts not yet published", () => {
     const f = facts({ FinanceLeasePrincipalPayments: [point(5, { start: "2026-01-01" }), point(1, { start: "2026-01-01", end: "2026-03-31", filed: "2026-08-30" })], OperatingLeaseLiability: [point(30, { filed: "2026-10-14" })] });

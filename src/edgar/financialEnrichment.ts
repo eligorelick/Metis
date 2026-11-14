@@ -128,8 +128,7 @@ function admitBalanceLeaseFields<T extends FmpStatementRow>(row: T, facts: Compa
     const prior = row.fieldConflicts?.[field];
     // Only this owner's old comparison is eligible for re-admission. Debt
     // composition, omitted maturities and unrelated scope refusals stay sticky.
-    const ownRefusal = prior?.usable === false && prior.cause === undefined &&
-      prior.reason.startsWith(`vendor/SEC conflict for ${field} at ${row.date}:`);
+    const ownRefusal = prior?.usable === false && conflictCauseMatches(prior, "vendorSecLease");
     if (row.fieldProvenance?.[field] || prior?.usable === false && !ownRefusal) continue;
     const vendor = ownRefusal ? prior.vendorValue : row[field];
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
@@ -138,7 +137,7 @@ function admitBalanceLeaseFields<T extends FmpStatementRow>(row: T, facts: Compa
     if (ownRefusal && (prior.secValue !== sec.value || !sameFiledInstant(prior.secEvidence, sec.evidence))) continue;
     const reason = `${field} at ${row.date} uses the unambiguous exact-instant filed ${sec.evidence.tags.join(" + ")} ${millions(sec.value)} ${unit}; vendor ${millions(vendor)} retained as an observation (D-261)`;
     out = { ...out, [field]: sec.value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence },
-      fieldConflicts: { ...out.fieldConflicts, [field]: { usable: true, resolution: "filed-family", vendorValue: vendor, secValue: sec.value, reason, secEvidence: sec.evidence } } };
+      fieldConflicts: { ...out.fieldConflicts, [field]: { usable: true, resolution: "filed-family", cause: "vendor-sec-value-conflict", vendorValue: vendor, secValue: sec.value, reason, secEvidence: sec.evidence } } };
     gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true });
   }
   return { row: out, gaps };
@@ -622,7 +621,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
         const investmentTagged = tagsFor("shortTermInvestments").some(t => points(facts, t, unit, observedAt).some(p =>
           p.end === row.date && p.start === undefined && p.accn === latest.accn && p.filed === latest.filed && p.form === latest.form));
         const investmentRefused = out.fieldConflicts?.shortTermInvestments?.usable === false &&
-          !(replayCash && out.fieldConflicts.shortTermInvestments.reason === prior?.reason &&
+          !(replayCash && sameFiledInstant(out.fieldConflicts.shortTermInvestments.secEvidence, sec.evidence) &&
             conflictCauseMatches(out.fieldConflicts.shortTermInvestments, "vendorSecCash"));
         const combinedFiled = inFiling("CashCashEquivalentsAndShortTermInvestments");
         const original = (f: string): number | null => {
@@ -650,7 +649,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
         const fieldProvenance: Record<string, StatementFieldProvenance> = { ...out.fieldProvenance, [field]: cash.evidence };
         fieldConflicts[field] = { usable: true, vendorValue: vendor, secValue: cash.value, resolution: "filed-family", reason, secEvidence: cash.evidence };
         const dependentOfCash = (f: string) => fieldConflicts[f]?.usable !== false ||
-          replayCash && fieldConflicts[f]?.reason === prior?.reason && conflictCauseMatches(fieldConflicts[f]!, "vendorSecCash");
+          replayCash && sameFiledInstant(fieldConflicts[f]?.secEvidence, sec.evidence) && conflictCauseMatches(fieldConflicts[f]!, "vendorSecCash");
         const amounts: Record<string, number | null> = { cashAndCashEquivalents: cash.value };
         for (const [f, amount, evidence] of [
           ["shortTermInvestments", investment?.value ?? null, investment?.evidence ?? cash.evidence],
@@ -2215,7 +2214,8 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
             ? `vendor ${vendorText} versus derived ${secText} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`
             : `${vendorText} versus ${secText} ${currency}`;
           const reason = `vendor/SEC conflict for ${field} at ${row.date}: ${versus}; vendor observation preserved and field unavailable for reconciliation`;
-          out = { ...out, fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: vendor, secValue: sec.value, usable: false, reason, secEvidence: sec.evidence } } };
+          out = { ...out, fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: vendor, secValue: sec.value, usable: false, reason, secEvidence: sec.evidence,
+            ...(kind === "balance" ? { cause: "vendor-sec-value-conflict" as const } : {}) } } };
           gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "warn" });
           continue;
         }

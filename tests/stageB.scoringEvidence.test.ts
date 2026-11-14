@@ -16,6 +16,18 @@ function inputs(bank = false): ScoringInputs {
 const operand = (result: ReturnType<typeof describeScoreEvidence>, name: string) => result.operands.find(o => o.name === name)!;
 
 describe("D-261 every withheld scoring signal discloses its inputs", () => {
+  it("names valuation-use first and never copies unrelated valuation gaps into a score cause", () => {
+    const i = inputs();
+    i.valuationUse = { ...i.valuationUse, status: "dated-reference", reason: "not-rolled-to-quote" };
+    i.valuation.gaps.push({ field: "valuation.peers", reason: "irrelevant peer caveat", severity: "info" });
+    const gaps: ManifestEntry[] = [];
+    computeScores(i, gaps);
+    const gap = gaps.find(g => g.field === "scores.valuation.dcfUpside");
+    expect(gap?.reason).toMatch(/^dcfUpside withheld: valuation use is dated-reference/);
+    expect(gap?.reason).not.toContain("irrelevant peer caveat");
+    expect(gap?.reason.length).toBeLessThan(500);
+    expect(gaps.every(g => g.severity === "info")).toBe(true);
+  });
   it.each([false, true])("names missing signal operands on the industrial/financial route (%s)", bank => {
     const i = inputs(bank);
     i.technicals.smaCross.sma50 = null;

@@ -123,6 +123,16 @@ const READERS = {
     codes: new Set<StatementConflictCause>(["vendor-sec-value-conflict"]),
     legacy: (reason) => reason.startsWith("vendor/SEC cashAndCashEquivalents conflict:"),
   },
+  /** D-261 review: the lease comparison, on the operating/finance lease field only. */
+  vendorSecLease: {
+    codes: new Set<StatementConflictCause>(["vendor-sec-value-conflict"]),
+    legacy: (reason) => /^vendor\/SEC conflict for (?:operating|finance)LeaseLiability at /.test(reason),
+  },
+  /** D-261 review: complete matched temporary-equity categories may replace this old comparison. */
+  vendorSecTemporaryEquity: {
+    codes: new Set<StatementConflictCause>(["vendor-sec-value-conflict"]),
+    legacy: (reason) => reason.startsWith("temporary-equity vendor/SEC conflict for "),
+  },
   /**
    * D-222, on eps/epsDiluted only: C13 `canRecheck` in `guardVendorShareFields`
    * (`src/pipeline/keyless.ts`): the no-split disagreement with the filer's exact-interval EPS,

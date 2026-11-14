@@ -94,6 +94,13 @@ describe("ROIC invested capital uses the house cash convention", () => {
     totalAssets: 3000,
     ...over,
   });
+  it("names the missing cash operand rather than prose in an unrelated route note", () => {
+    const r = computeRoic(income, [balanceRow({ cashAndCashEquivalents: null,
+      leaseCoverageNote: "An unrelated presentation signal was suppressed" })]);
+    const cause = r.gaps.find(g => g.field === "returns.roic.2025-12-31")?.reason;
+    expect(cause).toContain("cashAndCashEquivalents");
+    expect(cause).not.toContain("unrelated presentation signal");
+  });
 
   it("subtracts cash + short-term investments, not cash alone", () => {
     // Same company; the second row simply discloses that 400 of its liquidity

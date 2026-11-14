@@ -2,6 +2,7 @@ import type { DataBundle } from "./types";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { admitStockCompensation, admitBalanceCash, admitQuarterlyCapex, admitCashFlowNetIncome, admitZeroCapex, readmitFiledOperatingCashFlow, zeroCapexEntries, type ZeroCapexRefusal } from "@/edgar/financialEnrichment";
 import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
+import { conflictCauseMatches } from "@/edgar/refusalCauseRead";
 
 /** Reapply SBC, annual cash-flow net income (D-231), the cash-capex zero rule (D-239), the filed operating cash flow of a reconciled statement (D-252) and same-filing cash admission without modifying the snapshot. */
 export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
@@ -42,8 +43,10 @@ export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
   const balance = (key: "balanceAnnual" | "balanceQuarterly") => {
     const input = bundle.statements[key];
     if (!input.ok) return input;
-    const temporary = input.value.data.rows.some(row => Object.values(row.fieldConflicts ?? {}).some(conflict =>
-      conflict?.usable === false && conflict.reason.startsWith("temporary-equity vendor/SEC conflict for ")))
+    const temporary = input.value.data.rows.some(row => ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"].some(field => {
+      const conflict = row.fieldConflicts?.[field];
+      return conflict?.usable === false && conflictCauseMatches(conflict, "vendorSecTemporaryEquity");
+    }))
       ? temporaryEquityRows(facts, key === "balanceAnnual" ? "annual" : "quarter", bundle.builtAt) : null;
     const rows = input.value.data.rows.map(row => {
       const temporaryAdmission = temporary ? supplementTemporaryEquity(row, temporary, facts.cik, temporaryEquityFiledEnds(facts)) : { row, gaps: [] };
