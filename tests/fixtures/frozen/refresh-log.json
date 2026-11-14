@@ -3627,5 +3627,24 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-277",
+    "reason": "D-277 admits code-owned filed member labels at assembly; this frozen projection changes only report metadata and its identity hashes, never a figure.",
+    "scope": [
+      "$.fixtureIdentity.reportSha256",
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.meta.pipelineVersion"
+    ],
+    "beforeSha256": "45a52701c13c50a685f23cfe42b2690da73eeea8d040db2d620f4d35f006f313",
+    "afterSha256": "584f8d54cb3c5350a39f63d66d965f9ac6b3f8d9ad7d731aa4b127e62c3f5403",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]
