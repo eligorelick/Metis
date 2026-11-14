@@ -1076,6 +1076,8 @@ export const DcfSchema = z
       rollForwardFactor: z.number().optional(),
       /** D-65: shares outstanding the quote implies, beside the diluted denominator. */
       sharesOutstandingAtQuote: z.number().optional(),
+      /** D-265: why a diluted divisor below the quote count differs from it (absent when at or above it, and on older reports). */
+      shareBasisNote: z.string().optional(),
       /** E-5: how the NCI deducted in minorityInterest was sized. */
       noncontrollingBasis: z.string().optional(),
       noncontrollingBook: z.number().optional(),

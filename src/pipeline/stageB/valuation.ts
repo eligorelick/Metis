@@ -17,6 +17,7 @@
  * Methodology source: the valuation methodology (Damodaran-standard).
  */
 
+import { compareShareBasis, SHARE_BASIS_DISPLAY_MIN_PCT, shareBasisNote, shareBasisSentence, type EmployeeTrustShares, type ShareBasisComparison } from "@/pipeline/stageB/dilutedDivisor";
 import { convertibleVariants, convertibleReadingGaps, foldConvertiblePreferred, type ConvertibleInstrument, type ConvertibleReading } from "@/pipeline/stageB/convertibles";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { displayClassName } from "@/edgar/classEvidence";
@@ -2764,6 +2765,13 @@ export interface DcfBridge {
    * beside the diluted denominator; disclosure only, never the divisor.
    */
   sharesOutstandingAtQuote?: number;
+  /**
+   * D-265 (P3, P20): the divisor beside the quote count, the measured difference and, for a divisor below the quote
+   * count, the filed held-share evidence or "not established"; disclosure only, never a divisor or a market cap.
+   */
+  shareBasis?: ShareBasisComparison;
+  /** D-265: the reader sentence for a divisor below the quote count (absent otherwise). */
+  shareBasisNote?: string;
   /** E-5: NCI's share of consolidated profit, when the earnings key was established. */
   noncontrollingEarningsShare?: number;
   noncontrollingEarningsAsOf?: string | null;
@@ -6427,6 +6435,8 @@ export interface ValuationBundleInputs {
   dilutedShareDivisor?:
     | { basis: "loss-period-substituted"; donorDate: string; donorPeriod: "quarter" | "fiscal year"; note: string }
     | { basis: "loss-period-basic" | "loss-period-withheld"; note: string };
+  /** D-265 (P3, P2): the filed held-share count on or before the cutoff (`employeeTrustSharesFiled`); disclosure only. */
+  employeeTrustShares?: EmployeeTrustShares | null;
   /** Consolidated equity proves outside claims, but the equity bridge has no allocation. */
   noncontrollingOwnershipUnresolved?: boolean;
   /**
@@ -6780,6 +6790,19 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     excessReturn: inputs.excessReturn ? { ...inputs.excessReturn, marketCap: economicScope.marketCap } : null };
 
   const multiples = multiplesFramework(route.base, inputs.multiples);
+  // D-265 (P3, P20): each multiple's basis names the share count it sits on and the measured difference.
+  const shareScopeOwner = economicScope.multiClass ? { scopeOwner: "class" as const }
+    : inputs.multiples.quote.isAdr === true ? { scopeOwner: "quoted-unit" as const } : {};
+  const quoteShares = isNum(inputs.multiples.quote.marketCap) && isNum(inputs.multiples.quote.price) && inputs.multiples.quote.price > 0
+    ? inputs.multiples.quote.marketCap / inputs.multiples.quote.price : null;
+  const multiplesShareBasis = compareShareBasis(inputs.dilutedShares, quoteShares, inputs.employeeTrustShares, shareScopeOwner);
+  if (multiplesShareBasis !== null) {
+    const onMarketCap = (key: MultipleKey, basis: string) => key !== "peTtm" || basis.startsWith("marketCap /");
+    multiples.multiples = multiples.multiples.map(row => row.current === null ? row
+      : { ...row, basis: `${row.basis}${/[.;]$/.test(row.basis.trimEnd()) ? "" : "."} ${shareBasisSentence(multiplesShareBasis, onMarketCap(row.key, row.basis))}` });
+    if (multiples.peerCoverage) multiples.peerCoverage = { ...multiples.peerCoverage, comparisons: multiples.peerCoverage.comparisons.map(c =>
+      c.current === null ? c : { ...c, basis: `${c.basis} ${shareBasisSentence(multiplesShareBasis, true)}` }) };
+  }
   const cashFlowApplicability = route.cashFlowApplicability;
   if (cashFlowApplicability?.status === "not-applicable") {
     const reason = cashFlowApplicability.reason;
@@ -7395,7 +7418,12 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         const diff = (dcf.bridge.dilutedShares / implied - 1) * 100;
         // D-65: the reader sees both share counts beside the bridge.
         dcf.bridge.sharesOutstandingAtQuote = implied;
-        if (Math.abs(diff) >= 0.1) {
+        // D-265 (P3, P20): a divisor below the quote count is never explained as dilution; the class and quoted-unit owners keep their shapes.
+        const shareBasis = compareShareBasis(dcf.bridge.dilutedShares, implied, inputs.employeeTrustShares, shareScopeOwner);
+        const belowNote = shareBasis === null ? null : shareBasisNote(shareBasis, inputs.multiples.quote.priceAsOf);
+        if (shareBasis !== null) dcf.bridge.shareBasis = shareBasis;
+        if (belowNote !== null) dcf.bridge.shareBasisNote = belowNote;
+        if (Math.abs(diff) >= SHARE_BASIS_DISPLAY_MIN_PCT) {
           // FIN-404: the wording follows how the count was formed (filed or withheld: the filed count; a loss period's basic count plus a profitable period's award dilution; a loss period's basic count alone).
           const divisor = inputs.dilutedShareDivisor;
           const substituted = divisor?.basis === "loss-period-substituted" ? divisor : null;
@@ -7406,7 +7434,12 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
               ? `Per-share values divide by the latest period's basic count, ${fmtMoney(dcf.bridge.dilutedShares)}, which carries no option or RSU dilution (the latest period is a loss and no profitable period among the last four quarters or the latest fiscal year shows any)`
               : `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(dcf.bridge.dilutedShares)}`;
           // A loss period's filed count equals its basic count (ASC 260-10-45-17), so the not-restored case carries no award dilution either.
-          const tail = economicScope.multiClass
+          // FIN-404's statement of what the divisor carries stays beside the D-265 sentence.
+          const tail = belowNote !== null && !economicScope.multiClass
+            ? `${belowNote} ${basicOnly || divisor?.basis === "loss-period-withheld"
+              ? "The per-share value does not carry the option and RSU dilution the market cap omits (D-60 disclosure)."
+              : substituted !== null ? "The restored award dilution is kept in the divisor (D-60 disclosure)." : "(D-60 disclosure)."}`
+            : economicScope.multiClass
             ? `The quoted market-cap count may cover only the quoted class; the diluted denominator uses the admitted all-class units. ${economicScope.approximation ? `${fmtMoney(economicScope.approximation.affectedShares)} of the difference is the unquoted ${economicScope.approximation.unprovenClassIds.map(displayClassName).join(", ")}, not option or RSU dilution. ` : ""}The remaining difference can reflect period averaging, awards and share transactions; this comparison alone does not attribute it.`
             : basicOnly || divisor?.basis === "loss-period-withheld"
             ? "The gap is repurchases or issuance since the quarter, and the per-share value does not carry the option and RSU dilution the market cap omits (D-60 disclosure)."
