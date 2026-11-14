@@ -118,7 +118,11 @@ established by the admitted evidence", with the filing provenance in both the br
 first. (3) A multi-class or ADS shape still received a basis sentence on the quoted count with a disclaimer; the
 whole statement now defers to the owner. (4) "105M ... 4.76% more" used the quote count as the denominator while
 naming it as the larger count; every surface now states the divisor X% below or above the quote count. No figure
-changed in this round either.
+changed in this round either. A later review thread: when the latest quarter is a loss and FIN-404 restores a
+profitable period's award dilution, the valuation divisor is not the count EPS divides by. The comparison now carries
+the latest filed weighted-average diluted count beside a restored divisor (`restored.filedShares`); the P/E sentence
+names that filed count ("latest filed"), and the bridge note and the per-share sentences name the restored valuation
+divisor as restored, not filed. Each count is labelled as what it is; nothing is recomputed.
 
 **Approved report changes.** Basis text of the shown multiples and the peer comparison in every case with a quote
 and a diluted count, except the ADS case (AMZN, DUK, JPM, LLY, MU, NVDA, O, PGR, QCOM); the D-60 note (relation wording) in every

@@ -4071,7 +4071,8 @@ function incomeDivisors(
 /** The valuation input that discloses a non-filed divisor (FIN-404); callers pass only a result whose basis is not "filed". */
 function divisorDisclosure(d: DivisorResult): NonNullable<ValuationBundleInputs["dilutedShareDivisor"]> {
   const note = d.note ?? "";
-  if (d.basis === "loss-period-substituted") return { basis: d.basis, donorDate: d.donorDate ?? "", donorPeriod: d.donorPeriod ?? "quarter", note };
+  if (d.basis === "loss-period-substituted") return { basis: d.basis, donorDate: d.donorDate ?? "", donorPeriod: d.donorPeriod ?? "quarter", note,
+    ...(typeof d.filedShares === "number" ? { filedShares: d.filedShares } : {}) };
   return { basis: d.basis === "loss-period-withheld" ? "loss-period-withheld" : "loss-period-basic", note };
 }
 

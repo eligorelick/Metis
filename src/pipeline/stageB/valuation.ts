@@ -6433,7 +6433,9 @@ export interface ValuationBundleInputs {
    * count equals its basic count; `dilutedShares` already carries the substitution.
    */
   dilutedShareDivisor?:
-    | { basis: "loss-period-substituted"; donorDate: string; donorPeriod: "quarter" | "fiscal year"; note: string }
+    | { basis: "loss-period-substituted"; donorDate: string; donorPeriod: "quarter" | "fiscal year"; note: string;
+        /** D-265: the latest row's filed weighted-average diluted count, the one its EPS divides by. */
+        filedShares?: number }
     | { basis: "loss-period-basic" | "loss-period-withheld"; note: string };
   /** D-265 (P3, P2): the filed held-share count on or before the cutoff (`employeeTrustSharesFiled`); disclosure only. */
   employeeTrustShares?: EmployeeTrustShares | null;
@@ -6791,8 +6793,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
 
   const multiples = multiplesFramework(route.base, inputs.multiples);
   // D-265 (P3, P20): each multiple's basis names the share count it sits on and the measured difference.
-  const shareScopeOwner = economicScope.multiClass ? { scopeOwner: "class" as const }
-    : inputs.multiples.quote.isAdr === true ? { scopeOwner: "quoted-unit" as const } : {};
+  const restoredFromFiled = inputs.dilutedShareDivisor?.basis === "loss-period-substituted" ? inputs.dilutedShareDivisor.filedShares ?? null : null;
+  const shareScopeOwner = { restoredFromFiled, ...(economicScope.multiClass ? { scopeOwner: "class" as const }
+    : inputs.multiples.quote.isAdr === true ? { scopeOwner: "quoted-unit" as const } : {}) };
   const quoteShares = isNum(inputs.multiples.quote.marketCap) && isNum(inputs.multiples.quote.price) && inputs.multiples.quote.price > 0
     ? inputs.multiples.quote.marketCap / inputs.multiples.quote.price : null;
   const multiplesShareBasis = compareShareBasis(inputs.dilutedShares, quoteShares, inputs.employeeTrustShares, shareScopeOwner);

@@ -270,3 +270,47 @@ describe("D-265: runStageB, the bridge note and the multiples basis text", () =>
     expect(note).not.toMatch(/carries option and RSU dilution the quoted share count omits/);
   });
 });
+
+describe("D-265 review thread: a restored loss-period divisor is not the EPS count", () => {
+  /** The FIN-404 fixture: basic 99 M, diluted 100 M; the newest quarter is a loss at 98.5 M both ways, so the divisor is 98.5 M + 1 M restored. */
+  function lossQuarter(loss = true): DataBundle {
+    const b = currencyBundle();
+    for (const key of ["incomeQuarterly", "incomeAnnual"] as const) {
+      for (const r of (b.statements as unknown as Record<string, { value: { data: { rows: Row[] } } }>)[key]!.value.data.rows) r.weightedAverageShsOut = 99 * M;
+    }
+    if (loss) {
+      const q = (b.statements as unknown as Record<string, { value: { data: { rows: Row[] } } }>).incomeQuarterly!.value.data.rows[0]!;
+      Object.assign(q, { netIncome: -40 * M, epsDiluted: -0.41, weightedAverageShsOut: 98.5 * M, weightedAverageShsOutDil: 98.5 * M });
+    }
+    return b;
+  }
+
+  it("the P/E names the filed EPS count; the bridge and per-share sentences name the restored valuation divisor", () => {
+    const { out, dcf } = dcfOf(lossQuarter());
+    expect(dcf.bridge.dilutedShares).toBe(99.5 * M);
+    expect(dcf.bridge.shareBasis).toMatchObject({ divisorShares: 99.5 * M, restored: { filedShares: 98.5 * M } });
+    const note = bridgeNote(out);
+    expect(note).toMatch(/The valuation divisor \(99\.5M; restored: the latest period's basic count plus a profitable period's award dilution, not the filed weighted-average diluted count of 98\.5M\) is 0\.5% below the 100M shares the quoted market cap implies/);
+    expect(note).not.toMatch(/The diluted divisor \(99\.5M\)/);
+    if (out.valuation.kind !== "dcf") throw new Error("expected the DCF route");
+    const rows = out.valuation.multiples.multiples;
+    const pe = rows.find((m) => m.key === "peTtm")?.basis ?? "";
+    expect(pe).toMatch(/^price \/ epsDiluted/);
+    expect(pe).toMatch(/Share basis: price \/ diluted EPS sits on weighted-average diluted shares \(latest filed 98\.5M\); the market-cap multiples sit on the 100M shares the quoted market cap implies, and the diluted count is 1\.5% below that count\./);
+    expect(pe).not.toMatch(/99\.5M/);
+    for (const row of rows.filter((m) => m.key !== "peTtm" && m.current !== null)) {
+      expect(row.basis).toMatch(/per-share values divide by a restored valuation divisor \(99\.5M: the latest period's basic count plus a profitable period's award dilution, not a filed count\), 0\.5% below that count\. Diluted EPS divides by the filed weighted-average diluted counts \(latest filed 98\.5M\)\./);
+      expect(row.basis).not.toMatch(/diluted EPS and per-share values divide by weighted-average diluted shares \(latest 99\.5M\)/);
+    }
+  });
+
+  it("control: a profitable newest quarter keeps one filed count for EPS and per-share values", () => {
+    const { out, dcf } = dcfOf(lossQuarter(false));
+    expect(dcf.bridge.shareBasis?.restored).toBeUndefined();
+    if (out.valuation.kind !== "dcf") throw new Error("expected the DCF route");
+    for (const row of out.valuation.multiples.multiples.filter((m) => m.key !== "peTtm" && m.current !== null)) {
+      expect(row.basis).toMatch(/diluted EPS and per-share values divide by weighted-average diluted shares \(latest 100M\)/);
+      expect(row.basis).not.toMatch(/restored/);
+    }
+  });
+});
