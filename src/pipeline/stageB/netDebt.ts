@@ -193,7 +193,6 @@ export function operatingLeaseOutOfDebt(
 
 export interface NetDebtInputs extends LeaseDebtInputs {
   cashConflictReconciled?: true;
-  /** Preserve main's existing ROIC fallback; other consumers require explicit filed admission. */
   allowLegacyCashOnly?: boolean;
   cashBasis?: "cash-only";
   date?: string | null;
@@ -307,13 +306,13 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
     return { ...base, value: null, cashBasis: null, conflict: true, reason: leaseConflict };
   }
 
-  const mainComponentScope = inputs.fieldProvenance?.cashAndCashEquivalents?.cashScopeReconciled === true;
+  const mainComponentScope = inputs.cashConflictReconciled && inputs.fieldProvenance?.cashAndCashEquivalents?.cashScopeReconciled === true;
   const refusedCash = inputs.cashConflictReconciled ? ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermInvestments"].find(f => inputs.fieldConflicts?.[f]?.usable === false &&
     !((f !== "cashAndCashEquivalents" && inputs.fieldConflicts[f]?.cause === "liquidity-not-established" && inputs.cashBasis === "cash-only") ||
       f === "cashAndShortTermInvestments" && mainComponentScope && cash !== null && shortTermInvestments !== null)) : undefined;
   if (refusedCash) return { ...base, value: null, cashBasis: null, conflict: true,
     reason: `${refusedCash} refused: ${inputs.fieldConflicts![refusedCash]!.reason ?? "incompatible liquidity evidence"}` };
-  if ((inputs.cashBasis === "cash-only" || inputs.allowLegacyCashOnly) && cash !== null && combinedCash === null && shortTermInvestments === null) {
+  if ((inputs.cashConflictReconciled && (inputs.cashBasis === "cash-only" || inputs.allowLegacyCashOnly)) && cash !== null && combinedCash === null && shortTermInvestments === null) {
     const debtProof = inputs.fieldProvenance?.totalDebt;
     // Completing only a vendor lease line does not prove the rest of that vendor debt total.
     if (inputs.cashBasis === "cash-only" && (debtProof?.source !== "edgar" || debtProof.calculation === "noncurrent-lease-line-completed" ||

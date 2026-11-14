@@ -95,7 +95,7 @@ describe("ROIC invested capital uses the house cash convention", () => {
     ...over,
   });
   it("names the missing cash operand rather than prose in an unrelated route note", () => {
-    const r = computeRoic(income, [balanceRow({ cashAndCashEquivalents: null,
+    const r = computeRoic(income, [balanceRow({ cashConflictReconciled: true, cashAndCashEquivalents: null,
       leaseCoverageNote: "An unrelated presentation signal was suppressed" })]);
     const cause = r.gaps.find(g => g.field === "returns.roic.2025-12-31")?.reason;
     expect(cause).toContain("cashAndCashEquivalents");
@@ -135,8 +135,8 @@ describe("ROIC invested capital uses the house cash convention", () => {
 
   it("still suppresses when no cash basis can be resolved at all", () => {
     const r = computeRoic(income, [
-      balanceRow({ cashAndCashEquivalents: null }),
-      balanceRow({ date: "2024-12-31", cashAndCashEquivalents: null }),
+      balanceRow({ cashConflictReconciled: true, cashAndCashEquivalents: null }),
+      balanceRow({ cashConflictReconciled: true, date: "2024-12-31", cashAndCashEquivalents: null }),
     ]);
 
     expect(r.latestRoicPct).toBeNull();
@@ -148,7 +148,7 @@ describe("ROIC invested capital uses the house cash convention", () => {
     { balance: { totalStockholdersEquity: null }, input: "equity" },
     { balance: { totalStockholdersEquity: -600 }, input: "invested capital" },
   ])("names the root input when ROIC is withheld: $input", ({ balance, input }) => {
-    const r = computeRoic(income, [balanceRow(balance)]);
+    const r = computeRoic(income, [balanceRow({ ...balance, cashConflictReconciled: true })]);
     expect(r.latestRoicPct).toBeNull();
     expect(r.gaps.find(g => g.field === "returns.roic.2025-12-31")?.reason.toLowerCase()).toContain(input.toLowerCase());
   });
@@ -160,6 +160,7 @@ describe("ROIC invested capital uses the house cash convention", () => {
       delete row.cashAndCashEquivalents;
       delete row.cashAndShortTermInvestments;
       delete row.shortTermInvestments;
+      row.cashConflictReconciled = true;
       row.fieldConflicts = { cashAndCashEquivalents: { usable: false, vendorValue: 100, secValue: null,
         reason: "cash currency scope is not established" } };
     }

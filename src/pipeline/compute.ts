@@ -3158,7 +3158,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   // it withholds an applicable signal. Route-suppressed signals are not gaps.
   const latestRoicGap = returns.roic.gaps.find(gap => gap.field === `returns.roic.${returns.roic.asOf}`)
     ?? returns.roic.gaps.find(gap => gap.field === "returns.roic");
-  if (returns.roicVsWacc.spreadPctPts === null && !policy.suppress.includes("roicVsWacc")) {
+  if (balanceAnnual.some(row => row.cashConflictReconciled) && returns.roicVsWacc.spreadPctPts === null && !policy.suppress.includes("roicVsWacc")) {
     const causes = [returns.roic.latestRoicPct === null ? latestRoicGap?.reason ?? "latest fiscal-year ROIC is unavailable" : null,
       returns.wacc.waccPct === null ? returns.wacc.gaps.find(gap => gap.severity === "critical")?.reason
         ?? returns.wacc.gaps[0]?.reason ?? "WACC is unavailable" : null].filter(Boolean).join("; ");
@@ -3369,16 +3369,18 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   }) });
 
   // --- Merge all gaps + notes ------------------------------------------------
+  const repairedCashBasisFields = new Set([...balanceAnnual, ...balanceQuarterly, ...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)].filter(row => row.cashConflictReconciled)
+    .map(row => `statements.balance.${row.date}.cashBasis`));
   const gaps = mergeManifest(
     newerResultsGaps,
-    bundle.gaps.filter(g => !g.field.endsWith(".cashBasis")),
+    bundle.gaps.filter(g => !repairedCashBasisFields.has(g.field)),
     admittedFacts?.ok === false && bundle.edgar?.companyFacts?.ok ? [admittedFacts.gap] : [],
     ttmGaps,
     route.gaps,
     degradation.gaps,
     growth.gaps,
     returns.gaps,
-    scoreGaps,
+    scoreGaps.filter(g => !/scores\.(?:quality\.roic|moat\.roic|balanceSheet\.netDebt)/.test(g.field) || balanceAnnual.some(row => row.cashConflictReconciled)),
     capital.gaps,
     forensics.gaps,
     eventGaps,
