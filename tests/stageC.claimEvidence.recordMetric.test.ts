@@ -304,3 +304,15 @@ it("D-278 keeps a dropped conflict visible when another record holds the stated 
   const september = checkPlainFigures("The company generated revenue for the quarter ended 2026-09-30 of $25,397 million.", periodOptions)[0].outcome;
   expect(["not-found", "contradiction"]).toContain(september);
 });
+
+// D-278 review thread: a plural of the record's own metric word is the same metric, so a real conflict stays.
+it("D-278 keeps a conflict when the figure names the record's metric in the plural", () => {
+  const margin: NumericProvenanceRecord = { ...inc, id: "payload.ratios.gross-margin-2026-01-25", kind: "provider", origin: "fmp",
+    label: "gross margin", value: 12.34, unit: "percent", currency: null, period: "2026-01-25", asOf: "2026-01-25", displayPrecision: 2 };
+  const registry = [margin];
+  const options = { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) };
+  expect(checkPlainFigures("Gross margins as of 2026-01-25 were 22.34%.", options)[0].outcome).toBe("contradiction");
+  // Controls: the singular conflicts the same way and the equal value confirms.
+  expect(checkPlainFigures("Gross margin as of 2026-01-25 was 22.34%.", options)[0].outcome).toBe("contradiction");
+  expect(checkPlainFigures("Gross margins as of 2026-01-25 were 12.34%.", options)[0].outcome).toBe("confirmed");
+});

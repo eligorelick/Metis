@@ -358,7 +358,7 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
           // An incidental parenthetical ("gross margin (more or less)") is not a qualifier (D-263 review).
           const described = metricTokens(own.own.replace(/\([^()]*\)/g, " ").replace(/\b(?:an?\s+)?(?:sources?|uses?)\s+of\s+cash\b|\b(?:cash\s+)?(?:inflows?|outflows?)\b/gi, " "),
             options.ignoreWords, { loose: true }).filter(w => !w.startsWith("window"));
-          if (described.some(word => !recordWords.has(word))) { qualifiedConflict = true; continue; }
+          if (described.some(word => ![...recordWords].some(other => namesMetric([word], [other])))) { qualifiedConflict = true; continue; }
         }
         bindings.push({ record, display, supported: result.status === "validated" || boundSupported });
       }
