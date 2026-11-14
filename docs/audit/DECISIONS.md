@@ -24,7 +24,9 @@ the reason: a diluted count can only rise above the basic count. The quoted coun
 `dei:EntityCommonStockSharesOutstanding` (2026-10-26); the divisor is the latest quarter's weighted diluted count.
 The filings give the reason: `us-gaap:CommonStockSharesHeldInEmployeeTrustShares` is 50,000,000 at 2025-12-31
 (10-K 0000059478-26-000013, filed 2026-02-12), and the equity note says stock held by that employee benefit trust
-is not considered outstanding in the computation of EPS. The cover count includes those shares; EPS excludes them.
+is not considered outstanding in the computation of EPS. That relationship is read by a person from the filing's
+text; the pipeline reads only the tagged count, so the report states the count as a dated fact and does not assert
+it (see the review round below).
 
 **Class of defect.** Any wording that explained a difference between two share counts by a cause the direction of
 the difference rules out, on every surface that sets the two counts side by side: the bridge-table note
@@ -37,24 +39,33 @@ common income), P/E on price / diluted EPS, and the peer "Market cap / TTM commo
 - `employeeTrustSharesFiled` reads a filed held-share count through the SEC-facts path: `us-gaap`
   `CommonStockSharesHeldInEmployeeTrustShares`, else `EmployeeStockOwnershipPlanESOPNumberOfSuspenseShares`
   (an ESOP's unreleased shares, the same class of filed evidence); unit `shares` only; an instant (no duration
-  fact); a core form; a positive value; instant AND filing date on or before the analysis cutoff (P2: a fact filed
-  or dated after the cutoff is never used); the newest instant, then the newest filing. Facts are read only for a
-  confirmed issuer (`confirmedIssuerFacts`).
+  fact); a core form; instant AND filing date on or before the analysis cutoff (P2: a fact filed or dated after the
+  cutoff is never used). The newest compatible observation is selected first (the newest instant, then the newest
+  filing), and only then tested for a positive count: a later zero supersedes an earlier positive and leaves no
+  held count to report. Facts are read only for a confirmed issuer (`confirmedIssuerFacts`).
 - `compareShareBasis` computes once: divisor, quote count (market cap ÷ price), the measured difference
   ((divisor ÷ quote − 1) × 100), the direction and the cause. At or above: "dilution or share changes", and the
-  present sentences stand unchanged. Below: "employee-trust-filed" when a held-share fact is admitted, else
-  "not-established". A multi-class issuer (`commonClassScope.ts` / `resolveEconomicEquityScope`) or an ADS quote
-  (`shareUnits.ts` and the ADR security basis) is "scope-owner": the existing owner's note speaks and this
-  comparison attributes nothing, so it neither contradicts nor repeats them. The held-share fact is in ordinary
-  shares, so it is never set against an ADS-unit divisor.
+  present sentences stand unchanged. Below: "not-established", with the admitted held-share fact attached as a
+  dated observation when one is filed (the tag proves a held count at an instant, not a cause). A multi-class issuer
+  (`commonClassScope.ts` / `resolveEconomicEquityScope`) or an ADS quote (`shareUnits.ts` and the ADR security
+  basis) is "scope-owner" in either direction: the whole share-basis statement defers to that owner. The bridge note
+  then says only that the counts are on the scopes the share-class note (or the ADS note) states, with no counts,
+  and no multiple gains a basis sentence, so nothing competes with or repeats the owner. The held-share fact is in
+  ordinary shares and is never set against an ADS-unit divisor.
+- `shareBasisRelation` states the difference once, with one denominator: the divisor is X% below (or above, or
+  within 0.1% of) the quote count. The bridge note, the D-60 valuation note (whose earlier "N shares outstanding,
+  X% more/fewer" wording measured against the quote count while naming the other one) and every basis sentence use
+  it.
 - `shareBasisNote` (bridge and D-60 note, divisor below only) states the measured difference, says option and RSU
-  dilution can only raise a diluted count and so does not explain it, then either names the filed fact (tag,
-  value, instant, form, accession, filing date, and "a dated observation at {instant}, before the quote ({date})"
-  when it is older than the quote) without sizing each cause, or says the cause of the difference is not
-  established. Nothing is guessed: the held count is set beside the difference, never subtracted from it.
+  dilution can only raise a diluted count and so does not explain it, then says "The filer reports {count} shares
+  held in an employee trust (us-gaap:{tag}) at {instant} ({form} {accession}, filed {date}), a dated observation
+  before the quote ({date})" (the dated clause only when the instant is older than the quote) and that "the cause of
+  the difference is not established by the admitted evidence"; with no admitted fact it says none is admitted and
+  the cause is not established. It never says the held shares are inside the quoted count or outside EPS, and never
+  sizes or subtracts anything (P10, P18).
 - `shareBasisSentence` adds one "Share basis:" sentence to the basis text of each shown multiple: which count it
-  sits on (market cap: the count the provider's market cap implies; P/E: weighted diluted counts) and the measured
-  difference, with the same cause wording.
+  sits on (market cap: the count the provider's market cap implies; P/E: weighted diluted counts), the one relation,
+  and below the quote count the same neutral wording with the full filing provenance (P20).
 - A difference under 0.1% reads "agree within 0.1%" and attributes nothing. This is the D-60 note's existing
   display threshold, moved into the owner as `SHARE_BASIS_DISPLAY_MIN_PCT` so the three surfaces read one value; it
   decides wording only. No new tolerance, day band or status word.
@@ -66,8 +77,8 @@ common income), P/E on price / diluted EPS, and the peer "Market cap / TTM commo
 **Not changed (method question left open).** Market capitalisation, enterprise value, every multiple, the WACC
 equity weight and every score stay on the quoted (vendor) share count. Own-history percentiles and peer medians use
 the vendor share basis for every date; moving only the current figure to the EPS share basis would break their
-comparability (P13). For LLY's shape the measured difference is 5.03% (the divisor below the quote count), so each
-market-cap multiple is that much higher than it would be on the EPS share basis. Moving the market-value side to the
+comparability (P13). For LLY's shape the divisor is 5.03% below the quote count, so a market-cap multiple
+recomputed on the divisor would be 5.03% lower. Moving the market-value side to the
 EPS basis is an open method question: it would need dated held-share evidence for every history date and every
 peer, and an owner decision.
 
@@ -84,23 +95,34 @@ the only new numeric leaves are the disclosure fields `valuation.dcf.bridge.shar
 difference, and for LLY the filed held-share fact). Text changes: the multiples' basis strings, the peer
 comparison basis, the D-60 note and the bridge note. Cases whose diluted divisor is below the quote count:
 
-- `lly-data-only`, `lly-fixed-analyst` (DCF bridge, 5.03% below): the bridge and D-60 notes name
+- `lly-data-only`, `lly-fixed-analyst` (DCF bridge, 5.03% below): the bridge and D-60 notes report
   `us-gaap:CommonStockSharesHeldInEmployeeTrustShares` 50M shares at 2025-12-31 (10-K 0000059478-26-000013, filed
-  2026-02-12) as a dated observation before the 2026-11-13 quote; nothing says dilution explains the lower count.
-  The multiples' basis text names the same fact.
+  2026-02-12) as a dated observation before the 2026-11-13 quote and say the cause of the difference is not
+  established by the admitted evidence; nothing says dilution explains the lower count, and nothing says the trust
+  shares are in the quoted count or outside EPS. The multiples' basis text carries the same fact and provenance.
 - `o-data-only` (REIT, no DCF bridge, 0.51% below): the multiples' basis text says the difference is not dilution
   and its cause is not established (no held-share fact is filed on or before the cutoff).
-- `tsm-data-only` (ADS quote, under 0.1% below): the bridge note and basis text say the two counts agree within
-  0.1% and attribute nothing; the D-60 valuation note stays absent (under its threshold, as before) and the
-  quoted-unit owner's notes are unchanged.
+- `tsm-data-only` (ADS quote, under 0.1% below): the shape defers to the ADS owner, so the bridge note says only
+  that the counts are put on the quoted basis by the ADS (quoted-unit) note, and no multiple gains a basis
+  sentence; the D-60 valuation note stays absent (under its threshold, as before).
 
 Every other case's divisor is at or above the quote count (ordinary dilution); their bridge note is unchanged and
 their basis text gains only the measured "Share basis" sentence. FIGR, META, RIVN and VKTX show no multiple or
 bridge that sets the two counts side by side and are byte-identical in `stageB.json`.
 
+**Review round (independent review of PR #192, four disclosure defects; fixed with failing tests first).**
+(1) The held count was described as shares inside the quoted count and outside EPS and as evidence that explains the
+difference; the tag proves only a held count at a date, so the wording is now neutral and the cause is "not
+established by the admitted evidence", with the filing provenance in both the bridge note and the basis text.
+(2) The positive filter ran before selection, so a superseded positive survived a newer zero; selection now comes
+first. (3) A multi-class or ADS shape still received a basis sentence on the quoted count with a disclaimer; the
+whole statement now defers to the owner. (4) "105M ... 4.76% more" used the quote count as the denominator while
+naming it as the larger count; every surface now states the divisor X% below or above the quote count. No figure
+changed in this round either.
+
 **Approved report changes.** Basis text of the shown multiples and the peer comparison in every case with a quote
-and a diluted count (AMZN, DUK, JPM, LLY, MU, NVDA, O, PGR, QCOM, TSM); the D-60 note and bridge note for LLY, the
-bridge note for TSM; the new `valuation.dcf.bridge.shareBasis` disclosure object in every DCF case; the payload's multiples notes.
+and a diluted count, except the ADS case (AMZN, DUK, JPM, LLY, MU, NVDA, O, PGR, QCOM); the D-60 note (relation wording) in every
+case that prints it and the bridge note for LLY and TSM; the new `valuation.dcf.bridge.shareBasis` disclosure object in every DCF case; the payload's multiples notes.
 No figure, grade, band or headline changes.
 
 **Stamps.** Report spec 1.81.0, payload 1.99.0, Stage B `STAGE_B_2026_11_SHARE_BASIS_DISCLOSURE_73`: Stage B

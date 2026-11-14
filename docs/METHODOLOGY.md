@@ -2498,14 +2498,18 @@ diluted count, which carries option and RSU dilution (except a loss period's, be
 prints the shares outstanding the quote implies (market cap ÷ price) and says
 which one divides. That is the rule for a value per share (the DCF and the
 excess-return model). The note states the measured difference between the two
-counts (D-265): a divisor at or above the quote count carries the dilution the
-quoted count omits; a divisor below it is never explained as dilution, which can
-only raise a diluted count. Then a filed employee-trust or unreleased ESOP share
-count (`CommonStockSharesHeldInEmployeeTrustShares`,
-`EmployeeStockOwnershipPlanESOPNumberOfSuspenseShares`; an instant, in shares,
-filed and dated on or before the cutoff) is named as dated filed evidence, or
-the cause is "not established"; a multi-class or ADS shape defers to its class or
-quoted-unit note, and a difference under 0.1% reads as agreement. Each multiple's
+counts (D-265), always as the divisor X% below or above the quote count: a
+divisor at or above it carries the dilution the quoted count omits; a divisor
+below it is never explained as dilution, which can only raise a diluted count,
+and its cause is "not established by the admitted evidence". A filed
+employee-trust or unreleased ESOP share count
+(`CommonStockSharesHeldInEmployeeTrustShares`,
+`EmployeeStockOwnershipPlanESOPNumberOfSuspenseShares`; the newest instant, in
+shares, filed and dated on or before the cutoff, positive) is reported beside it
+as a dated fact with its filing, without asserting that those shares are in the
+quoted count or outside EPS. A multi-class or ADS shape defers the whole
+statement to its class or quoted-unit note, and a difference under 0.1% reads as
+agreement. Each multiple's
 basis text says which count it sits on: market cap, EV and every market-cap
 multiple use the count the provider's market cap implies, and P/E on diluted EPS
 uses weighted diluted counts. The market-value side stays on the quoted count,
