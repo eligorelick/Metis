@@ -13,7 +13,7 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 ## D-261 - Preserve admitted liquidity; repair refused cash (2026-11-14, narrowed owner policy)
 
-Final parity audit: unrepaired rows use pinned main's complete invested-capital path, including its prior-year fallback and exact disclosures. New liquidity refusal, cash-only, average-basis and ROIC-root gap rules are restricted to repaired rows; 216 synthetic cases captured from e2b32711 pin numeric results and all disclosure ordering. Reading dimensioned investment facts remains separate work.
+Final parity audit: unrepaired rows use pinned main's complete invested-capital path, including its prior-year fallback and exact disclosures. New liquidity refusal, cash-only, average-basis and ROIC-root gap rules are restricted to repaired rows; 216 synthetic cases captured from e2b32711 pin numeric results and all disclosure ordering. Reading dimensioned investment facts remains separate work. Mixed-basis averages on the repaired path compare each row's actual liquidity deduction, including main's unmarked cash-only opening fallback, and are withheld in both directions.
 
 Confirmation follow-up: buildDcfAssumptions uses main's combined-field cash rule and resolveNetDebt ignores new refusal-metadata checks on unrepaired rows; only cashConflictReconciled rows take the new checks, with all four main-parity reproductions and repaired-row controls pinned by regression tests.
 

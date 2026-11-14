@@ -73,6 +73,16 @@ describe('D-261 final owner policy',()=>{
   expect(r.latestRoicPct).toBeNull();
   expect(r.gaps.map(g=>g.reason).join(' ')).toMatch(/liquidity bas/i);
  });
+ it.each([false,true])('withholds mixed actual liquidity bases in either direction (closing investments %s)', closingInvestments=>{
+  const cashOnly={...balance,cashAndCashEquivalents:50*M,shortTermInvestments:null,cashAndShortTermInvestments:null};
+  const combined={...balance,cashAndCashEquivalents:50*M,shortTermInvestments:500*M,cashAndShortTermInvestments:550*M};
+  const closing={...(closingInvestments?combined:cashOnly),cashConflictReconciled:true as const};
+  const opening={...(closingInvestments?cashOnly:combined),date:'2024-12-31'};
+  const r=computeRoic([...income,{...income[0]!,date:'2024-12-31'}],[closing,opening]);
+  expect(r.latestRoicPct).toBeNull();
+  expect(r.series.find(y=>y.date===end)?.investedCapitalAvg).toBeNull();
+  expect(r.gaps).toContainEqual(expect.objectContaining({field:'returns.roic.'+end,reason:expect.stringMatching(/liquidity bases differ.*cash-only.*cash-and-investments|liquidity bases differ.*cash-and-investments.*cash-only/)}));
+ });
  it('keeps the DCF when operating leases exceed half the full debt total',()=>{
   const r=buildDcfAssumptions({revenueCagr3yPct:12,revenueCagr5yPct:13,analystEstimates:null,waccPct:9,riskFreePct:4.48,marketCap:5000,
    incomeTtm:{date:end,revenue:1000,operatingIncome:200,incomeBeforeTax:180,incomeTaxExpense:36},incomeHistory:[{date:end,revenue:1000,operatingIncome:200},{date:'2024-12-31',revenue:900,operatingIncome:180}],

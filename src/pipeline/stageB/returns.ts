@@ -1993,8 +1993,13 @@ export function computeRoic(
         if (priorLiquidity.conflict) {
           rootCauses.set(row.date, priorLiquidity.reason); yearNotes.push(priorLiquidity.reason); continue;
         }
-        const basisNow = resolveNetDebt({ ...balNow, allowLegacyCashOnly: true }).cashBasis === "cash-only" ? "cash-only" : "cash-and-investments";
-        const basisPrev = resolveNetDebt({ ...balPrev, allowLegacyCashOnly: true }).cashBasis === "cash-only" ? "cash-only" : "cash-and-investments";
+        // Classify what investedCapital actually deducts. An unrepaired opening
+        // row can use main's cash-only fallback without carrying a repair marker.
+        const liquidityBasis = (row: ReturnsBalanceRow) =>
+          !isFiniteNumber(row.cashAndShortTermInvestments) && !isFiniteNumber(row.shortTermInvestments) && isFiniteNumber(row.cashAndCashEquivalents)
+            ? "cash-only" : "cash-and-investments";
+        const basisNow = liquidityBasis(balNow);
+        const basisPrev = liquidityBasis(balPrev);
         if (basisNow !== basisPrev) {
           const reason = `liquidity bases differ: ${balNow.date} uses ${basisNow}, ${balPrev.date} uses ${basisPrev}; average invested capital is withheld`;
           rootCauses.set(row.date, reason); yearNotes.push(reason); continue;
