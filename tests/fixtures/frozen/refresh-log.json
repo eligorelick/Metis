@@ -3627,5 +3627,23 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-279",
+    "reason": "D-279 advances report meaning to 1.89.0 because a vendor enterprise value is now withheld unless its same-date balance establishes the listing currency; only the report version and its projection digests change, no figure.",
+    "scope": [
+      "$.projection.report.meta.specVersion",
+      "$.projectionSha256",
+      "$.fixtureIdentity.reportSha256"
+    ],
+    "beforeSha256": "45a52701c13c50a685f23cfe42b2690da73eeea8d040db2d620f4d35f006f313",
+    "afterSha256": "584f8d54cb3c5350a39f63d66d965f9ac6b3f8d9ad7d731aa4b127e62c3f5403",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

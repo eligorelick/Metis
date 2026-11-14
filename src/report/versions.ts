@@ -237,7 +237,8 @@
 // own FACT claim. No figure changes; stored reports keep their bytes.
 // 1.87.0 (D-272): annual guidance tables, provider results and insider evidence, dividend disclosures.
 // 1.88.0 (D-274, P18/P19): independently verify excerpt figures and explicit metric units.
-export const REPORT_SPEC_VERSION = "1.88.0" as const;
+// 1.89.0 (D-279, P4): a vendor enterprise value is shown only when its same-date balance establishes the listing currency; otherwise it is withheld with its cause.
+export const REPORT_SPEC_VERSION = "1.89.0" as const;
 
 /**
  * Current payload format version.
