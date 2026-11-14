@@ -71,7 +71,11 @@ multiplied was observed on or before the reading's day; otherwise the reading
 does not qualify and the rule moves to the next one or to the named gap. Derived
 rows now carry that count's date (`sharesAsOf`, values unchanged). A stored row
 written before this resolves it from the same filed share series by the same
-selection.
+selection. (3) The foreign-valuation note in the forensic evidence no longer says
+unconditionally that Altman converts the market capitalization. It states what
+was done: converted at a rate dated with the balance, or not used (with the
+reason) and the book-equity variant used instead. On the stored set this changes
+only tsm's note text.
 
 Options considered: (a) keep the current cap with a note (rejected: the result is
 not proven); (b) a new tolerance for the date gap (rejected: rule 1); (c) reuse the
