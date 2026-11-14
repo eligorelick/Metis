@@ -8909,3 +8909,24 @@ provider's peer list has no comparable company, the peer note points to the
 competitors by product line in "The business" when the report carries them. App, Markdown and print read the same
 presentation rule (P22); a report saved before this change has none of these
 fields and prints none of these headings (P21).
+
+### Reading order, the opening brief and shown-once (D-273)
+
+Every surface reads in one order: verdict; the business group (business and
+segments, competitive landscape, future outlook); catalysts and risks; then
+fundamentals, balance sheet, valuation, quality, technicals, leadership,
+projections, macro and the appendix. The verdict opens with "The business in
+brief": what it sells, who buys it, why it wins, what is next and what could
+break it. Code fills each part with at most one claim from the business fields
+in a fixed order, and only with a FACT whose own verification entry is validated
+or cited; an unverified, unchecked or contradicted claim, or a judgment, never
+enters, and a part with none says "Not established from verified sources." A
+statement shown in full in one list is referenced, not repeated, in a later
+list when its label, text, citation, date and verification mark all match.
+Score drivers, factor exposure and sensitivity, missing-input grade ranges,
+each aspect's method text, the full bull and bear statements, the full source list and the
+manifest reconciliation are in the audit export, not the Markdown or print
+documents (the app keeps them in collapsed panels, D-246); every surface keeps every gap,
+qualification, refusal note, disclaimer and stale-source name. These are
+read-time views: saved reports render this way without any change to their
+bytes, and no figure or stamp changes.

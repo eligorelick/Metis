@@ -11,6 +11,132 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-273 - A readable report: an opening brief, the business first, less repetition (2026-11-14)
+
+P18, P21 and P22. Owners: `src/report/sectionManifest.ts` (the one reading
+order), `src/report/presentation.ts` (the brief, the repeat rule, the moved
+diagnostics), `src/report/filingSupplementPresentation.ts` (filing-note tables),
+`src/report/export/auditMarkdown.ts` (the new home of what left the body).
+
+**Problem.** Report #63 (Eli Lilly) runs to about 35,000 words in our count
+(the owner counts about 40,000). It opens with a long list of figures, puts the
+business story in four separate sections between the figures (sections 2, 9, 10
+and 11), and states the same facts in several places: the executive summary,
+the section commentary, the bull and bear views and the judge.
+
+**Decisions.**
+
+1. *Opening brief.* A five-part brief opens the verdict (after the key-data
+   table): what it sells, who buys it, why it wins, what is next, what could
+   break it. Code assembles it; the writer authors nothing new. Mechanism chosen
+   over a writer-authored `brief` field because it works at read time for every
+   saved report (P21), needs no schema, prompt or stamp change, and leaves no
+   model text that a code drop would have to police (P18). Each part takes at
+   most one claim, in a fixed field order: the D-271 field first, then the older
+   field that holds the same story (sells: what they sell, then product lines;
+   buyers: customers and suppliers, then statements in what they sell or the
+   concentration list that name a buyer, by a fixed word list; wins: protection,
+   then the moat assessment, widest first, then the moat grade's reasoning;
+   next: what is coming, management's plan, catalysts, guidance credibility;
+   risks: the risks, highest severity first). A claim is eligible only when it
+   is a FACT whose own verification-log entry is validated (a matched figure) or
+   cited (a supported statement with no figure, shown "[qualitative]"), the same
+   supporting set D-271 uses for product-line headings. Unverified, unchecked
+   and contradicted claims and every judgment never enter. A part with no
+   eligible claim prints "Not established from verified sources."; when no part
+   has one (every data-only report) one line says so. Each claim keeps its
+   citation and mark.
+2. *Business before figures.* The shared section manifest now reads: verdict,
+   business and segments, competitive landscape, future outlook, catalysts and
+   risks, fundamentals, balance sheet, valuation, quality, technicals,
+   leadership, projections, macro, appendix. The brief names the business
+   group; the competitive landscape (competitors, moat, protection) and the
+   outlook (guidance, management's plan, scenario narratives) are that group's
+   remaining parts, so they follow the business section. Markdown now follows
+   the manifest as print and the app already did. Read time only: a saved report
+   renders in this order and its stored bytes do not change.
+3. *Shown once.* A statement printed in full in one claim list is skipped in a
+   later list (reading order, across a fixed set of reader lists), and that list
+   prints one line naming where it is shown ("Also stated here, shown in full
+   under Verdict › Executive summary."). The same statement means the same label,
+   text, citation, date and verification mark; when the marks differ both copies
+   print. The brief is exempt: it is a summary by design. Executive cards keep
+   their earlier exact-duplicate rule (they already skip shared company
+   actions). The verification log, the header counts and the stored claims are
+   unchanged.
+4. *Diagnostics to the audit export.* Moved, with a one-line pointer where they
+   were: the score drivers table, factor-family exposure, factor contribution
+   sensitivity (all three were already in the audit export), the missing-input
+   grade ranges (added to the audit export), each aspect's method text (already in
+   the audit export's score tables; the composite method text stays in the body,
+   as D-62 decided), the full
+   bull and bear statements of each disagreement (added to the audit export as
+   "Bull/bear statements"; the reader keeps the topic and the judge's
+   resolution, which weighs both), the full source list (the audit export already
+   lists every source; the reader names the providers once, counts sources whose
+   freshness is not recorded, and still lists every source marked stale, P2),
+   and the manifest reconciliation table (already in the audit export).
+   The app is the exception for this item: D-246 requires the dossier to keep
+   every fact the removed classic layout showed, so the app keeps these
+   diagnostics, both sides of each disagreement and the full source list inside
+   its collapsed panels (the reading order, the brief and the shown-once rule
+   apply to the app too). The Markdown and print documents are where the words
+   are cut. Loosening D-246 is not decided here.
+5. *Filing-note tables.* When every row comes from one filing, the filing is
+   named once under the table instead of in a Source column on every row; a
+   basis cell that repeats the row above word for word reads "Same passage as the
+   row above."
+
+**Kept on purpose (not cut).** Every data gap, refusal note, qualification,
+withheld-value reason, disclaimer and the FRED attribution. The scorecard keeps
+an unscored aspect's reason ("Why not scored"). The DCF assumption basis, the
+multiples' basis and limitations, the enterprise-value note and the balance
+sheet's capital-grading basis are the largest remaining blocks; they carry
+qualifications P12 requires where the figure is shown, so moving them needs a
+lead decision.
+
+**Word counts** (words with a letter or digit, rendered Markdown, same inputs,
+main f071ed04 against this change):
+
+| Case | Before | After | Change |
+| --- | --- | --- | --- |
+| LLY #63, stored analyst output (`lly-fixed-analyst`) | 34,666 | 31,720 | -8.5% |
+| LLY data-only | 16,350 | 14,236 | -12.9% |
+| AMZN fixed analyst | 19,415 | 17,430 | -10.2% |
+| META fixed analyst | 19,347 | 17,654 | -8.8% |
+| MU fixed analyst | 20,239 | 18,457 | -8.8% |
+| NVDA fixed analyst | 26,090 | 24,005 | -8.0% |
+
+The brief's 20% target is not reached; the rest would come from the blocks
+listed under "Kept on purpose".
+
+**Version stamps.** None move. Nothing stored changes meaning: no schema,
+payload, Stage B or figure changes, and saved reports keep their bytes (P21).
+This is a read-time view of the same claims and tables.
+
+**Same-report check.** All 17 golden cases and both LLY cases: stageB.json,
+payload.txt and report.json are byte-identical, so no numeric leaf changes. The
+reader files (report.md, print.html, web-dossier.html) change as described
+above, and audit.md only gains the bull/bear statements and the grade-range
+table (no audit line removed). Accuracy check: every figure as expected.
+
+**Approved report changes.** Reader layout only, for every case: section order
+and numbers; the brief at the top of the verdict; repeated statements replaced
+by a reference line; score diagnostics, bull/bear sides, the full source list
+and the manifest reconciliation table replaced by pointers to the audit export;
+filing-note tables with one shared filing name the filing once.
+
+**Tests.** `tests/report.readable.test.ts`: the brief's verified-only rule on a
+drug maker and a bank shape (an unverified, unchecked or contradicted claim
+never enters; a judgment never enters; a part with no support says so; a
+report with nothing verified prints one line), a buyer statement read by its
+words with a non-buyer control, the reading order in Markdown, print and the
+app, a historical fixture rendering in the new order with its bytes unchanged,
+the repeat rule with a control where the marks differ, the moved diagnostics,
+and the filing-note table with a two-filing control. Revised existing tests
+(each assertion replaced by an equally strict one on the new layout) are listed
+in the pull request.
+
 ## D-271 - A home for the business story, for every company type (2026-11-14)
 
 P18, P20, P21 and P22. Owners: `src/report/schema.ts` (fields and the heading
