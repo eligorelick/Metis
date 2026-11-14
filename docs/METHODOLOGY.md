@@ -3,10 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.89.0 / payload 1.106.0, Stage B `STAGE_B_2026_11_COMPLETE_RATIO_INPUTS_79` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
-
-D-280 (P1/P7/P8/P10/P13): TTM EBIT interest coverage requires interest expense admitted in all four constituent quarters under the annual owner's zero-as-undisclosed rule. An unusable quarter withholds coverage and the interest total, with a gap naming its end date. Product and geographic shares require the full signed split to reconcile to same-period, same-currency consolidated revenue under the existing P8 same-observation comparison. Otherwise every share is withheld and the table heading identifies an incomplete split. The data-only and analyst report paths use the same share owner. Historical saved bytes remain unchanged.
-
+The current source declares report 1.90.0 / payload 1.105.0, Stage B `STAGE_B_2026_11_DIVIDEND_DISCLOSURES_78` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -8904,8 +8901,9 @@ in one of the item's own FACT claims (case, spacing, dashes and trademark signs
 aside). At read time it prints only when a FACT claim that writes the name is
 marked validated or qualitative; a contradicted, unverified or unchecked claim
 never supports a heading. At report assembly it must also be, as a whole name, a product or geographic
-segment name in the bundle's own segmentation data (code-owned, never model
-text), so a model-written assertion never becomes a caption (D-271 review
+segment name in the bundle's provider segmentation rows or the filed XBRL
+member labels in `edgar.quarterlySegments` (the same code-built rows used by
+the quarterly segment table; D-277). These are code-owned, never model text, so a model-written assertion never becomes a caption (D-271 review
 round 2). Otherwise the fixed heading "Product line (its name is
 not in the cited claims)" prints and the claims keep their own marks. When the
 provider's peer list has no comparable company, the peer note points to the

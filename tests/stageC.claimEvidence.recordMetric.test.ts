@@ -263,3 +263,56 @@ it("D-263 second review keeps a different amount stated for a declared cash outf
   // Control: the plain statement of the outflow still confirms.
   expect(checkPlainFigures("Cash capital expenditure as of 2026-01-25 was USD 1.234 billion.", options)[0].outcome).toBe("confirmed");
 });
+
+// D-278 (Part C audit, LLY #65 and JPM #64): a figure whose own description adds a qualifier the record lacks
+// is a different quantity, so it is never shown as differing from that record; real conflicts stay.
+it("D-278 marks a conflict only when the figure's description names only the record's metric", () => {
+  const revenue: NumericProvenanceRecord = { ...inc, id: "payload.statements.income-statement-quarterly.revenue-2026-09-30", kind: "provider", origin: "fmp",
+    label: "revenue, quarter ended 2026-09-30", value: 24397e6, period: "2026-09-30", asOf: "2026-09-30" };
+  const price: NumericProvenanceRecord = { ...inc, id: "payload.quote.price", kind: "provider", origin: "fmp", label: "share price", value: 346.19,
+    unit: "currency-per-share", period: "2026-11-13", asOf: "2026-11-13", displayPrecision: 2 };
+  const registry = [revenue, price];
+  const options = { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) };
+  for (const text of ["Foundayo revenue for the quarter ended 2026-09-30 was $184 million.",
+    "The quarter ended 2026-09-30 included approximately $900 million of benefits to revenue."])
+    expect(checkPlainFigures(text, options)[0].outcome).not.toBe("contradiction");
+  // Controls: the record's own metric with a different value is still a conflict, and the equal value confirms.
+  expect(checkPlainFigures("Revenue for the quarter ended 2026-09-30 was $25,397 million.", options)[0].outcome).toBe("contradiction");
+  expect(checkPlainFigures("Revenue for the quarter ended 2026-09-30 was $24,397 million.", options)[0].outcome).toBe("confirmed");
+  expect(checkPlainFigures("The share price on 2026-11-13 was USD 341.19.", options)[0].outcome).toBe("contradiction");
+});
+
+// D-278 review round 1: a figure that lost its candidate keeps a visible warning even when an unrelated record
+// happens to hold the same amount; it never becomes the unmarked "value matched".
+it("D-278 keeps a dropped conflict visible when another record holds the stated amount", () => {
+  const revenue: NumericProvenanceRecord = { ...inc, id: "payload.statements.income-statement-quarterly.revenue-2026-09-30", kind: "provider", origin: "fmp",
+    label: "revenue, quarter ended 2026-09-30", value: 24397e6, period: "2026-09-30", asOf: "2026-09-30" };
+  const cash: NumericProvenanceRecord = { ...inc, id: "payload.cash", kind: "provider", origin: "fmp",
+    label: "cash balance", value: 25397e6, period: "2026-09-30", asOf: "2026-09-30" };
+  const registry = [revenue, cash];
+  const options = { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) };
+  const outcome = checkPlainFigures("The company generated revenue for the quarter ended 2026-09-30 of $25,397 million.", options)[0].outcome;
+  expect(outcome).toBe("not-found");
+  // Control: the same amount stated without a dropped candidate still finds its record.
+  const plain = checkPlainFigures("Cash balance on 2026-09-30 was $25,397 million.", options)[0].outcome;
+  expect(["confirmed", "value-match"]).toContain(plain);
+  // Review round 2: the same metric for another period holding the stated amount never hides the conflict either.
+  const june: NumericProvenanceRecord = { ...revenue, id: "payload.statements.income-statement-quarterly.revenue-2026-06-30",
+    label: "revenue, quarter ended 2026-06-30", value: 25397e6, period: "2026-06-30", asOf: "2026-06-30" };
+  const periods = [revenue, june];
+  const periodOptions = { registry: periods, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(periods), index: buildPlainFigureIndex(periods, [], "USD", []) };
+  const september = checkPlainFigures("The company generated revenue for the quarter ended 2026-09-30 of $25,397 million.", periodOptions)[0].outcome;
+  expect(["not-found", "contradiction"]).toContain(september);
+});
+
+// D-278 review thread: a plural of the record's own metric word is the same metric, so a real conflict stays.
+it("D-278 keeps a conflict when the figure names the record's metric in the plural", () => {
+  const margin: NumericProvenanceRecord = { ...inc, id: "payload.ratios.gross-margin-2026-01-25", kind: "provider", origin: "fmp",
+    label: "gross margin", value: 12.34, unit: "percent", currency: null, period: "2026-01-25", asOf: "2026-01-25", displayPrecision: 2 };
+  const registry = [margin];
+  const options = { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) };
+  expect(checkPlainFigures("Gross margins as of 2026-01-25 were 22.34%.", options)[0].outcome).toBe("contradiction");
+  // Controls: the singular conflicts the same way and the equal value confirms.
+  expect(checkPlainFigures("Gross margin as of 2026-01-25 was 22.34%.", options)[0].outcome).toBe("contradiction");
+  expect(checkPlainFigures("Gross margins as of 2026-01-25 were 12.34%.", options)[0].outcome).toBe("confirmed");
+});

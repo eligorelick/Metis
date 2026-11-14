@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.89.0",
+    "specVersion": "1.90.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.89.0",
+    "pipelineVersion": "1.90.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8501742160278746,
@@ -3905,11 +3905,6 @@
         "severity": "warn"
       },
       {
-        "field": "capital.current.interestCoverage",
-        "reason": "TTM interest coverage withheld: interest expense undisclosed, zero-treated or unusable for quarter ending 2026-03-31, 2025-12-31, 2025-09-30, 2025-06-30.",
-        "severity": "info"
-      },
-      {
         "field": "capital.dilution",
         "reason": "weightedAverageShsOut (basic) missing on the latest annual income statement (2025-12-31) — the diluted-vs-basic award overhang is not computable and is reported as unavailable, never as zero",
         "severity": "info"
@@ -3951,7 +3946,7 @@
       },
       {
         "field": "scores.balanceSheet.interestCoverage",
-        "reason": "interestCoverage withheld: interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m; TTM interest coverage withheld: interest expense undisclosed, zero-treated or unusable for quarter ending 2026-03-31, 2025-12-31, 2025-09-30, 2025-06-30.. EBIT / interest expense (computed.capital.current.interestCoverage) is missing or refused; interest expense (computed.capital.current.interestExpense) is missing or refused.",
+        "reason": "interestCoverage withheld: interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m. EBIT / interest expense (computed.capital.current.interestCoverage) is missing or refused; interest expense (computed.capital.current.interestExpense) is missing or refused.",
         "severity": "info"
       },
       {
