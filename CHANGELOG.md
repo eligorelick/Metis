@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - A4 TSM same-report capture (P2, D-275) (2026-11-14)
+
+- The TSM case in the same-report check now uses a new data-only capture (2026-11-14, AI off, zero cost). Its evidence includes TSM's 2025 Form 20-F (filed 2026-04-16), read from the filing's own XBRL instance.
+- TSM's latest-year diluted EPS now shows FY2025, and FY2025 net income now equals the filed consolidated profit. Both now match the filing in the accuracy check (they were mismatches). No other case changed, and no code or version stamp changed.
+
+
 ## Unreleased - A home for the business story (P18, P20, P22, D-271)
 
 - New optional report fields give the business one home for every company type: products and services, what is coming (pipeline, roadmap, launches, capacity with dates), customers and suppliers, competitors by product line (foreign-listed rivals included, never valuation peers), protection and expiry, management's plan and current guidance, and industry. Each is a sourced claim the existing verifier checks; app, Markdown and print show them under "The business". Saved reports have none of these fields and print exactly as before.
