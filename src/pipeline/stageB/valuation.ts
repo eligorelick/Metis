@@ -2348,6 +2348,32 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
 
   // --- Sales-to-capital ------------------------------------------------------
   const bal = inputs.balance;
+  // D-267 (P1, P13; revises D-65 for the fiscal-year fallback): when the model falls back to the fiscal-year
+  // statement, the balance that supplies invested capital and the equity bridge must be dated at that fiscal year end.
+  // FIN-103's bridge row is that balance when one is admitted (`dcfBridgeRow`); when none is (none filed, incomplete,
+  // refused, or the anchor refused), another date's balance would count flows twice or not at all and would set the
+  // fiscal year's revenue against another date's capital, so the model value is withheld with the root cause named.
+  // The typed cause routes it through the existing withheld-DCF path (P11). The trailing-window route keeps its
+  // D-65 disclosure below (left for separate work; see D-267).
+  const fallbackStatementDate = ttm?.basis === "annual" ? ttm.date ?? null : null;
+  const fallbackOffsetDays = fallbackStatementDate !== null && bal !== null ? daysBetween(fallbackStatementDate, bal.date.slice(0, 10)) : null;
+  if (bal !== null && fallbackOffsetDays !== null && fallbackOffsetDays !== 0) {
+    const balanceDate = bal.date.slice(0, 10);
+    const cause = inputs.bridgeCause?.cause;
+    const detail = inputs.bridgeCause?.detail ?? null;
+    const offset = fallbackOffsetDays > 0
+      ? `${fallbackOffsetDays} days after the statement date, so flows between the two dates would be in both that balance and the first forecast window`
+      : `${-fallbackOffsetDays} days before the statement date, so flows between the two dates would be in neither that balance nor the first forecast window`;
+    const root = cause === "none-filed" ? `no balance sheet is filed at the fiscal-year statement date ${fallbackStatementDate}`
+      : cause === "incomplete" ? `the balance sheet at the fiscal-year statement date ${fallbackStatementDate} lacks ${detail ?? "an operand the bridge reads"}`
+      : cause === "statement-row-refused" ? `the balance sheet at the fiscal-year statement date ${fallbackStatementDate} is withheld (${detail ?? "refused"})`
+      : cause === "anchor-refused" ? `the market EV's balance (${balanceDate}) is withheld${detail ? ` (${detail})` : ""} and no balance at the fiscal-year statement date ${fallbackStatementDate} replaces it`
+      : `the balance sheet the model reads is not dated at the fiscal-year statement date ${fallbackStatementDate}`;
+    gaps.push(gapEntry("valuation.dcf.bridgeBalanceDate",
+      `${root}; the only admitted balance is ${balanceDate}, ${offset}. On the fiscal-year fallback, invested capital and the equity bridge must be dated at the statement date, ` +
+      "so this DCF is withheld instead of mixing dates (D-267)", "warn", "dcf-balance-date-mismatch"));
+    return { assumptions: null, notes, gaps };
+  }
   // Audit 2026-10-19 FCX-1: a missing operating-lease maturity leaves the
   // lease-inclusive total unknown, but where the financing components prove the
   // tagged operating portion is the only lease in totalDebt, invested capital

@@ -202,6 +202,8 @@ describe("week counts (FIN-301)", () => {
     const rows = bundle.statements.incomeAnnual.value.data.rows;
     rows[0] = { ...rows[0], date: "2026-01-31", revenue: 530e6, fieldProvenance: undefined };
     rows[1] = { ...rows[1], date: "2025-01-25", fieldProvenance: undefined };
+    if (!bundle.statements.balanceAnnual.ok) throw new Error("fixture");
+    bundle.statements.balanceAnnual.value.data.rows[0]!.date = "2026-01-31";
     const c = runStageB(bundle);
     expect(c.valuation.kind).toBe("dcf");
     if (c.valuation.kind !== "dcf") throw new Error("fixture must reach DCF");

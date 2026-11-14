@@ -159,28 +159,33 @@ WACC market-value weights use the current cap with the latest debt, a separate
 owner (`returns.ts`) and a different convention; not changed here and listed
 for the lead.
 
-**DCF balance date (brief part 1) is not changed by this entry.** Two versions of
-the rule were built and tested; neither ships. The first withheld the model value
-whenever the balance that supplies invested capital and the equity bridge is not
-dated at the statement date, on both routes. It broke 166 tests in 53 files,
-because the shared offline test bundle (`tests/helpers/currencyBundle.ts`) is
-itself a trailing-window model on an earlier fiscal-year balance (its quarterly
-balance rows carry no currency label). The second applied the rule to the
-fiscal-year fallback route only. It still broke 6 tests in 4 files: four tests
-that pin the D-65 behaviour being revised
-(`tests/stageB.bridgeBalance.audit20261027.test.ts`, three tests;
-`tests/stageB.branchFix1.audit20261027.test.ts`, one), and two whose own inline
-fixtures happen to take that shape (`tests/stageB.periodLength.test.ts`, the
-53-week annual fallback built on the shared bundle with its annual rows re-dated
-to 2026-01-31 while the balance stays 2025-12-31;
-`tests/stageB.seasonalGuidance.test.ts`, an annual base dated 2025-12-31 on the
-scenario's 2026-09-30 balance). Re-pinning those is left to the lead's decision.
-So today the fiscal-year fallback still publishes a value on a different-dated
-balance with its D-65 note. The trailing-window route can also take an earlier
-balance through `dcfBridgeRow`'s anchor fallback, with its existing note. No
-stored case has either shape today (none of the 17 regression cases carries
-`valuation.dcf.bridgeBalanceDate`, and neither LLY case does on this main after
-D-260). D-65 is not revised. Both routes are left for separate work.
+### Part 1 follow-up: fiscal-year fallback date basis (2026-11-14)
+
+P1/P13/P10/P11. Owner approval revises D-65 for the fiscal-year fallback only: every input to one calculation shares its date or period. `buildDcfAssumptions` refuses a fallback model when its admitted balance differs from its annual statement date, naming the unavailable statement-date balance and its cause. `dcf-balance-date-mismatch` is transported through the existing withheld-model reader; legacy info notes never acquire refusal meaning from their wording. No tolerance or date band changes. The market EV retains its own date basis.
+
+The trailing-window route and `tests/helpers/currencyBundle.ts` are unchanged. An explicit control retains its earlier-balance trailing model. Extending this date rule to trailing models remains separate work.
+
+Revised tests (all six failures reproduced before correction; assertions strengthened or fixture dates repaired):
+
+- `tests/stageB.bridgeBalance.audit20261027.test.ts`, "with no balance at the statement date the basis names the balance used": published assumptions plus an info note for earlier/later balances becomes null assumptions plus a warn gap, exact typed cause, date offset, and downstream withheld-gap selection. Same-date published control retained.
+- Same file, "each cause words the gap with what was checked": four info-note root explanations become four null-model assertions, typed warn causes, and exact missing/incomplete/refused/anchor-refused explanations.
+- Same file, "past the roll-forward limit the statement-date note names the bridge balance too": the published-model date note becomes null assumptions and typed warn disclosure even past the roll limit.
+- `tests/stageB.branchFix1.audit20261027.test.ts`, "with a refused temporary-equity operand on the 10-K row": a published model on the clean newer anchor and its net debt becomes null model and assumptions, typed warn gap and withheld explanation; the complete same-date control still publishes, and the critical-gap assertion is retained.
+- `tests/stageB.periodLength.test.ts`, "retains the separate 53-week annual fallback from successive annual ends": re-date the fixture's annual balance to its already re-dated annual statement (2026-01-31); retain both exact 520 million normalized revenue and 53-week basis assertions.
+- `tests/stageB.seasonalGuidance.test.ts`, "carries an annual base at the guided year-over-year pace": date the fixture balance at its annual base (2025-12-31); retain guidance source, 1,080 billion modeled revenue and null run-rate assertions. All amounts here are synthetic.
+
+Controls also cover exact-date admission, earlier/later refusal, a 52/53-week fiscal end with a one-day mismatch, and the unchanged shared trailing model. Sibling search: the existing D-65 trailing-date disclosure remains intentionally unchanged; Altman date pairing is already owned by D-267 part 2. No other calculation is altered.
+
+Current combined stamps: report 1.84.0, payload 1.102.0, Stage B FALLBACK_DATE_76 (D-260 follow-up and D-267 part 1).
+
+Approved same-report changes (pinned main 57ba3f54ec35285bdf51b7b6d89ed040a1ddf2a1): **zero financial or status changes across all 17 regression cases and both LLY modes**. Every Stage B file is byte-identical. Every report JSON differs only at `meta.specVersion` (1.83.0 to 1.84.0); every payload differs only at its version header (1.101.0 to 1.102.0), with the resulting manifest fingerprint. Markdown, print, audit and web differ only at these spec labels and the spec-derived web report identity. No other text changes remain after those exact substitutions. Golden diff reports 119 differences for 17 cases and 14 for two LLY cases, including manifest fingerprints, all explained by those stamps. No case has a balance-date gap or newly withheld fallback. Cases: amzn (both), duk, figr, jpm, meta (both), mu (both), nvda (both), o, pgr, qcom, rivn, tsm, vktx; plus lly (both).
+
+LLY figures are preserved in both modes: TTM operating income 34,876 million before/after; current model value 662.08 per share before/after; valuation score 33.98 before/after. Filed operating proof remains pretax less `NonoperatingIncomeExpense`, FY2025 plus nine months ended 2026-09-30 less comparative nine months ended 2025-09-30, accessions 0000059478-26-000013 and 0000059478-26-000108 (D-260 evidence). No changed number requires a new filed proof. No accuracy expectation update: 265 figures / 13 referenced cases, 171 match, 7 mismatch, 61 gap, 26 not-established, every figure as expected.
+
+Verification: seven failing assertions observed before correction (A1 zero tie plus six A2 tests). Focused six-file set passes 100 tests including the refusal-wording ratchet. Typecheck passes; lint passes with the existing `_dropped` unused-variable warning. Fictional sample rebuilt. Both frozen records refreshed under D-267, restricted to six payload version/header hash leaves and two audit report-spec/digest leaves; no financial leaves changed. Initial payload refresh correctly refused an incomplete scope, then passed with the six actual changed leaves declared. The required `--changed origin/main` run completed: 668 files / 17,036 tests passed, three tests skipped, and four old stamp assertions failed in three files. After exact stamp updates, all three files passed (797 tests). No calculation or disclosure regression failed. No full verify run.
+
+Stamp-only assertion revisions: `tests/report.versionStamps.test.ts`, "stamps financial integrity and evidence-context conventions" and "stamps a newly built report and payload with them", pin report 1.83.0 to 1.84.0, payload 1.101.0 to 1.102.0 and Stage B FILED_BALANCES_GAPS_75 to FALLBACK_DATE_76, including exact fingerprint/header regexes. Its parameterized "never resumes a pass stored under prior %s financial conventions" adds 1.101.0; "does not compare a prior %s report as the same financial convention" adds 1.83.0. `tests/jobRunner.test.ts`, "runs all steps in order, logs cost, persists the report, links jobs.reportId", updates the exact persisted spec assertion 1.83.0 to 1.84.0. `tests/stageC.payload.passes.test.ts`, "emits a deterministic registry with unique semantic IDs", updates the exact payload assertion 1.101.0 to 1.102.0; "fills meta + appendix and passes ReportSchema" updates the exact report assertion 1.83.0 to 1.84.0. All other assertions retained. The initial changed-tests run exposed the four old stamp pins before these final updates.
+
 
 **Stamps.** Report spec 1.82.0, payload 1.100.0, Stage B
 `STAGE_B_2026_11_BALANCE_DATE_MARKET_EQUITY_74`: Stage B results change on
@@ -6837,6 +6842,9 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
   - **Versions.** `PAYLOAD_VERSION`, `REPORT_SPEC_VERSION` and `SCORE_BANDS_VERSION` are unchanged, as instructed: no score, band or ratio moves, and the new report field is optional.
 
 ## D-65 (independent audit of the NVDA report built on metis-final.db, report 1, 2026-10-16) Consensus where it exists, one net cash in every EV, robustness on both grids, a dated value
+
+Revised by D-267 (part 1, 2026-11-14): the fiscal-year fallback DCF now withholds a model whose balance differs from its statement date. The trailing-window route retains the earlier date disclosure.
+
 
 - **Evidence**: the audit of the live NVDA report (spec 1.18.0; frozen inputs replayed offline through `runStageB` on a copy of `metis-final.db`, which reproduces bull $501.15 / base $296.32 / bear $163.44 at `6e5367a`) found:
   - **P0, consensus beyond year two.** The base path was called "consensus-anchored", but only years 1–2 used consensus. The D-58 fade from year two's 46.9% put years 3–5 9–45% above the FY+3…FY+5 consensus the same cached FMP response held (FY ending 2029-01 $924.4B from 38 analysts, 2030-01 $1,106.5B from 30, 2031-01 $1,161.0B from 35). The auditor's rebuild with years 1–4 on consensus and the same fade gave about $208.

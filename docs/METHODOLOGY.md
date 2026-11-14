@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.83.0 / payload 1.101.0, Stage B `STAGE_B_2026_11_FILED_BALANCES_GAPS_75` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.84.0 / payload 1.102.0, Stage B `STAGE_B_2026_11_FALLBACK_DATE_76` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -8477,8 +8477,8 @@ research expense replaces its children once; conflicting totals close the proof.
 Cash payments for acquisitions cannot establish these income-statement expenses.
 Restructuring can already be included in another cost. When a component bridge
 carries that tag, both candidate memberships use the existing one-dollar
-reporting-unit rule against filed pretax income. Exactly one must match;
-neither or both matching keeps the bridge unavailable.
+reporting-unit rule against filed pretax income. Exactly one distinct operating figure must match;
+identical figures count once, while neither matching or two different matching figures keeps the bridge unavailable.
 Every bridge still reconciles independently to same-scope filed pretax income.
 
 Missing monetary income fields use the statement owner's exact annual or
@@ -8844,3 +8844,5 @@ names beside named regions retain their original name with a scope qualification
 Executive cards link to the shared company chronology and outlook guidance.
 Fact tags describe code's numerical matching; citation coverage describes tracing,
 not correctness. These rules never rewrite stored reports or recompute figures.
+
+D-267 part 1 (P1/P13, revises D-65): a fiscal-year fallback DCF requires invested capital and the equity bridge at the fiscal-year statement date. An earlier or later admitted balance withholds the model with a typed date-mismatch cause and the missing or refused statement-date operand disclosed. The trailing-window route retains its D-65 disclosure pending separate work.
