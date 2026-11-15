@@ -251,7 +251,7 @@ describe("corrected report CLI", () => {
       });
       expect(summary.withheldEntityStatements).toBeGreaterThanOrEqual(0);
       const htmlBytes = readFileSync(outputHtml, "utf8");
-      expect(htmlBytes).toMatch(/<!doctype html>[\s\S]*Thesis Example Systems/i);
+      expect(htmlBytes).toMatch(/<!doctype html>[\s\S]*Larkspur Example Systems/i);
       const jsonBytes = readFileSync(outputJson, "utf8");
       expect(jsonBytes.endsWith("\n")).toBe(true);
       const corrected = ReportSchema.parse(JSON.parse(jsonBytes));

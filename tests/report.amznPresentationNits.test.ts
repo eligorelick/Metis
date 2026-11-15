@@ -81,7 +81,8 @@ describe("officers the report does not assess", () => {
     const groups = executiveGroups(report.leadership.executives);
     expect(groups.notAssessedClaims.map((c) => c.text)).toEqual([
       "Matthew S. Garman has served as CEO Amazon Web Services since June 2024.",
-      "Matthew S. Garman: AWS revenue for the quarter ended 2026-06-30 was USD 42.23 billion.",
+      // Revised by D-302 (R35): a company figure in the typed-metric bucket reads as the company's record during the tenure.
+      "Company record during the tenure of Matthew S. Garman: AWS revenue for the quarter ended 2026-06-30 was USD 42.23 billion.",
     ]);
     const parsed = ReportSchema.parse(report);
     for (const text of [reportToMarkdown(parsed), reportToPrintBody(parsed)]) {

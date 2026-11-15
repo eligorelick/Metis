@@ -1,9 +1,9 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
-  "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "1e1825c380cd8b8e570d64cf784d9c251d53d38c8e36b4f79375ec38917ed6e8",
+  "fixtureIdentity": {"fmpTreeSha256": "e22ed45e43e38935d647e402a9175b0e66bb3589402e5447d61b4628f8647634", "reportSha256": "80b70a45819bab0eb03cd227efb889efe44694ac4d776153bfb164787db8a4e9"},
+  "projectionSha256": "4b382fd00733686d324e7928cd4cfb17530b023f3257aa44a6cec14df3af82fb",
   "projection": {
-    "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
+    "fixtureControl": {"symbol": "DEMO", "companyName": "Larkspur Example Systems", "quotePrice": 40},
     "stageB": {
       "symbol": "DEMO",
       "builtAt": "2026-07-06T00:00:00.000Z",
@@ -1135,6 +1135,7 @@
           {"field": "valuation.multiples.ownHistory", "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)", "severity": "info"},
           {"field": "valuation.dcf.growthAnchor", "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable", "severity": "info"},
           {"field": "valuation.dcf.terminalRoic.waccBasis", "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC", "severity": "info"},
+          {"field": "valuation.dcf.taxOperands", "reason": "Tax rate operands: vendor data, not checked against a filing", "severity": "info"},
           {"field": "valuation.reverseDcf.growthBracket", "reason": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%", "severity": "warn"},
           {
             "field": "valuation.analystEstimates.currency",
@@ -2069,6 +2070,7 @@
           "attemptedSources": ["fmp:/stable/analyst-estimates"]
         },
         {"field": "valuation.dcf.growthAnchor", "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable", "severity": "info"},
+        {"field": "valuation.dcf.taxOperands", "reason": "Tax rate operands: vendor data, not checked against a filing", "severity": "info"},
         {"field": "valuation.dcf.terminalRoic.waccBasis", "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC", "severity": "info"},
         {"field": "valuation.multiples.enterpriseValue.leases", "reason": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.", "severity": "info"},
         {"field": "valuation.multiples.ownHistory", "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)", "severity": "info"},
@@ -2096,9 +2098,9 @@
       },
       "meta": {
         "symbol": "DEMO",
-        "companyName": "Thesis Example Systems",
+        "companyName": "Larkspur Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
-        "specVersion": "1.97.0",
+        "specVersion": "1.98.0",
         "model": "synthetic-fixture",
         "pipelineVersion": "audit-fixture-comparison",
         "evidenceContract": "EVIDENCE_CONTRACT_1",
@@ -3714,6 +3716,7 @@
             "attemptedSources": ["fmp:/stable/analyst-estimates"]
           },
           {"field": "valuation.dcf.growthAnchor", "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable", "severity": "info"},
+          {"field": "valuation.dcf.taxOperands", "reason": "Tax rate operands: vendor data, not checked against a filing", "severity": "info"},
           {"field": "valuation.dcf.terminalRoic.waccBasis", "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC", "severity": "info"},
           {"field": "valuation.multiples.enterpriseValue.leases", "reason": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.", "severity": "info"},
           {"field": "valuation.multiples.ownHistory", "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)", "severity": "info"},

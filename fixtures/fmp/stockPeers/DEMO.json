@@ -22,7 +22,7 @@
   },
   {
     "symbol": "DEMO",
-    "companyName": "Thesis Example Systems",
+    "companyName": "Larkspur Example Systems",
     "price": 40,
     "mktCap": 8000000000,
     "__fixture_note": "SYNTHETIC TEST DATA — invented values; not observed market or issuer data"

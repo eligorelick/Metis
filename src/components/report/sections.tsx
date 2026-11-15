@@ -35,7 +35,7 @@ import {
   businessStoryBlocks,
   BUSINESS_BRIEF_HEADING,
   BRIEF_NOT_ESTABLISHED,
-  BRIEF_PART_NOT_ESTABLISHED,
+  briefNotCovered,
   businessBrief,
   assessmentLine,
   auditExportPath,
@@ -521,7 +521,7 @@ export function ExecutiveSummary({ claims }: { claims: readonly SourcedClaim[] }
 /** D-273: the opening five-part brief, verified claims only; a part with no support says so. */
 export function BusinessBriefBlock({ report }: { report: Report }) {
   const parts = businessBrief(report);
-  const none = parts.every(part => part.claims.length === 0);
+  const none = briefNotCovered(parts);
   return (
     <div className="business-brief border border-edge bg-panel" aria-label={BUSINESS_BRIEF_HEADING}>
       <div className="border-b border-edge px-3 py-1.5">
@@ -531,7 +531,7 @@ export function BusinessBriefBlock({ report }: { report: Report }) {
         {none ? <p className="text-[11px] text-faint">{BRIEF_NOT_ESTABLISHED}</p> : parts.map(part => (
           <div key={part.key}>
             <div className="text-[11px] font-semibold text-fg">{part.heading}</div>
-            <ClaimList claims={part.claims} empty={BRIEF_PART_NOT_ESTABLISHED} repeats="show" />
+            <ClaimList claims={part.claims} empty={part.empty} repeats="show" />
           </div>
         ))}
       </div>

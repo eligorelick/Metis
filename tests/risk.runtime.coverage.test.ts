@@ -563,7 +563,7 @@ describe("risk runtime behavior coverage", () => {
         fmp,
         now: () => new Date("2026-08-01T00:00:00.000Z"),
       });
-      expect(row?.companyName).toBe("Thesis Example Systems");
+      expect(row?.companyName).toBe("Larkspur Example Systems");
       expect(row?.price).toBeNull();
       expect(row?.changePct).toBe(1.5);
       expect(row?.nextEarnings).toBe("2026-08-20");

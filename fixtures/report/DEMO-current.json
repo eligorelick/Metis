@@ -19,11 +19,11 @@
   },
   "meta": {
     "symbol": "DEMO",
-    "companyName": "Thesis Example Systems",
+    "companyName": "Larkspur Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.97.0",
+    "specVersion": "1.98.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.97.0",
+    "pipelineVersion": "1.98.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8506944444444444,
@@ -3624,28 +3624,28 @@
     "peerTable": [],
     "competitors": [
       {
-        "text": "Against Lantern Quay Automation, Thesis wins on local service continuity and loses on installation price.",
+        "text": "Against Lantern Quay Automation, Larkspur wins on local service continuity and loses on installation price.",
         "label": "JUDGMENT",
         "sourceId": "edgar:10-K item1",
         "source": "edgar:10-K item1",
         "asOf": "2025-12-31"
       },
       {
-        "text": "Against Bramble Circuit Works, Thesis wins on custom deployment speed and loses on support-network breadth.",
+        "text": "Against Bramble Circuit Works, Larkspur wins on custom deployment speed and loses on support-network breadth.",
         "label": "JUDGMENT",
         "sourceId": "edgar:10-K item1",
         "source": "edgar:10-K item1",
         "asOf": "2025-12-31"
       },
       {
-        "text": "Against Aster Dock Software, Thesis wins where integrated controllers are necessary and loses on cost where software alone is sufficient.",
+        "text": "Against Aster Dock Software, Larkspur wins where integrated controllers are necessary and loses on cost where software alone is sufficient.",
         "label": "JUDGMENT",
         "sourceId": "edgar:10-K item1",
         "source": "edgar:10-K item1",
         "asOf": "2025-12-31"
       },
       {
-        "text": "Against Kestrel Bay Robotics, Thesis suits regional-site integration budgets but loses complex mega-site automation work.",
+        "text": "Against Kestrel Bay Robotics, Larkspur suits regional-site integration budgets but loses complex mega-site automation work.",
         "label": "JUDGMENT",
         "sourceId": "edgar:10-K item1",
         "source": "edgar:10-K item1",
@@ -4061,6 +4061,11 @@
       {
         "field": "valuation.dcf.growthAnchor",
         "reason": "growth-anchor method(s) unavailable: 5y revenue CAGR — the point estimate is the median of the 3 that were computable",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.dcf.taxOperands",
+        "reason": "Tax rate operands: vendor data, not checked against a filing",
         "severity": "info"
       },
       {
@@ -7563,8 +7568,8 @@
           {
             "source": "edgar:10-K item1",
             "asOf": "2025-12-31",
-            "start": 619,
-            "end": 691,
+            "start": 621,
+            "end": 693,
             "text": "Hardware and installation contributed USD 650 million of FY2025 revenue."
           }
         ],
@@ -7585,8 +7590,8 @@
           {
             "source": "edgar:10-K item1",
             "asOf": "2025-12-31",
-            "start": 692,
-            "end": 746,
+            "start": 694,
+            "end": 748,
             "text": "Support contributed USD 350 million of FY2025 revenue."
           }
         ],
@@ -8328,7 +8333,7 @@
         "traceKind": "source-cited"
       },
       {
-        "claim": "Against Lantern Quay Automation, Thesis wins on local service continuity and loses on installation price.",
+        "claim": "Against Lantern Quay Automation, Larkspur wins on local service continuity and loses on installation price.",
         "outcome": "unverified",
         "validationStatus": "cited",
         "numericSupportStatus": "cited",
@@ -8341,7 +8346,7 @@
         "traceKind": "source-cited"
       },
       {
-        "claim": "Against Bramble Circuit Works, Thesis wins on custom deployment speed and loses on support-network breadth.",
+        "claim": "Against Bramble Circuit Works, Larkspur wins on custom deployment speed and loses on support-network breadth.",
         "outcome": "unverified",
         "validationStatus": "cited",
         "numericSupportStatus": "cited",
@@ -8354,7 +8359,7 @@
         "traceKind": "source-cited"
       },
       {
-        "claim": "Against Aster Dock Software, Thesis wins where integrated controllers are necessary and loses on cost where software alone is sufficient.",
+        "claim": "Against Aster Dock Software, Larkspur wins where integrated controllers are necessary and loses on cost where software alone is sufficient.",
         "outcome": "unverified",
         "validationStatus": "cited",
         "numericSupportStatus": "cited",
@@ -8367,7 +8372,7 @@
         "traceKind": "source-cited"
       },
       {
-        "claim": "Against Kestrel Bay Robotics, Thesis suits regional-site integration budgets but loses complex mega-site automation work.",
+        "claim": "Against Kestrel Bay Robotics, Larkspur suits regional-site integration budgets but loses complex mega-site automation work.",
         "outcome": "unverified",
         "validationStatus": "cited",
         "numericSupportStatus": "cited",

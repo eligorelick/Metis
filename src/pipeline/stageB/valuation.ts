@@ -1,5 +1,6 @@
 import { CORE_FACT_FORMS, conceptFactsSchema, parseFactPoints, factCoversPeriod, type CompanyFacts } from "@/edgar/xbrl";
 import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
+import { DCF_TAX_OPERANDS_FIELD } from "@/report/assessment";
 /**
  * Stage B — valuation engine (own DCF, sensitivity grid, reverse DCF,
  * multiples framework, sector-override models).
@@ -2682,6 +2683,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     notes,
   };
   if (liquidityResolution?.cashBasis === "cash-only") gaps.push({ field: "valuation.dcf.cashBasis", reason: `${bal?.date}: ${liquidityResolution.reason}`, severity: "info" });
+  // D-300 review round 1 (P12, P19): the typed record that the tax rate's operands are vendor data not
+  // checked against a filing, beside the wording the basis already carries, so readers decide on a field.
+  if (qualifiedTaxBasis) gaps.push(gapEntry(DCF_TAX_OPERANDS_FIELD, qualifiedTaxBasis, "info"));
   return { assumptions, notes, gaps };
 }
 

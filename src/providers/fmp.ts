@@ -266,6 +266,13 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
    * identity. It is kept out of `fieldProvenance` so that it is evidence for a tax rate and nothing else.
    */
   pretaxIncomeBeforeEquityMethod?: FiledIncomeLine;
+  /**
+   * D-300 (P8, P12; review round 1): the reconciled filed earnings family the row's own tax-rate operands
+   * agree with (provision and the pre-tax base the rate divides by), recorded when no value changes. Like
+   * `interestExpenseAgreement`, it is evidence that the operands were checked against a filing and is kept
+   * out of `fieldProvenance`; absent means unverified.
+   */
+  taxOperandAgreement?: { incomeBeforeTax: StatementFieldProvenance; incomeTaxExpense: StatementFieldProvenance };
   equityMethodIncomePlacement?: EquityMethodIncomePlacement;
   netIncome?: number;
   /** Filed consolidated profit including noncontrolling interests (SEC ProfitLoss). */

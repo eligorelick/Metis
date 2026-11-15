@@ -54,7 +54,7 @@ describe("DEMO-sample.json fixture", () => {
     }
     expect(parsed.success).toBe(true);
     expect(parsed.data.meta.symbol).toBe("DEMO");
-    expect(parsed.data.meta.companyName).toBe("Thesis Example Systems");
+    expect(parsed.data.meta.companyName).toBe("Larkspur Example Systems");
     // A report saved under spec 1.2.0 and kept byte-for-byte (the audited
     // fixture comparison pins its SHA-256): it still parses through the strict
     // current schema and keeps its own stamp — saved reports are never

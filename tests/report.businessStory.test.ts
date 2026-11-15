@@ -13,7 +13,7 @@ import {
 } from "@/pipeline/stageC/prompts";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
-import { BUSINESS_STORY_HEADING, businessStoryBlocks } from "@/report/presentation";
+import { BUSINESS_STORY_HEADING, briefNotCovered, businessBrief, businessStoryBlocks } from "@/report/presentation";
 import { providerPeerListPresentation } from "@/report/readerConventions";
 import { indexVerificationMarks } from "@/report/verificationMarks";
 import {
@@ -133,9 +133,15 @@ describe("business story (D-271)", () => {
     for (const key of STORY_FIELDS) expect(parsed.business).not.toHaveProperty(key);
     expect(parsed.competitive).not.toHaveProperty("competitorsByProductLine");
     expect(businessStoryBlocks(parsed.business, parsed.competitive)).toEqual([]);
+    // D-303 review round 1: the opening brief prints its five part labels whenever any part's field holds a
+    // statement, and its "Customers and suppliers" label shares the story heading's words. Each heading may appear
+    // only as that one brief label, never as a story heading.
+    const brief = businessBrief(parsed);
+    expect(briefNotCovered(brief)).toBe(false);
+    const briefLabels = brief.map(part => part.heading);
     for (const text of surfaces(parsed)) {
       expect(text).not.toContain(BUSINESS_STORY_HEADING);
-      for (const heading of HEADINGS) expect(text).not.toContain(heading);
+      for (const heading of HEADINGS) expect(text.split(heading).length - 1, heading).toBe(briefLabels.includes(heading) ? 1 : 0);
     }
   });
 
