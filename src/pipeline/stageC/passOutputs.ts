@@ -156,8 +156,8 @@ function normalizeCitationFields(raw: unknown): unknown {
   // D-156: a claim or number's `asOf` is nullable and null is its "no date";
   // a blank string is read the same way, so it never rejects a whole case.
   // D-182: a valid month or year alone ("2026-01", "2026") is a coarser date,
-  // not a wrong one, and must not cost a repair round; it is read as no date too (the claim's text keeps the period, and no day is
-  // invented). Any other malformed date still fails.
+  // not a wrong one, and must not cost a repair round; it is read as no date too (the claim's text keeps the
+  // period, and no day is invented). Any other malformed date still fails.
   if (carrier && typeof next.asOf === "string" && (next.asOf.trim() === "" || isPartialIsoDate(next.asOf.trim()))) next.asOf = null;
   if (carrier && (next.source == null || (typeof next.source === "string" && next.source.trim() === "")) &&
       typeof next.sourceId === "string") {
