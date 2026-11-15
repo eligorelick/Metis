@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Release panel (P27, R52) (2026-11-14)
+
+Expanded offline regression coverage to 25 companies and 33 cases, including recent JPM, LLY and TSM fixed-analyst replays. Added filed accuracy references for the twelve additional companies and documented the coverage and PowerShell check-database commands. Report calculations and version stamps are unchanged.
+
 ## Unreleased - Vendor EV currency and filing identifiers (P4, P22, D-279) (2026-11-14)
 
 - A vendor enterprise value is shown only when its same-date balance is established in the listing currency it is printed in; a foreign filer's value in its reporting currency (TSM: "$72.77T", really TWD) is withheld with its cause, never relabelled.
