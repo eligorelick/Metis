@@ -46,8 +46,8 @@ export function ttmTaxRatePretax(q: FmpIncomeStatementRow[], pretax: number, tax
 
 /**
  * Effective tax rate from TTM statements (incomeTaxExpense / incomeBeforeTax)
- * for when the FMP ratios endpoints return nothing (the 6× missing
- * `returns.wacc.effectiveTaxRate` in the run-history audit). The two fields
+ * for when the FMP ratios endpoints return nothing (otherwise
+ * `returns.wacc.effectiveTaxRate` is missing). The two fields
  * are gated as a complete pair in ttmIncome, so the ratio never mixes quarter
  * subsets. Pre-tax losses return null — a negative-base "rate" is meaningless
  * for WACC (computeWacc suppresses a levered WACC when no observed rate exists).
@@ -67,8 +67,8 @@ export interface WaccStatementTaxRate {
 }
 
 /**
- * The WACC's statement tax rate when no vendor ratio exists (audit 2026-10-22
- * B-32, owner decision): the TTM observed rate; on a TTM pre-tax loss a 0%
+ * The WACC's statement tax rate when no vendor ratio exists (D-103, owner
+ * decision): the TTM observed rate; on a TTM pre-tax loss a 0%
  * shield; with no complete TTM pair the latest annual observed rate, or a 0%
  * shield on an annual pre-tax loss. Every fallback is named. Nothing here
  * invents a rate: with neither pair the result stays null and computeWacc

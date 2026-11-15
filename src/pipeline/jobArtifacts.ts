@@ -116,8 +116,8 @@ export interface SerializedPassFailure {
   rejectedText?: string;
   /**
    * How a rejected response ended: stop reason, content-block counts, text size
-   * and output tokens. Both paid FIGR runs' first bull answer was a near-empty
-   * case after tens of thousands of output tokens, and nothing durable said why.
+   * and output tokens, so a near-empty case after tens of thousands of output
+   * tokens leaves a durable record of why (P24).
    */
   responseShape?: string;
 }
@@ -158,7 +158,7 @@ export interface PersistPassSettlementInput<T> extends PassArtifactIdentity {
   settledAt?: string;
   /**
    * The instant a presumed cost row is dated at: its lease's acquisition, the
-   * day Anthropic's reported total can hold the charge (JOB-203). Actual rows
+   * day Anthropic's reported total can hold the charge (D-119). Actual rows
    * keep `settledAt`.
    */
   presumedDatedAt?: string;

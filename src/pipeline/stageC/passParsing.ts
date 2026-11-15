@@ -56,9 +56,9 @@ export function parseJsonSalvaging(text: string): unknown {
  * The first top-level object plus the top-level fields written AFTER it, for
  * an output whose root was closed too early — `{"verdict":{…}}, "business":
  * {…}, …}` — or split into a second `{"business":…}` object. Salvaging only
- * the first object there throws away every later section (observed live on a
- * ChatGPT plan model, 2026-10-12: a 44 KB judge output parsed to `verdict`
- * alone and the retry was told twelve sections were missing). Fragments are
+ * the first object there throws away every later section (a long judge output
+ * would parse to `verdict` alone and the retry be told every other section
+ * was missing; P23). Fragments are
  * merged only when each is a plain object whose keys are all new, so a
  * duplicated second copy or trailing prose yields null. Callers use this only
  * as a fallback after the first object FAILED validation, so it can rescue an

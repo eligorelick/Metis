@@ -791,7 +791,7 @@ export function computeGrowth(
   };
 }
 
-/** B5 OD-3/O-2: census gate found 0 full years below 357 days (51 weeks). */
+/** D-136: the census gate found no full fiscal year below 357 days (51 weeks). */
 export const TRANSITION_PERIOD_UNDER_DAYS = 357;
 export function withoutTransitionPeriods<T extends { date?: unknown; fieldProvenance?: Record<string, { periodStart?: string | null } | undefined> }>(rowsNewestFirst: readonly T[]): { rows: T[]; withheld: {date:string;days:number}[] } {
   const withheld: {date:string;days:number}[] = [];

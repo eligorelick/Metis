@@ -164,10 +164,10 @@ export const ANALYST_CASE_CHAR_CAP = 24_000;
 
 /**
  * Floor on the per-claim text budget of the shortening stage. The truncation
- * marker alone is ~60 characters; a floor of 40 (before the 2026-09-06 audit,
- * F164) left every claim as a marker and nothing else — the thesis included —
- * and a case whose bulk sat OUTSIDE the claim texts (sources, price target)
- * was made longer by the "shortening". A claim keeps at least this much.
+ * marker alone is ~60 characters; a floor of 40 would leave every claim as a
+ * marker and nothing else — the thesis included — and a case whose bulk sat
+ * OUTSIDE the claim texts (sources, price target) would be made longer by the
+ * "shortening". A claim keeps at least this much.
  */
 export const MIN_CLAIM_TEXT_CHARS = 160;
 
@@ -685,8 +685,8 @@ export function buildJudgeProtocolNote(
   const { bull, bear } = protocol;
   // A pinned order (METIS_JUDGE_ORDER=bull-first / bear-first) is FIXED to one
   // side by configuration and the seed played no part; saying it was "drawn
-  // from seed" and "not fixed to one side" was false in exactly that setting
-  // (audit 2026-09-06, F174). The sentence is a function of the setting, as
+  // from seed" and "not fixed to one side" would be false in exactly that
+  // setting (P24). The sentence is a function of the setting, as
   // the judge's own order sentence already is.
   const pinned = protocol.setting === "bull-first" || protocol.setting === "bear-first";
   const orderOrigin = pinned

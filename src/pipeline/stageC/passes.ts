@@ -195,7 +195,7 @@ function entityConflictsForCases(
   );
 }
 
-/** OD-4: payload membership and issuer origin are both required. */
+/** D-144: payload membership and issuer origin are both required. */
 export function issuerPrimarySource(payload: ContextPayload): (id: string) => boolean {
   return id => {
     if (id === payload.transcript?.source || payload.filings.some(row => row.source === id && row.sourceEvidence !== undefined)) return true;

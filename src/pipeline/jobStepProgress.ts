@@ -47,7 +47,7 @@ export interface RunState {
   steps: StepProgress[];
   totalCostUsd: number;
   /**
-   * AI-112: judge attempts whose output was paid for and then rejected at
+   * D-123: judge attempts whose output was paid for and then rejected at
    * report assembly. They settled as successes, so no failure artifact marks
    * them; the runner records them here for the cost breakdown. Lives in this
    * process only: a durable verify recovery after a crash does not see it.

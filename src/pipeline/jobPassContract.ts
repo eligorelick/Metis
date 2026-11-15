@@ -295,7 +295,7 @@ export interface PipelinePasses<TPayload = unknown> {
   ): Promise<PassResultLike<AnalystCase>>;
 
   /**
-   * Audit 2026-10-22 D-3: split the sections kept from a cut-off response
+   * D-111: split the sections kept from a cut-off response
    * into those that validate on their own and those the retry must write
    * again (a kept section overrides the retry's copy, so a bad one would fail
    * the merged output by construction). Optional: without it every kept

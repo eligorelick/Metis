@@ -4,7 +4,7 @@ import type { DataBundle } from "@/pipeline/types";
 import type { FmpInsiderTradeStatisticsRow } from "@/providers/fmp";
 import { inheritedIssuerCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 /**
- * AI-117: FMP's insider statistics are calendar-quarter rows whose
+ * D-125: FMP's insider statistics are calendar-quarter rows whose
  * `totalPurchases`/`totalSales` are open-market or private transaction counts (Form 4
  * codes P and S), not shares. The window is the trailing four complete
  * calendar quarters; the quarter containing `asOf` is left out, and a gap in

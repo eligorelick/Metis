@@ -395,7 +395,7 @@ export function createSettlementCheckpoint<T>(
   // (`inserted: true`) before it throws, so that one is removed and rethrown.
   // A settle write refused by another process's writer lock is mapped to the
   // provider's error class (requestSettlementWriteError), so the provider
-  // retries the write and, failing that, keeps the response (AI-308).
+  // retries the write and, failing that, keeps the response (D-118).
   const admission: RequestAdmission = {
     reserve: async ({ maximumUsd }) => reserveRequest(maximumUsd),
     settle: async (permit, settled) => {
@@ -427,7 +427,7 @@ export function createSettlementCheckpoint<T>(
       releaseUnbilledPaidPassLease(requestLease);
       requestLeases.delete(permit.id);
     },
-    // The settlement write gave up (AI-308): the lease stays held at its
+    // The settlement write gave up (D-118): the lease stays held at its
     // reserved maximum but is no longer renewed, so it expires into the
     // sweep's presumed row (the cap stays honoured) and frees its capacity
     // slot instead of blocking the pass's next request to the stage deadline.

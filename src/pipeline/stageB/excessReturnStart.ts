@@ -1,12 +1,12 @@
 /**
  * Stage B — where the excess-return model starts, and which fiscal years carry
- * business-combination evidence (audit 2026-10-22 C-10).
+ * business-combination evidence (D-102).
  *
  * The bank and insurer routes value common equity by fading the current return
  * on common (tangible) equity to the cost of equity. The latest fiscal year can
- * be unrepresentative: COF's FY2025 ROTE was 4.2% because the Day-1 allowance
- * on the acquired Discover loans went through provision, while its trailing
- * four quarters earned about 17%. These helpers compute the trailing return on
+ * be unrepresentative: after an acquisition the Day-1 allowance on the acquired
+ * loans goes through provision, so the fiscal-year ROTE can sit far below the
+ * trailing four quarters' return. These helpers compute the trailing return on
  * the same basis as the fiscal-year one, and name the fiscal years in which an
  * acquisition was material, so the terminal rule can annotate them.
  *
@@ -20,7 +20,7 @@ import { preferredCapitalRefusal, selectCommonIncome, type CommonIncomeInputs } 
 
 
 /**
- * HOUSE CONVENTION (owner decision, audit 2026-10-22 C-10): a fiscal year
+ * HOUSE CONVENTION (owner decision, D-102): a fiscal year
  * carries material business-combination evidence when its goodwill step-up, or
  * any one acquisition tag, is at least this share of the opening common equity.
  */

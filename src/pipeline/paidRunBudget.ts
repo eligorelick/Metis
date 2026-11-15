@@ -1,14 +1,13 @@
 /**
- * Paid-run budget feasibility, checked before the first paid request.
+ * Paid-run budget feasibility, checked before the first paid request (D-183).
  *
  * Paid admission (`acquirePaidPassLease`) admits one reservation at a time:
  * what the job has already spent, plus live reservations, plus this request's
  * worst case must fit the per-job and rolling caps. A request that cannot fit
  * is refused when the run reaches it, after every earlier pass has been paid
- * for. On 2026-11-03 a Haiku 4.5 run under a $3 job cap paid $0.44 for its bull
- * pass, then could not admit bear's $2.90 research reservation on top of it,
- * and its judge (each section request reserves $5.28 on the Sonnet 5.5 floor)
- * could never have fit; the run ended data-only and the $0.44 bought nothing.
+ * for: a run under a small job cap can pay for its bull pass, then fail to
+ * admit the bear's research reservation on top of it while its judge could
+ * never have fit, so the run ends data-only and the first pass bought nothing.
  *
  * This module lists every reservation the rest of a run asks admission for,
  * priced by the functions admission itself uses, so the runner can refuse the

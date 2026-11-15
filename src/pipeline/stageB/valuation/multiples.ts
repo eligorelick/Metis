@@ -130,7 +130,7 @@ export interface MultiplesBalance extends PreferredCapitalInputs {
   reportedCurrency?: string | null;
   leaseEvidenceContext?: LeaseEvidenceContext;
   fieldProvenance?: Record<string, LeaseFieldEvidence>;
-  /** The admission's refusals, so a refused total debt is named (KNW-04). */
+  /** The admission's refusals, so a refused total debt is named (D-133). */
   fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
   date: string;
   /**
@@ -900,7 +900,7 @@ export function multiplesFramework(
       ),
     );
   } else if (mcap === null) {
-    // Fix round 2, M4: a cap withheld on share scope is named as withheld, with the scope's reason; "missing" only when absent.
+    // P20: a cap withheld on share scope is named as withheld, with the scope's reason; "missing" only when absent.
     gaps.push(gapEntry("valuation.multiples.marketCap", !marketCapSecurityKnown
       ? `market cap withheld — most multiples not computable: ${equityScope.basis.replace(/\.$/, "")}`
       : "market cap missing — most multiples not computable", "warn"));
@@ -1092,7 +1092,7 @@ export function multiplesFramework(
   if (!financialsRoute && ev === null) {
     gaps.push(gapEntry("valuation.multiples.enterpriseValue", `EV withheld: ${evWithheldReason} — EV multiples n/m`, "info"));
   } else if (!financialsRoute && leaseLiability === null && financeOnlyTotal !== null) {
-    // FIN-109: a finance-lease-only total has no unknown mix; the basis states it, and no leases gap is raised.
+    // D-135: a finance-lease-only total has no unknown mix; the basis states it, and no leases gap is raised.
   } else if (!financialsRoute && leaseLiability === null) {
     gaps.push(
       gapEntry(
