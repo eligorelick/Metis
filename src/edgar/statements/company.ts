@@ -118,7 +118,7 @@ export function buildStatementsUncached(facts: CompanyFacts, opts: StatementBuil
   const annualYears = allFiscalYears.slice(0, Math.max(0, opts.annualPeriods));
 
   const quarterEnds = discoverQuarterEnds(index, fiscalYearEnds);
-  // N4b: income comparatives need no balance-sheet instant for that quarter.
+  /** Income comparatives do not require a balance-sheet instant for the same quarter. */
   const incomeQuarterEnds = mergeEndsDesc(new Set([...quarterEnds, ...REVENUE_TAGS.flatMap(tag =>
     pickUnitPoints(index, tag, "money")?.points.filter(p => {
       const days = durationDays(p);

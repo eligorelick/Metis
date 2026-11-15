@@ -178,7 +178,10 @@ function instantResolver(index: FactIndex, end: string): TagResolver {
   };
 }
 
-/** The builder and provider fill evaluate the identical D-98 chain, including its component floor (FIN-401 / I5). */
+/**
+ * The builder and provider fill evaluate the identical D-98 chain, including its component floor
+ * (D-147).
+ */
 function resolveLongTermInvestments(resolve: TagResolver, notes: NoteSink, label: string, at?: ResolveAt): Resolved | null {
   return resolveSpec(BALANCE_CHAINS.longTermInvestments!, resolve, notes, label, at);
 }
@@ -199,7 +202,7 @@ export function longTermInvestmentsChainAt(facts: CompanyFacts, date: string, un
     components: hit.componentDetails?.present ?? [{ label: "long-term investments", value: hit.value, tags: hit.tags }], absent: hit.componentDetails?.absent ?? [] };
 }
 
-/** House arithmetic tolerance, not an accounting materiality threshold (FIN-401; OD-5). */
+/** D-147: This is a house arithmetic tolerance, not an accounting materiality threshold. */
 export const EQUITY_METHOD_PLACEMENT_TOLERANCE = { relative: 0.001, absolute: 1_000_000 } as const;
 
 function equityMethodPlacement(
@@ -319,7 +322,11 @@ function quarterResolver(
       );
       return null;
     };
-    /* D-134: Filed operands must describe one presentation, and missing or incompatible operands are disclosed. */
+    /*
+     * D-134: `oneBasisPair` chooses operands on one presentation or explains why no pair is
+     * admissible. A withheld pair records both a note and a refusal, leaving the field as a
+     * disclosed withholding.
+     */
     const labelCopies = labelCopiesOf(index);
     const labelled = (m: FactPoint): boolean => representationLabelled(labelCopies, m, RESTATEMENT_THRESHOLD_PCT);
     const choose = (winner: FactPoint, subtrahendsFor: (m: FactPoint) => readonly FactPoint[] | null): PairChoice<FactPoint> => {
@@ -418,7 +425,10 @@ function quarterResolver(
     };
   };
 
-  /* D-134: Filed operands must describe one presentation, and missing or incompatible operands are disclosed. */
+  /*
+   * D-134: A magnitude probe naming its candidate also obtains a same-filing floor verdict; a
+   * presentation-refused floor still constrains the candidate.
+   */
   return (tag, kind, currency, magnitudeArg) => {
     const r = resolveQuarter(tag, kind, currency, magnitudeArg);
     if (r === null || typeof magnitudeArg !== "object") return r;

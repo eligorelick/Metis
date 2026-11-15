@@ -1,4 +1,4 @@
-/** Quantiles and ranks used by valuation; preserve full precision until display (P13; D-60). */
+/** Quantiles and ranks used by valuation; preserve full precision until display (P13). */
 
 
 

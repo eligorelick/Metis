@@ -17,7 +17,12 @@ interface UnitPoints {
   unit: string;
   /** Deduped: the max(filed) winner per period. This is where a VALUE comes from. */
   points: FactPoint[];
-  /* D-13, D-134: Label each period from its earliest core-form reporter while retaining later values and all filing copies. */
+  /*
+   * D-13, D-134: Use the newest filed copy for the value and the first core-form copy for the
+   * period labels. A later filing can carry a comparative whose `fy`, `fp`, `form` and `filed`
+   * describe that later filing rather than the fact period. Keep all copies for filing-lineage
+   * checks.
+   */
   reporters: Map<string, FactPoint>;
   /**
    * EVERY core-form copy of this (tag, unit), deduped by nothing: a derived
@@ -29,7 +34,11 @@ interface UnitPoints {
 }
 type FactIndex = Map<string, UnitPoints[]>;
 
-/* D-134: Filed operands must describe one presentation, and missing or incompatible operands are disclosed. */
+/*
+ * D-134: For a filing cutoff, deduplicate only core copies filed no later than that cutoff. Never
+ * subtract a YTD copy restated after the annual minuend. A material unlabelled re-filing withholds
+ * the quarter through `oneBasisPair` rather than mixing presentations.
+ */
 function lineagePoints(up: UnitPoints, filedCutoff: string): FactPoint[] {
   return dedupByPeriod(up.all.filter((p) => p.filed <= filedCutoff));
 }
@@ -194,7 +203,7 @@ function buildFactIndex(facts: CompanyFacts, ctx: ShareBasisContext, asOf: strin
   return index;
 }
 
-/** DATA-104: prefer the newest annual filing's broadest anchor coverage. */
+/** D-148: prefer the newest annual filing's broadest anchor coverage. */
 function presentationCurrency(index: FactIndex): string | null {
   const anchors = [...new Set([...FY_ANCHOR_DURATION_TAGS, "Assets"])];
   const cells = anchors.flatMap(tag => (index.get(tag) ?? []).filter(up => unitMatches(up.unit, "money"))

@@ -30,7 +30,7 @@ function bridgeToPerShare(
     );
     return { equityValue: null, perShare: null, noncontrollingDeducted: book, noncontrollingBasis: "book" };
   }
-  // E-5: consolidated equity value, the claim common and NCI holders share.
+  // D-102: consolidated equity value, the claim common and NCI holders share.
   const consolidatedEquity =
     enterpriseValue - netDebt - (isNum(preferred) ? preferred : 0) + (isNum(nonOperatingAssets) ? nonOperatingAssets : 0);
   const { deducted, basis } = noncontrollingDeduction(consolidatedEquity, book, noncontrollingEarningsShare);
@@ -42,21 +42,27 @@ function bridgeToPerShare(
     );
     return { equityValue, perShare: null, noncontrollingDeducted: deducted, noncontrollingBasis: basis };
   }
-  // FIN-119: an unsplit temporary-equity total may be NCI the earnings key already sizes, so
-  // wherever the deduction is on the earnings share (the base, a grid cell, a scenario path) it is withheld.
+  // D-135: an unsplit temporary-equity total may be NCI the earnings key already sizes, so wherever
+  // the deduction is on the earnings share (the base, a grid cell, a scenario path) it is withheld.
   if (unsplitTemporaryEquity !== 0 && basis === "earnings-share") {
     return { equityValue, perShare: null, noncontrollingDeducted: deducted, noncontrollingBasis: basis, unsplitWithheld: true };
   }
   return { equityValue, perShare: equityValue / shares, noncontrollingDeducted: deducted, noncontrollingBasis: basis };
 }
 
-/** FIN-119: the sentence a grid, reverse DCF or scenario note carries when its own cells or paths were withheld by the unsplit rule. */
+/**
+ * D-135: the sentence a grid, reverse DCF or scenario note carries when its own cells or paths were
+ * withheld by the unsplit rule.
+ */
 export const UNSPLIT_CELLS_LEAD = "Cells where the noncontrolling deduction takes the profit share are withheld";
 export function unsplitCellsNote(unsplit: number): string {
   return `${UNSPLIT_CELLS_LEAD}: the filed temporary-equity total of ${millions(unsplit)} is not split between redeemable preferred and redeemable noncontrolling interests, so it could be counted twice.`;
 }
 
-/** FIN-119: why the per share is withheld when an unsplit temporary-equity total meets the E-5 earnings key. */
+/**
+ * D-135: why the per share is withheld when an unsplit temporary-equity total meets the earnings
+ * key earnings key.
+ */
 function unsplitEarningsKeyReason(unsplit: number): string {
   return `The filed temporary equity of ${millions(unsplit)} has no parent/NCI split, and the noncontrolling interest is sized on its share of earnings, so the unsplit amount may be noncontrolling interest that the earnings key already counts. ` +
     "The per-share value is withheld rather than deduct it twice (FIN-119).";
@@ -66,11 +72,10 @@ function unsplitEarningsKeyReason(unsplit: number): string {
 export const NCI_EARNINGS_KEY_MATERIALITY_PCT = 10;
 
 /**
- * E-5: a consolidated FCFF DCF values the outside holders' share of the
- * subsidiaries too. When NCI earns more than NCI_EARNINGS_KEY_MATERIALITY_PCT
- * of trailing consolidated profit and that share of consolidated equity value
- * exceeds the book NCI (profit share > book ÷ consolidated equity value), NCI is
- * deducted at the profit share; otherwise at book.
+ * D-102: a consolidated FCFF DCF values the outside holders' share of the subsidiaries too. When
+ * NCI earns more than NCI_EARNINGS_KEY_MATERIALITY_PCT of trailing consolidated profit and that
+ * share of consolidated equity value exceeds the book NCI (profit share > book ÷ consolidated
+ * equity value), NCI is deducted at the profit share; otherwise at book.
  */
 function noncontrollingDeduction(consolidatedEquity: number, book: number, share: number | null): { deducted: number; basis: "book" | "earnings-share" } {
   if (isNum(share) && share * 100 > NCI_EARNINGS_KEY_MATERIALITY_PCT && consolidatedEquity > 0 && share * consolidatedEquity > book) {
@@ -86,12 +91,12 @@ export function noncontrollingProfitShareText(bridge: Pick<DcfBridge, "noncontro
   return `${(share * 100).toFixed(1)}% share of ${period} consolidated profit${bridge.noncontrollingEarningsAsOf ? ` to ${bridge.noncontrollingEarningsAsOf}` : ""}`;
 }
 
-/** E-5: why a share that is on record still leaves the deduction at book. */
+/** D-102: why a share that is on record still leaves the deduction at book. */
 export function noncontrollingBookReason(share: number): string {
   return share * 100 > NCI_EARNINGS_KEY_MATERIALITY_PCT ? "would deduct no more than book" : `is not above the ${NCI_EARNINGS_KEY_MATERIALITY_PCT}% house threshold`;
 }
 
-/** The income-statement fields the E-5 key reads, from a TTM window or an annual row. */
+/** The income-statement fields the earnings key key reads, from a TTM window or an annual row. */
 export interface NoncontrollingEarningsRow {
   date?: string | null;
   netIncome?: number | null;
@@ -105,10 +110,10 @@ export interface NoncontrollingEarningsRow {
 }
 
 /**
- * E-5: NCI's profit and consolidated profit for the earnings key. The trailing
- * four quarters when they carry both, else the latest fiscal year (the DCF's
- * own income falls back the same way). Parent net income plus NCI income is
- * consolidated profit only when the net income is known to be the parent's.
+ * D-102: NCI's profit and consolidated profit for the earnings key. The trailing four quarters when
+ * they carry both, else the latest fiscal year (the DCF's own income falls back the same way).
+ * Parent net income plus NCI income is consolidated profit only when the net income is known to be
+ * the parent's.
  */
 export function noncontrollingEarningsInput(ttm: NoncontrollingEarningsRow | null, annual: NoncontrollingEarningsRow | null): NonNullable<ValuationBundleInputs["noncontrollingEarnings"]> | null {
   const read = (row: NoncontrollingEarningsRow | null, basis: "ttm" | "annual") => {
@@ -132,7 +137,7 @@ export function noncontrollingEarningsInput(ttm: NoncontrollingEarningsRow | nul
   return usable(trailing) ? trailing : usable(fiscal) ? fiscal : trailing ?? fiscal;
 }
 
-/** E-5: the DCF note naming which NCI basis the bridge used, and the other one. */
+/** D-102: the DCF note naming which NCI basis the bridge used, and the other one. */
 function noncontrollingBridgeNote(bridge: DcfBridge, consolidatedEquity: number | null): string {
   const book = bridge.minorityInterest ?? 0;
   const share = bridge.noncontrollingEarningsShare;

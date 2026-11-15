@@ -1,8 +1,8 @@
-/** Bounded tax reread for one-off income; do not assume deductibility (P16; D-134). */
+/** Bounded tax reread for one-off income; do not assume deductibility (P16; D-153). */
 import { isNum } from "./primitives";
 
 
-/** OD-12: bounded tax reread; the tax deductibility of a tag is not assumed. */
+/** D-153: Bound the tax reread rather than assume the deductibility of a tagged one-off. */
 export function taxRateWithoutOneOffs(i: { pretax: number | null; taxExpense: number | null; oneOff: number; marginalPct: number; historicalMedianPct: number | null }): { pct: number; noTaxEffectPct: number; marginalEffectPct: number; source: "historical-median-inside" | "historical-median-held" | "marginal-reading" } | null {
   if (!isNum(i.pretax) || !isNum(i.taxExpense) || i.taxExpense < 0 || i.pretax - i.oneOff <= 0) return null;
   const hold = (n: number) => Math.min(35, Math.max(0, n));

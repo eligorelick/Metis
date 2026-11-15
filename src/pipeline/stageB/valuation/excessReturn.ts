@@ -52,7 +52,7 @@ export interface ExcessReturnInputs {
     basis: "fiscal-year-rote" | "fiscal-year-common-roe";
     asOf: string | null;
     bookValue: number;
-    /** F4: preferred claims on this book's date; absent means no dated claim. */
+    /** Preferred claims on this book date; absent means no dated claim. */
     convertiblePreferredClaim?: number | null;
     permanentPreferred?: number | null;
     preferredSeriesDistinct?: boolean;
@@ -76,7 +76,11 @@ export interface ExcessReturnInputs {
   /** Reverse-solve fallback when price or diluted shares is unavailable; same currency as bookValue. */
   marketCap?: number | null;
   asOf?: string | null;
-  /* D-16: tangible common equity (equity − goodwill − other intangibles − preferred) for the P/TBV-against-ROTE pairing. Optional; without it the pairing is withheld with a reason rather than falling back to plain book value, which would flatter a goodwill-heavy acquirer. */
+  /*
+   * D-16: tangible common equity (equity − goodwill − other intangibles − preferred) for the
+   * P/TBV-against-ROTE pairing. Optional; without it the pairing is withheld with a reason rather
+   * than falling back to plain book value, which would flatter a goodwill-heavy acquirer.
+   */
   tangibleCommonEquity?: number | null;
   /** Balance date of the tangible equity used in the P/TBV pairing. */
   tangibleCommonEquityAsOf?: string | null;
@@ -161,9 +165,12 @@ export interface ExcessReturnGrid {
   notes: string[];
 }
 
-/** Rows of the C-11 grid without a fiscal-year alternative: the start, and this many pp either side. */
+/**
+ * Rows of the D-102 grid without a fiscal-year alternative: the start, and this many pp either
+ * side.
+ */
 export const EXCESS_RETURN_GRID_START_STEP_PP = 5;
-/** Columns of the C-11 grid: the cost of equity, and this many pp either side. */
+/** Columns of the D-102 grid: the cost of equity, and this many pp either side. */
 export const EXCESS_RETURN_GRID_COE_STEP_PP = 1;
 
 export interface ExcessReturnResult {
@@ -194,7 +201,7 @@ export interface ExcessReturnResult {
   openingBookValue: Assumption<number | null>;
   /* D-16: P/TBV against ROTE — the pairing a financial is actually judged on. */
   priceToTangibleBookVsRote: PriceToTangibleBookVsRote;
-  /** BV_0 .. BV_N under retention compounding. */
+  /** BV_0.. BV_N under retention compounding. */
   bookValuePath: number[];
   /**
    * Year-N economic profit in currency: (ROE_N − CoE) · BV_{N-1}. Zero when ROE
@@ -262,7 +269,27 @@ export function excessReturnValue(
   return { equityValue: bv0 + pvExcess + continuingValuePv, bookValuePath, continuingValuePv };
 }
 
-/* D-16: D-102: Use the evidenced starting return and converge payout to the terminal return and growth assumptions. P/TBV read against ROTE — the pair a bank, insurer or mortgage REIT is actually judged on, and the one the route's `lead` list has named all along. Tangible common equity is the denominator, not book equity: goodwill and other intangibles absorb losses only after common equity is gone, so a goodwill-heavy acquirer trading at 1.0x BOOK can be at 2.0x tangible book, and comparing that multiple against a return computed on tangible equity (ROTE) would be comparing two different denominators. The justified multiple is a STABLE-GROWTH cross-check, (ROTE − g) / (CoE − g) — the Gordon form of the residual-income identity, which assumes a constant ROTE in perpetuity. The forward model above assumes the opposite: ROE fades to the cost of equity over the horizon and no continuing value is added. So the two readings rest on DIFFERENT assumptions and can legitimately disagree, and the basis string says which is which rather than claiming they cannot. `g` obeys the same house rule the DCF terminal value obeys — nothing grows faster than the risk-free rate forever — so it is capped at min(ROTE × retention, TERMINAL_G_CAP_PCT, risk-free). Uncapped, a bank at ROTE 14% with a one-third payout implied g = 9.4% and a justified multiple of 7.45x against a forward-model reading of 1.18x, which made every well-earning financial look grossly cheap against its own pipeline fair value. The multiple is withheld — never clamped — when CoE − g is not comfortably positive, because the ratio explodes through infinity there and any number it produced would be an artefact of the arithmetic rather than a valuation. */
+/*
+ * D-16: D-102: Use the evidenced starting return and converge payout to the terminal return and
+ * growth assumptions. P/TBV read against ROTE — the pair a bank, insurer or mortgage REIT is
+ * actually judged on, and the one the route's `lead` list has named all along. Tangible common
+ * equity is the denominator, not book equity: goodwill and other intangibles absorb losses only
+ * after common equity is gone, so a goodwill-heavy acquirer trading at 1.0x BOOK can be at 2.0x
+ * tangible book, and comparing that multiple against a return computed on tangible equity (ROTE)
+ * would be comparing two different denominators. The justified multiple is a STABLE-GROWTH
+ * cross-check, (ROTE − g) / (CoE − g) — the Gordon form of the residual-income identity, which
+ * assumes a constant ROTE in perpetuity. The forward model above assumes the opposite: ROE fades to
+ * the cost of equity over the horizon and no continuing value is added. So the two readings rest on
+ * DIFFERENT assumptions and can legitimately disagree, and the basis string says which is which
+ * rather than claiming they cannot. `g` obeys the same house rule the DCF terminal value obeys —
+ * nothing grows faster than the risk-free rate forever — so it is capped at min(ROTE × retention,
+ * TERMINAL_G_CAP_PCT, risk-free). Uncapped, a bank at ROTE 14% with a one-third payout implied g =
+ * 9.4% and a justified multiple of 7.45x against a forward-model reading of 1.18x, which made every
+ * well-earning financial look grossly cheap against its own pipeline fair value. The multiple is
+ * withheld — never clamped — when CoE − g is not comfortably positive, because the ratio explodes
+ * through infinity there and any number it produced would be an artefact of the arithmetic rather
+ * than a valuation.
+ */
 export const JUSTIFIED_PTBV_MIN_SPREAD_PP = 0.5;
 
 function priceToTangibleBookVsRote(
@@ -365,7 +392,7 @@ function priceToTangibleBookVsRote(
   };
 }
 
-/** FIN-309: rates and book dates belong to each value; only the headline tests the age limit. */
+/** D-147: rates and book dates belong to each value; only the headline tests the age limit. */
 function growthFactor(fromDay: string | null, toDay: string | null, ratePct: number): number {
   const days = fromDay && toDay ? daysBetween(fromDay, toDay) : null;
   return days !== null && days > 0 ? Math.pow(1 + ratePct / 100, days / DAYS_PER_YEAR) : 1;
@@ -390,7 +417,14 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     startAlternative: alternative ? { ...alternative, bookValue: alternative.bookValue - additionalAlternativePreferred } : alternative };
   const years = inputs.years ?? EXCESS_RETURN_YEARS;
   const reverseNotes: string[] = [];
-  /* D-16: the horizon, the discount rate and the opening book value are printed as assumptions in their own right — the model's shape was previously only inferable from the ROE-path basis string. The fade target is the cost of equity ONLY when no caller overrides the terminal ROE. Stating "so the year-N excess is zero" unconditionally would contradict a non-zero `terminalExcess` whenever one did — latent today (production supplies no override) but a false sentence either way, and the adjacent note already branches. */
+  /*
+   * D-16: the horizon, the discount rate and the opening book value are printed as assumptions in
+   * their own right — the model's shape was previously only inferable from the ROE-path basis
+   * string. The fade target is the cost of equity ONLY when no caller overrides the terminal ROE.
+   * Stating "so the year-N excess is zero" unconditionally would contradict a non-zero
+   * `terminalExcess` whenever one did — latent today (production supplies no override) but a false
+   * sentence either way, and the adjacent note already branches.
+   */
   const terminalOverridePct = isNum(inputs.analystImpliedRoePct) ? inputs.analystImpliedRoePct : null;
   const horizonBasis = (built: boolean): string =>
     built
@@ -536,8 +570,8 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   const roeStart = inputs.currentRoePct;
   const overrideTerminal = isNum(inputs.analystImpliedRoePct);
   const retLabel = inputs.currentRoeBasis === "fiscal-year-rote" || inputs.currentRoeBasis === "ttm-rote" ? "ROTE" : "ROE";
-  // The DCF's terminal excess-return house convention, on the equity side, as
-  // "4 of the last 5 years" with business-combination years set aside (C-10).
+  // The DCF's terminal excess-return house convention, on the equity side, as "4 of the last 5
+  // years" with business-combination years set aside (D-102).
   const evidenced =
     !overrideTerminal && inputs.roeHistory != null
       ? terminalRoic(coe, inputs.roeHistory, { ret: retLabel, rate: "cost of equity" }, { rule: "four-of-five" })
@@ -577,10 +611,11 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       : "TTM ROE";
   const roeBasis = `linear fade from ${startBasis} ${fmtNum(roeStart)}% to ${endBasis} by year ${years}`;
   const roePath = fadePath(roeStart, endRoe, years);
-  // C-10 follow-through (D-102): the payout fades from the three-year average
-  // in year 1 to the steady state of the terminal return in year N, so book
-  // grows at g when the continuing value starts. Holding the average flat
-  /* D-102: Fade payout toward the steady-state payout implied by the terminal return and growth. */
+  // D-102: Fade payout from the three-year average in year one to the steady-state payout implied
+  // by terminal return and growth in year N, so book grows at g when continuing value begins.
+  // Holding the initial payout constant would compound book at above-cost returns before the
+  // terminal carry applies.
+
   const payoutPathFor = (terminalRoePct: number): number[] => fadePath(payout, steadyStatePayoutPct(terminalRoePct, continuingG), years);
   const steadyPayout = steadyStatePayoutPct(endRoe, continuingG);
   const payoutPath = payoutPathFor(endRoe);
@@ -612,8 +647,10 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     for (const variant of convertibleVariants(inputs.convertibles, { preferred: inputs.convertiblePreferredClaim ?? 0, notes: inputs.totalDebt ?? 0 })) {
       const d = filedShares - variant.sharesRemoved;
       const c = variant.restored.notes + variant.restored.preferred;
-      // F1: conversion restores opening common book, which earns the model's
-      // residual returns. A face-value add-back after valuation is inconsistent.
+      /**
+       * Conversion restores opening common book, which earns the model residual returns. Adding
+       * face value after valuation would use an inconsistent basis.
+       */
       const candidate = excessReturnValue(bv0 + c, roePath, coe, payoutPath, continuing);
       const value = candidate.equityValue / d;
       if (d > 0 && value < best) { best = value; shares = d; restoredBook = c; restoredPreferredBook = variant.restored.preferred; readings = variant.readings; valued = candidate; }
@@ -623,16 +660,19 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     gaps.push(...entries); notes.push(...entries.map(e => e.reason));
   }
   const { equityValue, bookValuePath, continuingValuePv } = valued;
-  // FIN-506: the reverse solve must invert the exact admitted forward divisor.
+  // D-137: the reverse solve must invert the exact admitted forward divisor.
   const perShareOf = (equity: number): number | null => shares !== null ? equity / shares : null;
   const perShare = perShareOf(equityValue);
   if (shares === null) {
     gaps.push(gapEntry("valuation.excessReturn.dilutedShares", "diluted shares missing — per-share value unavailable", "info"));
   }
-  // C-10: the fiscal-year start, valued with the same fade target, carry and
-  // payout from its own book value, so the reader sees what the start choice is worth.
+  // D-102: the fiscal-year start, valued with the same fade target, carry and payout from its own
+  // book value, so the reader sees what the start choice is worth.
   let startAlternative: ExcessReturnStartAlternative | undefined;
-  // F4: the selected conversion fraction restores only preferred present at the alternative date.
+  /**
+   * The selected conversion fraction restores only preferred claims present at the alternative
+   * date.
+   */
   const preferredConversionFraction = (inputs.convertiblePreferredClaim ?? 0) > 0
     ? restoredPreferredBook / inputs.convertiblePreferredClaim! : 0;
   const alternativeRestoredBook = restoredBook - restoredPreferredBook +
@@ -660,11 +700,10 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
         (startAlternative.besideHeadline ? ` — more than ${EXCESS_RETURN_START_GAP_PP}pp apart, so it is shown beside the headline (house convention)` : ""),
     );
   }
-  // C-11: the start return against the cost of equity. Each column moves the
-  // discount rate and the fade target together (the carried excess, if any, is
-  // held and passes the same CoE − g guard); each row keeps the headline's
-  // horizon and payout. The fiscal-year start, when there is one, replaces the
-  // shifted row on its side and starts from its own book value.
+  // D-102: the start return against the cost of equity. Each column moves the discount rate and the
+  // fade target together (the carried excess, if any, is held and passes the same CoE − g guard);
+  // each row keeps the headline's horizon and payout. The fiscal-year start, when there is one,
+  // replaces the shifted row on its side and starts from its own book value.
   let startCoeGrid: ExcessReturnGrid | undefined;
   if (shares !== null) {
     const step = EXCESS_RETURN_GRID_START_STEP_PP;

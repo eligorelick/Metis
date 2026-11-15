@@ -70,7 +70,7 @@ const QUARTER_DERIVATION_TEXT: Record<string, string> = {
   "fy-minus-quarters": "fiscal year less the other three quarters",
 };
 
-/* D-180: one quarter of the P/E bridge in reader terms. */
+/* Describe one quarter of the P/E bridge in reader terms. */
 function commonIncomeQuarterText(q: CommonIncomeQuarter): string {
   const parts = [`quarter ended ${q.period}`];
   if (q.derivation !== null) parts.push(QUARTER_DERIVATION_TEXT[q.derivation] ?? q.derivation);
@@ -155,18 +155,32 @@ export interface MultiplesBalance extends PreferredCapitalInputs {
   minorityInterest: number | null;
   preferredStock: number | null;
   /**
-   * FIN-119: temporary equity (redeemable preferred and redeemable NCI), read
-   * through `temporaryEquityClaims`. Absent => none filed on this row.
+   * D-135: temporary equity (redeemable preferred and redeemable NCI), read through
+   * `temporaryEquityClaims`. Absent => none filed on this row.
    */
   temporaryEquity?: number | null;
   temporaryEquityAttributableToParent?: number | null;
   temporaryEquityAttributableToNoncontrollingInterest?: number | null;
   commonEquity?: number | null;
   equityOwnershipBasis?: "parent" | "consolidated";
-  /* D-19: TOTAL lease liabilities (FMP `capitalLeaseObligations`, which carries the operating AND finance lease liability; the EDGAR statements builder resolves the same field). FMP's `totalDebt` is documented as shortTermDebt + longTermDebt + capitalLeaseObligations, so this figure is ALREADY inside `totalDebt`. Context for the bridge's disclosure only — the EV adjustment reads `operatingLeaseLiability` below, never this. */
+  /*
+   * D-19: TOTAL lease liabilities (FMP `capitalLeaseObligations`, which carries the operating AND
+   * finance lease liability; the EDGAR statements builder resolves the same field). FMP's
+   * `totalDebt` is documented as shortTermDebt + longTermDebt + capitalLeaseObligations, so this
+   * figure is ALREADY inside `totalDebt`. Context for the bridge's disclosure only — the EV
+   * adjustment reads `operatingLeaseLiability` below, never this.
+   */
   capitalLeaseObligations?: number | null;
   financeLeaseLiability?: number | null;
-  /* D-19: the OPERATING slice of the lease liability, the ONLY slice the EV bridge may remove. Under ASC 842 operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it; finance-lease cost is split between right-of-use amortisation (added back in EBITDA but included in EBIT) and interest (below EBIT), and the finance-lease liability is debt in both frames. Null when the split is unavailable (the FMP route publishes one combined figure): enterprise value is then reported as-is and the `enterpriseValue.leases` gap says so, rather than removing an unknown mix of operating and finance leases. */
+  /*
+   * D-19: the OPERATING slice of the lease liability, the ONLY slice the EV bridge may remove.
+   * Under ASC 842 operating-lease cost stays in operating expenses, so EBIT and EBITDA are already
+   * AFTER it; finance-lease cost is split between right-of-use amortisation (added back in EBITDA
+   * but included in EBIT) and interest (below EBIT), and the finance-lease liability is debt in
+   * both frames. Null when the split is unavailable (the FMP route publishes one combined figure):
+   * enterprise value is then reported as-is and the `enterpriseValue.leases` gap says so, rather
+   * than removing an unknown mix of operating and finance leases.
+   */
   operatingLeaseLiability?: number | null;
 }
 
@@ -218,12 +232,21 @@ export interface QuarterlyFundamentalsRow extends CommonIncomeInputs, PreferredC
   marketableEquitySecurities?: number | null;
   preferredStock?: number | null;
   minorityInterest?: number | null;
-  /** FIN-119: the quarter's temporary equity (read through `temporaryEquityClaims`) and any refusal of it. */
+  /**
+   * D-135: the quarter's temporary equity (read through `temporaryEquityClaims`) and any refusal of
+   * it.
+   */
   temporaryEquity?: number | null;
   temporaryEquityAttributableToParent?: number | null;
   temporaryEquityAttributableToNoncontrollingInterest?: number | null;
   fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
-  /* D-19: the quarter's OPERATING lease liability, so the own-history EV carries the SAME lease adjustment as the current one. A lease-adjusted current multiple ranked against an unadjusted history compared two definitions and biased the printed rank. Null when the quarter's balance sheet does not resolve the split — the window's EV multiples are then dropped rather than ranked on the wrong basis. */
+  /*
+   * D-19: the quarter's OPERATING lease liability, so the own-history EV carries the SAME lease
+   * adjustment as the current one. A lease-adjusted current multiple ranked against an unadjusted
+   * history compared two definitions and biased the printed rank. Null when the quarter's balance
+   * sheet does not resolve the split — the window's EV multiples are then dropped rather than
+   * ranked on the wrong basis.
+   */
   operatingLeaseLiability?: number | null;
 }
 
@@ -294,7 +317,14 @@ export interface MultiplesFrameworkInputs {
   ffoHistoryComparable?: boolean;
   /** Separate from FFO: recurring capex or rent adjustments cannot be ranked against all-capex history. */
   affoHistoryComparable?: boolean;
-  /* D-19: keep the OPERATING-lease liability in enterprise value (METIS_EV_INCLUDE_LEASES=1). OFF by default, because under US GAAP (ASC 842) the operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it — adding that liability to EV as well would double-count the leases in EV/EBITDA. It never touches the FINANCE-lease liability : its interest is below EBIT, while EBITDA adds back its amortisation, so it remains financing debt in both frames. */
+  /*
+   * D-19: keep the OPERATING-lease liability in enterprise value (METIS_EV_INCLUDE_LEASES=1). OFF
+   * by default, because under US GAAP (ASC 842) the operating-lease cost stays in operating
+   * expenses, so EBIT and EBITDA are already AFTER it — adding that liability to EV as well would
+   * double-count the leases in EV/EBITDA. It never touches the FINANCE-lease liability: its
+   * interest is below EBIT, while EBITDA adds back its amortisation, so it remains financing debt
+   * in both frames.
+   */
   includeLeasesInEv?: boolean;
 }
 
@@ -304,7 +334,10 @@ export const EV_LEASE_SETTING_TEXT = {
   included: " (METIS_EV_INCLUDE_LEASES=1)",
 } as const;
 
-/* D-19: the EV bridge, both ways, with the convention stated. Only the OPERATING slice ever moves between the two . */
+/*
+ * D-19: the EV bridge, both ways, with the convention stated. Only the OPERATING slice ever moves
+ * between the two.
+ */
 export interface EnterpriseValueBridge {
   /** Optional for reports serialized before scope metadata was introduced. */
   equityScope?: EconomicEquityScope;
@@ -316,7 +349,11 @@ export interface EnterpriseValueBridge {
   excludingLeases: number | null;
   /** EV as reported: every lease liability left inside totalDebt. */
   includingLeases: number | null;
-  /* D-19: The liability actually removed by `excludingLeases` — the OPERATING slice only . Null when the split is unavailable, in which case EV is reported as-is and the leases gap states the reason. */
+  /*
+   * D-19: The liability actually removed by `excludingLeases` — the OPERATING slice only. Null when
+   * the split is unavailable, in which case EV is reported as-is and the leases gap states the
+   * reason.
+   */
   leaseLiability: number | null;
   /** Operating + finance lease liability where disclosed; context only. */
   totalLeaseLiability?: number | null;
@@ -443,10 +480,17 @@ interface OwnHistoryDerivation {
   rejectedPeriods: Array<{ period: string; reason: string }>;
   rejectedWindows: Array<{ anchor: string; reason: string }>;
   unusableWindows: Array<{ anchor: string; reason: string }>;
-  /* D-19: windows whose EV could not be put on the current EV's lease basis (no operating-lease liability on that quarter's balance sheet while the current EV removes one). Their EV multiples are dropped. */
+  /*
+   * D-19: windows whose EV could not be put on the current EV's lease basis (no operating-lease
+   * liability on that quarter's balance sheet while the current EV removes one). Their EV multiples
+   * are dropped.
+   */
   leaseBasisMismatchWindows: string[];
   leaseScopeRejectedWindows: Array<{ anchor: string; reason: string }>;
-  /** FIN-119: windows whose temporary-equity operand is refused; their EV is dropped and the vendor EV ratios may not stand in. */
+  /**
+   * D-135: windows whose temporary-equity operand is refused; their EV is dropped and the vendor EV
+   * ratios may not stand in.
+   */
   temporaryEquityRejectedWindows: Array<{ anchor: string; reason: string }>;
   cashOwnershipRejectedWindows: string[];
 }
@@ -471,7 +515,7 @@ function immaterialNoncontrollingInterest(row: { totalEquity?: number | null; mi
   return Math.abs(row.minorityInterest) <= floor && isNum(noncontrollingIncome) && Math.abs(noncontrollingIncome) <= floor;
 }
 
-/** FIN-119: the redeemable preferred (and unsplit) part of a row's admitted temporary equity. */
+/** D-135: the redeemable preferred (and unsplit) part of a row's admitted temporary equity. */
 function temporaryParentLike(row: Parameters<typeof temporaryEquityClaims>[0]): number {
   const claims = temporaryEquityClaims(row);
   return claims !== null && claims.refusal === null ? claims.redeemablePreferred + claims.unsplit : 0;
@@ -481,14 +525,17 @@ function temporaryEquityRefused(row: Parameters<typeof temporaryEquityClaims>[0]
   return temporaryEquityClaims(row)?.refusal != null;
 }
 
-/** FIN-119: a filed (or refused) temporary-equity claim is a claim senior to common, like preferred and book NCI. */
+/**
+ * D-135: a filed (or refused) temporary-equity claim is a claim senior to common, like preferred
+ * and book NCI.
+ */
 function hasTemporaryEquityClaim(row: Parameters<typeof temporaryEquityClaims>[0]): boolean {
   const claims = temporaryEquityClaims(row);
   return claims !== null && (claims.refusal !== null || claims.total !== 0);
 }
 
 /**
- * FIN-119: temporary equity in the P/FCF cash-ownership guard. A refused operand, a redeemable
+ * D-135: temporary equity in the P/FCF cash-ownership guard. A refused operand, a redeemable
  * preferred and an unsplit amount block with no floor, as permanent preferred does. A redeemable
  * NCI is the same claim as book NCI, so it blocks unless the COMBINED NCI (book plus redeemable,
  * each by magnitude) and the NCI income both pass the book-NCI materiality floor.
@@ -498,7 +545,7 @@ function temporaryEquityBlocksCashOwnership(row: Parameters<typeof temporaryEqui
   if (claims === null) return false;
   if (claims.refusal !== null || claims.redeemablePreferred !== 0 || claims.unsplit !== 0) return true;
   if (claims.redeemableNoncontrolling === 0) return false;
-  /* D-180: A null book NCI is no claim at main; the floor then applies to the redeemable NCI alone . */
+  /* D-135: With no book-NCI claim, apply the materiality floor to redeemable NCI alone. */
   const book = isNum(row?.minorityInterest) ? Math.abs(row.minorityInterest) : 0;
   return !immaterialNoncontrollingInterest(
     { totalEquity: row?.totalEquity, minorityInterest: book + Math.abs(claims.redeemableNoncontrolling) },
@@ -506,7 +553,11 @@ function temporaryEquityBlocksCashOwnership(row: Parameters<typeof temporaryEqui
   );
 }
 
-/* D-180: `immaterialNoncontrollingInterest` for the cash-ownership guard. a null book NCI beside a redeemable NCI is no book claim, so the NCI income meets the floor on its own and `temporaryEquityBlocksCashOwnership` bounds the redeemable NCI; with no redeemable NCI this is main's test, unchanged. */
+/*
+ * D-135: For cash ownership, a redeemable NCI beside absent book NCI is bounded by
+ * `temporaryEquityBlocksCashOwnership`, while NCI income must independently pass the materiality
+ * floor. Without redeemable NCI, use the ordinary book-NCI test.
+ */
 function bookNciImmaterial(row: (Parameters<typeof temporaryEquityClaims>[0] & { totalEquity?: number | null; minorityInterest?: number | null }) | null, noncontrollingIncome?: number | null): boolean {
   const redeemable = temporaryEquityClaims(row);
   const redeemableOnly = !isNum(row?.minorityInterest) && redeemable !== null && redeemable.refusal === null && redeemable.redeemableNoncontrolling !== 0;
@@ -621,7 +672,11 @@ function deriveOwnHistory(
     // absent the EV-based multiples for this window are simply not produced
     // (the equity-based ones below are unaffected because they use mcap).
     const b = window[0];
-    /* D-19: the SAME lease adjustment the current EV carries. Only the operating slice leaves EV (BLOCKER 1), and a window that cannot supply its own operating-lease liability while the current EV removed one is dropped rather than ranked against a different definition. */
+    /*
+     * D-19: the SAME lease adjustment the current EV carries. Only the operating slice leaves EV,
+     * and a window that cannot supply its own operating-lease liability while the current EV
+     * removed one is dropped rather than ranked against a different definition.
+     */
     const windowOperatingLease =
       isNum(b.operatingLeaseLiability) && b.operatingLeaseLiability >= 0
         ? b.operatingLeaseLiability
@@ -629,7 +684,8 @@ function deriveOwnHistory(
     const leaseBasisMatches = !removeOperatingLease || windowOperatingLease !== null;
     if (!leaseBasisMatches) leaseBasisMismatchWindows.push(b.date);
     const historicalNetDebt = resolveNetDebt(b);
-    // FIN-119: the quarter's own redeemable claims, read as the current EV reads them; a refused one drops the EV multiples.
+    // D-135: the quarter's own redeemable claims, read as the current EV reads them; a refused one
+    // drops the EV multiples.
     const windowTemporary = temporaryEquityClaims(b);
     if (windowTemporary?.refusal != null) temporaryEquityRejectedWindows.push({ anchor: b.date, reason: windowTemporary.refusal });
     const evVal =
@@ -859,12 +915,16 @@ export function multiplesFramework(
     isNum(equity) && isNum(bal?.goodwill) && isNum(bal?.intangibleAssets)
       ? equity - bal.goodwill - bal.intangibleAssets
       : null;
-  /* D-19: the EV bridge, computed BOTH ways and disclosed. Base = market cap + total debt + preferred + minority interest − cash and short-term investments. FMP's totalDebt already contains the lease liability, so the default (leases NOT in EV) subtracts it back out. */
+  /*
+   * D-19: the EV bridge, computed BOTH ways and disclosed. Base = market cap + total debt +
+   * preferred + minority interest − cash and short-term investments. FMP's totalDebt already
+   * contains the lease liability, so the default (leases NOT in EV) subtracts it back out.
+   */
   const netDebt = resolveNetDebt(bal ?? {});
   const unknownNciAllocation = noncontrollingOwnershipUnresolved(bal);
-  // FIN-119 (OD-1): redeemable preferred and redeemable NCI sit in temporary
-  // equity, outside every equity field above, and are claims on the enterprise
-  // like permanent preferred and book NCI. A refused operand withholds the EV.
+  // D-135: redeemable preferred and redeemable NCI sit in temporary equity, outside every equity
+  // field above, and are claims on the enterprise like permanent preferred and book NCI. A refused
+  // operand withholds the EV.
   const temporaryClaims = financialsRoute ? null : temporaryEquityClaims(bal);
   const temporaryRefusal = temporaryClaims?.refusal ?? null;
   const preferredRefusal = preferredCapitalRefusal(bal);
@@ -910,7 +970,12 @@ export function multiplesFramework(
         (isNum(bal.minorityInterest) ? bal.minorityInterest : 0) +
         temporaryTotal
       : null;
-  /* D-19: ONLY the operating-lease liability may leave EV. Under ASC 842 operating-lease cost sits in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease cost is split between right-of-use amortisation (inside EBIT, added back in EBITDA) and interest (below EBIT), and the finance-lease liability is debt in both. Removing the combined figure understated net debt (Apple FY2025: ~1.2bn of finance leases) and overstated equity value. */
+  /*
+   * D-19: Remove only the operating-lease liability from EV. Operating-lease cost is already in
+   * operating expenses and therefore EBIT and EBITDA. Finance-lease amortisation is inside EBIT and
+   * added back in EBITDA, while its interest is below EBIT; its liability remains financing debt in
+   * both frames. Removing the combined liability would understate debt and overstate equity value.
+   */
   const totalLeaseLiability =
     isNum(bal?.capitalLeaseObligations) && bal.capitalLeaseObligations >= 0
       ? bal.capitalLeaseObligations
@@ -952,7 +1017,7 @@ export function multiplesFramework(
               : unknownNciAllocation ? unknownNciReason
                 : temporaryRefusal !== null ? temporaryRefusal
                   : (includeLeases ? inclusiveRefusal : excludedRefusal) || "the enterprise value bridge did not resolve";
-  /* D-180: Review m3: a reason that already ends a sentence keeps its one period. */
+  /* A reason that already ends a sentence keeps one final period. */
   const evBridgeBasis = evWithheldReason !== null ? (evWithheldReason.endsWith(".") ? `EV withheld: ${evWithheldReason}` : `EV withheld: ${evWithheldReason}.`) :
     ((includeLeases ? inclusiveRefusal : excludedRefusal) ? `${includeLeases ? inclusiveRefusal : excludedRefusal} ` : "") +
     leaseEvidenceNote(bal, { removed: !includeLeases && evExcludingLeases !== null ? leaseLiability : null }) + " " +
@@ -1104,7 +1169,11 @@ export function multiplesFramework(
   const derivedKeys: readonly MultipleKey[] = financialsRoute
     ? ["peTtm", "priceToBook"]
     : route === "reit" && !ffoSubmapUndetermined ? [...DERIVED_HISTORY_KEYS, "priceToFfo", "priceToAffo"] : DERIVED_HISTORY_KEYS;
-  /* D-19: the own-history EV must be built from the SAME definition as the current one — the file's own invariant. `removeOperatingLease` is true exactly when the current EV removed an operating-lease liability. */
+  /*
+   * D-19: the own-history EV must be built from the SAME definition as the current one — the file's
+   * own invariant. `removeOperatingLease` is true exactly when the current EV removed an
+   * operating-lease liability.
+   */
   const removeOperatingLease = !financialsRoute && !includeLeases && leaseLiability !== null;
   const requiresHistoricalClassScope = equityScope.status === "resolved" &&
     inputs.economicShareEvidence?.some(row => row.classes.length > 1 || row.classes.some(cls => cls.economicUnitsPerQuotedShare !== 1)) === true;
@@ -1162,7 +1231,12 @@ export function multiplesFramework(
     notes.push(reason);
     gaps.push(gapEntry("valuation.multiples.ownHistory.commonBasis", reason, "info"));
   }
-  /* D-19: the vendor's pre-baked EV ratios are built on the vendor's own lease-INCLUSIVE enterprise value. Ranking a lease-adjusted current multiple inside that distribution compares two definitions, so when the adjustment fired the vendor EV bands are withheld rather than published on a basis the current number does not share. */
+  /*
+   * D-19: the vendor's pre-baked EV ratios are built on the vendor's own lease-INCLUSIVE enterprise
+   * value. Ranking a lease-adjusted current multiple inside that distribution compares two
+   * definitions, so when the adjustment fired the vendor EV bands are withheld rather than
+   * published on a basis the current number does not share.
+   */
   const vendorEvKeys: readonly MultipleKey[] = ["evToEbitda", "evToSales"];
   if (derived.leaseScopeRejectedWindows.length) {
     for (const key of vendorEvKeys) delete vendor[key];
@@ -1172,7 +1246,10 @@ export function multiplesFramework(
     notes.push(reason);
     gaps.push(gapEntry("valuation.multiples.ownHistory.evLeaseScope", reason, "warn"));
   }
-  /* D-180: FIN-119 : the same rule for a quarter whose temporary-equity operand is refused. The vendor's EV ratios are built on its own claims and cannot resolve the disputed one, so they may not restore the dropped windows. */
+  /*
+   * D-135: Vendor EV ratios use the vendor claims and cannot resolve a refused temporary-equity
+   * operand. They must not restore the affected historical windows.
+   */
   if (derived.temporaryEquityRejectedWindows.length) {
     for (const key of vendorEvKeys) delete vendor[key];
     const reason = `${derived.temporaryEquityRejectedWindows.length} historical quarter window(s) have a refused temporary-equity operand: ` +
@@ -1394,7 +1471,11 @@ export function multiplesFramework(
       notes.push(`peTtm: ${basis}.`);
     }
   }
-  /* D-19: state N per multiple. The report's multiples table carries the rank but not the window size, so the sentence that makes the number readable - "rank among N quarters", never "percentile" - is published here. */
+  /*
+   * D-19: state N per multiple. The report's multiples table carries the rank but not the window
+   * size, so the sentence that makes the number readable - "rank among N quarters", never
+   * "percentile" - is published here.
+   */
   for (const m of multiples) {
     const band = m.ownHistory;
     if (band === null) continue;

@@ -169,9 +169,9 @@ export interface SharesOutstandingPoint {
   /** The filing the count (or the summed per-class counts) came from. */
   filing?: FilingRef;
   /**
-   * What the class sum could not establish from this source: repeated values
-   * that may be a second class (N1), and classes so unequal that a raw sum is
-   * not economic ownership (N2). Absent when neither applies.
+   * Unestablished class-sum scope: repeated values may represent a second class, and unequal
+   * class economics can make the raw sum unsuitable for economic ownership. Omitted when neither
+   * ambiguity applies.
    */
   classNotes?: string[];
 }

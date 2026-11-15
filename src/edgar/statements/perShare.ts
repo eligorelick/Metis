@@ -117,11 +117,9 @@ const BASIC_SHARES_FOR_DILUTED_LOSS_DISCLOSURE =
   "no diluted weighted share count is tagged for the period, and the filer's basic and diluted EPS are equal for it; it is a loss period for continuing operations, in which potential shares are antidilutive and excluded, so the basic weighted count is the diluted count";
 
 /**
- * A filer that tags no diluted weighted count (Exxon Mobil has tagged none
- * since FY2013) but reports the same basic and diluted EPS for the period has
- * no dilution that moves EPS, so its basic weighted count stands in for the
- * diluted one. Both EPS figures must be reported (not derived) for the very
- * interval of the basic count; with any doubt the diluted count stays null.
+ * D-105: If no diluted weighted count is tagged but filed basic and diluted EPS are equal for the
+ * basic-count interval, the basic count may stand in with a disclosure. Both EPS figures must be
+ * reported rather than derived; any uncertainty leaves the diluted count null.
  */
 function standInDilutedSharesFromBasic(rows: FmpIncomeStatementRow[], notes: NoteSink): void {
   for (const row of rows) {

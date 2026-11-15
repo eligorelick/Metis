@@ -12,10 +12,9 @@ const TOLERANCE_DAYS = PERIOD_END_TOLERANCE_DAYS;
 const ANNUAL_MIN_DAYS = FISCAL_YEAR_DURATION_DAYS[0];
 const ANNUAL_MAX_DAYS = FISCAL_YEAR_DURATION_DAYS[1];
 /**
- * A quarter is 13 weeks give or take a 53rd week — except on a 12-12-12-16
- * calendar, where the fourth quarter runs 16 or 17 weeks (Costco). The upper
- * bound admits that quarter; nothing standardized is four months long, so it
- * admits nothing else. Shared with xbrl.ts.
+ * A quarter normally spans thirteen weeks, allowing a fifty-third fiscal week. A 12-12-12-16
+ * calendar can place sixteen or seventeen weeks in its fourth quarter. The upper bound admits
+ * that calendar without treating a standard four-month span as a quarter. Shared with xbrl.ts.
  */
 const QUARTER_MIN_DAYS = QUARTER_DURATION_DAYS[0];
 const QUARTER_MAX_DAYS = QUARTER_DURATION_DAYS[1];

@@ -268,7 +268,8 @@ function buildStatementRows<TRow>(
 
     const anchorField = def.anchors.find((f) => resolutions.has(f));
     if (anchorField === undefined) {
-      // Say the true cause: an anchor that was filed and withheld for presentation is not a missing fact (FIN-511 F5).
+      // Say the true cause: an anchor that was filed and withheld for presentation is not a missing
+      // fact.
       const refused = notes.withheld.find((w) => def.anchors.includes(w.field) && w.periods.includes(slot.date) && notes.presentationRefusals.includes(w.text));
       notes.add(
         refused === undefined
@@ -405,9 +406,10 @@ function buildStatementRows<TRow>(
       });
     }
     if (Object.keys(original).length > 0) row.original = original;
-    // FIN-511-V1: the filing that supplies a quarter's revenue and whether it re-presented earlier periods of that
-    // concept (the test `presentationMixed` applies to a minuend), so a growth cell can tell two bases apart. Additive:
-    // omitted unless one tag and unit supplied the figure and its copies can be identified.
+    // D-134: the filing that supplies a quarter's revenue and whether it re-presented earlier
+    // periods of that concept (the test `presentationMixed` applies to a minuend), so a growth cell
+    // can tell two bases apart. Additive: omitted unless one tag and unit supplied the figure and
+    // its copies can be identified.
     if (def.statement === "income" && slot.quarter !== null) {
       const revenue = resolutions.get("revenue");
       const copies = revenue !== undefined && revenue.tags.length === 1 ? slot.copiesOf?.(revenue.tags[0]!, revenue.unit) ?? null : null;

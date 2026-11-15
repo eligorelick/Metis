@@ -33,7 +33,7 @@ export interface ValuationBundleInputs {
   preferredSeriesDistinct?: boolean;
   currentPrice: number | null;
   waccPct: number | null;
-  /** Why `waccPct` is null (the WACC's own gap), quoted by the DCF gap (VAL-10). */
+  /** The WACC gap explaining a null `waccPct`, quoted by the DCF gap. */
   waccUnavailableReason?: string | null;
   netDebt: number | null;
   dilutedShares: number | null;
@@ -42,8 +42,8 @@ export interface ValuationBundleInputs {
   /* D-103: Require established class scope and economic weights before computing issuer-common values. */
   dilutedShareEconomicBasis?: string | null;
   /**
-   * FIN-404: set only when the divisor row is a loss period, whose filed diluted
-   * count equals its basic count; `dilutedShares` already carries the substitution.
+   * D-135: set only when the divisor row is a loss period, whose filed diluted count equals its
+   * basic count; `dilutedShares` already carries the substitution.
    */
   dilutedShareDivisor?:
     | { basis: "loss-period-substituted"; donorDate: string; donorPeriod: "quarter" | "fiscal year"; note: string;
@@ -55,24 +55,23 @@ export interface ValuationBundleInputs {
   /** Consolidated equity proves outside claims, but the equity bridge has no allocation. */
   noncontrollingOwnershipUnresolved?: boolean;
   /**
-   * FIN-103: the balance row the DCF equity bridge reads, the one dated at the
-   * DCF statement date (`dcfBridgeRow`). Absent ⇒ the bridge reads
-   * `multiples.balance`, the anchor the market EV uses.
+   * D-135: the balance row the DCF equity bridge reads, the one dated at the DCF statement date
+   * (`dcfBridgeRow`). Absent ⇒ the bridge reads `multiples.balance`, the anchor the market EV uses.
    */
   bridgeBalance?: MultiplesBalance | null;
   /** Minority interest / preferred equity for the DCF equity bridge (0 when absent). */
   minorityInterest?: number | null;
   preferred?: number | null;
   /**
-   * FIN-119: the redeemable preferred and redeemable NCI filed in temporary
-   * equity at the bridge date. `valueCompany` folds them into `preferred` and
-   * `minorityInterest` before the E-5 block, so one claim is deducted once.
+   * D-135: the redeemable preferred and redeemable NCI filed in temporary equity at the bridge
+   * date. `valueCompany` folds them into `preferred` and `minorityInterest` before the earnings key
+   * block, so one claim is deducted once.
    */
   temporaryEquity?: TemporaryEquityClaims | null;
   /**
-   * FIN-119 (a withheld enrichment is unknown, not absent): the issuer tags
-   * temporary equity at the bridge date but its SEC enrichment was withheld, so
-   * a claim may be missing. No claim is added and nothing is withheld; one warn gap says so.
+   * D-135 (a withheld enrichment is unknown, not absent): the issuer tags temporary equity at the
+   * bridge date but its SEC enrichment was withheld, so a claim may be missing. No claim is added
+   * and nothing is withheld; one warn gap says so.
    */
   temporaryEquityUnknown?: { bridge: { date: string; reason: string } | null; market: { date: string; reason: string } | null } | null;
   /* D-102: Apply the established noncontrolling earnings key consistently in the common-equity bridge. */
@@ -81,9 +80,18 @@ export interface ValuationBundleInputs {
   staleNoncontrollingEarnings?: ValuationBundleInputs["noncontrollingEarnings"];
   latestAnnualIncomeDate?: string | null;
   analysisCutoff?: string | null;
-  /* D-19: TOTAL lease liabilities (FMP `capitalLeaseObligations`), already inside `totalDebt` and therefore inside `netDebt`. Null when undisclosed. Disclosure context only — the bridge adjusts by `operatingLeaseLiability`. */
+  /*
+   * D-19: TOTAL lease liabilities (FMP `capitalLeaseObligations`), already inside `totalDebt` and
+   * therefore inside `netDebt`. Null when undisclosed. Disclosure context only — the bridge adjusts
+   * by `operatingLeaseLiability`.
+   */
   leaseLiability?: number | null;
-  /* D-19: the OPERATING slice, the only one the equity bridge may net out of net debt. Finance-lease interest is below EBIT and its right-of-use amortisation is added back in EBITDA, so its liability is debt in both frames. Null when the split is unavailable ⇒ net debt is used as reported. */
+  /*
+   * D-19: the OPERATING slice, the only one the equity bridge may net out of net debt.
+   * Finance-lease interest is below EBIT and its right-of-use amortisation is added back in EBITDA,
+   * so its liability is debt in both frames. Null when the split is unavailable ⇒ net debt is used
+   * as reported.
+   */
   operatingLeaseLiability?: number | null;
   /* D-19: METIS_EV_INCLUDE_LEASES — keep leases in the EV bridge. */
   includeLeasesInEv?: boolean;
@@ -103,10 +111,10 @@ export interface ValuationBundleInputs {
   /* D-135: Deduct established senior claims once on the same basis as the enterprise value. */
   debtLikeObligations?: DebtLikeObligations | null;
   /**
-   * FIN-305 (pre-flight I7): the filer's SIC code, the one fact the utility rule reads. A code in
-   * `RATE_REGULATED_UTILITY_SIC` is read as a rate-regulated utility (ASC 980): the pension and OPEB deficit
-   * is disclosed, not deducted (a merchant generator under the code is overstated by it after tax); null or absent means not established, which is read as not a utility, and a deducted
-   * pension line then raises the `sicUnknown` info gap.
+   * D-104, D-204: Read SIC through the established rate-regulated-utility set. Under the utility
+   * reading, disclose rather than deduct the pension and OPEB deficit; a merchant generator sharing
+   * the code may therefore be overstated by the after-tax deficit. A missing SIC does not establish
+   * utility treatment, and a deducted pension line then carries the `sicUnknown` gap.
    */
   sicCode?: number | null;
   /** General route: DCF assumption inputs (null when not applicable). */
@@ -187,11 +195,10 @@ export type ValuationResult =
  * -> null valuation (runway framing handled by a different module).
  */
 /**
- * FIN-119 (a withheld enrichment is unknown, not absent): no claim is added and
- * nothing is withheld, but the reader is told, for each consumer whose own
- * balance date the withheld enrichment touched. The DCF bridge reads the
- * statement-date row and the enterprise values the anchor row (FIN-103), so the
- * dates can differ. A consumer that publishes no figure is not named.
+ * D-135 (a withheld enrichment is unknown, not absent): no claim is added and nothing is withheld,
+ * but the reader is told, for each consumer whose own balance date the withheld enrichment touched.
+ * The DCF bridge reads the statement-date row and the enterprise values the anchor row (D-135), so
+ * the dates can differ. A consumer that publishes no figure is not named.
  */
 export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs): ValuationResult {
   const result = valueCompanyCore(route, inputs);
@@ -230,15 +237,14 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     } };
   }
 
-  // FIN-302 C2: deduct each filed preferred series once before offering conversion readings.
+  // D-147 C2: deduct each filed preferred series once before offering conversion readings.
   const foldedPreferred = foldConvertiblePreferred(inputs.preferred ?? null, inputs.convertiblePreferredClaim, inputs.preferredSeriesDistinct);
   inputs = { ...inputs, preferred: foldedPreferred.preferred };
   if (foldedPreferred.gap) gaps.push(foldedPreferred.gap);
-  // FIN-119 (OD-1): redeemable preferred and redeemable NCI are claims senior to
-  // common, carried outside every equity field the bridge reads. Fold them into
-  // `preferred` and `minorityInterest` here, before the E-5 block, so the
-  // redeemable NCI joins book NCI as the floor of the E-5 test (never a second
-  // deduction) and every D-26 re-run inherits the claims.
+  // D-135: redeemable preferred and redeemable NCI are claims senior to common, carried outside
+  // every equity field the bridge reads. Fold them into `preferred` and `minorityInterest` here,
+  // before the earnings key block, so the redeemable NCI joins book NCI as the floor of the
+  // earnings key test (never a second deduction) and every D-26 re-run inherits the claims.
   const temporaryClaims = inputs.temporaryEquity ?? null;
   const temporaryRefusal = temporaryClaims?.refusal ?? null;
   const temporaryAdmitted = temporaryClaims !== null && temporaryRefusal === null && temporaryClaims.total !== 0 ? temporaryClaims : null;
@@ -249,7 +255,8 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     const parentLike = temporaryAdmitted.redeemablePreferred + temporaryAdmitted.unsplit;
     inputs = { ...inputs,
       ...(parentLike !== 0 ? { preferred: (isNum(inputs.preferred) ? inputs.preferred : 0) + parentLike } : {}),
-      // A null book NCI is not a zero claim (E-5): it stays null and the redeemable amount is carried beside it.
+      // A null book NCI is not a zero claim (earnings key): it stays null and the redeemable amount
+      // is carried beside it.
       ...(redeemableNoncontrolling !== 0 && isNum(inputs.minorityInterest) ? { minorityInterest: inputs.minorityInterest + redeemableNoncontrolling } : {}) };
     temporaryEquityDisclosure = { redeemablePreferred: temporaryAdmitted.redeemablePreferred, redeemableNoncontrolling,
       unsplit: temporaryAdmitted.unsplit, basis: temporaryAdmitted.basis };
@@ -266,7 +273,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   }
   /* D-102: The critical DCF gap names the actual evidence gate that withheld the valuation. */
   let dcfWithheldCause: string | null = null;
-  // FIN-103: the DCF-only gates read the balance the bridge reads.
+  // D-135: the DCF-only gates read the balance the bridge reads.
   const bridgeBalance = inputs.bridgeBalance ?? inputs.multiples.balance;
   if ((inputs.noncontrollingOwnershipUnresolved === true || noncontrollingOwnershipUnresolved(bridgeBalance)) && inputs.dcfInputs !== null) {
     const reason = "Consolidated equity has no resolved parent/NCI split, or differs from parent equity, and the NCI allocation is unavailable. The consolidated operating DCF cannot be presented as parent/common equity by treating unknown outside claims as zero; book NCI would itself be only a proxy for market value.";
@@ -367,7 +374,8 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     notes.push(inputs.dilutedShareEconomicBasis);
     gaps.push(gapEntry("valuation.perShare.economicClassBasis", inputs.dilutedShareEconomicBasis, "info"));
   }
-  // FIN-404: said once, and only where a per-share value that divides by the count is published (the DCF, the excess-return route and the REIT FFO/AFFO per share).
+  // D-135: said once, and only where a per-share value that divides by the count is published (the
+  // DCF, the excess-return route and the REIT FFO/AFFO per share).
   const divisorDisclosure = (perShare: number | null | undefined, shares: number | null | undefined = inputs.dilutedShares): void => {
     if (inputs.dilutedShareDivisor === undefined || !isNum(perShare) || !isNum(shares) || shares <= 0) return;
     gaps.push(gapEntry("valuation.perShare.lossPeriodDivisor", inputs.dilutedShareDivisor.note, "info"));
@@ -433,7 +441,12 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
 
   if (route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage") {
     notes.push("FCFF DCF and FCFF reverse-DCF suppressed for financials (debt is raw material) — excess-return model used");
-    /* D-16: the three FCFF-derived outputs and the ROIC−WACC spread are all withheld on this route, and each now says so in the manifest as well as the notes. They were structurally absent before — nothing computed them — but an absence with no stated reason reads to a report reader as missing data rather than as a deliberate methodological refusal. */
+    /*
+     * D-16: the three FCFF-derived outputs and the ROIC−WACC spread are all withheld on this route,
+     * and each now says so in the manifest as well as the notes. They were structurally absent
+     * before — nothing computed them — but an absence with no stated reason reads to a report
+     * reader as missing data rather than as a deliberate methodological refusal.
+     */
     gaps.push(
       gapEntry(
         "valuation.dcf",
@@ -541,7 +554,12 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
 
   if (route.base === "reit") {
     notes.push("FCFF DCF suppressed for equity REITs — P/FFO / P/AFFO + cap-rate sketch used");
-    /* D-16: a net-income DCF is withheld on this route with the reason, not merely omitted. Real-estate depreciation is a large non-cash charge against a REIT's GAAP net income, so discounting that net income would value the company on an earnings figure the industry itself replaces with FFO. */
+    /*
+     * D-16: a net-income DCF is withheld on this route with the reason, not merely omitted.
+     * Real-estate depreciation is a large non-cash charge against a REIT's GAAP net income, so
+     * discounting that net income would value the company on an earnings figure the industry itself
+     * replaces with FFO.
+     */
     gaps.push(
       gapEntry(
         "valuation.netIncomeDcf",
@@ -564,8 +582,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     // The lease refusal is already in the multiples' EV (null), which the block reads; the gap stays.
     const reitDebtRefusal = leaseDebtScopeRefusal(inputs.multiples.balance, inputs.includeLeasesInEv === true);
     if (reitDebtRefusal) gaps.push(gapEntry("valuation.reit.enterpriseValue.leaseScope", reitDebtRefusal, "critical"));
-    // FIN-311, FIN-108: the market cap P/FFO was priced on and the house EV come from the multiples. Every guard that
-    // withholds the price (ADR security basis, unresolved class basis, price currency) withholds both with it.
+    // D-135: the market cap P/FFO was priced on and the house EV come from the multiples. Every
+    // guard that withholds the price (ADR security basis, unresolved class basis, price currency)
+    // withholds both with it.
     const reitInputs: ReitInputs | null = inputs.reit && !quoteComparison.comparable ? { ...inputs.reit, sharePrice: null } : inputs.reit ?? null;
     const reitBridge = multiples.enterpriseValue;
     const reitMarketCap = reitInputs !== null && reitInputs.sharePrice !== null ? posOrNull(reitBridge.equityScope?.marketCap) : null;
@@ -584,8 +603,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       gaps.push(gapEntry("valuation.reit", "REIT inputs not provided by caller", "critical"));
     }
     gaps.push(...reit.gaps);
-    // FIN-404: FFO and AFFO per share divide by the same count; said once, where one is published.
-    // D-233: that count is the REIT block's own (FFO's fiscal year), and the disclosure describes that row.
+    // D-135: FFO and AFFO per share divide by the same count; said once, where one is published.
+    // D-233: that count is the REIT block's own (FFO's fiscal year), and the disclosure describes
+    // that row.
     divisorDisclosure(reit.ffoPerShare ?? reit.affoPerShare, reitInputs?.shares);
     return { kind: "reit", route: route.base, reit, multiples, notes, gaps };
   }
@@ -666,7 +686,14 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     notes.push(...built.notes);
     assumptions = built.assumptions;
     if (assumptions !== null) {
-      /* D-19: the DCF equity bridge follows the SAME lease convention as the multiples EV. Net debt is built from totalDebt, which already contains the lease liabilities, so the default subtracts the OPERATING slice back out and METIS_EV_INCLUDE_LEASES=1 keeps it. Both bridges are stated. only the OPERATING slice leaves net debt. The finance-lease liability stays as financing debt: its interest is below EBIT; its amortisation is inside EBIT and added back in EBITDA. */
+      /*
+       * D-19: the DCF equity bridge follows the SAME lease convention as the multiples EV. Net debt
+       * is built from totalDebt, which already contains the lease liabilities, so the default
+       * subtracts the OPERATING slice back out and METIS_EV_INCLUDE_LEASES=1 keeps it. Both bridges
+       * are stated. only the OPERATING slice leaves net debt. The finance-lease liability stays as
+       * financing debt: its interest is below EBIT; its amortisation is inside EBIT and added back
+       * in EBITDA.
+       */
       const totalLeaseLiability =
         isNum(inputs.leaseLiability) && inputs.leaseLiability >= 0 ? inputs.leaseLiability : null;
       /* D-97: Remove operating leases only when filed evidence establishes their inclusion and scope. */
@@ -718,13 +745,12 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
               ? ` ${financeLeaseOnlyEvClause(totalLeaseLiability!)}.` : ""),
         );
       }
-      // D-60: equity securities left out of cash return as a non-operating
-      // asset at their filed fair value, only when net debt itself bridges.
-      // D-65: so do the long-term investments the sales-to-capital denominator
-      // removed as non-operating, at their filed carrying value. FIN-304: a
-      // holding that met or exceeded invested capital is added back too.
-      // The exceed and lease-emptied cases keep the filed provenance and swap
-      // only the clause that says the denominator removes the amount.
+      // D-60: equity securities left out of cash return as a non-operating asset at their filed
+      // fair value, only when net debt itself bridges. D-65: so do the long-term investments the
+      // sales-to-capital denominator removed as non-operating, at their filed carrying value.
+      // D-135: a holding that met or exceeded invested capital is added back too. The exceed and
+      // lease-emptied cases keep the filed provenance and swap only the clause that says the
+      // denominator removes the amount.
       const components: NonOperatingAssetComponent[] = [];
       if (isNum(netDebtForBridge) && inputs.nonOperatingAssets && isNum(inputs.nonOperatingAssets.value) && inputs.nonOperatingAssets.value > 0) {
         components.push({ kind: "marketable-equity-securities", label: "marketable equity securities (filed fair value, not cash)",
@@ -803,7 +829,12 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         const pension = obligations.pension ?? null;
         if (pension !== null && pension.value > 0) {
           if (isNum(inputs.sicCode) && RATE_REGULATED_UTILITY_SIC.has(inputs.sicCode)) {
-            /* D-180: FIN-305 (pre-flight I7): a rate-regulated utility recovers the cost through rates (ASC 980); the offsetting regulatory asset is dimensional XBRL, which companyfacts does not carry. SIC 4911 also files merchant generators, so the text states the reading, never the recovery. */
+            /*
+             * D-104, D-204: Under regulated-utility accounting, costs can be recovered through
+             * rates, but the offsetting regulatory asset is dimensional XBRL that companyfacts does
+             * not carry. The same SIC also admits merchant generators, so disclose the utility
+             * reading without asserting recovery.
+             */
             const reading = `SIC ${inputs.sicCode} is read as a rate-regulated utility (ASC 980): its pension and OPEB deficit is disclosed, not deducted; ` +
               "a filer under this code whose rates do not recover the deficit (a merchant generator) is overstated by it after tax";
             notes.push(`Pension and other postretirement benefit deficits of ${millions(pension.value)} (${pension.basis}): ${reading}. ` +
@@ -830,8 +861,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
                 (retirementDeducted ? " The retirement obligations' accretion, which filers charge to operating income, also lowers the projected NOPAT, so their time value is counted twice; the bridge does not adjust for it." : "")
               : "They are deducted at the recognised amount before any tax relief, which overstates the claim by the tax deduction a settlement would earn. " +
                 "The retirement obligations' accretion, which filers charge to operating income, also lowers the projected NOPAT, so their time value is counted twice; the bridge does not adjust for either."));
-          // FIN-305 (OD-4): none of these joins the market EV; say so where the EV is stated.
-          // Only the families with a deducted line are named: a utility's disclosed pension deficit is not one.
+          // D-135: none of these joins the market EV; say so where the EV is stated. Only the
+          // families with a deducted line are named: a utility's disclosed pension deficit is not
+          // one.
           const deductedFamilies = [
             ["retirement", /^asset-retirement/], ["environmental", /^environmental/], ["pension and OPEB", /^pension/],
             ["loss-contingency", /^loss-contingency/], ["contingent-consideration", /^business-combination contingent/],
@@ -904,14 +936,13 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         gaps.push(gapEntry("valuation.dcf.domain", domain.reason, "critical"), ...dcf.gaps);
         return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity: null, growthMarginGrid: null, reverseDcf: null, multiples, notes, gaps };
       }
-      // E-5: inside its domain, but the NCI claim cannot be sized. The bridge
-      // stays visible at book; nothing built from the per-share is published.
-      // The NCI reason leads only when no earlier gate (shares, net debt)
-      // had already withheld the per-share value.
-      // FIN-119: a refused temporary-equity operand, or an unsplit total beside the
-      // E-5 earnings key (the unsplit amount may be NCI the key already sizes),
-      // leaves the claim unknown: the per share is withheld, never zero-filled (D-87).
-      // `runDcf` already withheld the unsplit-beside-earnings-key case (and put its gap in `dcf.gaps`).
+      // D-102: inside its domain, but the NCI claim cannot be sized. The bridge stays visible at
+      // book; nothing built from the per-share is published. The NCI reason leads only when no
+      // earlier gate (shares, net debt) had already withheld the per-share value. D-135: a refused
+      // temporary-equity operand, or an unsplit total beside the earnings key earnings key (the
+      // unsplit amount may be NCI the key already sizes), leaves the claim unknown: the per share
+      // is withheld, never zero-filled (D-87). `runDcf` already withheld the
+      // unsplit-beside-earnings-key case (and put its gap in `dcf.gaps`).
       const refusedReason = temporaryRefusal !== null
         ? `Temporary equity cannot be admitted as a claim: ${temporaryRefusal}. The per-share value is withheld: the redeemable preferred and redeemable noncontrolling claims are unknown, not zero (FIN-119).`
         : null;
@@ -986,7 +1017,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         if (shareBasis !== null) dcf.bridge.shareBasis = shareBasis;
         if (belowNote !== null) dcf.bridge.shareBasisNote = belowNote;
         if (Math.abs(diff) >= SHARE_BASIS_DISPLAY_MIN_PCT) {
-          // FIN-404: the wording follows how the count was formed (filed or withheld: the filed count; a loss period's basic count plus a profitable period's award dilution; a loss period's basic count alone).
+          // D-135: the wording follows how the count was formed (filed or withheld: the filed
+          // count; a loss period's basic count plus a profitable period's award dilution; a loss
+          // period's basic count alone).
           const divisor = inputs.dilutedShareDivisor;
           const substituted = divisor?.basis === "loss-period-substituted" ? divisor : null;
           const basicOnly = divisor?.basis === "loss-period-basic";
@@ -995,8 +1028,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
             : basicOnly
               ? `Per-share values divide by the latest period's basic count, ${fmtMoney(dcf.bridge.dilutedShares)}, which carries no option or RSU dilution (the latest period is a loss and no profitable period among the last four quarters or the latest fiscal year shows any)`
               : `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(dcf.bridge.dilutedShares)}`;
-          // A loss period's filed count equals its basic count (ASC 260-10-45-17), so the not-restored case carries no award dilution either.
-          // FIN-404's statement of what the divisor carries stays beside the D-265 sentence.
+          // A loss period's filed count equals its basic count (ASC 260-10-45-17), so the
+          // not-restored case carries no award dilution either. D-135's statement of what the
+          // divisor carries stays beside the D-265 sentence.
           const tail = belowNote !== null && !economicScope.multiClass
             ? `${belowNote}${basicOnly || divisor?.basis === "loss-period-withheld"
               ? " The per-share value does not carry the option and RSU dilution the market cap omits."
@@ -1008,7 +1042,10 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
             : substituted !== null
               ? "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the restored award dilution is kept so the per-share value carries the dilution the market cap omits."
               : "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits.";
-          /* D-265: D-265: one statement with one denominator, the divisor against the quote count. */
+          /*
+           * D-265: Use one statement with one denominator: compare the model divisor with the
+           * quoted share count.
+           */
           const relation = shareBasis === null ? `${fmtNum(Math.abs(diff))}% ${diff < 0 ? "below" : "above"}` : shareBasisRelation(shareBasis);
           notes.push(`${head}; the quoted market cap implies ${fmtMoney(implied)} shares outstanding at the quote, and the divisor is ${relation} that count. ${tail}`);
         }
@@ -1036,7 +1073,8 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       // unsolvable reverse DCF stayed invisible in the manifest — the same
       // defect, on the model that carries the headline number.
       gaps.push(...dcf.gaps, ...(reverse?.gaps ?? []));
-      // FIN-119: a grid cell withheld by the unsplit rule is said once for the run, even when the base per share published.
+      // D-135: a grid cell withheld by the unsplit rule is said once for the run, even when the
+      // base per share published.
       const cellNote = [sensitivity, growthMargin].flatMap((g) => g?.notes ?? []).find((n) => n.startsWith(UNSPLIT_CELLS_LEAD));
       if (cellNote !== undefined && !gaps.some((g) => g.field === "valuation.dcf.temporaryEquityAllocation")) {
         gaps.push(gapEntry("valuation.dcf.temporaryEquityAllocation", cellNote, "warn"));

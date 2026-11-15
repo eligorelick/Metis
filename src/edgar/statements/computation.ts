@@ -61,7 +61,7 @@ function sameFilingVerdict(
   return decided ? { below: false, detail: "" } : null;
 }
 
-/** Every core copy of every discontinued-operations element in the index, once per index (decision C-9 labels). */
+/** Every core copy of every discontinued-operations element in the index, once per index. */
 const LABEL_COPIES = new WeakMap<FactIndex, LabelCopy[]>();
 function labelCopiesOf(index: FactIndex): LabelCopy[] {
   const memo = LABEL_COPIES.get(index);
@@ -114,8 +114,9 @@ interface ComputeContext {
 }
 
 function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: ComputeContext, route: "bank" | "general"): void {
-  // A gross profit withheld for presentation is not filled as revenue less cost: no derivation follows a
-  /* D-134: Filed operands must describe one presentation, and missing or incompatible operands are disclosed. */
+  // D-134: A gross profit withheld for presentation must not be filled as revenue less cost. No
+  // derivation follows a presentation withholding.
+
   const grossProfitRefused = notes.withheld.some((w) => w.field === "grossProfit" && w.periods.includes(ctx) && notes.presentationRefusals.includes(w.text));
   if (v.grossProfit == null && v.revenue != null && v.costOfRevenue != null && !grossProfitRefused) {
     const revenue = cc.resolved.get("revenue"), cost = cc.resolved.get("costOfRevenue");
@@ -217,11 +218,9 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
       notes.add(`cashAndShortTermInvestments ${ctx}: ${text}`);
     }
   }
-  // A strict `add` here returned null for every filer that presents a single
-  // "Cash and cash equivalents" line and tags no short-term-investment concept
-  // (Home Depot, McDonald's, UPS, Costco and hundreds like them). That
-  // suppressed the net-debt cash basis and with it the whole DCF equity bridge,
-  // for a shape FMP publishes as cash. Sum what is present and name what is not.
+  // D-105: When a filer tags cash but no short-term-investment concept, sum the present cash
+  // components and name what is absent. Requiring both components would withhold the disclosed cash
+  // and its net-debt bridge.
   v.cashAndShortTermInvestments ??= sumAnyValues(
     [
       ["cashAndCashEquivalents", v.cashAndCashEquivalents ?? null],
@@ -281,10 +280,9 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     notes.add(`totalLiabilities ${ctx}: ${reason}`);
   }
   const lease = resolveDebtOverlaps(v, notes, ctx, cc);
-  // FMP's definition: shortTermDebt + longTermDebt + capitalLeaseObligations
-  // (Apple FY2025 20.329 + 78.328 + 13.720 = 112.377B). Dropping the leases
-  // moved net debt, invested capital and the cost-of-debt denominator off the
-  // house numbers every band was calibrated against.
+  // D-19: Total debt follows the provider definition: shortTermDebt + longTermDebt +
+  // capitalLeaseObligations. Retain the leases so net debt, invested capital and the cost-of-debt
+  // denominator share that definition.
   v.totalDebt ??= sumAnyValues(
     lease.inclusiveDebt !== undefined ? [["LongTermDebt (inclusive total)", lease.inclusiveDebt], [lease.label, lease.value]] : [
       ["shortTermDebt", v.shortTermDebt ?? null],
@@ -294,14 +292,14 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     notes,
     `totalDebt ${ctx}`,
   );
-  // A refused split of an inclusive total leaves the total established (B-40).
+  // A refused split of an inclusive total leaves the total established (D-100).
   const debtView = lease.inclusiveDebt !== undefined ? { ...v, shortTermDebt: 0, longTermDebt: lease.inclusiveDebt } : v;
   const refusedCurrent = lease.inclusiveDebt !== undefined ? undefined
     : notes.withheld.find((held) => (held.field === "shortTermDebt" || held.field === "longTermDebt") && held.periods.includes(ctx));
-  // Finance leases are debt in every frame, so a missing finance maturity
-  // leaves debt incomplete. A missing operating maturity does not: the lease
-  // chain keeps the tagged portion and the lease-scope rule confines the row
-  /* D-97: Remove operating leases only when filed evidence establishes their inclusion and scope. */
+  // D-97: Finance leases are debt in every frame, so a missing finance maturity leaves debt
+  // incomplete. A missing operating maturity does not: retain the tagged portion and confine the
+  // row to the lease-excluded basis through the lease-scope rule.
+
   const partialLease = (["Finance"] as const).find(prefix =>
     cc.resolved.get("capitalLeaseObligations")?.parts?.[`${prefix.toLowerCase()}LeaseLiability`] === undefined &&
     ((cc.money(`${prefix}LeaseLiabilityCurrent`) === null) !== (cc.money(`${prefix}LeaseLiabilityNoncurrent`) === null)));
@@ -338,7 +336,15 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   }
   v.netDebt ??= sub(v.totalDebt ?? null, v.cashAndCashEquivalents ?? null);
   if (carryingLiquidityUnknown) v.netDebt = null;
-  /* D-19: the OPERATING slice of the lease liability, on its own. Under ASC 842 operating-lease cost sits in operating expenses, so EBIT and EBITDA are already AFTER it and only that slice may be netted out of enterprise value; finance-lease cost is split between right-of-use amortisation (added back in EBITDA) and interest (below EBIT), so the finance-lease liability is debt in both frames and stays in EV. Read off the `sumAnyOf` parts the lease chain already resolved — no second tag lookup, and null (never zero) when the filer tagged no operating-lease liability, which is what the EV bridge treats as "not separable". */
+  /*
+   * D-19: the OPERATING slice of the lease liability, on its own. Under ASC 842 operating-lease
+   * cost sits in operating expenses, so EBIT and EBITDA are already AFTER it and only that slice
+   * may be netted out of enterprise value; finance-lease cost is split between right-of-use
+   * amortisation (added back in EBITDA) and interest (below EBIT), so the finance-lease liability
+   * is debt in both frames and stays in EV. Read off the `sumAnyOf` parts the lease chain already
+   * resolved — no second tag lookup, and null (never zero) when the filer tagged no operating-lease
+   * liability, which is what the EV bridge treats as "not separable".
+   */
   v.operatingLeaseLiability ??=
     cc.resolved.get("capitalLeaseObligations")?.parts?.["operatingLeaseLiability"] ?? null;
   v.financeLeaseLiability ??=
@@ -420,9 +426,10 @@ function resolveDebtOverlaps(
   let maturitiesStand = shortTermTags.includes(MATURITIES_NEXT_YEAR_TAG);
   const maturities = cc.money(MATURITIES_NEXT_YEAR_TAG);
   const fiscalRemainder = cc.money("LongTermDebtMaturitiesRepaymentsOfPrincipalRemainderOfFiscalYear");
-  // The balance sheet's own split: a LongTermDebt total equal to its
-  // noncurrent part carries no current maturities, so the schedule's bucket
-  /* D-100: Compose debt from compatible filed components without counting an inclusive amount twice. */
+  // D-100: If the balance sheet LongTermDebt total equals its noncurrent part, it establishes no
+  // current maturities. The maturity-schedule bucket therefore is not current carrying debt and
+  // must not stand in.
+
   const inclusiveLong = cc.money("LongTermDebt");
   const noncurrentLong = cc.money("LongTermDebtNoncurrent");
   const noCurrentPortion = maturitiesStand && maturities !== null && inclusiveLong !== null && noncurrentLong !== null &&
@@ -461,8 +468,10 @@ function resolveDebtOverlaps(
   }
 
   const longTermTags = tagsOf("longTermDebt");
-  // The inclusive LongTermDebt total, when it is all of the period's financing
-  /* D-100: Compose debt from compatible filed components without counting an inclusive amount twice. */
+  // D-100: Retain the inclusive LongTermDebt total when it establishes all financing debt but its
+  // current/noncurrent allocation is refused. Refusing the split does not refuse that established
+  // total.
+
   let inclusiveDebt: number | undefined;
   // Case 2.
   if (longTermTags.includes("LongTermDebt") && v.longTermDebt != null) {
@@ -490,8 +499,9 @@ function resolveDebtOverlaps(
     }
   }
 
-  // The balance sheet's current-maturities line, against which an inclusive
-  /* D-100: Compose debt from compatible filed components without counting an inclusive amount twice. */
+  // D-100: Net an inclusive long-term figure against the balance sheet current-maturities line, so
+  // the current portion is counted once.
+
   const currentMaturityLine = shortTermTags.find((tag) => CURRENT_MATURITY_TAGS.includes(tag) || (tag === MATURITIES_NEXT_YEAR_TAG && scopeReason === null));
   // Case 7: noncurrent notes and loans with their current portion. Beside a
   // current-maturities line the current portion is already in short-term debt.
@@ -554,11 +564,11 @@ function resolveDebtOverlaps(
     }
   }
 
-  // Case 8: the inclusive long-term total, filed beside a composition from
-  // other tags, is the filer's own reconciliation of long-term debt. A
-  // current-debt line can carry debt the filer reclassified to long-term, so a
-  // composition that misses it by more than 1% is recomposed from the
-  /* D-100: Compose debt from compatible filed components without counting an inclusive amount twice. */
+  // D-100: An inclusive long-term total filed beside a component composition is the issuer
+  // reconciliation. Current debt may have been reclassified to long-term. If the composition
+  // differs by more than 1%, recompose from the inclusive total and short-term borrowings rather
+  // than count that debt twice.
+
   const inclusiveTotal = longTermTags.includes(INCLUSIVE_LONG_TERM_TAG) ? null : cc.fact?.(INCLUSIVE_LONG_TERM_TAG) ?? null;
   if (inclusiveTotal !== null && (v.shortTermDebt != null || v.longTermDebt != null)) {
     const borrowingsTag = ["ShortTermBorrowings", "CommercialPaper"].find((tag) => cc.money(tag) !== null);

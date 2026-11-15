@@ -31,7 +31,7 @@ interface Resolved {
   tags: string[];
   /** For a `sumAnyOf`, each resolved part by label (the lease split needs it). */
   parts?: Record<string, number>;
-  /** FIN-401: the actual sumAll subtraction pass, retained before its prose is rendered. */
+  /** D-147: the actual sumAll subtraction pass, retained before its prose is rendered. */
   adjustments?: { amounts: Record<string, number>; baseTags: string[] };
   componentDetails?: { present: { label: string; value: number; tags: string[] }[]; absent: string[] };
   derivation?: Derivation;
@@ -72,7 +72,11 @@ function resolvedPoint(tag: string, up: UnitPoints, point: FactPoint, value: num
   return out;
 }
 
-/* D-134: Filed operands must describe one presentation, and missing or incompatible operands are disclosed. */
+/*
+ * D-134: `magnitudeOnly` requests the as-filed operand pair for a floor or nesting probe, never for
+ * publication. A floor tag withheld for presentation still bounds the candidate. `{ against }` also
+ * requests a same-filing verdict for that candidate through `Resolved.sameFiling`.
+ */
 type TagResolver = (tag: string, kind: UnitKind, currency?: string, magnitudeOnly?: boolean | { against: string }) => Resolved | null;
 
 interface NoteSink {
@@ -93,7 +97,11 @@ interface NoteSink {
    */
   readonly refusals: string[];
   refuse(text: string): void;
-  /* D-134: Filed operands must describe one presentation, and missing or incompatible operands are disclosed. */
+  /*
+   * D-134: A presentation refusal ends the field across every chain: no later stand-in, derivation
+   * or alternative tag list may serve it. Record it even while `quietly` mutes a probe; only an
+   * unmuted refusal also enters `refusals`.
+   */
   readonly presentationRefusals: string[];
   refusePresentation(text: string): void;
 
@@ -157,8 +165,8 @@ function createNoteSink(): NoteSink {
       if (muted === 0) refusals.push(text);
     },
     refusePresentation(text: string): void {
-      // Recorded even while muted, as `withholdAttempts` is: a probe that ran into a presentation refusal has
-      // not found "nothing filed", and the checks that read this list must see it (FIN-511 F1).
+      // Recorded even while muted, as `withholdAttempts` is: a probe that ran into a presentation
+      // refusal has not found "nothing filed", and the checks that read this list must see it.
       presentationRefusals.push(text);
       if (muted === 0) refusals.push(text);
     },
@@ -274,8 +282,9 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         if (r !== null) {
           return r;
         }
-        // A presentation refusal ends the field in every chain: no stand-in, derivation or other tag list may serve
-        // it (FIN-511 C1). Other refusal kinds end only the chains that ask (`stopOnRefusal`).
+        // A presentation refusal ends the field in every chain: no stand-in, derivation or other
+        // tag list may serve it (D-134 C1). Other refusal kinds end only the chains that ask
+        // (`stopOnRefusal`).
         if (notes.presentationRefusals.length > presentationBefore) return null;
         if (spec.stopOnRefusal === true && notes.refusals.length > refusalsBefore) return null;
       }
@@ -283,7 +292,13 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
     }
     case "first": {
       const skipped: string[] = [];
-      /* D-134: Why the candidate `r` of `tag` is a subset line below a component the line item contains, or null. A candidate whose own quarter is withheld for presentation (`r` is then its as-filed value) is judged against each floor tag by the filings that carry both, as a withheld floor tag is; only a floor tag no filing carries beside it is compared with the as-filed value . */
+      /*
+       * D-134: Why the candidate `r` of `tag` is a subset line below a component the line item
+       * contains, or null. A candidate whose own quarter is withheld for presentation (`r` is then
+       * its as-filed value) is judged against each floor tag by the filings that carry both, as a
+       * withheld floor tag is; only a floor tag no filing carries beside it is compared with the
+       * as-filed value.
+       */
       const belowItsFloor = (tag: string, r: Resolved, candidateWithheld = false): string | null => {
         if (spec.unlessBelow === undefined) return null;
         const floorTags = [...spec.unlessBelow, ...(spec.unlessBelowTag?.[tag] ?? [])];
@@ -306,9 +321,11 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           // A floor probe is a magnitude check: what it ran into is not a refusal of the floored field.
           notes.presentationRefusals.length = presentationBefore;
           if (floorRefused) {
-            // The floor tag's quarter is withheld for presentation. The floor is a magnitude check that is never
-            // published, so it is decided from filed copies on one basis: the candidate against the floor tag in
-            // each filing that carries both. With no such filing, the as-filed magnitude decides (FIN-511 M5, F3).
+            /**
+             * D-134: A presentation-refused floor is still a magnitude constraint, never a
+             * published value. Compare the candidate and floor within each filing that carries
+             * both. Only when no filing carries both may the as-filed magnitude decide.
+             */
             f = notes.quietly(() => resolve(floorTag, spec.unit, undefined, { against: tag }));
             if (f?.sameFiling !== undefined) {
               if (f.sameFiling.below) sameFilingHit = `${tag} ${r.value} not used — ${f.sameFiling.detail}, so it is not the total`;
@@ -329,9 +346,16 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         const refusalsBefore = notes.refusals.length;
         const presentationBefore = notes.presentationRefusals.length;
         const r = resolve(tag, spec.unit);
-        /* D-134: A synonym refused for presentation ends the step: a narrower synonym must not take over (FIN-511). The check reads `presentationRefusals`, which a muted probe fills too . */
+        /*
+         * D-134: A synonym refused for presentation ends the step: a narrower synonym must not take
+         * over (D-134). The check reads `presentationRefusals`, which a muted probe fills too.
+         */
         if (r === null && notes.presentationRefusals.length > presentationBefore) {
-          /* D-134: Unless the floor would skip the candidate as a subset line anyway : the filings that carry it beside a floor tag decide, as for a refused floor tag (M5, F3), and the as-filed value only where no filing does . Then the next synonym is tried. */
+          /*
+           * D-134: Unless the floor would skip the candidate as a subset line anyway: the filings
+           * that carry it beside a floor tag decide, as for a refused floor tag, and the as-filed
+           * value only where no filing does. Then the next synonym is tried.
+           */
           const refusedAt = notes.presentationRefusals.length;
           const asFiled = spec.unlessBelow === undefined ? null : notes.quietly(() => resolve(tag, spec.unit, undefined, true));
           notes.presentationRefusals.length = refusedAt;
@@ -387,7 +411,11 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
     case "sumAll": {
       const present: Resolved[] = [];
       const partTags: { label: string; tags: string[] }[] = [];
-      /* D-134: A part that may be absent, with the mismatch (currency, period) that made it unusable when it IS filed, or the nesting disclosure of a refused part the derivation leaves out . */
+      /*
+       * D-134: A part that may be absent, with the mismatch (currency, period) that made it
+       * unusable when it IS filed, or the nesting disclosure of a refused part the derivation
+       * leaves out.
+       */
       const deferred: { part: (typeof spec.parts)[number]; problem?: { text: string; kind: "currency" | "period" | "unit" }; nested?: string }[] = [];
       const field = at?.field ?? label;
       const triedTags = (part: ChainSpec): string => {
@@ -404,17 +432,20 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         return { r, refused };
       };
       /**
-       * A refused optional part that the B-39/FIN-508 nesting leaves out of the sum is no operand of the derivation:
-       * the aggregate serves, and the refused tag is the nesting tag or another filing tags the period's interest as it.
-       * Returns the nesting disclosure in that case, else null (the refusal then refuses the field, ruling F1).
+       * D-134: A refused optional part excluded by taxonomy nesting is not an operand of the
+       * derivation. The aggregate must serve, and either the refused tag is the nesting tag or
+       * another filing tags the period interest as that tag. Return the nesting disclosure when
+       * those conditions hold; otherwise the refusal ends the field.
        */
       const nestedInsideServedAggregate = (part: (typeof spec.parts)[number], refusedTags: readonly string[]): string | null => {
         const aggregateTag = part.optionalWhenAdjustment?.adjustmentTag;
         const rule = (spec.notAddedWhen ?? []).find((n) => n.partLabel === part.label && n.adjustmentTag === aggregateTag);
         const aggregate = spec.minusAny?.find((a) => aggregateTag !== undefined && a.tags.includes(aggregateTag));
         if (rule === undefined || aggregate === undefined || present.length === 0) return null;
-        // The same test as the adjustment pass below, run ahead of it and quietly, so a refusal that stands keeps its
-        // F1 reason and notes exactly.
+        /**
+         * Run the adjustment test quietly in advance so a refusal that remains preserves its
+         * exact reason and notes.
+         */
         const served = aggregate.tags.some((tag) => {
           const { r } = probe(tag);
           return r !== null && r.unit === present[0]!.unit && r.tags.includes(rule.adjustmentTag);
@@ -422,7 +453,10 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         if (!served) return null;
         if (refusedTags.includes(rule.partTag)) return rule.disclose;
         if (rule.discloseRefiled === undefined) return null;
-        const { r: child } = probe(rule.partTag, true); // magnitude-only, as the FIN-508 probe below (F2)
+        const { r: child } = probe(rule.partTag, true); /**
+         * Magnitude-only: probe the period interest for taxonomy nesting, including
+         * presentation-refused quarters.
+         */
         return child !== null && child.unit === present[0]!.unit ? rule.discloseRefiled : null;
       };
       for (const part of spec.parts) {
@@ -457,15 +491,19 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         if (r === null) {
           if (optional && notes.presentationRefusals.length > presentationBefore) {
             const refusal = notes.presentationRefusals[notes.presentationRefusals.length - 1];
-            /* D-134: Interest the derivation would not add back anyway (B-39/FIN-508) is no operand: its refusal does not refuse the field, and the nesting disclosure says why it is left out . */
+            /**
+             * D-134: Interest already excluded by taxonomy nesting is not an added operand. Its
+             * refusal therefore does not refuse the field; the nesting disclosure explains the
+             * omission.
+             */
             const nested = nestedInsideServedAggregate(part, refusedTags);
             if (nested !== null) {
               notes.presentationRefusals.length = presentationBefore;
               deferred.push({ part, nested });
               continue;
             }
-            // A refused optional part is not an absent one: dropping it would publish a figure that still holds
-            // it, with a disclosure that says the filer files none (FIN-511 F1).
+            // A refused optional part is not an absent one: dropping it would publish a figure that
+            // still holds it, with a disclosure that says the filer files none.
             notes.refusePresentation(`${field} not derived: ${part.label} for the period is withheld (${refusal})`);
             return null;
           }
@@ -509,7 +547,12 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         // whatever they hold (`filedUnused`), or, for one that would be subtracted, the mismatch the error band names.
         const filedUnused = new Set<string>();
         const unusableByLabel = new Map<string, string>();
-        /* D-134: An adjustment the derivation never subtracts, whatever it holds: it sits inside an aggregate that served for the period, or the base tag that served excludes it by definition . The aggregate is listed before its components (EBIT_NON_OPERATING_ADJUSTMENTS), so it has been resolved by then. */
+        /*
+         * D-134: An adjustment the derivation never subtracts, whatever it holds: it sits inside an
+         * aggregate that served for the period, or the base tag that served excludes it by
+         * definition. The aggregate is listed before its components
+         * (EBIT_NON_OPERATING_ADJUSTMENTS), so it has been resolved by then.
+         */
         const unusedBecause = (adjustment: (typeof spec.minusAny)[number]): "inside" | "notInBase" | null =>
           adjustment.componentOf !== undefined && resolvedByLabel.has(adjustment.componentOf)
             ? "inside"
@@ -524,7 +567,11 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           // but the first hit put notes on the row about tags nothing used.
           for (const tag of adjustment.tags) {
             const attemptsBefore = notes.withholdAttempts.length;
-            /* D-134: Probed quietly first: a currency or period mismatch never becomes a withholding beside a derived figure, and an unused adjustment is resolved for its disclosure only . */
+            /*
+             * D-134: Probed quietly first: a currency or period mismatch never becomes a
+             * withholding beside a derived figure, and an unused adjustment is resolved for its
+             * disclosure only.
+             */
             const { r: found, refused } = probe(tag);
             const mismatch = found === null ? notes.withholdAttempts.slice(attemptsBefore).find((t) => /^(mixed_unit|period_mismatch):/.test(t)) : undefined;
             const usable = found !== null && found.unit === present[0]!.unit;
@@ -537,8 +584,11 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
               break;
             }
             if (mismatch !== undefined && !refused) {
-              // Filed in another currency or for another period than the row: not subtracted, and the error band
-              // says why, where an unmuted resolution would have withheld a component of a published figure (M-3).
+              /**
+               * D-134: An item filed in another currency or period is not subtracted. The error
+               * band names that mismatch; an unmuted resolution would withhold the unusable
+               * component of the published figure.
+               */
               unusableByLabel.set(
                 adjustment.label,
                 mismatch.startsWith("mixed_unit")
@@ -551,8 +601,9 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
             const presentationBefore = notes.presentationRefusals.length;
             const r = resolve(tag, spec.unit);
             if (r === null && notes.presentationRefusals.length > presentationBefore) {
-              // A refused adjustment is not an untagged one: dropping it would publish a figure that still holds
-              // the item, with a disclosure that says the filer tags none (FIN-511 I4).
+              // A refused adjustment is not an untagged one: dropping it would publish a figure
+              // that still holds the item, with a disclosure that says the filer tags none (D-134
+              // I4).
               notes.refusePresentation(
                 `${field} not derived: ${adjustment.label} for the period is withheld (${notes.presentationRefusals[notes.presentationRefusals.length - 1]})`,
               );
@@ -601,8 +652,8 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
             // Resolved only in this case (lazy resolution) and quietly: a probe that cannot resolve writes no
             // period_mismatch, mixed_unit or "not derived" entry against the field.
             const served = partTags.findIndex((p) => p.label === rule.partLabel);
-            // Magnitude-only: the probe asks whether the filer tags this period's interest as the nesting tag, so a
-            // quarter refused for presentation still answers yes (FIN-511 F2).
+            // Magnitude-only: the probe asks whether the filer tags this period's interest as the
+            // nesting tag, so a quarter refused for presentation still answers yes.
             const child = served < 0 ? null : notes.quietly(() => resolve(rule.partTag, spec.unit, undefined, true));
             if (child !== null && child.unit === present[0]!.unit) {
               total -= present[served]!.value;
@@ -702,7 +753,11 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
   }
 }
 
-/* D-134: Test seam , not used by the builder: resolves a `first` step over `tags` with a fresh note sink, inside `notes.quietly` when `quiet`. The resolver refuses each tag in `refused` for presentation and serves each tag in `values` at its value; any other tag is not filed. */
+/*
+ * D-134: Test seam, not used by the builder: resolves a `first` step over `tags` with a fresh note
+ * sink, inside `notes.quietly` when `quiet`. The resolver refuses each tag in `refused` for
+ * presentation and serves each tag in `values` at its value; any other tag is not filed.
+ */
 export function resolveFirstStepForTests(
   tags: readonly string[],
   refused: readonly string[],

@@ -26,9 +26,12 @@ export interface DcfRunOptions {
   preferred?: number | null;
   /* D-102: Apply the established noncontrolling earnings key consistently in the common-equity bridge. */
   noncontrollingEarningsShare?: number | null;
-  /** E-5: the end of the period the share was measured over, for the disclosure. */
+  /** D-102: the end of the period the share was measured over, for the disclosure. */
   noncontrollingEarningsAsOf?: string | null;
-  /** E-5: that period: the trailing four quarters, or the latest fiscal year when they cannot size the key. */
+  /**
+   * D-102: that period: the trailing four quarters, or the latest fiscal year when they cannot size
+   * the key.
+   */
   noncontrollingEarningsBasis?: "ttm" | "annual";
   /**
    * D-60: non-operating assets ADDED to equity value, at a sourced fair value
@@ -39,14 +42,16 @@ export interface DcfRunOptions {
   /** D-65: what `nonOperatingAssets` is made of, for the bridge disclosure; the engine reads only the total. */
   nonOperatingComponents?: NonOperatingAssetComponent[] | null;
   /**
-   * FIN-119: the temporary-equity claims already folded into `preferred` and
-   * `minorityInterest`. Disclosure only, so every re-run of the bridge (D-26)
-   * carries what the base bridge deducted.
+   * D-135: the temporary-equity claims already folded into `preferred` and `minorityInterest`.
+   * Disclosure only, so every re-run of the bridge (D-26) carries what the base bridge deducted.
    */
   temporaryEquity?: TemporaryEquityDisclosure | null;
 }
 
-/** FIN-119: the redeemable claims inside a bridge's `preferred` and `minorityInterest` (never added again). */
+/**
+ * D-135: the redeemable claims inside a bridge's `preferred` and `minorityInterest` (never added
+ * again).
+ */
 export interface TemporaryEquityDisclosure {
   redeemablePreferred: number;
   redeemableNoncontrolling: number;
@@ -115,7 +120,10 @@ export interface DcfBridge {
   dilutedShares: number | null;
   minorityInterest: number | null;
   preferred: number | null;
-  /** FIN-119: the temporary-equity claims inside `preferred` / `minorityInterest` above (disclosure only). */
+  /**
+   * D-135: the temporary-equity claims inside `preferred` / `minorityInterest` above (disclosure
+   * only).
+   */
   temporaryEquity?: TemporaryEquityDisclosure;
   /** D-60: present only when the bridge added a sourced non-operating asset. */
   nonOperatingAssets?: number;
@@ -133,11 +141,14 @@ export interface DcfBridge {
   shareBasis?: ShareBasisComparison;
   /** D-265: the reader sentence for a divisor below the quote count (absent otherwise). */
   shareBasisNote?: string;
-  /** E-5: NCI's share of consolidated profit, when the earnings key was established. */
+  /** D-102: NCI's share of consolidated profit, when the earnings key was established. */
   noncontrollingEarningsShare?: number;
   noncontrollingEarningsAsOf?: string | null;
   noncontrollingEarningsBasis?: "ttm" | "annual";
-  /** E-5: the NCI amount the base bridge deducted (book, or the earnings share of consolidated equity value). */
+  /**
+   * D-102: the NCI amount the base bridge deducted (book, or the earnings share of consolidated
+   * equity value).
+   */
   noncontrollingDeducted?: number;
   noncontrollingDeductionBasis?: "book" | "earnings-share";
 }
@@ -169,9 +180,9 @@ export interface DcfResult {
   /* D-102: Apply the established noncontrolling earnings key consistently in the common-equity bridge. */
   noncontrollingKeyWithheld?: string;
   /**
-   * FIN-119: set only when the per-share value was withheld because a
-   * temporary-equity claim is refused, or an unsplit total meets the E-5
-   * earnings key (no earlier gate had withheld it).
+   * D-135: set only when the per-share value was withheld because a temporary-equity claim is
+   * refused, or an unsplit total meets the earnings key earnings key (no earlier gate had withheld
+   * it).
    */
   temporaryEquityWithheld?: string;
 }
@@ -433,12 +444,13 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
     temporaryEquityWithheld = unsplitEarningsKeyReason(opts.temporaryEquity!.unsplit);
     gaps.push(gapEntry("valuation.dcf.temporaryEquityAllocation", temporaryEquityWithheld, "warn"));
   }
-  // E-5: book NCI, or a profit share valueCompany sized from positive NCI income (book may be zero).
+  // D-102: book NCI, or a profit share valueCompany sized from positive NCI income (book may be
+  // zero).
   const noncontrollingClaim = (isNum(opts.minorityInterest) && opts.minorityInterest !== 0) || isNum(opts.noncontrollingEarningsShare);
   if (noncontrollingClaim || (isNum(opts.preferred) && opts.preferred !== 0)) {
     notes.push("equity bridge nets minority interest and preferred equity out of EV (in addition to net debt)");
   }
-  // E-5: which NCI basis the bridge used, beside the other.
+  // D-102: which NCI basis the bridge used, beside the other.
   if (noncontrollingClaim && equityValue !== null) {
     bridge.noncontrollingDeducted = noncontrollingDeducted;
     bridge.noncontrollingDeductionBasis = noncontrollingBasis;

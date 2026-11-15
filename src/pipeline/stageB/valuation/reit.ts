@@ -34,15 +34,14 @@ export interface ReitInputs {
   /** D-233: why no count for FFO's own period is established; the per-share figures are withheld with it. */
   sharesWithheldReason?: string | null;
   /**
-   * FIN-311: the market cap the multiples framework priced P/FFO and P/AFFO on
-   * (the quote's admitted market cap), so a report carries one P/FFO.
+   * D-135: the market cap the multiples framework priced P/FFO and P/AFFO on (the quote's admitted
+   * market cap), so a report carries one P/FFO.
    */
   marketCap?: number | null;
   /**
-   * FIN-108, FIN-119-V2: the house enterprise value the multiples framework
-   * computed (`multiples.enterpriseValue.value`, with the lease scope proof,
-   * redeemable preferred and redeemable noncontrolling interest), and the
-   * claims it holds. Never rebuilt here.
+   * D-135: the house enterprise value the multiples framework computed
+   * (`multiples.enterpriseValue.value`, with the lease scope proof, redeemable preferred and
+   * redeemable noncontrolling interest), and the claims it holds. Never rebuilt here.
    */
   enterpriseValue?: { value: number | null; basis: string } | null;
   /** NOI approx = operatingIncome + D&A, when derivable. */
@@ -77,7 +76,15 @@ export interface ReitValuationResult {
   gaps: ManifestEntry[];
 }
 
-/* D-16: REIT valuation block: P/FFO + P/AFFO + implied-cap-rate sketch. FFO and AFFO now arrive already computed (see `computeNareitFfo` in stageB/financialMetrics.ts), which reconstructs available NAREIT components and discloses unreconciled ownership and affiliated entities. This function prints the basis it is given and preserves its uncertainty. When the equity-vs-mortgage sub-map is undetermined every FFO-based figure is withheld: P/FFO on a mortgage REIT is meaningless, and asserting an equity REIT on the strength of SIC 6798 alone is exactly what D-16 forbids. */
+/*
+ * D-16: REIT valuation block: P/FFO + P/AFFO + implied-cap-rate sketch. FFO and AFFO now arrive
+ * already computed (see `computeNareitFfo` in stageB/financialMetrics.ts), which reconstructs
+ * available NAREIT components and discloses unreconciled ownership and affiliated entities. This
+ * function prints the basis it is given and preserves its uncertainty. When the equity-vs-mortgage
+ * sub-map is undetermined every FFO-based figure is withheld: P/FFO on a mortgage REIT is
+ * meaningless, and asserting an equity REIT on the strength of SIC 6798 alone is exactly what D-16
+ * forbids.
+ */
 export function reitValuation(inputs: ReitInputs): ReitValuationResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
@@ -146,7 +153,8 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
   if (ffo === null) {
     gaps.push(gapEntry("valuation.reit.ffo", "FFO missing or non-positive — P/FFO n/m", "warn"));
   }
-  // FIN-108: the block reads the multiples' EV as computed (one EV per report); a withheld multiples EV withholds this one.
+  // D-135: the block reads the multiples' EV as computed (one EV per report); a withheld multiples
+  // EV withholds this one.
   const ev = mcap !== null && isNum(inputs.enterpriseValue?.value) ? inputs.enterpriseValue.value : null;
   if (ev === null) {
     gaps.push(gapEntry("valuation.reit.enterpriseValue", "the multiples' enterprise value or the market cap is unavailable — EV/implied cap rate unavailable", "info"));

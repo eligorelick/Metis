@@ -11,9 +11,9 @@ import { bridgeToPerShare, unsplitCellsNote } from "./equityBridge";
 // ---------------------------------------------------------------------------
 
 /**
- * B-29 for one grid cell: the cell's own rerun is outside the DCF's domain on
- * the base DCF's tests (equity value at or below zero, or an explicit-period
- * present value below zero), so its per-share is withheld, not published.
+ * D-102 for one grid cell: the cell's own rerun is outside the DCF's domain on the base DCF's tests
+ * (equity value at or below zero, or an explicit-period present value below zero), so its per-share
+ * is withheld, not published.
  */
 function gridCellOutsideDomain(core: DcfCoreOutput, equityValue: number | null): boolean {
   return core.pvExplicit < 0 || (isNum(equityValue) && equityValue <= 0);
@@ -291,7 +291,8 @@ export function reverseDcf(
 ): ReverseDcfResult {
   const hit = { unsplit: false };
   const result = reverseDcfCore(currentPrice, assumptions, opts, hit);
-  // FIN-119: a candidate path whose deduction takes the profit share while an unsplit total is deducted is withheld from the solve.
+  // D-135: a candidate path whose deduction takes the profit share while an unsplit total is
+  // deducted is withheld from the solve.
   if (hit.unsplit) {
     const note = unsplitCellsNote(opts.temporaryEquity!.unsplit);
     result.notes.push(note);

@@ -31,9 +31,10 @@ export const S2C_HISTORY_MIN_YEARS = 3;
 /* D-104: Establish sales-to-capital from compatible filed history before using it in valuation. */
 export const S2C_HISTORY_MIN_RATIO = 0.1;
 /**
- * D-65: the clause of the long-term-investments provenance that says what the sales-to-capital denominator does with
- * the holding. `compute.ts` writes it into the filed provenance; the bridge swaps it for the exceed wording when the
- * holding meets or exceeds invested capital (FIN-304), where it would be untrue.
+ * D-65: the clause of the long-term-investments provenance that says what the sales-to-capital
+ * denominator does with the holding. `compute.ts` writes it into the filed provenance; the bridge
+ * swaps it for the exceed wording when the holding meets or exceeds invested capital (D-135), where
+ * it would be untrue.
  */
 export const LONG_TERM_INVESTMENTS_REMOVED_CLAUSE = "the amount the sales-to-capital denominator removes as non-operating";
 export const TERMINAL_G_CAP_PCT = 2.5;
@@ -122,8 +123,8 @@ export function financeLeaseOnlyTotal(total: number | null, operating: number | 
 }
 
 /**
- * FIN-109: the EV basis clause for a finance-lease-only total. One wording for the live basis and for the display-time
- * correction of a stored report (`withLegacyBridgeMethod`, D-67).
+ * D-135: the EV basis clause for a finance-lease-only total. One wording for the live basis and for
+ * the display-time correction of a stored report (`withLegacyBridgeMethod`, D-67).
  */
 export function financeLeaseOnlyEvClause(total: number): string {
   return `the recorded finance-lease observation of ${millions(total)} stays in EV and net debt on both bases under the retained convention; operating-lease coverage remains unverified and EV uses the retained debt basis`;
@@ -169,8 +170,9 @@ export function establishedSalesToCapital(
     if (temporary !== null && temporary.refusal !== null) { refused.push(`FY${date}`); continue; }
     const ic = debt + equity + (temporary === null ? 0 : temporary.capitalTotal) - row.cashAndShortTermInvestments;
     const lti = isNum(row.longTermInvestments) && row.longTermInvestments > 0 ? row.longTermInvestments : 0;
-    // FIN-304: a holding that meets or exceeds the year's capital leaves no operating capital; the ratio approaches the
-    // house cap from below, so the year counts at the cap (never revenue over the full capital).
+    // D-135: a holding that meets or exceeds the year's capital leaves no operating capital; the
+    // ratio approaches the house cap from below, so the year counts at the cap (never revenue over
+    // the full capital).
     if (ic > 0) {
       years.set(date, ic - lti > 0 ? revenue / (ic - lti) : S2C_CLAMP[1]);
       if (ic - lti <= 0) cappedYears.add(date);

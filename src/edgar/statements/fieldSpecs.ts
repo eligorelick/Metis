@@ -24,9 +24,14 @@ type UnitKind = "money" | "perShare" | "shares";
  * the absent-component note, exactly as tag names do for `sumAny`.
  */
 export type ChainSpec =
-  /* D-134: Filed operands must describe one presentation, and missing or incompatible operands are disclosed. */
+  /*
+   * D-134: `unlessBelow` lists components contained by the figure. A synonym below a component for
+   * the same period is a subset line: skip it with a note and try the next synonym. If every
+   * present synonym is skipped, return null and record a refusal so the chain may try its next
+   * step.
+   */
   | { kind: "first"; tags: string[]; unit: UnitKind; sign?: -1; disclose?: string; unlessBelow?: readonly string[];
-      /** FIN-510-V1: siblings without evidenced containment must agree to serve the field. */
+      /** D-134: siblings without evidenced containment must agree to serve the field. */
       requireAgreement?: boolean;
       /** Extra floors for one synonym only (a component that contains that synonym but not the others). */
       unlessBelowTag?: Readonly<Record<string, readonly string[]>> }
@@ -45,12 +50,20 @@ export type ChainSpec =
       parts: {
         label: string;
         spec: ChainSpec;
-        /* D-134: Skip a missing component only when the specified filed adjustment serves and disclose the omission. */
+        /*
+         * D-134: A part may be absent only when its `adjustmentTag` aggregate served among the
+         * subtrahends. Skip the part and add its disclosure in that case; otherwise refuse the
+         * derivation and name the missing part.
+         */
         optionalWhenAdjustment?: { adjustmentTag: string; disclose: string; discloseUnusable: (problem: string) => string };
       }[];
       unit: "money";
       disclose?: string;
-      /* D-134: Refuse an incomplete derivation with a named missing operand. */
+      /*
+       * D-134: When `refuseWhenIncomplete` is set, a required part that is absent or resolves in
+       * another unit records a refusal naming the part, so derived EBIT ends in a disclosed
+       * withholding. Other `sumAll` chains return null quietly.
+       */
       refuseWhenIncomplete?: boolean;
       minusAny?: {
         label: string;
@@ -63,12 +76,20 @@ export type ChainSpec =
          */
         notWhenBaseTag?: readonly string[];
       }[];
-      /* D-134: Do not add a part already contained in a served adjustment. */
+      /*
+       * D-134: When `partTag` served a part and `adjustmentTag` served an adjustment that contains
+       * it, do not add the part and emit `disclose`. If another tag served `partLabel`, probe
+       * `partTag` for the same period across filings; when found, omit that part too and emit
+       * `discloseRefiled`.
+       */
       notAddedWhen?: readonly { partTag: string; adjustmentTag: string; disclose: string; partLabel?: string; discloseRefiled?: string }[];
       discloseAdjusted?: (ctx: {
         subtracted: string[];
         unavailable: string[];
-        /* D-134: Filed for the period but not usable on this row (another currency or period), with why . */
+        /*
+         * D-134: Retain the reason a fact filed for the period is unusable on this row, including
+         * currency or period mismatches.
+         */
         unusable: { label: string; problem: string }[];
         alreadyInside: string[];
         /** Skipped because the base tag that served excludes them by definition. */
@@ -86,7 +107,11 @@ export type ChainSpec =
       kind: "chain";
       steps: ChainSpec[];
       unit: UnitKind;
-      /* D-134: Filed operands must describe one presentation, and missing or incompatible operands are disclosed. */
+      /*
+       * D-134: A refusal ends a `stopOnRefusal` chain instead of trying the next step. In the
+       * filed-then-derived operating-income chain, a filed line withheld for presentation must not
+       * be reconstructed from operands moved by a reclassification.
+       */
       stopOnRefusal?: true;
       /** Revenue only: a later complete gross-profit presentation can supersede a discontinued total tag. */
       preferLaterRevenuePresentation?: true;
@@ -134,11 +159,9 @@ const DEBT_COMPONENT_CLASSES = [
 ] as const;
 const CURRENT_DEBT_COMPONENT_TAGS: ReadonlySet<string> = new Set(DEBT_COMPONENT_CLASSES.flatMap(([, current]) => tagsFor(current)));
 /**
- * Two instrument classes within this share of each other are taken to be one
- * obligation tagged twice: secured debt is a collateral class that can hold the
- * same notes or loans. Across SEC filers' FY2025 facts, every multi-class pair
- * this close was a duplicate (Sun Communities, UMH, American Assets, Babcock &
- * Wilcox), while REIT mortgages beside unsecured notes sit far apart.
+ * D-100: Treat instrument classes within the established relative band as one obligation tagged
+ * twice: a collateral class such as secured debt can contain the same notes or loans. The band
+ * identifies overlapping classes; it does not authorize adding near-duplicate obligations.
  */
 const DUPLICATE_DEBT_CLASS_SHARE = 0.02;
 
@@ -249,7 +272,7 @@ const DEPRECIATION_SPEC: ChainSpec = {
   kind: "chain",
   unit: "money",
   steps: [
-    // A combined tag below the same period's Depreciation or amortization is a subset line (FIN-510).
+    // A combined tag below the same period's Depreciation or amortization is a subset line (D-134).
     { kind: "first", tags: tagsFor("depreciationAndAmortization"), unit: "money", unlessBelow: [...DEPRECIATION_COMPONENT_TAGS], unlessBelowTag: tagFloorsFor("depreciationAndAmortization") },
     {
       kind: "sum",
@@ -298,8 +321,8 @@ const DISCONTINUED_ELEMENT_FIELDS: readonly { field: string; spec: ChainSpec }[]
   ...tagsFor("discontinuedOperationsIncome").map((tag) => ({ tag, unit: "money" as const })),
 ].map(({ tag, unit }) => ({ field: `discontinued:${tag}`, spec: { kind: "first", tags: [tag], unit } }));
 /**
- * The discontinued-operations elements a re-filing carries for a period it re-presents (ASC 205-20-45-3,
- * 45-3A): their presence, new or moved, is the one label companyfacts can show (decision C-9, `representationLabelled`).
+ * D-134: New or moved discontinued-operations elements label a re-presented period under ASC
+ * 205-20-45-3 and 45-3A. `representationLabelled` checks that evidence in companyfacts.
  */
 export const DISCONTINUED_LABEL_TAGS: readonly string[] = [
   ...tagsFor("netIncomeFromDiscontinuedOperations"),
@@ -341,7 +364,12 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   sellingAndMarketingExpenses: lineItemChain("sellingAndMarketingExpenses", "money"),
   generalAndAdministrativeExpenses: lineItemChain("generalAndAdministrativeExpenses", "money"),
   operatingExpenses: lineItemChain("operatingExpenses", "money"),
-  /* D-134: Derive operating income from filed operating and non-operating totals without double-counting nested adjustments. */
+  /*
+   * D-134: When operating income is not filed, derive it from pretax income plus admitted interest,
+   * subtracting non-operating items. Subtract the non-operating aggregate or its components, never
+   * both, and subtract equity-method results where admitted. Name unsubtracted items as the error
+   * band. Interest is optional beside the specified filed aggregate.
+   */
   operatingIncome: {
     kind: "chain",
     unit: "money",
@@ -464,7 +492,10 @@ function describeDerivedEbit(ctx: {
       `error band — the filer tags none of ${errorBand.join(", ")} for this period, so any such item stays inside the figure`,
     );
   }
-  // A filed item that cannot be used on this row is named with why: it is not subtracted, so it stays inside (M-3).
+  /**
+   * D-134: Name each filed item that cannot be used on this row and why. It is not subtracted, so
+   * it remains in the figure error band.
+   */
   const unusableBand = standInComponents.length > 0 ? ctx.unusable.filter((u) => u.label !== aggregate) : ctx.unusable;
   for (const u of unusableBand) parts.push(`error band — ${u.label} ${u.problem}, so it is not subtracted and stays inside the figure`);
   if (errorBand.length === 0 && unusableBand.length === 0 && ctx.subtracted.length === 0) {
@@ -473,7 +504,12 @@ function describeDerivedEbit(ctx: {
   return `${head}; ${parts.join("; ")}`;
 }
 
-/* D-19: Operating and finance lease liabilities, each as "tagged total, else the current + noncurrent split". FMP's `capitalLeaseObligations` carries BOTH (Apple FY2025: operating ~12.5B + finance ~1.2B = 13.72B) and its `totalDebt` includes the pair, so both belong here or net debt, ROIC's invested capital and the historical cost-of-debt denominator all drift off the house numbers. The two parts stay individually addressable (`Resolved.parts`): `computeBalance` publishes the operating slice as its own field, because that is the only slice the enterprise-value bridge may remove . */
+/*
+ * D-19: Resolve operating and finance leases separately as a tagged total or current plus
+ * noncurrent components. `capitalLeaseObligations` contains both and belongs in total debt. Keep
+ * both parts addressable through `Resolved.parts`; publish the operating slice separately because
+ * only that slice may leave the enterprise-value bridge.
+ */
 const OPERATING_LEASE_PORTION_DISCLOSURE =
   "only one maturity of the operating-lease liability is tagged for the period; the other portion is unverified, so lease-inclusive debt is unavailable and only the lease-excluded basis can use this row";
 
@@ -509,9 +545,8 @@ const LEASE_LIABILITY_SPEC: ChainSpec = {
 };
 
 /**
- * The current portion of long-term debt AND finance leases, as Home Depot and
- * other retailers tag their current installments. `resolveDebtOverlaps` keeps
- * its finance-lease slice from being counted twice.
+ * D-100: This tag contains current maturities of both long-term debt and finance leases.
+ * `resolveDebtOverlaps` prevents the finance-lease slice from being counted twice.
  */
 const COMBINED_CURRENT_TAG = COMBINED_CURRENT_DEBT_TAG;
 
@@ -599,21 +634,11 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
   },
   totalAssets: lineItemChain("totalAssets", "money"),
   /**
-   * D-13 order: the filed total (`DebtCurrent`) first; then the sum of the
-   * balance-sheet current-debt lines the filer did tag.
-   *
-   * That sum has TWO components, because short-term borrowings and the current
-   * maturities of long-term debt are different instruments and a filer can tag
-   * one without the other. The maturity schedule's next-twelve-months principal
-   * is the stand-in for the CURRENT-MATURITIES COMPONENT ALONE — a note
-   * disclosure rather than a balance-sheet line, disclosed as a stand-in on
-   * every row it serves. Making it a step of the whole chain (as this did
-   * before) meant a filer that tagged `ShortTermBorrowings` while tagging its
-   * current maturities only by extension lost the current maturities entirely:
-   * Caterpillar FY2024 published short-term debt 5,514 against a filed 12,634,
-   * understating total debt by 7.12B. `resolveDebtOverlaps` case 5 still nets
-   * the schedule figure out whenever a balance-sheet current-maturities tag
-   * did resolve, so it is never counted twice.
+   * D-13, D-100: Try the filed DebtCurrent total first, then sum the balance-sheet short-term
+   * borrowings and current maturities as distinct components. The next-twelve-month maturity
+   * schedule may replace only the current-maturities component, with a stand-in disclosure on each
+   * served row. Do not let a resolved borrowing line suppress missing current maturities. When a
+   * balance-sheet maturity tag resolves, exclude the schedule amount to avoid counting it twice.
    */
   shortTermDebt: {
     kind: "chain",
@@ -695,12 +720,9 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
   retainedEarnings: lineItemChain("retainedEarnings", "money"),
   accumulatedOtherComprehensiveIncomeLoss: lineItemChain("accumulatedOtherComprehensiveIncomeLoss", "money"),
   /**
-   * Caterpillar tags no StockholdersEquity line — only the total including
-   * noncontrolling interest — so invested capital, the DCF and the multiples
-   * EV bridge were all suppressed. Parent equity is that total less the
-   * noncontrolling interest when the filer tags one. Without either a parent
-   * line or an NCI allocation, parent equity remains unavailable; consolidated
-   * totalEquity can still support consolidated operating returns.
+   * D-108: When no parent-equity line is filed, derive parent equity from consolidated equity less
+   * an established NCI allocation. Without either the parent line or the allocation, parent equity
+   * remains unavailable; consolidated equity can still support consolidated operating returns.
    */
   totalStockholdersEquity: {
     kind: "chain",

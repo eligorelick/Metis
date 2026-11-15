@@ -71,7 +71,7 @@ export interface CoverShareCount {
   collapsedRepeats: number;
 }
 
-/** The largest class may exceed the smallest by this factor before the sum is flagged (N2). */
+/** D-149: Flag the class sum when the largest class exceeds the smallest by this factor. */
 export const CLASS_SIZE_RATIO_WARN = 100;
 
 /**
@@ -133,10 +133,9 @@ export function coverShareCountsByPeriod(points: readonly FactPoint[]): CoverSha
 }
 
 /**
- * N1: two classes with identical share counts are byte-identical facts in
- * companyfacts, so the repeat is dropped and the total silently halves. The
- * source cannot tell the two cases apart, so the ambiguity is disclosed rather
- * than resolved by picking one.
+ * D-149: Equal per-class counts can be byte-identical companyfacts observations that
+ * deduplication collapses. The source cannot distinguish a repeated observation from a second
+ * equal-sized class, so disclose the ambiguity instead of choosing a count.
  */
 export function classAmbiguityNote(count: CoverShareCount): string | null {
   if (count.collapsedRepeats === 0) return null;
@@ -152,9 +151,9 @@ export function classAmbiguityNote(count: CoverShareCount): string | null {
 }
 
 /**
- * N2: summing raw per-class counts assumes equal per-share economics. Berkshire's
- * B shares convert 1:1500 to an A share, so a raw sum of the two classes is off
- * by an order of magnitude as a measure of economic ownership.
+ * D-149: Summing raw counts across common classes assumes equal per-share economics. A fixed
+ * conversion ratio can make that sum materially misstate economic ownership, so a large class-size
+ * ratio requires an explicit basis warning.
  */
 export function classRatioNote(count: CoverShareCount): string | null {
   if (count.classes.length < 2) return null;
