@@ -209,7 +209,7 @@ filing"); every P12 grade-qualification code limits support (`missing-applicable
 `limited-applicable-evidence` name the grade by its typed aspect; `current-valuation-unavailable` when no fair-value
 limitation already covers it); a grade with no recorded qualification, or status unknown, reads "this saved report
 does not record the evidence behind its grades"; a saved cash-flow valuation stamped before 1.98.0
-(`TAX_OPERAND_EVIDENCE_SINCE_SPEC`, a frozen display cutoff) reads "this saved report does not record whether the tax
+(`TAX_OPERAND_EVIDENCE_SINCE_SPEC`, a frozen display cutoff) reads "this report does not record whether the tax
 rate's operands were checked against a filing". README and `SUPPORT_LEVELS` now say "every grade rests on complete
 recorded evidence" and "or the report does not record the evidence to show it"; a test reads both from the module.
 Finding 3: the confirmed count uses the presentation layer's own statement identity (`claimEchoKey`, which includes the
@@ -223,7 +223,8 @@ META (both), LLY #63, O, PLD, DUK, FIGR, RIVN, VKTX (plus their grade reasons); 
 unchecked tax-rate operands). Confirmed statements are unchanged: AMZN 34 of 116, META 43 of 117, MU 34 of 132, NVDA
 30 of 111, JPM #64 23 of 284, LLY #63 57 of 256, LLY #65 84 of 287, TSM #66 27 of 241 (no panel report holds a
 validated and a contradicted copy of one statement). Fair values: all 33 unchanged (`golden:value-check`); Stage B
-changes only the label removal and the new typed entry; accuracy unchanged (330 match, 14 mismatch, 121 gap, 70 not
+changes only the label removal and the new typed entry, which also reaches the payload's missing-data list for NVO,
+TSM, TSM #66 and XOM (the frozen `stagec-payload` record is re-recorded under D-300); accuracy unchanged (330 match, 14 mismatch, 121 gap, 70 not
 established).
 
 **Version (review round 1, finding 4).** Report 1.98.0 (above main's 1.97.0), payload 1.111.0, Stage B

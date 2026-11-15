@@ -185,6 +185,15 @@ describe("retained forensic observation context on real data-only exports", () =
     // observed at the balance date, so every value is unchanged; the four leaves the dated history adds are asserted
     // exactly below and restored, and the pin keeps checking every other byte.
     const computed = runStageB(fixture(undefined, BALANCE_DATE_CAP), { evIncludeLeases: false });
+    // D-300 review round 1: this fixture's tax-rate operands are vendor rows with no filed family, so Stage B adds the
+    // typed manifest entry beside the unchanged basis wording. Assert it exactly, then remove it; no number moves.
+    const taxOperands = { field: "valuation.dcf.taxOperands", reason: "Tax rate operands: vendor data, not checked against a filing", severity: "info" };
+    for (const list of ["valuation", "root"] as const) {
+      const gaps = list === "root" ? computed.gaps : computed.valuation.gaps;
+      expect(gaps.filter(g => g.field === taxOperands.field)).toEqual([taxOperands]);
+      const kept = gaps.filter(g => g.field !== taxOperands.field);
+      if (list === "root") computed.gaps = kept; else computed.valuation.gaps = kept;
+    }
     // D-296: the reader-wording change moves only these text leaves (no number). Assert each new text, then
     // restore the preceding bytes before the earlier release deltas below.
     for (const delta of releaseW4aDeltas) {

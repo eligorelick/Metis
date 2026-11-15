@@ -130,7 +130,7 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
   // qualification is not shown to be supported, so it cannot establish full support (P19).
   const qualification = report.scores === undefined ? undefined : report.scores.qualification;
   if (report.scores !== undefined && (qualification === undefined || qualification.composite.status === "unknown")) {
-    add("grade-qualification-not-recorded", "this saved report does not record the evidence behind its grades");
+    add("grade-qualification-not-recorded", "this report does not record the evidence behind its grades");
   }
   const missingGrades: string[] = [], limitedGrades: string[] = [];
   for (const reason of qualification?.composite.reasons ?? []) {
@@ -149,7 +149,7 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
         add("current-valuation-unavailable", "the valuation is not established as current at the quote date");
       }
     }
-    else add("grade-qualification-not-recorded", "this saved report does not record the evidence behind its grades");
+    else add("grade-qualification-not-recorded", "this report does not record the evidence behind its grades");
   }
   if (missingGrades.length > 0) add("grade-evidence-missing", `the ${gradeList(missingGrades)} ${missingGrades.length === 1 ? "has" : "have"} no evidence that applies on this company's route`);
   if (limitedGrades.length > 0) add("grade-evidence-limited", `the ${gradeList(limitedGrades)} ${limitedGrades.length === 1 ? "rests" : "rest"} on limited evidence`);
@@ -160,7 +160,7 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
   const dcfHeadline = fv !== undefined && fv.method === "fcff-dcf" && (fv.status === "available" || fv.status === "dated-reference");
   if (gaps.some(gap => gap.field === DCF_TAX_OPERANDS_FIELD)) add("tax-operands-vendor", "the tax rate of the cash-flow valuation uses provider tax and pre-tax income figures not checked against a filing");
   else if (dcfHeadline && specVersionBefore(report.meta?.specVersion, TAX_OPERAND_EVIDENCE_SINCE_SPEC)) {
-    add("tax-evidence-not-recorded", "this saved report does not record whether the tax rate's operands were checked against a filing");
+    add("tax-evidence-not-recorded", "this report does not record whether the tax rate's operands were checked against a filing");
   }
   // statementEvidenceEntries (assessment.ts) writes these two typed fields.
   if (gaps.some(gap => gap.field === "statements.foreignInterim")) add("foreign-interim-vendor", "interim figures from Form 6-K are vendor data not checked against a filing");

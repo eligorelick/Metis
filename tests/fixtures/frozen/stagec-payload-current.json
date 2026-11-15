@@ -1,13 +1,13 @@
 {
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
-  "payloadVersion": "1.110.0",
-  "fingerprint": "1.110.0:e9e737d2",
-  "summary": {"promptBytes": 187264, "promptFnv1a32": "e9e737d2", "provenanceCount": 547, "provenanceHash": "693836f4", "provenanceIdsHash": "596aaa95", "citationCount": 92, "citationHash": "0598d06e", "computedFigureLabelHash": "0212433e", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "64617bc0"},
+  "payloadVersion": "1.111.0",
+  "fingerprint": "1.111.0:f0137c05",
+  "summary": {"promptBytes": 187399, "promptFnv1a32": "f0137c05", "provenanceCount": 547, "provenanceHash": "693836f4", "provenanceIdsHash": "596aaa95", "citationCount": 93, "citationHash": "673d6ddf", "computedFigureLabelHash": "0212433e", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "5d30cf2e"},
   "prompt": {
-    "bytes": 187264,
-    "sha256": "e21873fd9b789510b3bdbd4b21258cd1408ba2642280e80a46b461af406e5473",
+    "bytes": 187399,
+    "sha256": "ce9cc1c470b02a7866a1cf1b1561cd8749d4df956bb33f28ebd43ac26a4459d9",
     "sections": [
-      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "db215874610b4ac8c9014fb92ce213bfeeb1d9e4a48a0fa242348aa96cbb216f"},
+      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "888848b7a80b3bbe2d3177cfc6a09e7cc28eba0ef543f76ab72f3d3b21c5a7c1"},
       {"heading": "## Quote", "bytes": 520, "sha256": "5146e60fd664d5a82bbbf06b3413303e1136d43422948e7ad1e8c645380d4026"},
       {"heading": "## Growth & margins (computed)", "bytes": 2984, "sha256": "0a99f8d4e346e47a0c3816bac522e18117123512e830df57a2ae624db2407749"},
       {"heading": "## Returns (computed)", "bytes": 4586, "sha256": "1891ac95f8567e76ef1f3493b9119cce7d2e0f0ab72a2a4d2314c65c60e03462"},
@@ -41,7 +41,7 @@
       {"heading": "## Provider transcript/filing excerpt (untrusted source data)", "bytes": 42429, "sha256": "142ad099d12461e67d7228103d1f0a373f126d4271501a0c4c221125bcc46615"},
       {"heading": "## Provider news/press snippets (untrusted source data)", "bytes": 314, "sha256": "5188737400534b60ef1e78266e8a1e16b0ea53af3b87978db4ae3258c80674d1"},
       {"heading": "## Data-quality flags (Stage A validation; untrusted provider data)", "bytes": 796, "sha256": "bd25f9b7783f7e0714ee8cb26ac9a3a541a7bd23915bda9a7b8cd5e2fcffde84"},
-      {"heading": "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "bytes": 9226, "sha256": "70f02fabbed7e45177eaf319a009bc9ce95f2b4b2491b9c705c49b1c06d2581f"}
+      {"heading": "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "bytes": 9361, "sha256": "857d9b47d603d1ec05f7a80334ae35fa642e90ace95d763dd818ab41b5874a84"}
     ]
   },
   "projectionPathPeriodMatrix": [
@@ -2347,6 +2347,7 @@
         {"field": "valuation.multiples.ownHistory", "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)", "severity": "info"},
         {"field": "valuation.dcf.growthAnchor", "reason": "growth-anchor method(s) unavailable: 5y revenue CAGR — the point estimate is the median of the 3 that were computable", "severity": "info"},
         {"field": "valuation.dcf.terminalRoic.waccBasis", "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC", "severity": "info"},
+        {"field": "valuation.dcf.taxOperands", "reason": "Tax rate operands: vendor data, not checked against a filing", "severity": "info"},
         {
           "field": "valuation.analystEstimates.currency",
           "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own; the analyst-consensus growth case uses them in USD",
@@ -5833,6 +5834,7 @@
     {"id": "manifest.scores.valuation.peOwnHistoryRank", "kind": "payload-gap", "asOf": null, "origin": "scores.valuation.peOwnHistoryRank"},
     {"id": "manifest.valuation.analystEstimates.currency", "kind": "payload-gap", "asOf": null, "origin": "valuation.analystEstimates.currency"},
     {"id": "manifest.valuation.dcf.growthAnchor", "kind": "payload-gap", "asOf": null, "origin": "valuation.dcf.growthAnchor"},
+    {"id": "manifest.valuation.dcf.taxOperands", "kind": "payload-gap", "asOf": null, "origin": "valuation.dcf.taxOperands"},
     {"id": "manifest.valuation.dcf.terminalRoic.waccBasis", "kind": "payload-gap", "asOf": null, "origin": "valuation.dcf.terminalRoic.waccBasis"},
     {"id": "manifest.valuation.multiples.enterpriseValue.leases", "kind": "payload-gap", "asOf": null, "origin": "valuation.multiples.enterpriseValue.leases"},
     {"id": "manifest.valuation.multiples.ownHistory", "kind": "payload-gap", "asOf": null, "origin": "valuation.multiples.ownHistory"},
@@ -5843,7 +5845,7 @@
     {"id": "fmp:key-executives", "kind": "payload-text", "asOf": null, "origin": "fmp:key-executives"}
   ],
   "payload": {
-    "payloadVersion": "1.110.0",
+    "payloadVersion": "1.111.0",
     "symbol": "AAPL",
     "companyName": "Apple Inc.",
     "route": {"base": "general", "overlays": [], "sector": "Technology", "industry": "Consumer Electronics"},
@@ -9027,6 +9029,7 @@
         "attemptedSources": ["fmp:/stable/analyst-estimates"]
       },
       {"field": "valuation.dcf.growthAnchor", "reason": "growth-anchor method(s) unavailable: 5y revenue CAGR — the point estimate is the median of the 3 that were computable", "severity": "info"},
+      {"field": "valuation.dcf.taxOperands", "reason": "Tax rate operands: vendor data, not checked against a filing", "severity": "info"},
       {"field": "valuation.dcf.terminalRoic.waccBasis", "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC", "severity": "info"},
       {"field": "valuation.multiples.enterpriseValue.leases", "reason": "2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.", "severity": "info"},
       {"field": "valuation.multiples.ownHistory", "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)", "severity": "info"},
