@@ -44,12 +44,12 @@ interface Resolved {
   evidence: StatementFieldProvenance;
   /** The two filed copies a derived value nets (minuend, then subtrahend); absent for a directly filed value. */
   operands?: readonly FactPoint[];
-  /** The later copy that re-filed the minuend, when the first-reported pair stands in (C-9's within-1% or labelled case). */
+  /** The later copy that re-filed the minuend, when the first-reported pair stands in (D-134: within 1%, or labelled). */
   refiledBy?: FactPoint;
 }
 
 /**
- * One enrichment call's derivation state (audit 2026-10-27 FIN-511-V2): the C-9 label copies, the derivations
+ * One enrichment call's derivation state (D-134): the discontinued-operations label copies, the derivations
  * `oneBasisPair` withheld (tag and period end), and the vendor fields those left unverified (field to dates),
  * disclosed once per field.
  */
@@ -154,7 +154,7 @@ function unambiguousNewest(candidates: FactPoint[]): FactPoint | null {
 
 /**
  * Every core copy of every discontinued-operations element, with its tag and unit: the one re-presentation label
- * companyfacts carries (decision C-9; the statement builder reads the same tags). Read once per enrichment call.
+ * companyfacts carries (D-134; the statement builder reads the same tags). Read once per enrichment call.
  */
 function labelCopies(facts: CompanyFacts, observedAt: string): LabelCopy[] {
   return DISCONTINUED_LABEL_TAGS.flatMap((tag) => {
@@ -165,7 +165,7 @@ function labelCopies(facts: CompanyFacts, observedAt: string): LabelCopy[] {
 
 /**
  * Direct and YTD-derived flows use the exact emitted start/end interval. A derived quarter nets two copies on one
- * presentation, chosen by `oneBasisPair` as in the statement builder (audit 2026-10-27 FIN-511-V2, decision C-9): a
+ * presentation, chosen by `oneBasisPair` as in the statement builder (D-134): a
  * pair that would net two presentations, or a copy that a material re-filing labelling no re-presentation
  * superseded, gives no SEC value, so nothing is compared or written.
  */
@@ -201,8 +201,8 @@ function filedFlow(facts: CompanyFacts, tag: string, unit: string, end: string, 
   return out;
 }
 /**
- * A vendor figure against SEC values: A-11, or for a value derived from filed operands (every part derived), A-11
- * widened to the operands' rounding (audit 2026-10-27 FIN-511-V2, `vendorAgreesWithDerived`). `value` is the parts'
+ * A vendor figure against SEC values: D-103, or for a value derived from filed operands (every part derived), D-103
+ * widened to the operands' rounding (D-134, `vendorAgreesWithDerived`). `value` is the parts'
  * figure as compared (signed, or summed).
  */
 function agreesWithSec(vendor: number, value: number, parts: readonly Resolved[]): boolean {
@@ -527,7 +527,7 @@ export function admitFiledInterestExpense<T extends FmpStatementRow>(row: T, fac
     gaps: [{ field, reason, severity: "info", expected: true }] };
 }
 
-/** R9: retain exactly the annual capex tag basis; no new quarterly capex synonyms or component sums. */
+/** D-164: retain exactly the annual capex tag basis; no new quarterly capex synonyms or component sums. */
 export function filedCapexTtm(facts: CompanyFacts, annualRow: FmpCashFlowRow | undefined, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
   if (!annualRow || annualRow.fieldConflicts?.capitalExpenditure?.usable === false || annualRow.reportedCurrency !== unit || typeof annualRow.capitalExpenditure !== "number" || !Number.isFinite(annualRow.capitalExpenditure)) return null;
   const provenance = annualRow.fieldProvenance?.capitalExpenditure;
@@ -1009,7 +1009,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
         continue;
       }
     }
-    // FIN-511-V2: a quarter derived from two filings is called derived, never filed.
+    // D-134: a quarter derived from two filings is called derived, never filed.
     const [vendorText, secText] = millionsPair(vendor, value);
     const reason = sec.operands
       ? `vendor/SEC ${field} conflict: derived ${secText} ${unit} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}; vendor ${vendorText}; field unavailable until reconciled`
@@ -1355,7 +1355,7 @@ function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: Compan
       freeCashFlow: finite(row.freeCashFlow) ? row.freeCashFlow : null, freeCashFlowOpen: row.fieldConflicts?.freeCashFlow?.usable !== false });
     if (adopted) return adopted;
   }
-  // FIN-511-V2: a quarter derived from two filings is called derived, never filed.
+  // D-134: a quarter derived from two filings is called derived, never filed.
   const secText = sec.operands
     ? `derived ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`
     : `filed ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd}`;
@@ -1397,7 +1397,7 @@ function admitInvestmentFlows<T extends FmpStatementRow>(row: T, facts: CompanyF
   const expected: Record<string, number> = { purchasesOfInvestments: -purchase!.value, salesMaturitiesOfInvestments: sale!.value + maturity!.value };
   const expectedParts: Record<string, Resolved[]> = { purchasesOfInvestments: [purchase!], salesMaturitiesOfInvestments: [sale!, maturity!] };
   if (!Object.entries(expected).some(([field,value]) => typeof row[field] === "number" && Number.isFinite(row[field]) && !agreesWithSec(row[field], value, expectedParts[field]!))) return { row, gaps: [] };
-  // FIN-511-V2: the three parts share their filings, so they are all derived or all filed directly.
+  // D-134: the three parts share their filings, so they are all derived or all filed directly.
   const amounts = purchase!.operands
     ? `derived ${millions(-purchase!.value)} short-term purchases and ${millions(sale!.value + maturity!.value)} sales/maturities ${currency} ` +
       `for ${evidence.periodStart} through ${evidence.periodEnd} ${derivedFrom(purchase!)}`
@@ -1435,7 +1435,7 @@ export interface FiledBorrowings {
 /**
  * D-234 (P7, P8): a vendor debt total that is the filing's debt plus a payable the filer does not present
  * as debt. A held-for-sale lender's vendor row can carry "payables to third-party loan owners" inside
- * short-term debt (FIGR, 2026-06-30: 1,474.457M against filed borrowings of 962.995M). The debt checks
+ * short-term debt (one lender, at a quarter end: 1,474.457M against filed borrowings of 962.995M). The debt checks
  * above only ask whether a vendor row left a filed component out, never whether it added one, so that
  * total stood. Established only when ONE filing, at the row's date and in its currency, proves every part:
  *
@@ -1555,7 +1555,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     instant(facts, "LongTermDebtMaturitiesRepaymentsOfPrincipalRemainderOfFiscalYear", currency, row.date, observedAt)?.value ?? null) : null;
   // An inclusive LongTermDebt beside the maturity bucket alone: a refused
   // bucket withholds the current/noncurrent split, never the total the
-  // statements built from LongTermDebt itself (audit 2026-10-22 B-40).
+  // statements built from LongTermDebt itself (D-100).
   const only = (field: "shortTermDebt" | "longTermDebt", tag: string): boolean =>
     out.fieldProvenance?.[field]?.tags.length === 1 && out.fieldProvenance[field]!.tags[0] === `us-gaap/${tag}`;
   // Only the split's own refusals are exempt: the bucket's scope, and the
@@ -1730,7 +1730,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   const inclusiveTotal = splitOnly ? instant(facts, "LongTermDebt", currency, row.date, observedAt)?.value ?? null : null;
   const convertibleReason = omittedConvertibleCarryingReason({ longTermDebt: splitOnly ? inclusiveTotal : out.longTermDebt }, instant(facts, "ConvertibleLongTermNotesPayable", currency, row.date, observedAt)?.value ?? null, vendorAgreesWithFiled);
   // A vendor short-term debt of 0 beside a filed current debt (D-133); a field the SEC statements built carries its tags.
-  // Review m4: a vendor long-term debt that already holds the same filing's current maturities left nothing out.
+  // D-133: a vendor long-term debt that already holds the same filing's current maturities left nothing out.
   const filedCurrent = Object.fromEntries([...CURRENT_DEBT_TAGS, "LongTermDebtNoncurrent"].map((tag) => {
     const fact = instant(facts, tag, currency, row.date!, observedAt);
     return [tag, fact === null ? null : { value: fact.value, accn: fact.evidence.filings[0]?.accn }];
@@ -1753,7 +1753,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
       : { shortTermDebt: out.shortTermDebt, longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }, aggregate?.value ?? null);
     if (principal != null) { reason = principal; cause = maturityScoped ? "debt-maturity-scope" : "debt-components-incomplete"; }
     else {
-      // The statements builder's tagged-total check (B-14), for vendor rows that
+      // The statements builder's tagged-total check (D-100), for vendor rows that
       // never pass through it: a same-period total above the composed components
       // shows one is missing. A kept inclusive total has no split to compose.
       const uncomposed = splitOnly ? null : uncomposedDebtRefusal({ shortTermDebt: out.shortTermDebt, longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability },
@@ -1788,9 +1788,9 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
 }
 
 /**
- * Review m6 (2026-10-29): one row's lease-line completion or stake fill. The
+ * D-133: one row's lease-line completion or stake fill. The
  * row keeps its own provenance; the manifest gets one entry per kind listing
- * the dates (`balanceAdmissionEntries`), not one entry per row: on report #51
+ * the dates (`balanceAdmissionEntries`), not one entry per row: on one report
  * the per-row entries were 51 entries and about 25K characters in every LLM pass.
  */
 export interface BalanceAdmission {
@@ -1922,7 +1922,7 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       const pure = own("LongTermDebtNoncurrent") ?? own("LongTermNotesAndLoans"), combined = own("LongTermDebtAndCapitalLeaseObligations");
       if (combined !== null && !fin.split) continue;
       // Both scopes filed: debt including finance leases must equal pure debt plus the
-      // noncurrent finance lease, also when that lease is zero (PR #86 review).
+      // noncurrent finance lease, also when that lease is zero (D-179).
       if (pure !== null && combined !== null && !eq(combined, pure + fin.noncurrent)) throw new Error("ambiguous noncurrent finance-lease overlap");
       const noncurrent = pure ?? (combined === null ? zeroBorrowings ? 0 : null : combined - fin.noncurrent);
       const line = row.capitalLeaseObligations as number;
@@ -2031,7 +2031,7 @@ const UNCLASSIFIED_SHEET_DEBT_FAMILIES = ["longTermDebtNotes", "longTermDebtLoan
  * D-250 (P7). An equity REIT presents an unclassified balance sheet and tags its borrowings by instrument
  * (NotesPayable, LoansPayable, SecuredDebt) with no LongTermDebt aggregate, so neither completion above has an
  * anchor: the provider's borrowings-only total stood beside a provider lease line of zero, and the lease guard
- * refused the row because the filed lease liabilities exceed that zero (O, 2026-09-30). A provider zero is
+ * refused the row because the filed lease liabilities exceed that zero (one REIT's quarter). A provider zero is
  * undisclosed, not filed. The row is completed only when ONE filing, at the row's date and in its currency,
  * proves every part:
  *
@@ -2141,7 +2141,7 @@ function completeUnclassifiedSheetDebt<T extends FmpStatementRow>(row: T, facts:
  * only in part: one maturity of the finance lease liability tagged at the row's date, with neither the other
  * maturity nor a total in any filing. The SEC statements builder withholds its own row for the same shape
  * (`partialFinanceLeaseReason`); a provider row, whose lease line can hold that one maturity, passed unchecked
- * (RIVN, 2026-09-30: FinanceLeaseLiabilityNoncurrent 99M, the current portion inside a combined current line).
+ * (one filer's quarter: FinanceLeaseLiabilityNoncurrent 99M, the current portion inside a combined current line).
  * A row the statements builder made carries its lease tags and is left to that builder's rule.
  */
 function partialFinanceFamilyReason(row: FmpStatementRow, facts: CompanyFacts, unit: string, observedAt: string): string | null {
@@ -2157,7 +2157,7 @@ function partialFinanceFamilyReason(row: FmpStatementRow, facts: CompanyFacts, u
 }
 
 /**
- * Audit 2026-10-29, AMZN report #51 (VAL-1, FIG-1, GRD-01; D-133). A vendor
+ * D-133: a vendor
  * lease line can be the balance sheet's NONCURRENT lease liabilities ("Long-term
  * lease liabilities"), with the current lease portion and the current debt left
  * out of the vendor's total debt. SEC enrichment then puts the TOTAL lease
@@ -2225,7 +2225,7 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   if (financeNoncurrent === "elsewhere") return none;
   const noncurrent = operatingNoncurrent + (financeNoncurrent ?? 0);
   if (Math.abs(line - noncurrent) > tolerance(noncurrent)) return none;
-  // Fix round 5, B: "no finance lease is filed" only after every recognised finance-lease synonym (from the synonym
+  // D-133: "no finance lease is filed" only after every recognised finance-lease synonym (from the synonym
   // entry, with the current and noncurrent forms of each total) is absent at this instant; the legacy ASC 840
   // CapitalLeaseObligations is one of them.
   const financeTotals = tagsFor("financeLeaseLiability");
@@ -2233,11 +2233,11 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
     .filter((tag) => tag !== "FinanceLeaseLiabilityNoncurrent");
   const otherFinanceTags = financeNoncurrent !== null ? [] : financeSynonyms.map((tag) => [tag, inFiling(tag)] as const).filter(([, value]) => value !== null);
   const ref = `${filing.form} ${filing.accn}`;
-  // Fix round 3: every amount in these texts reads in millions ("94,338M").
+  // D-133: every amount in these texts reads in millions ("94,338M").
   const lineText = `the vendor lease line ${millions(line)} ${currency} is the ${ref} filing's noncurrent lease liabilities ` +
     `(OperatingLeaseLiabilityNoncurrent ${millions(operatingNoncurrent)}${financeNoncurrent !== null ? ` + FinanceLeaseLiabilityNoncurrent ${millions(financeNoncurrent)}`
       : otherFinanceTags.length > 0 ? "; no FinanceLeaseLiabilityNoncurrent is filed" : "; no finance lease is filed"}) at ${date}`;
-  // Review m2: the consequence states only what the check established; by default, that the row is not completed.
+  // D-133: the consequence states only what the check established; by default, that the row is not completed.
   const refuse = (cause: string, consequence = "the row is not completed from that filing, so total debt and net debt are withheld",
     code: StatementConflictCause = "debt-lease-line-refused"): LeaseLineCompletion<T> => ({ status: "refused",
     reason: `incomplete debt carrying value: ${lineText}, but ${cause}; ${consequence}`, cause: code });
@@ -2276,7 +2276,7 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   if (!finite(longTerm) || longTerm < 0) return refuse("the vendor long-term debt is unavailable");
   if (typeof filedNoncurrentDebt !== "number") return refuse("the vendor long-term debt cannot be matched to a LongTermDebtNoncurrent in that filing, so a current portion inside it cannot be ruled out");
   if (!vendorAgreesWithFiled(longTerm, filedNoncurrentDebt)) return refuse(`the vendor long-term debt ${millions(longTerm)} does not reconcile with the filed LongTermDebtNoncurrent ${millions(filedNoncurrentDebt)}`);
-  // Review m1 (Duke shape): a filer whose noncurrent debt equals its debt-and-lease aggregate may carry the
+  // D-133: a filer whose noncurrent debt equals its debt-and-lease aggregate may carry the
   // noncurrent finance leases inside it, so adding the filed finance-lease total could count them twice.
   const debtAndLeases = inFiling("LongTermDebtAndCapitalLeaseObligations");
   if (typeof debtAndLeases === "number" && typeof financeNoncurrent === "number" && financeNoncurrent > 0 &&
@@ -2291,7 +2291,7 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   const currentTags = ["LongTermDebtCurrent", "ShortTermBorrowings", "CommercialPaper"];
   const taggedParts = currentTags.map((tag) => [tag, inFiling(tag)] as const);
   if (taggedParts.some(([, value]) => value === "elsewhere")) return refuse("the current debt is not established in that one filing");
-  // Fix round 4 (D-133): commercial paper beside ShortTermBorrowings is a component of it, the statements builder's rule.
+  // D-133: commercial paper beside ShortTermBorrowings is a component of it, the statements builder's rule.
   const paperInside = commercialPaperInsideBorrowings(taggedParts.filter(([, value]) => value !== null).map(([tag]) => tag));
   const currentParts = taggedParts.filter(([tag]) => !(paperInside && tag === "CommercialPaper"));
   const paperNote = paperInside ? `; CommercialPaper ${millions(taggedParts[2]![1] as number)} excluded as a component of ShortTermBorrowings` : "";
@@ -2303,16 +2303,16 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
     return refuse(`the composed current debt ${millions(filedCurrent)} does not reconcile with the filing's DebtCurrent ${millions(debtCurrent)}`);
   }
   const keepVendorShort = finite(vendorShort) && vendorShort > 0;
-  // Fix round 2, I-1: the filed current debt a kept vendor figure is checked against, named by its tags and amounts:
+  // D-133: the filed current debt a kept vendor figure is checked against, named by its tags and amounts:
   // LongTermDebtCurrent (with ShortTermBorrowings and CommercialPaper where tagged), else DebtCurrent, else
-  // ShortTermBorrowings plus CommercialPaper (CommercialPaper left out beside ShortTermBorrowings, fix round 4);
+  // ShortTermBorrowings plus CommercialPaper (CommercialPaper left out beside ShortTermBorrowings, as above);
   // null only when the filing tags none of the four.
   const named = (parts: readonly (readonly [string, number | null | "elsewhere"])[]) => parts.filter(([, value]) => value !== null).map(([tag, value]) => `${tag} ${typeof value === "number" ? millions(value) : value}`).join(" + ");
   const borrowings = currentParts.slice(1).filter((part): part is readonly [string, number] => typeof part[1] === "number");
-  // Fix round 5, A: the combined current tag holds the current finance leases, which the completed lease total adds
+  // D-133: the combined current tag holds the current finance leases, which the completed lease total adds
   // again; as the only current-debt evidence it is checked less FinanceLeaseLiabilityCurrent (resolveDebtOverlaps
   // case 4b), as itself when no finance lease is filed, and not at all (a refusal) when that slice is not tagged.
-  // Fix round 6: without LongTermDebtCurrent, a combined figure beside other current-debt evidence holds current
+  // D-133: without LongTermDebtCurrent, a combined figure beside other current-debt evidence holds current
   // maturities that no checked tag names; the row is refused, never composed.
   const combinedTagged = filedCurrent === null ? inFiling(COMBINED_CURRENT_DEBT_TAG) : null;
   if (combinedTagged !== null && (debtCurrent !== null || borrowings.length > 0)) {
@@ -2369,7 +2369,7 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   if (!keepVendorShort) fieldProvenance.shortTermDebt = evidence(filedCurrentTags);
   if (row.operatingLeaseLiability == null) fieldProvenance.operatingLeaseLiability = evidence(operating.tags);
   if (financeNoncurrent !== null && row.financeLeaseLiability == null) fieldProvenance.financeLeaseLiability = evidence(finance.tags);
-  // Review m8: the vendor's own netDebt, captured before the rewrite, for the vendor-convention diagnostic.
+  // D-133: the vendor's own netDebt, captured before the rewrite, for the vendor-convention diagnostic.
   const vendorNetDebt = row.vendorNetDebt !== undefined ? row.vendorNetDebt : finite(row.netDebt) ? row.netDebt : null;
   const out = { ...row, capitalLeaseObligations: leases, totalDebt, netDebt, vendorNetDebt,
     ...(totalNote ? { fieldConflicts: { ...row.fieldConflicts, totalDebt: { usable: true, vendorValue: vendorTotal,
@@ -2437,7 +2437,7 @@ function recoverNoteCarryingDebt<T extends FmpStatementRow>(row: T, facts: Compa
 }
 
 /**
- * Audit 2026-10-22 C-15: a balance row with the consolidated total only takes
+ * D-105: a balance row with the consolidated total only takes
  * its parent/NCI split from a filing's equity statement (`equityStatementNci`)
  * at the same instant, when that filing's consolidated total is the row's.
  * The latest filing wins; its observations must agree.
@@ -2473,9 +2473,9 @@ function admitEquityStatementNci<T extends FmpStatementRow>(row: T, filings: rea
 }
 
 /**
- * Audit 2026-10-29, AMZN #51 (VAL-3, FIG-4; D-133): a vendor long-term
+ * D-133: a vendor long-term
  * investments of 0 or absent is undisclosed, not zero, when the same-period
- * filing shows noncurrent investments. Amazon carries its non-marketable and
+ * filing shows noncurrent investments. A filer can carry its non-marketable and
  * equity-method stakes inside "Other assets"; the provider row read 0, so no
  * stake reached the DCF bridge and net operating assets kept them.
  *
@@ -2507,7 +2507,7 @@ export function admitVendorLongTermInvestments<T extends FmpStatementRow>(row: T
 
 export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, presentations: readonly ExtractedSection[] = [], cashInvestment: readonly FilingCashInvestment[] = [], equityStatementNci: readonly FilingEquityStatementNci[] = []): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[]; admissions: BalanceAdmission[] } {
   const gaps: ManifestEntry[] = [];
-  // Review m6: merged into one entry per kind by the caller, across the annual and quarterly families.
+  // D-133: merged into one entry per kind by the caller, across the annual and quarterly families.
   const admissions: BalanceAdmission[] = [];
   const filedTemporaryEnds = temporaryEquityFiledEnds(facts);
   const temporaryRows = balance.ok ? temporaryEquityRows(facts, scope, observedAt) : null;
@@ -2548,7 +2548,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         const vendor = out[field];
         if (typeof vendor === "number" && Number.isFinite(vendor)) {
           if (agreesWithSec(vendor, sec.value, [sec])) continue;
-          // FIN-511-V2: a quarter derived from two filings is called derived.
+          // D-134: a quarter derived from two filings is called derived.
           const [vendorText, secText] = millionsPair(vendor, sec.value);
           const versus = sec.operands
             ? `vendor ${vendorText} versus derived ${secText} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`
@@ -2608,7 +2608,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
   }
   const balanceOut = enrich(balance, "balance");
   const cashflowOut = enrich(cashflow, "cashflow");
-  // Audit 2026-10-27 FIN-511-V2: one info entry per vendor field left unverified by a withheld pair, listing its dates.
+  // D-134: one info entry per vendor field left unverified by a withheld pair, listing its dates.
   for (const [field, dates] of ctx.unverified) {
     gaps.push({ field: `statements.cashflow.${field}`, severity: "info", expected: true,
       reason: `vendor ${field} kept unverified for ${[...dates].sort().reverse().join(", ")}: the filing's year and year-to-date figures sit on different presentations, so no one-presentation SEC value exists to check it against` });

@@ -4,18 +4,18 @@ import { vendorAgreesWithFiled } from "./vendorAgreement";
  * critical form-filtered dedup rule, period-scoped lookups, and the FMP
  * cross-check comparator.
  *
- * Research basis (all live-verified 2026-07-05):
+ * Research basis (all live-verified against companyfacts):
  *   - the EDGAR extraction contract (companyfacts structure, dedup, revenue pitfall)
- *   - the EDGAR extraction contract (JPM bank chains, F14 DEF 14A trap)
- *   - the bank-filing extraction contract (BAC/WFC/C matrix,
- *     F22-F25, revised chains)
+ *   - the EDGAR extraction contract (large-bank chains, the DEF 14A trap)
+ *   - the bank-filing extraction contract (large-bank tag matrix,
+ *     revised chains)
  *
- * THE CRITICAL DEDUP RULE (F14 + F24): filter facts to audited/core forms
+ * THE CRITICAL DEDUP RULE: filter facts to audited/core forms
  * 10-K / 10-Q / 10-K/A / 10-Q/A / 20-F / 20-F/A BEFORE deduping, then group
  * by period (start,end | end) and take max(filed). DEF 14A points can carry `frame`
- * plus a ROUNDED value (JPM FY2025 NetIncomeLoss: 57,048,000,000 in the 10-K
+ * plus a ROUNDED value (one bank's NetIncomeLoss: 57,048,000,000 in the 10-K
  * vs 57,000,000,000 in the DEF 14A filed later), 6-K points are not standardized,
- * and 8-K points exist (Citi).
+ * and 8-K points exist.
  * `fy`/`fp` can be null — never assume ints.
  *
  * This module is pure (no network); the companyfacts JSON comes from
@@ -65,8 +65,8 @@ export interface CompanyFacts {
 
 export const companyFactsSchema = z.looseObject({
   // The same endpoint returns {"cik":320193} for a long-standing registrant and
-  // {"cik":"2115436"} for one created recently (ExxonMobil Holdings, the XOM
-  // successor, 2026). Rejecting the string form threw away every fact of a
+  // {"cik":"2115436"} for one created recently (a holding-company successor).
+  // Rejecting the string form threw away every fact of a
   // newly reorganized issuer.
   cik: z.union([z.number().int().nonnegative(), z.string().regex(/^\d{1,10}$/).transform(Number)]),
   entityName: z.string(),
@@ -112,7 +112,7 @@ const t = (tag: string, unit?: string): ChainStep => ({ kind: "tag", tag, unit }
 /**
  * Per-concept fallback chains. Resolution is PERIOD-SCOPED: the first step
  * that yields a fact for the requested period wins, so stale-but-present tags
- * (WFC `Revenues`, last point 2020-09-30) fall through naturally.
+ * (a bank's `Revenues`, last point 2020-09-30) fall through naturally.
  *
  * Chain evidence: the bank-filing extraction contract and
  * fixtures/edgar/bank_xbrl_tag_matrix.json.
@@ -126,21 +126,21 @@ export const CONCEPT_CHAINS: Record<ConceptName, ChainStep[]> = {
     // income") reports the total on its income statement — and that is the
     // figure the vendor's `revenue` carries, so the cross-check compares like
     // with like only when the total comes first. Resolution is period-scoped,
-    // so an issuer whose `Revenues` stops at FY2018 (AAPL) still falls through
+    // so an issuer whose `Revenues` stops at FY2018 still falls through
     // to the ASC-606 tag for every later period.
     ...BROAD_REVENUE_TOTAL_TAGS.map(tag => t(tag)),
     { kind: "sum", tags: [...REVENUE_COMPONENT_TAGS], label: "Goods+Services" },
-    // Post-ASC-606 industrials (AAPL).
+    // Post-ASC-606 industrials.
     t("RevenueFromContractWithCustomerExcludingAssessedTax"),
     t("RevenueFromContractWithCustomerIncludingAssessedTax"),
-    // Banks: JPM tags total net revenue under Revenues (annual only) AND RevenuesNetOfInterestExpense.
+    // Banks: one large bank tags total net revenue under Revenues (annual only) AND RevenuesNetOfInterestExpense.
     t("RevenuesNetOfInterestExpense"),
-    // Bank computed fallback — identity verified exactly at JPM/BAC/WFC/C.
+    // Bank computed fallback — identity verified exactly at four large banks.
     { kind: "sum", tags: ["InterestIncomeExpenseNet", "NoninterestIncome"], label: "NII+NonII" },
     // Deprecated pre-2018 tag, last resort for old filers.
     t("SalesRevenueNet"),
     // NOTE: InterestAndDividendIncomeOperating is deliberately EXCLUDED — it is
-    // GROSS interest income at BAC/WFC/C and would overstate revenue (research §2.7).
+    // GROSS interest income at large banks and would overstate revenue (research §2.7).
   ],
   netIncome: [t("NetIncomeLoss"), t("ProfitLoss")],
   assets: [t("Assets")],
@@ -150,10 +150,10 @@ export const CONCEPT_CHAINS: Record<ConceptName, ChainStep[]> = {
   ],
   deposits: [t("Deposits"), { kind: "sum", tags: ["DepositsDomestic", "DepositsForeign"], label: "Domestic+Foreign" }],
   provisionForCreditLosses: [
-    t("ProvisionForLoanLeaseAndOtherLosses"), // JPM, WFC current
-    t("ProvisionForLoanLossesExpensed"), // C current
+    t("ProvisionForLoanLeaseAndOtherLosses"), // current at large banks
+    t("ProvisionForLoanLossesExpensed"), // current at one large bank
     t("ProvisionForCreditLossExpenseReversal"), // absent at all 4 majors; kept for regionals
-    // BAC F25: standard P&L provision tag is an extension tag; computed sum verified 5,595+80=5,675 $M FY2025.
+    // One bank's standard P&L provision tag is an extension tag; computed sum verified 5,595+80=5,675 $M FY2025.
     {
       kind: "sum",
       tags: [
@@ -171,7 +171,7 @@ export const CONCEPT_CHAINS: Record<ConceptName, ChainStep[]> = {
 };
 
 /**
- * Bank/financial revenue chain (finding L1). Total-revenue bank tags come
+ * Bank/financial revenue chain. Total-revenue bank tags come
  * FIRST so a bank that ALSO tags entity-level ASC-606 fee revenue under
  * RevenueFromContractWithCustomer* is not mis-resolved to that FEE-ONLY figure
  * (which excludes net interest income and understates a bank's revenue by the
@@ -231,8 +231,8 @@ function durationDays(p: Pick<FactPoint, "start" | "end">): number | null {
  * Instants (no `start` — balance-date concepts like Assets/StockholdersEquity)
  * are ALWAYS compatible: their length is unknowable, so the hint cannot reject
  * them. FY ≈ 300–400 d (52/53-week calendars); Q ≈ 70–125 d — the band has to
- * hold a 12-12-12-16/17-week calendar (Costco's fourth quarter is 16 or 17
- * weeks), and nothing standardized is four months long, so the upper bound
+ * hold a 12-12-12-16/17-week calendar (a retailer's fourth quarter can be 16
+ * or 17 weeks), and nothing standardized is four months long, so the upper bound
  * admits no other period. statements.ts reads these constants; it keeps no
  * band of its own.
  */
@@ -356,7 +356,7 @@ export function findPointForPeriod(points: FactPoint[], q: PeriodQuery): { point
   }
   if (matches.length === 0) return { point: null };
 
-  // Duration-hint gate (M7): when the caller supplies only an end + FY/Q hint
+  // Duration-hint gate: when the caller supplies only an end + FY/Q hint
   // (no explicit start), a candidate whose OWN duration contradicts the hint
   // must NOT be returned — even when it is the sole candidate. Without this, a
   // quarterly cross-check on a Dec-FY filer whose only near-end fact is the
@@ -474,7 +474,7 @@ export function getConcept(
   chain: ConceptName | ChainStep[],
   opts: { period: PeriodQuery; bankRevenue?: boolean },
 ): FetchResult<ConceptValue> {
-  // L1: for the named "revenue" concept only, bank-mode reorders the chain so
+  // For the named "revenue" concept only, bank-mode reorders the chain so
   // total-revenue bank tags win over ASC-606 RFC fee tags. Every other concept
   // (and any custom ChainStep[] array) is unaffected.
   const steps = Array.isArray(chain)
@@ -597,7 +597,7 @@ export function crossCheck(fmpValue: number, xbrlValue: number, tolerancePct = 0
 
 /**
  * Bank-tagging detection: RevenueFromContractWithCustomer* absent AND a bank
- * revenue/NII tag present. True at JPM, whose companyfacts carry no ASC-606
+ * revenue/NII tag present. True at a large bank whose companyfacts carry no ASC-606
  * revenue element (fixtures/edgar/jpm_companyfacts_revenue_tags.json). It is
  * a tagging heuristic, not a bank test: a bank that tags its fee revenue under
  * an ASC-606 element as well is NOT detected here, which is why every caller
@@ -631,7 +631,7 @@ export function checkBankRevenueIdentity(
   return { holds: match, revenue: rev.value.data.value, nii: nii.value.data.value, nonII: non.value.data.value, deltaPct };
 }
 
-/** Most recent fact period end across the given tags (freshness probe — Citi F23 lags months). */
+/** Most recent fact period end across the given tags (freshness probe: a bank's newest tag can lag by months). */
 /**
  * D-175: the newest core-form period end SEC facts carry for any of `tags`, read
  * in both the us-gaap and ifrs-full taxonomies (an IFRS 20-F filer has no us-gaap

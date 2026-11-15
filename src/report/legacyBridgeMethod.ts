@@ -5,17 +5,16 @@ import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 import type { Report } from "@/report/schema";
 
 /**
- * Display-time marking of a stored report valued before this batch's report spec
- * (audit 2026-10-27 B4a: FIN-103, FIN-119, FIN-303, FIN-305, FIN-404, FIN-108,
- * FIN-311, FIN-109; D-67). The DCF, excess-return and REIT figures it shows are as
+ * Display-time marking of a stored report valued before the D-135 report spec
+ * (D-135; D-67). The DCF, excess-return and REIT figures it shows are as
  * stored; the notes below say which bridge rules changed since. No figure is
  * rewritten. Each clause fires only where a stored byte shows the old method
  * touched that report, and where no stored byte can show it the clause is worded
- * as a condition. The claims, E-7 and lease clauses are for the FCFF DCF route
- * only: the excess-return route values common book equity, has no E-7 bridge and
+ * as a condition. The claims, obligation (D-104) and lease clauses are for the FCFF DCF route
+ * only: the excess-return route values common book equity, has no obligation bridge and
  * no sales-to-capital, and only the divisor reaches it.
  *
- * FIN-109: a stored EV basis that says a total lease liability "is disclosed but
+ * D-135: a stored EV basis that says a total lease liability "is disclosed but
  * its operating slice is not" is shown with the corrected finance-lease sentence
  * when the stored lease amounts show the total is wholly a finance lease (the
  * same rule as Stage B's `financeLeaseOnlyTotal`), and the stored "the FMP route
@@ -154,13 +153,13 @@ function addReitNote(report: Report): Report {
   return { ...report, routeMetrics: { ...routeMetrics, notes: [...routeMetrics.notes, REIT_NOTE] } };
 }
 
-/** Only the completed B4b equity-method family is marked here; later B4b repairs add their own clauses. */
+/** Only the completed D-147 equity-method family is marked here; later D-147 repairs add their own clauses. */
 function addEquityMethodReadingNote(report: Report): Report {
   const prefix = `Valued before report spec ${BRIDGE_READINGS_SINCE_SPEC_VERSION} under the earlier equity-method reading`;
   const fairValue = report.fairValue;
   if (fairValue?.status !== "available" || fairValue.method !== "fcff-dcf" || fairValue.basis.some(line => line.startsWith(prefix))) return report;
   const hasStake = (report.valuation.dcf.bridge?.nonOperatingComponents ?? []).some(c => c.label.startsWith("long-term investments"));
-  // Task 15b's old valuation.notes sentence was payload-only: DcfSchema stores no notes array. The actual stored
+  // The earlier D-147 valuation.notes sentence was payload-only: DcfSchema stores no notes array. The actual stored
   // method evidence is the sales-to-capital assumption that removed LTI as non-operating beside the bridge add-back.
   // It establishes the earlier treatment, not the income's true placement, so the consequence stays conditional.
   const nonOperatingBasis = report.valuation.dcf.assumptions.some(row => row.name.startsWith("sales-to-capital")
@@ -201,7 +200,7 @@ function addConvertibleReadingNote(report: Report): Report {
 
 /**
  * The clauses, each with its own part's cutoff. `withLegacyBridgeMethod` checks every clause's `since` on its own and has
- * no module-wide early return, so a later part's clauses (Task 15b, under their own frozen since-version) still reach a
+ * no module-wide early return, so a later part's clauses (D-147, under their own frozen since-version) still reach a
  * report built between the two merges. Exported only so a test can add a clause with a later cutoff.
  */
 export const LEGACY_BRIDGE_CLAUSES: Array<{ since: string; apply: (report: Report) => Report }> = [

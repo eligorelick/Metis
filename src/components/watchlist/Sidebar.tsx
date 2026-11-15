@@ -115,8 +115,7 @@ function WatchRow({ row, active, selectedReportId }: { row: WatchlistRowView; ac
     <li className="watch-row group relative border-b border-edge last:border-b-0">
       {/* The remove control is a SIBLING of the row link, not a child: HTML
           forbids interactive content inside <a>, and a nested button folded
-          "remove AAPL" into the link's accessible name (audit 2026-09-06,
-          F218). It sits at the top-right, over the padding the price row
+          "remove <ticker>" into the link's accessible name. It sits at the top-right, over the padding the price row
           leaves for it. */}
       <div className="watch-row-remove absolute right-3 top-2">
         <RemoveButton symbol={row.symbol} />

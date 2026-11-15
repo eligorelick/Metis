@@ -37,7 +37,7 @@ export function signedPct(v: number | null | undefined, digits = 1): string {
   return formatPct(v, digits, true);
 }
 
-/** F-21: a factual claim's verification status as a plain-text suffix, or "". */
+/** D-110: a factual claim's verification status as a plain-text suffix, or "". */
 export function statusMarkSuffix(claim: SourcedClaim): string {
   const mark = claimStatusMarkText(claim);
   return mark === null ? "" : ` ${mark}`;

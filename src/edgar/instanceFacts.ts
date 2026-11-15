@@ -1,11 +1,10 @@
 /**
  * A periodic filing's own facts, in companyfacts shape, from its XBRL
- * instance (audit 2026-10-22 B-23).
+ * instance (D-112).
  *
- * SEC's companyfacts API can run a quarter or two behind the filed 10-Qs: on
- * 2026-10-22 it still ended at the first-quarter 10-Q for Visa, Duke, NextEra,
- * Coca-Cola and Prologis although each had filed its second-quarter 10-Q in
- * July or August. The statements, TTM and multiples then ended a quarter (or
+ * SEC's companyfacts API can run a quarter or two behind the filed 10-Qs: it
+ * can still end at a filer's first-quarter 10-Q one or two months after the
+ * second-quarter 10-Q was filed. The statements, TTM and multiples then ended a quarter (or
  * two) early with nothing saying so. The newer 10-Q's instance is already
  * fetched for segment revenue (`collectQuarterlySegments`), so its
  * undimensioned facts are read here and merged into the companyfacts payload,
@@ -15,11 +14,10 @@
  *
  * D-236 (P2, P9, P10): "carries" is decided by evidence, not by mention, and
  * the fallback covers every core periodic form (`CORE_FACT_FORMS`), not only
- * Forms 10-K and 10-Q. On 2026-11-12 companyfacts held two facts of TSMC's
- * fiscal 2025 Form 20-F (0001628280-26-025362, filed 2026-04-16), the cover
- * page's share count (dei) and one srt element, and none of the statement
- * facts its instance states, so every figure that needs a filed fact of
- * fiscal 2025 went without one. `feedCoverage` is the one coverage test.
+ * Forms 10-K and 10-Q. Companyfacts can hold only two facts of a filed annual
+ * report (Form 20-F), the cover page's share count (dei) and one srt
+ * element, and none of the statement facts its instance states, so every
+ * figure that needs a filed fact of that fiscal year went without one. `feedCoverage` is the one coverage test.
  *
  * D-268 additionally reads carrying investment subtotals: the sole
  * allowed dimension is the standard carrying-reported-amount measurement axis.

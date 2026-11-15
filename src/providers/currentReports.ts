@@ -2,8 +2,8 @@ import { CURRENT_REPORTS_VERSION } from "@/report/versions";
 import { parseQuarterlyEarnings, type QuarterlyEarningsFact } from "@/edgar/quarterlyEarnings";
 import {PRIORITY_EVENT_ITEMS,NON_EVENT_ITEMS} from "@/edgar/currentReports";
 /**
- * Bounded EDGAR reads behind the 8-K and quarterly-segment ingestion (NVDA
- * report #34 audit, work package 3 and the data-depth part of 9).
+ * Bounded EDGAR reads behind the 8-K and quarterly-segment ingestion (P9:
+ * text only inside proved bounds).
  *
  *   collectCurrentReports — the latest four Item 2.02 8-Ks' EX-99.1 release and
  *     EX-99.2 commentary (guidance, issuer FCF, capital return; the newest
@@ -94,14 +94,14 @@ export interface EarningsReleaseRecord {
   commentaryExhibit?: string | null;
   reported: ReportedPeriod;
   /**
-   * Audit 2026-10-22 B-24: the release or commentary states results (an
+   * D-103: the release or commentary states results (an
    * earnings or operating-income amount), not only operating statistics.
    * Absent on records stored before it.
    */
   reportsResults?: boolean;
   /** The document that states the results, cited by the newer-results notice. Absent on older records. */
   resultsExhibit?: "EX-99.1" | "EX-99.2" | null;
-  /** Audit 2026-10-22 B-24: the release's own headline revenue and diluted EPS. Absent on older records. */
+  /** D-103: the release's own headline revenue and diluted EPS. Absent on older records. */
   headline?: ReleaseHeadline;
   guidance: IssuerGuidance | null;
   /** Supplying document role; releaseExhibit/commentaryExhibit retain its actual type (null for a primary document). */
@@ -379,7 +379,7 @@ function earningsFilings(filings: readonly EdgarFiling[], today: string, notes: 
 
 /**
  * Reporting-period order, with filing/acceptance order only breaking ties.
- * Audit 2026-10-22 B-26: a release that states no period is as new as its
+ * D-112: a release that states no period is as new as its
  * filing, so it goes before the first dated release filed no later than it,
  * never below every dated release.
  */
@@ -433,11 +433,11 @@ export function latestResultsRelease(ordered:readonly EarningsReleaseRecord[]):E
 }
 
 /**
- * R1 (FIGR live data): whether release `a` was filed after release `b` - the
+ * D-156: whether release `a` was filed after release `b` - the
  * filing date, then the acceptance time when both carry one. Release order
  * sorts by reported period, and a record stating only a period end cannot be
- * placed against one stating only a fiscal label (FIGR's 10-07 update, period
- * ended September 30, sorted after its 08-13 "Q2 FY2026" release). Whether an
+ * placed against one stating only a fiscal label (an October update for the
+ * period ended September 30 sorted after an August "Q2 FY2026" release). Whether an
  * operating update is newer than the results release is a filing fact.
  */
 export function filedAfter(a: Pick<EarningsReleaseRecord, "filingDate" | "acceptedAt">, b: Pick<EarningsReleaseRecord, "filingDate" | "acceptedAt">): boolean {
@@ -445,7 +445,7 @@ export function filedAfter(a: Pick<EarningsReleaseRecord, "filingDate" | "accept
   return a.acceptedAt != null && b.acceptedAt != null && a.acceptedAt > b.acceptedAt;
 }
 
-/** R1: operating updates filed after the latest results release (all updates without one), newest filing first. */
+/** D-156: operating updates filed after the latest results release (all updates without one), newest filing first. */
 export function updatesFiledAfterResults(records: readonly EarningsReleaseRecord[], latestResults: EarningsReleaseRecord | undefined): EarningsReleaseRecord[] {
   return records
     .filter((r) => r.reportsResults === false && (latestResults === undefined || filedAfter(r, latestResults)))
@@ -455,9 +455,9 @@ export function updatesFiledAfterResults(records: readonly EarningsReleaseRecord
 function retainedEarningsReleases(records: readonly EarningsReleaseRecord[]): EarningsReleaseRecord[] {
   const ordered = orderedEarningsReleases(records);
   const kept = new Set([...ordered.filter((r) => r.reportsResults !== false), ...ordered.filter((r) => r.reportsResults === false)].slice(0, MAX_EARNINGS_RELEASES));
-  // R1 (FIGR paid audit): the newest operating update filed after the latest
-  // results release has its own slot. FIGR's four results releases filled the
-  // four slots, so its October preliminary Q3 data was dropped.
+  // D-156: the newest operating update filed after the latest results release
+  // has its own slot. Four results releases can fill the four slots, which
+  // would drop a newer preliminary quarterly update.
   const newestUpdate = updatesFiledAfterResults(ordered, latestResultsRelease(ordered))[0];
   if (newestUpdate !== undefined) kept.add(newestUpdate);
   return ordered.filter((r) => kept.has(r));
@@ -585,12 +585,12 @@ export async function collectCurrentReports(
   }
   const ordered = retainedEarningsReleases(releases);
   const holder=latestResultsRelease(ordered);
-  // R1: updates newer than the results release by filing (see `filedAfter`).
+  // D-156: updates newer than the results release by filing (see `filedAfter`).
   const newer=updatesFiledAfterResults(ordered,holder);
-  // R1 (FIGR paid audit): the newest operating update newer than the results
-  // release keeps its own release text (preliminary quarterly operating data,
-  // monthly sales). It never takes the results narrative slot or supplies
-  // release figures (AI-506); the payload prints it as its own excerpt.
+  // D-156: the newest operating update newer than the results release keeps
+  // its own release text (preliminary quarterly operating data, monthly
+  // sales). It never takes the results narrative slot or supplies release
+  // figures (D-148); the payload prints it as its own excerpt.
   const update = newer.find(r => r.releaseNarrative !== null && r.releaseNarrative.trim() !== "");
   releases.splice(0, releases.length, ...ordered.map(record => record === holder ? record
     : record === update ? { ...record, commentaryNarrative: null } : { ...record, releaseNarrative: null, commentaryNarrative: null }));
@@ -717,7 +717,7 @@ export async function collectQuarterlySegments(
   cik: string,
   filings: readonly EdgarFiling[],
   today: string,
-  /** Audit 2026-10-22 B-23: each instance read, for the companyfacts merge. */
+  /** D-112: each instance read, for the companyfacts merge. */
   onInstance?: (filing: EdgarFiling, xml: string, url: string) => void,
 ): Promise<FetchResult<QuarterlySegmentRevenue>> {
   const chosen = segmentFilings(filings, today);

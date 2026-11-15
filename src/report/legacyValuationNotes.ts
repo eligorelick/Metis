@@ -41,8 +41,8 @@ function quarterLength(basis: string, periods: FiledPeriod[]): string | null {
   const suffix = /[TMBK]$/.exec(amount)?.[0] ?? "";
   const scale = ({ T: 1e12, B: 1e9, M: 1e6, K: 1e3 } as Record<string, number>)[suffix] ?? 1;
   const raw = periods.find(p => p.basis === "fiscal-quarter" && p.end === match[1] && p.revenue !== null)?.revenue;
-  // Avoid double-rounding when a matching filed quarter is stored: MU 54.229B
-  // × 4 is printed as 216.92B, but its normalized level rounds to 201.42B.
+  // Avoid double-rounding when a matching filed quarter is stored: a quarter of
+  // 54.229B × 4 is printed as 216.92B, but its normalized level rounds to 201.42B.
   const filedValue = raw == null ? null : raw * 4 / scale;
   const precise = filedValue !== null && filedValue.toFixed(2) === value.toFixed(2);
   const normalized = (precise ? filedValue : value) * 13 / weeks;

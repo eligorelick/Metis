@@ -1,5 +1,5 @@
 /**
- * Q1: reader wording for the recent-developments and management-actions
+ * D-177: reader wording for the recent-developments and management-actions
  * blocks, shared by the React view, the Markdown export and the print body so
  * the three surfaces say the same thing. Both fields are optional; a saved
  * report without them renders nothing new.

@@ -155,8 +155,8 @@ export function streamIdleTimeoutMs(): number {
  * normal. Effort is the only knob that sets how deep that reasoning goes, and
  * Anthropic's guidance is that a single Fable request at high effort runs many
  * minutes — a flat limit survivable at `low` is a guaranteed false abort at
- * `max`. That is what happened on 2026-09-03: AMZN on claude-fable-5-1 at
- * effort `max`, five reported output tokens, abandoned at 120s and settled at
+ * `max`. That is what happened on one run on claude-fable-5-1 at
+ * effort `max`: five reported output tokens, abandoned at 120s and settled at
  * a presumed 127,995-token remainder ($6.40 of a $6.86 pass) for a run that
  * produced no report.
  *
@@ -922,7 +922,7 @@ export function requestInputTokenUpperBound(opts: RunPassOptions): number {
 
 /**
  * Bytes per token used for the context-fit estimate (DECISIONS D-121).
- * Calibrated on Metis's billed NVDA requests (2.38 bytes/token on the newer
+ * Calibrated on Metis's billed report requests (2.38 bytes/token on the newer
  * tokenizer) and Anthropic's note that the newer tokenizer gives about 30%
  * more tokens (about 23% fewer on the earlier one); rounded down so the
  * estimate over-counts. The estimate is
@@ -1377,11 +1377,11 @@ function aggregateUsage(messages: readonly BetaMessage[]): BetaUsage {
  * Provider-produced kinds: no_key | refusal | max_tokens | context_window |
  * paused | transport. Stage C (src/pipeline/stageC/passes.ts) fabricates two
  * more so run forensics can tell a genuine safety refusal from a model that
- * produced malformed output (the 2026-07 audit found "refusal" covering both):
+ * produced malformed output ("refusal" once covered both):
  *   parse     — output was not valid JSON
  *   schema    — JSON parsed but failed Zod validation
  *
- * "transport" is produced HERE (2026-07-10 incident fix) when a request/stream
+ * "transport" is produced HERE (P24) when a request/stream
  * fails after {@link PASS_TRANSPORT_MAX_ATTEMPTS}, carrying the billed usage
  * of every attempt so cost_log records real spend; Stage C's hardFailure
  * fabricates the same kind only as a safety net for unexpected rejections.
@@ -2275,7 +2275,7 @@ export interface StreamingPassHandle {
  * `message_delta` (cumulative output tokens, server tool use) events. When the
  * stream dies mid-generation, Anthropic has still billed everything streamed
  * so far — this snapshot is the best-effort record of that spend (the exact
- * failure mode of 2026-07-10: two ~8-minute passes billed, $0 recorded).
+ * failure mode once seen: two ~8-minute passes billed, $0 recorded).
  */
 interface StreamedUsageSnapshot {
   model: string | null;
@@ -2410,7 +2410,7 @@ function abandonedRequestCostUsd(
 ): number {
   // Nothing reported: the input the provider may have billed is unknown as
   // well as the output, so the whole request (the figure a lost connection
-  // in the same wire state settles; DECISIONS D-10, B7 OD-2). The permit's
+  // in the same wire state settles; DECISIONS D-10, D-117). The permit's
   // own maximum, like the answered or timed-out no-usage charge: one wire
   // state, one figure.
   if (reported === null) return requestMaximumUsd;
@@ -2734,7 +2734,7 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
           const delays = PASS_TRANSPORT_RETRY_DELAYS_MS;
           const delay = transportRetryDelayMs(cause, delays[Math.min(attempt - 1, delays.length - 1)]);
           // Server-log every retry — post-mortems must not depend on the
-          // transient pipeline UI (2026-07-10: the only trace of two failed
+          // transient pipeline UI (once, the only trace of two failed
           // ~8-minute passes was a step detail on one page).
           console.warn(
             `[anthropic] ${opts.field ?? "llm.pass"}: transport failure on attempt ${attempt}/${PASS_TRANSPORT_MAX_ATTEMPTS}, retrying in ${Math.round(delay / 1000)}s: ${errorMessageOf(cause)}`,

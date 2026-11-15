@@ -24,7 +24,7 @@ const CFO = "us-gaap:NetCashProvidedByUsedInOperatingActivities";
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
 /** Narrow reviewed issuer extension. No tag-name or business-keyword inference.
- * IREN FY26 F-10 / March FY26 cash flows explicitly exclude hardware from PPE.
+ * D-95: the issuer's FY2026 10-K (page F-10) and March 2026 10-Q cash flows explicitly exclude hardware from PPE.
  * https://www.sec.gov/Archives/edgar/data/1878848/000187884826000052/iren-20260630.htm
  * The result covers ONLY gross cash PPE + hardware, excluding other investing flows.
  */
@@ -172,7 +172,7 @@ export function admitCashInvestment<T extends FmpStatementRow>(row: T, documents
   // A cumulative CFO is never compared with an unadmitted quarter. Within an
   // admitted exact period, every populated alias must agree with filed CFO.
   const filedCfo = admitted && finite(p.operatingCashFlow) ? p.operatingCashFlow : null;
-  // Vendor CFO within the filer's display rounding is the filed observation (A-11).
+  // Vendor CFO within the filer's display rounding is the filed observation (D-103).
   const cfoConflict = aliasConflict || (filedCfo !== null && cfoValues.some(value => !vendorAgreesWithFiled(value, filedCfo)));
   const fcfReason = cfoConflict ? `${reason}; ${aliasConflict ? "operating cash flow aliases disagree" : "filed operating cash flow differs from the existing row"}; CFO aliases and dependent FCF withheld` : reason;
   if (cfoConflict) for (const field of ["operatingCashFlow", "netCashProvidedByOperatingActivities"]) {

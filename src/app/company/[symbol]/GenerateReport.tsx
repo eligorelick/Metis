@@ -1092,8 +1092,8 @@ function RunDisclosure({ phase, totalCost, reportId, children }: {
 /**
  * Why this report is data-only, derived from the actual step outcomes. An
  * errored LLM step means the passes RAN and (partially) billed — saying "did
- * not run" there hid real spend behind a $0-looking banner (2026-07-10
- * incident: two ~8-minute overloaded analyst passes, banner claimed no run).
+ * not run" there hid real spend behind a $0-looking banner (in one incident,
+ * two ~8-minute overloaded analyst passes, and the banner claimed no run).
  */
 function dataOnlyBannerText(steps: StepProgress[]): string {
   const llmFailed = steps.some(

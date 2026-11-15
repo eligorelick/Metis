@@ -332,7 +332,7 @@ export function subscriptionExecutionModels(entries: readonly ExecutionMetadataE
 }
 
 /* ------------------------------------------------------------------------ *
- * WS7 (D-20) — shared-model-family disclosure
+ * D-20 — shared-model-family disclosure
  *
  * The judge grades two cases. When it runs on the SAME model family that wrote
  * them, the adjudication is not independent of the thing being adjudicated —
@@ -405,7 +405,7 @@ export function annotateSharedModelFamily(
   );
 }
 
-/** DB-003: observed model identities, including API models. */
+/** D-146: observed model identities, including API models. */
 export function executionModelSummary(entries: readonly ExecutionMetadataEntry[] | undefined): {models:string[];unrecordedSteps:string[]} {
  const models = new Set<string>(), unrecordedSteps = new Set<string>();
  for (const entry of entries ?? []) {

@@ -25,7 +25,7 @@ import {
   MIN_PAID_PASS_LEASE_SECONDS,
   PAID_LEASE_RENEWAL_DIVISOR,
 } from "@/pipeline/leaseTiming";
-// WS7 (D-20): the judge-order vocabulary lives in the report schema (zod + core
+// D-20: the judge-order vocabulary lives in the report schema (zod + core
 // types only, no env dependency), so config and Stage C read the same list.
 import { JudgeOrderSettingSchema, type JudgeOrderSetting } from "@/report/schema";
 
@@ -107,7 +107,7 @@ function optionalUsdCapEnv() {
   });
 }
 
-// WS8: startup hold and the non-browser request token (docs/PRIVACY.md).
+// D-21: startup hold and the non-browser request token (docs/PRIVACY.md).
 function binaryFlagEnv(defaultValue: boolean) {
   return z.string().optional().transform((raw, ctx) => {
     const value = blank(raw);
@@ -121,7 +121,7 @@ function binaryFlagEnv(defaultValue: boolean) {
 
 /** Blank -> undefined; otherwise the trimmed path exactly as written. */
 const optionalPath = z.string().optional().transform((raw) => blank(raw));
-// end WS8
+// end D-21
 
 const envSchema = z.object({
   FMP_API_KEY: optionalSecret,
@@ -151,7 +151,7 @@ const envSchema = z.object({
     0,
     MAX_ROLLING_WINDOW_MINUTES,
   ),
-  // --- WS4 (D-12) ------------------------------------------------------------
+  // --- D-12 ------------------------------------------------------------
   /**
    * Where statement history comes from.
    *  - `auto` (default): FMP first; when its plan truncates history, older
@@ -175,7 +175,7 @@ const envSchema = z.object({
       ctx.addIssue({ code: "custom", message: 'must be one of "auto", "fmp" or "edgar"' });
       return z.NEVER;
     }),
-  // --- end WS4 ---------------------------------------------------------------
+  // --- end D-12 --------------------------------------------------------------
   // Must outlive the provider's hard request timeout plus the margin an
   // aborted stream needs to settle (see src/pipeline/leaseTiming.ts).
   METIS_PAID_PASS_LEASE_SECONDS: positiveIntegerEnv(
@@ -223,13 +223,13 @@ const envSchema = z.object({
       }
       return value;
     }),
-  // WS8
+  // D-21
   /** "1" (default) kicks the scheduler at startup; "0" holds queued paid work for an explicit resume. */
   METIS_RESUME_ON_START: binaryFlagEnv(true),
   /** Full path of the X-Metis-Token file; blank means `<data dir>/csrf-token`. */
   METIS_TOKEN_FILE: optionalPath,
-  // end WS8
-  // WS7 (D-20): which order the judge reads the two analyst cases in.
+  // end D-21
+  // D-20: which order the judge reads the two analyst cases in.
   //  - "random" (default): drawn from the job id, so it varies across reports
   //    and is exactly reproducible within one. ONE judge pass.
   //  - "bull-first" / "bear-first": pinned, for a deliberate A/B comparison.
@@ -246,8 +246,8 @@ const envSchema = z.object({
       const parsed = JudgeOrderSettingSchema.safeParse(blank(v)?.toLowerCase());
       return parsed.success ? parsed.data : "random";
     }),
-  // end WS7
-  // WS6 (D-19): keep the OPERATING-lease liability in enterprise value and in
+  // end D-20
+  // D-19: keep the OPERATING-lease liability in enterprise value and in
   // the DCF equity bridge. OFF by default: under US GAAP (ASC 842) the
   // operating-lease cost stays in operating expenses, so EBIT and EBITDA are
   // already after it and adding that liability to EV as well double-counts the
@@ -298,7 +298,7 @@ const envSchema = z.object({
   }
 });
 
-// WS4 (D-12): the accepted values of METIS_STATEMENT_SOURCE.
+// D-12: the accepted values of METIS_STATEMENT_SOURCE.
 export type StatementSource = "auto" | "fmp" | "edgar";
 
 export interface ThesisConfig {
@@ -317,7 +317,7 @@ export interface ThesisConfig {
   hasAnthropicKey: boolean;
   /** True when no FMP key is configured — FMP clients serve fixtures/gaps. */
   fixtureMode: boolean;
-  // WS4 (D-12): statement-history source policy.
+  // D-12: statement-history source policy.
   statementSource: StatementSource;
   maxActiveJobs: number;
   maxActiveLlmCalls: number;
@@ -328,16 +328,16 @@ export interface ThesisConfig {
   jobLeaseTtlMs: number;
   streamIdleTimeoutMs: number;
   reservationMode: "request" | "pass";
-  // WS8
+  // D-21
   /** False only when METIS_RESUME_ON_START=0: startup does not kick the scheduler. */
   resumeOnStart: boolean;
   /** METIS_TOKEN_FILE override; undefined means `<data dir>/csrf-token`. */
   tokenFile: string | undefined;
-  // end WS8
-  // WS6 (D-19)
+  // end D-21
+  // D-19
   /** METIS_EV_INCLUDE_LEASES=1 — keep the OPERATING-lease liability in enterprise value. */
   evIncludeLeases: boolean;
-  // WS7 (D-20)
+  // D-20
   /** METIS_JUDGE_ORDER — which order the judge reads bull and bear in. */
   judgeOrder: JudgeOrderSetting;
 }
@@ -372,13 +372,13 @@ export function parseEnv(
     jobLeaseTtlMs: parsed.METIS_JOB_LEASE_SECONDS * 1_000,
     streamIdleTimeoutMs: parsed.METIS_STREAM_IDLE_SECONDS * 1_000,
     reservationMode: parsed.METIS_RESERVATION_MODE,
-    // WS8
+    // D-21
     resumeOnStart: parsed.METIS_RESUME_ON_START,
     tokenFile: parsed.METIS_TOKEN_FILE,
-    // end WS8
-    // WS6 (D-19)
+    // end D-21
+    // D-19
     evIncludeLeases: parsed.METIS_EV_INCLUDE_LEASES,
-    // WS7 (D-20)
+    // D-20
     judgeOrder: parsed.METIS_JUDGE_ORDER,
   };
   return Object.freeze(config);

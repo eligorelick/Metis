@@ -74,7 +74,7 @@ function canonicalText(fact: Omit<SourceFactRow, "canonicalText">): string {
 }
 
 /**
- * An FMP quarter carries no SEC start date (NVDA report 34 lost its
+ * An FMP quarter carries no SEC start date (a report once lost its
  * reconciliation to that). Fiscal quarters are contiguous, so the issuer's own
  * immediately preceding quarter in the same statement row bounds it: labels
  * consecutive (Q1→Q2, Q4 FY2026→Q1 FY2027) and ends a 12–14-week quarter apart,

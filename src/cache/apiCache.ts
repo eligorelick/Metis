@@ -165,7 +165,7 @@ export interface CachedFetchOptions<T> {
    * which this returns `true` will NOT overwrite an already-cached body for
    * which it returns `false` — i.e. a transient empty provider response (e.g.
    * FMP 200-`[]`) never clobbers a previously-good non-empty body for the full
-   * TTL (M6). The write is suppressed only when a prior NON-empty row exists;
+   * TTL. The write is suppressed only when a prior NON-empty row exists;
    * a first fetch always stores (so segmentation expected-empty caching keeps
    * working). Tradeoff: a genuinely delisted symbol that begins returning `[]`
    * keeps serving its last good body until the row is invalidated/purged —
@@ -236,8 +236,8 @@ export function readCachedResponse<T>(
 }
 
 /**
- * Every cached body for one provider endpoint, whatever its params (audit
- * 2026-10-22 B-4). A FRED row's key carries the request's five-year window
+ * Every cached body for one provider endpoint, whatever its params
+ * (D-111). A FRED row's key carries the request's five-year window
  * start, so yesterday's DGS10 row is a different key from today's request and
  * the stale-serving path never finds it; the risk-free fallback reads the last
  * good observation across all of them instead. Read-only, never refreshes, and
@@ -289,7 +289,7 @@ function storeRow(db: ThesisDb, row: NewApiCacheRow): void {
 /**
  * Returns the existing cache row to KEEP when the freshly-fetched `nextBody` is
  * "empty" (per opts.isEmptyBody) and a prior NON-empty row is cached — so a
- * transient empty response never clobbers good data (M6). Returns null when no
+ * transient empty response never clobbers good data. Returns null when no
  * predicate is configured, the next body is non-empty, there is no prior row,
  * the prior row is itself empty, or the prior row is undecodable (in which case
  * the empty is allowed through so the corrupt row self-heals). Handles the
@@ -323,8 +323,7 @@ const inFlightRefreshes = new Map<string, Promise<void>>();
 /**
  * In-flight MISS fetches, deduped by cacheKey. A page load and a report job
  * for the same symbol starting within the same second on a cold cache used to
- * fetch every member twice and race to store the same row (audit 2026-09-06,
- * F231); the refresh path was single-flight, the miss path was not.
+ * fetch every member twice and race to store the same row; the refresh path was single-flight, the miss path was not.
  */
 const inFlightMisses = new Map<string, { promise: Promise<unknown>; signal?: AbortSignal }>();
 
@@ -334,7 +333,7 @@ function startBackgroundRefresh<T>(cacheKey: string, opts: CachedFetchOptions<T>
     const fetched = await opts.fetcher();
     assertValidBody(cacheKey, fetched.body, opts);
     const db = getDb();
-    // Never let a transient empty refresh clobber a previously-good body (M6).
+    // Never let a transient empty refresh clobber a previously-good body.
     if (existingRowToPreserve(db, cacheKey, fetched.body, opts) !== null) {
       preservedEmptyRefreshes.add(cacheKey);
       console.warn(`[apiCache] empty refresh preserved last-good data for ${cacheKey}`);
@@ -462,7 +461,7 @@ export async function cachedFetch<T>(opts: CachedFetchOptions<T>): Promise<Sourc
       // Corrupt/undecodable cached body (bad gzip BLOB or truncated JSON):
       // drop the poisoned row and self-heal via a fresh fetch instead of
       // throwing synchronously and crash-looping the job until TTL expiry
-      // (L6). Nothing sensitive is logged (the body could hold provider data).
+      // Nothing sensitive is logged (the body could hold provider data).
       db.delete(apiCache).where(eq(apiCache.cacheKey, cacheKey)).run();
       return fetchStoreReturnOnce();
     }
@@ -519,14 +518,14 @@ export async function cachedFetch<T>(opts: CachedFetchOptions<T>): Promise<Sourc
  * `endpointPrefix` (empty prefix = every row for the provider). Returns the
  * number of rows deleted.
  *
- * NOTE (audit 2026-07-11 #6): this is a maintenance utility with NO production
+ * NOTE: this is a maintenance utility with NO production
  * caller today — it is intentionally NOT wired to a
  * latest-financial-statements.dateAdded restatement trigger (an earlier design once
  * described that as a use case). FMP restatements are currently picked up by the
  * normal 24h fundamentals TTL (serve-stale + background refresh) plus the
  * EDGAR XBRL max(filed) dedup, which already prefers the latest restated value.
  * A dateAdded-triggered invalidate() would need an empty-body/last-good
- * safeguard (see M6) to avoid deleting good rows on a provider blip; until that
+ * safeguard to avoid deleting good rows on a provider blip; until that
  * exists, do not treat this hook as live restatement protection.
  */
 export function invalidate(provider: DataSource | string, endpointPrefix = ""): number {

@@ -158,7 +158,7 @@ export const jobs = sqliteTable(
   (t) => [
     index("idx_jobs_symbol").on(t.symbol),
     index("idx_jobs_status").on(t.status),
-    // The active-job identity index (idx_jobs_active_entity, JOB-213:
+    // The active-job identity index (idx_jobs_active_entity:
     // upper(replace(symbol, '-', '.')) over queued and running jobs) is created
     // by bootstrapSchema in src/db/index.ts on every database open, not here:
     // drizzle-kit 0.31 splits an index expression at its commas and quotes each

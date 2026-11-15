@@ -396,7 +396,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
         out = { ...out, pretaxIncomeBeforeEquityMethod: { value: line.value, proof: line.proof } };
       }
     }
-    // D-300 (P8, P12; review round 1): when the row's provision and the pre-tax
+    // D-300 (P8, P12): when the row's provision and the pre-tax
     // base the tax rate divides by are the same observation as the reconciled
     // filed family, the filed facts stand on their own proof: record it, as
     // interest expense does. D-307 retains the filed amounts for rate consumers; a refused operand or another

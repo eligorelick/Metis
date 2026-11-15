@@ -65,7 +65,7 @@ export const NON_PUBLIC_WEBFETCH_HOSTS: readonly string[] = [
 const hostGlobs = (globs: readonly string[]) => new RegExp(`^(?:${globs.map(glob => glob.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")).join("|")})$`);
 const NON_PUBLIC_HOST = hostGlobs(NON_PUBLIC_WEBFETCH_HOSTS);
 /**
- * The only sites WebFetch may read (D-269, lead decision; P26 doubt denies):
+ * The only sites WebFetch may read (D-269; P26 doubt denies):
  * filings, the regulators and statistics agencies analyst theses most often
  * turn on, and the two US listing exchanges. Each domain also allows its
  * subdomains. WebSearch is not restricted; it runs on Anthropic's side.
@@ -87,7 +87,7 @@ const SHARED_HOSTING = hostGlobs(["github.io", "blogspot.com", "wordpress.com", 
  * Second-level labels that ccTLD registries use as public suffixes (co.uk, com.au,
  * co.jp, org.uk ...). A two-label name with one of these under a two-letter TLD is
  * never a registrable domain, so it is never granted as a WebFetch wildcard
- * (D-269 review round 1; no public-suffix dependency is available).
+ * (D-269; no public-suffix dependency is available).
  */
 const GENERIC_SECOND_LEVEL: ReadonlySet<string> = new Set(["co", "com", "net", "org", "gov", "edu", "ac", "ne", "or", "go", "gob", "gv", "ltd", "plc",
   "mil", "nom", "sch", "int", "info", "biz", "gen", "firm", "ind", "nic", "res", "lg", "ed", "gr", "web"]);
@@ -129,10 +129,9 @@ export interface WebFetchAllowlist { domains: readonly string[]; hosts: readonly
 /**
  * The WebFetch allowlist for one research request: the fixed list (each with its
  * subdomains), plus the issuer's exact profile host, and when that host is the
- * www host also the bare name (www.lilly.com gives www.lilly.com and lilly.com).
+ * www host also the bare name (www.example.com gives www.example.com and example.com).
  * The issuer never gets a wildcard: without a public suffix list a parent cannot be
- * proven registrable (workers.dev, uk.com, ca.us), so doubt denies (P26; D-269
- * review round 2).
+ * proven registrable (workers.dev, uk.com, ca.us), so doubt denies (P26; D-269).
  */
 export function claudeWebFetchAllowlist(issuerHost?: string | null): WebFetchAllowlist {
   const host = issuerHost ? issuerWebFetchHost(issuerHost) : null;
@@ -246,7 +245,7 @@ export function claudeResearchObserver(maxActions: number, webFetch: WebFetchAll
   const count = () => Math.max([...actions.values()].reduce((sum, action) => sum + action.weight, 0),
     serverSearches + [...actions.values()].filter(action => action.tool === "WebFetch").length);
   const reject = (message: string, code: "local_web_action_limit" | "local_web_research_boundary" = "local_web_research_boundary"): never => {
-    // D-269 review round 2: every failure reports the call-based count, so observed activity is never hidden.
+    // D-269: every failure reports the call-based count, so observed activity is never hidden.
     throw new ClaudeResearchError(message, code, count());
   };
   const enforceLimit = () => {

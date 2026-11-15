@@ -56,7 +56,7 @@ export { REPORT_SPEC_VERSION } from "@/report/versions";
  * persisted under earlier spec versions contain asOf strings like "2026-06"
  * or "2025-12-31/2026-05-05" and prose the newer regex battery would reject —
  * re-validating them retroactively on READ would make already-paid reports
- * unrenderable (observed 2026-07-20: 12 of 36 stored reports). The stored-
+ * unrenderable (observed on 12 of 36 stored reports). The stored-
  * report read path (history.parseStoredReport) therefore retries a failed
  * strict parse inside withLenientLegacyRead, which relaxes ONLY these two
  * gates; shape/strictness/enums stay fully enforced, and every save/assembly
@@ -91,7 +91,7 @@ function compatibleIsoDateTime(offset = false) {
  * Strict calendar date used by newly generated evidence objects. The rejected
  * value is named in the issue: a model pass that fails here is billed and
  * discarded, and "Invalid ISO date" alone left no way to tell a timestamp
- * from a bare month or a fiscal-quarter label (live haiku run, 2026-09-02).
+ * from a bare month or a fiscal-quarter label.
  */
 export const IsoDateSchema = z.string().refine(
   (v) => lenientLegacyRead || STRICT_ISO_DATE.safeParse(v).success,
@@ -109,7 +109,7 @@ export const IsoDateSchema = z.string().refine(
  * sell / hold used as a RATING / DIRECTIVE about the security is prohibited; the same
  * words used as ordinary business VERBS about the company are fine. The old
  * implementation matched a bare `\b(buy|sell|hold)\b`, which false-positived on
- * routine analyst language ("Intuit holds ~35% margins", "customers buy the
+ * routine analyst language ("the company holds ~35% margins", "customers buy the
  * premium tier", "cross-sell drives ARPU") and hard-failed whole reports on a
  * single stray verb. This version matches only rating CONTEXT.
  *
@@ -163,7 +163,7 @@ const RATING_PATTERNS: readonly RegExp[] = [
   /^(?:strong\s+)?(?:buy|sell|hold)[.!]?$/i,
 ];
 
-/** OD-5: closed abbreviation exceptions; rating patterns remain intact. */
+/** D-144: closed abbreviation exceptions; rating patterns remain intact. */
 function maskNamePeriods(text: string): string {
   return text.replace(/\b([A-Z][a-z]+\s+(?:[A-Z]\.\s+)*[A-Z])\.(?=\s+(?:Buy|Sell|Hold)(?:\s*[\u2014\u2013(]|,\s+(?:the|a|an|our|its|who|whose)\b|['\u2019]s\b))/g, "$1")
     .replace(/\b(Mr|Ms|Mrs|Mx|Dr|Prof|Rev|Hon|Sen|Rep|Gov|Gen|Col|Capt|Lt)\.(?=\s+[A-Z])(?!\s+(?:Strong\s+)?(?:Buy|Sell|Hold)\s*(?:[.!?]|$))/g, "$1");
@@ -507,7 +507,7 @@ export const ProvenanceCoverageSchema = z
 export type ProvenanceCoverage = z.infer<typeof ProvenanceCoverageSchema>;
 
 /* ------------------------------------------------------------------------ *
- * WS7 (D-20) begin — adversarial-protocol and deterministic-check metadata.
+ * D-20 begin — adversarial-protocol and deterministic-check metadata.
  *
  * Two things the pre-remediation report never said out loud:
  *
@@ -698,13 +698,13 @@ export const JudgeProtocolSchema = z
   })
   .strict();
 export type JudgeProtocol = z.infer<typeof JudgeProtocolSchema>;
-// WS7 (D-20) end.
+// D-20 end.
 
 /* ------------------------------------------------------------------------ *
  * §7.0 meta
  * ------------------------------------------------------------------------ */
 
-// WS6 (D-19) begin: the disclaimer now names WHAT the report actually emits.
+// D-19 begin: the disclaimer now names WHAT the report actually emits.
 // "Informational only" alone did not describe a document that grades six
 // aspects A-F and can print scenario price targets; a reader could
 // reasonably read those as a call. The rating-safety scan skips this key
@@ -713,7 +713,7 @@ export type JudgeProtocol = z.infer<typeof JudgeProtocolSchema>;
 // a no-op on it and it appears byte-for-byte.
 export const DISCLAIMER_TEXT =
   "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security." as const;
-// WS6 (D-19) end.
+// D-19 end.
 
 export const DataCompletenessSchema = z
   .object({
@@ -826,11 +826,11 @@ export const MetaSchema = z
     verificationRate: z.number().nullable(),
     /** Explicit provenance metrics; optional only for reports before 1.2.0. */
     provenanceCoverage: ProvenanceCoverageSchema.optional(),
-    // WS7 (D-20): what the deterministic verifier CHECKED, reported beside — never
+    // D-20: what the deterministic verifier CHECKED, reported beside — never
     // merged into — what it could cite, and how the adversarial stage was run.
     consistencyChecks: ConsistencyChecksSchema.optional(),
     judgeProtocol: JudgeProtocolSchema.optional(),
-    // end WS7
+    // end D-20
     /** Provider/critical-section gate; optional for legacy persisted reports. */
     dataCompleteness: DataCompletenessSchema.optional(),
     /** Requested versus effective per-pass execution settings. */
@@ -840,7 +840,7 @@ export const MetaSchema = z
      * DISCLAIMER: stored verbatim from the constant in force at generation time.
      * Parse-side accepts ANY non-empty string so a future edit to DISCLAIMER_TEXT
      * never bricks historical reports (every read path safeParses the whole
-     * ReportSchema and degrades to null on failure — see L5 audit). Generation
+     * ReportSchema and degrades to null on failure). Generation
      * still embeds the CURRENT DISCLAIMER_TEXT (pinned by generation-side tests);
      * renderers display the stored text as written.
      */
@@ -876,7 +876,7 @@ export const GradeStripSchema = z
 export type GradeStrip = z.infer<typeof GradeStripSchema>;
 
 /**
- * Q1: the event date of a recent development or management action. Nullable
+ * D-177: the event date of a recent development or management action. Nullable
  * on the stored schema; the request schema requires the key (generation
  * normalizes an unreadable date to null instead of rejecting the section).
  */
@@ -887,7 +887,7 @@ export const QUALITATIVE_ITEM_CAP = 8;
 
 export const DevelopmentDirectionSchema = z.enum(["positive", "negative", "mixed"]);
 
-/** Q1: one dated past event and what it means for the investment case. */
+/** D-177: one dated past event and what it means for the investment case. */
 export const RecentDevelopmentSchema = z
   .object({
     occurredOn: OccurredOnSchema,
@@ -921,7 +921,7 @@ export const VerdictSchema = z
      * Optional for backward-compat; the judge fills it on 1.1.0+.
      */
     executiveSummary: z.array(SourcedClaimSchema).optional(),
-    /** Q1: dated recent developments; absent on historical reports. */
+    /** D-177: dated recent developments; absent on historical reports. */
     recentDevelopments: RecentDevelopmentsSchema.optional(),
   })
   .strict();
@@ -969,7 +969,7 @@ export const BUSINESS_STORY_HEADING = "The business";
  * Trademark, service-mark, registered and copyright signs, and the emoji
  * variation selector that can follow them. Removed BEFORE compatibility
  * normalization, which would otherwise turn "™" into the letters "TM" and
- * glue them to the name ("Verandol™" read as "verandoltm"; review round 1).
+ * glue them to the name ("Verandol™" read as "verandoltm"; D-271).
  */
 const MARK_SIGNS = /[™℠®©]\uFE0F?/g;
 
@@ -1131,7 +1131,7 @@ export type SensitivityCell = z.infer<typeof SensitivityCellSchema>;
 export const DcfSchema = z
   .object({
     /**
-     * Intrinsic value per share. NULLABLE (2026-07-11 DCF-credibility checkpoint):
+     * Intrinsic value per share. NULLABLE:
      * the pipeline OVERWRITES this at assembly with the deterministic route-
      * appropriate fair value ({@link FairValueSchema}: FCFF DCF on the general
      * route, the book-value excess-return model for banks/insurers), or sets it
@@ -1166,10 +1166,10 @@ export const DcfSchema = z
       shareBasisNote: z.string().optional(),
       shareUnit: z.literal("ADS-equivalent").optional(),
       minorityInterestDefinition: z.string().optional(),
-      /** E-5: how the NCI deducted in minorityInterest was sized. */
+      /** D-102: how the NCI deducted in minorityInterest was sized. */
       noncontrollingBasis: z.string().optional(),
       noncontrollingBook: z.number().optional(),
-      /** FIN-119: the redeemable claims (temporary equity) already inside preferredEquity and minorityInterest. */
+      /** D-135: the redeemable claims (temporary equity) already inside preferredEquity and minorityInterest. */
       temporaryEquity: z.object({ redeemablePreferred: z.number(), redeemableNoncontrolling: z.number(), unsplit: z.number() }).strict().optional(),
     }).strict().optional(),
     /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
@@ -1191,7 +1191,7 @@ export const DcfSchema = z
       growthShiftsPp: z.array(z.number()), marginShiftsPp: z.array(z.number()),
       perShare: z.array(z.array(z.number().nullable())), notes: z.array(z.string()),
     }).strict().optional(),
-    /** Audit 2026-10-22 C-11: excess-return start-return × cost-of-equity per-share grid (null cells withheld). */
+    /** D-102: excess-return start-return × cost-of-equity per-share grid (null cells withheld). */
     excessReturnGrid: z.object({
       rows: z.array(z.object({ label: z.string(), startReturnPct: z.number(), bookValue: z.number() }).strict()),
       costOfEquityPcts: z.array(z.number()),
@@ -1224,7 +1224,7 @@ export const MultipleRowSchema = z
     peerMedian: z.number().nullable(),
     /** Number of eligible peers after metric-specific outlier filtering. */
     peerCount: z.number().int().nonnegative().nullable().optional(),
-    // WS6 (D-19) begin -------------------------------------------------------
+    // D-19 begin -------------------------------------------------------
     /** Empirical percentile rank (0-100) within the retained finite sample, not an ordinal rank. */
     own5yPercentile: z.number().nullable(),
     /** Sample size, separate from the percentile scale; optional for legacy reports. */
@@ -1235,8 +1235,8 @@ export const MultipleRowSchema = z
       source: z.enum(["raw-statements", "vendor-ratio"]), marketCapSourceId: z.string().optional(),
     }).strict()).optional(),
     ownHistoryBasis: z.string().optional(),
-    // WS6 (D-19) end ---------------------------------------------------------
-    /** AMZN audit 2026-10-20: why a P/E on gain-inflated earnings is caveated and not ranked; pipeline-owned. */
+    // D-19 end ---------------------------------------------------------
+    /** D-98: why a P/E on gain-inflated earnings is caveated and not ranked; pipeline-owned. */
     earningsCaveat: z.string().optional(),
     sectorAppropriate: z.boolean(),
   })
@@ -1249,8 +1249,7 @@ export const ScenarioSchema = z
     /** Legacy key: new reports store a fixed display weight, never calibrated odds. */
     probability: z.number().min(0).max(1).nullable(),
     /**
-     * Headline scenario price target. NULLABLE (2026-07-11 scenario-credibility
-     * checkpoint): the pipeline OVERWRITES this at assembly with the deterministic
+     * Headline scenario price target. NULLABLE: the pipeline OVERWRITES this at assembly with the deterministic
      * computed target ({@link ScenarioTargetsSchema}), or sets it null when the
      * DCF route / inputs are insufficient. The judge no longer authors it — a
      * null here means "scenario target unavailable", not "zero". Persisted 1.x
@@ -1315,7 +1314,7 @@ export const ValuationSchema = z
       approximate: z.boolean(), basis: z.string(),
       multiClass: z.literal(true).optional(),
       classPriceDates: z.array(z.object({ classId: z.string(), asOf: z.string() }).strict()).optional(),
-      /** Unresolved because the issuer has more than one common class (audit 2026-10-22 B-8). */
+      /** Unresolved because the issuer has more than one common class (D-103). */
       classAmbiguity: z.literal(true).optional(),
       enterpriseValue: z.number().nullable(), enterpriseValueBasis: z.string(),
     }).strict().optional(),
@@ -1468,7 +1467,7 @@ export type ShareholderAlignment = z.infer<typeof ShareholderAlignmentSchema>;
 export const ManagementActorSchema = z.enum(["ceo", "cfo", "other-executive", "board", "company", "unspecified"]);
 export type ManagementActor = z.infer<typeof ManagementActorSchema>;
 
-/** Q1: one dated action by the CEO, another executive or the board, and its assessment. */
+/** D-177: one dated action by the CEO, another executive or the board, and its assessment. */
 export const ManagementActionSchema = z
   .object({
     occurredOn: OccurredOnSchema,
@@ -1487,7 +1486,7 @@ export const LeadershipSchema = z
     executives: z.array(ExecutiveSchema),
     insiderSummary: z.array(SourcedClaimSchema),
     governanceNotes: z.array(SourcedClaimSchema),
-    /** Q1: dated management and board actions; absent on historical reports. */
+    /** D-177: dated management and board actions; absent on historical reports. */
     managementActions: z.array(ManagementActionSchema).max(QUALITATIVE_ITEM_CAP).optional().describe("Dated actions by the CEO, other executives or the board, newest first."),
   })
   .strict();
@@ -1719,7 +1718,7 @@ export const VerificationLogEntrySchema = z
         "currency-mismatch",
         "period-mismatch",
         "date-mismatch",
-        // WS7 (D-20): deterministic no-model check failures. Additive — a log
+        // D-20: deterministic no-model check failures. Additive — a log
         // written before these existed never carries one.
         "direction-mismatch",
         "period-word-mismatch",
@@ -1727,7 +1726,7 @@ export const VerificationLogEntrySchema = z
         "named-individual-unsourced",
         "named-individual-web-source",
         "credibility-source-restricted",
-        // end WS7
+        // end D-20
         // D-43 (2026-10-13): gap/unestablished citations never carry a
         // number, person-row citations are read for the person and title, and
         // a currency on a figure of unknown currency fails. Additive.
@@ -1742,15 +1741,15 @@ export const VerificationLogEntrySchema = z
       ])
       .optional(),
     /**
-     * WS7 (D-20): which deterministic check produced this entry. Absent on
+     * D-20: which deterministic check produced this entry. Absent on
      * citation-coverage entries, which are provenance, not consistency.
      */
     check: z
       .enum(["direction", "period", "unit", "named-individual", "plain-figure"])
       .optional(),
     /**
-     * How the number traced — separates the CITATION-COVERAGE modes the audit
-     * asks to keep distinct (2026-07-11 finding #2). Optional for backward-compat
+     * How the number traced — separates the CITATION-COVERAGE modes that must
+     * stay distinct. Optional for backward-compat
      * with reports written before this field existed:
      *  - "payload-match": exact provider registry ID plus numeric dimensions.
      *  - "source-cited": exact payload text source/date or observed fetched URL.
@@ -1780,7 +1779,7 @@ export function verificationEntryOutcomeLabel(entry: VerificationLogEntry): stri
   if (entry.outcome === "removed") return citationOutcomeLabel(entry.outcome);
   if (entry.check === "plain-figure" && entry.traceKind === "value-match") return "Value match; context not confirmed";
   if (entry.claimSupportStatus === "numeric-only") return "Numeric match; prose unchecked";
-  // A contradicted claim was cited; a legacy metadata gap reads as unchecked (F-22).
+  // A contradicted claim was cited; a legacy metadata gap reads as unchecked (D-110).
   if (entry.claimSupportStatus === "contradicted") {
     return displayedValidationStatus(entry) === "unchecked" ? "Cited; prose unchecked" : "Cited; contradicted by its source";
   }
@@ -1829,7 +1828,7 @@ export const CostBreakdownEntrySchema = z
     /** Why it was discarded, in the words the failure was recorded under. */
     discardedReason: z.string().optional(),
     /**
-     * R1 (FIGR paid audit): the tokens this request's settled usage reported
+     * D-156: the tokens this request's settled usage reported
      * (uncached input and output). Absent on presumed rows, plan-allowance rows
      * and reports saved before the field existed.
      */
@@ -1846,7 +1845,7 @@ export const AppendixSchema = z
     /** Citation coverage (provenance, not correctness) — see MetaSchema. */
     verificationRate: z.number().nullable(),
     provenanceCoverage: ProvenanceCoverageSchema.optional(),
-    /** WS7 (D-20): deterministic direction/period/unit/named-individual checks. */
+    /** D-20: deterministic direction/period/unit/named-individual checks. */
     consistencyChecks: ConsistencyChecksSchema.optional(),
     verificationLog: z.array(VerificationLogEntrySchema).optional(),
     costBreakdown: z.array(CostBreakdownEntrySchema),
@@ -2093,7 +2092,7 @@ export type Projections = z.infer<typeof ProjectionsSchema>;
  * §7.5b deterministic scenario price targets (Stage B; computed-derived)
  *
  * The headline bull/base/bear price targets are COMPUTED, not judge-authored
- * (2026-07-11 scenario-credibility checkpoint). base IS the deterministic DCF
+ * (P18). base IS the deterministic DCF
  * fair value; bull/bear re-run the SAME DCF with the growth + operating-margin
  * paths shifted ±1σ of the company's OWN historical dispersion — the identical
  * construction as the projection fan (scenarioTargets.ts reuses projections.ts's
@@ -2156,7 +2155,7 @@ export type ScenarioTargets = z.infer<typeof ScenarioTargetsSchema>;
  * §7.5c deterministic intrinsic per-share fair value (Stage B; computed-derived)
  *
  * The headline DCF fair value (valuation.dcf.perShare + upsidePct) is COMPUTED,
- * not judge-authored (2026-07-11 DCF-credibility checkpoint). The route-
+ * not judge-authored (P18). The route-
  * appropriate deterministic per-share — the FCFF DCF on the general route, the
  * book-value excess-return model for banks/insurers — is injected into
  * valuation.dcf at assembly (assembleReport.applyFairValue), or nulled when no
@@ -2177,7 +2176,7 @@ export type ValuationUse = z.infer<typeof ValuationUseSchema>;
 
 export const FairValueSchema = z
   .object({
-    // "outside-domain": audit 2026-10-22 B-29, the DCF failed a domain test; no per-share is published.
+    // "outside-domain" (D-102): the DCF failed a domain test; no per-share is published.
     status: z.enum(["available", "suppressed", "outside-domain", "dated-reference"]),
     /** Pipeline-owned admission; absent only on older stored reports. */
     auditValuation: z.object({ scenarios: z.array(ScenarioSchema), reverseDcf: ReverseDcfSchema,
@@ -2201,7 +2200,7 @@ export const FairValueSchema = z
     /** Why suppressed (ManifestEntry gaps). */
     reasons: z.array(ManifestEntrySchema),
     /**
-     * Audit 2026-10-22 C-10: the excess-return value from the fiscal-year start
+     * D-102: the excess-return value from the fiscal-year start
      * when the model started from the trailing four quarters and the two starts
      * differ by more than 5pp; printed beside the headline.
      */
@@ -2211,7 +2210,7 @@ export const FairValueSchema = z
 export type FairValue = z.infer<typeof FairValueSchema>;
 
 /* ------------------------------------------------------------------------ *
- * WS5 §7.5d route metrics for financial companies (Stage B; computed-derived)
+ * D-17 route metrics for financial companies (Stage B; computed-derived)
  *
  * The bank, insurer and mortgage-REIT routes lead with figures a general
  * report has no place for — NIM, the efficiency ratio, CET1 or its labeled
@@ -2270,8 +2269,7 @@ export type RouteMetrics = z.infer<typeof RouteMetricsSchema>;
 
 /* ------------------------------------------------------------------------ *
  * Filing disclosures — pipeline-filled from 8-K exhibits/items, periodic
- * XBRL segment facts and the quarterly statements (NVDA report #34 audit,
- * work package 3 and the data-depth part of 9). Deterministic: never
+ * XBRL segment facts and the quarterly statements. Deterministic: never
  * judge-authored. Money is in base units of `currency`.
  * ------------------------------------------------------------------------ */
 
@@ -2307,7 +2305,7 @@ const GuidanceBasisSchema = z.enum(["gaap", "non-gaap", "unspecified"]);
 
 export const GuidanceRowSchema = z
   .object({
-    /** Issuer fiscal label, or fiscal quarter/year when contradicted (AI-512-V1). */
+    /** Issuer fiscal label, or fiscal quarter/year when contradicted (D-148). */
     period: z.string(),
     metric: GuidanceMetricSchema,
     basis: GuidanceBasisSchema,
@@ -2477,11 +2475,11 @@ export const FilingDisclosuresSchema = z
       source: FilingRefSchema,
     }).strict()).optional(),
     /**
-     * Task 9b: true only when the trend's quarterly rows carry the builder's revenue presentation key, so the
+     * D-134: true only when the trend's quarterly rows carry the builder's revenue presentation key, so the
      * one-presentation growth check ran. Omitted otherwise (FMP-route and older reports).
      */
     quarterlyTrendPresentationChecked: z.literal(true).optional(),
-    /** N4b: the evidenced lender applicability reason; absent on older reports. */
+    /** D-155: the evidenced lender applicability reason; absent on older reports. */
     quarterlyGrossMarginNotApplicable: z.string().optional(),
     quarterlyTrend: z.array(
       z
@@ -2491,7 +2489,7 @@ export const FilingDisclosuresSchema = z
           revenue: z.number().nullable(),
           revenueYoyPct: z.number().nullable(),
           revenueQoqPct: z.number().nullable(),
-          /** FIN-511-V1: why a growth cell uses a first-reported copy or is a dash. Optional: absent on older reports. */
+          /** D-134: why a growth cell uses a first-reported copy or is a dash. Optional: absent on older reports. */
           revenueGrowthNotes: z.array(z.string()).optional(),
           grossMarginPct: z.number().nullable(),
           operatingExpenses: z.number().nullable(),
@@ -2551,7 +2549,7 @@ export const FilingDisclosuresSchema = z
     /** D-63: the issuer's statement of a non-GAAP basis change ("no longer exclude stock-based compensation"). */
     nonGaapBasisNote: z.string().nullable().optional(),
     /**
-     * Audit 2026-10-22 B-24: a results release for a period later than the
+     * D-103: a results release for a period later than the
      * newest statement period. The statements, TTM and multiples end at
      * `statementsEnd` and do not reflect it. Revenue and diluted EPS are the
      * release's unaudited headline figures, null unless both were read with an
@@ -2567,7 +2565,7 @@ export const FilingDisclosuresSchema = z
       currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
     }).strict().optional(),
     /**
-     * Audit 2026-10-22 B-23: a 10-Q or 10-K on file for a period later than
+     * D-112: a 10-Q or 10-K on file for a period later than
      * the newest statement period, whose facts did not reach the statements
      * (companyfacts had not carried it and its XBRL instance was not merged).
      * Optional on older reports.
@@ -2836,8 +2834,8 @@ const ReportObjectSchema = z
     projections: ProjectionsSchema.optional(),
     /**
      * Deterministic bull/base/bear price targets + their trace/suppression state
-     * (pipeline-filled by assembleReport from Stage B; 2026-07-11 scenario-
-     * credibility checkpoint). Optional so persisted pre-checkpoint reports parse.
+     * (pipeline-filled by assembleReport from Stage B). Optional so persisted
+     * reports from before the field parse.
      * When present and available, assembleReport also overwrites
      * valuation.scenarios[].priceTarget from it so the two never diverge.
      */
@@ -2846,14 +2844,14 @@ const ReportObjectSchema = z
     thesisTriggers: z.array(ThesisTriggerSchema).optional(),
     /**
      * Deterministic intrinsic per-share fair value + its trace/suppression state
-     * (pipeline-filled by assembleReport from Stage B; 2026-07-11 DCF-credibility
-     * checkpoint). Optional so persisted pre-checkpoint reports parse. When present
+     * (pipeline-filled by assembleReport from Stage B). Optional so persisted
+     * reports from before the field parse. When present
      * and available, assembleReport also overwrites valuation.dcf.perShare +
      * upsidePct from it so the two never diverge.
      */
     fairValue: FairValueSchema.optional(),
     /**
-     * WS5: route metrics for financial companies (pipeline-filled from Stage B
+     * D-17: route metrics for financial companies (pipeline-filled from Stage B
      * `computed.financialMetrics`). Optional so every persisted report still
      * parses, and absent entirely on routes that have no route metrics.
      */
@@ -2906,7 +2904,7 @@ const AnalystCaseObjectSchema = z
     priceTarget: AnalystPriceTargetSchema,
     evidence: z.array(TracedNumberSchema),
     /**
-     * WS7 (D-20): the analyst's own 1-5 assessment of how strong ITS OWN side's
+     * D-20: the analyst's own 1-5 assessment of how strong ITS OWN side's
      * evidence is, against the rubric stated verbatim in the analyst prompt
      * (prompts.ts CASE_STRENGTH_RUBRIC). The judge is shown both numbers and is
      * told it may discount a side that scored itself low — a self-report, not a
@@ -2932,7 +2930,7 @@ export const ANALYST_CASE_SCHEMA = AnalystCaseObjectSchema.superRefine(
 export type AnalystCase = z.infer<typeof ANALYST_CASE_SCHEMA>;
 
 /**
- * Audit 2026-10-22 D-3: the keys of `sections` that would fail the whole
+ * D-111: the keys of `sections` that would fail the whole
  * output on their own, which is either a key the schema lacks, or a section
  * that fails its own sub-schema or the rating-safety walk. Each section is
  * checked alone, so one bad section never condemns the others. The caller
@@ -2951,12 +2949,12 @@ function invalidTopLevelSections(
   });
 }
 
-/** The judge-output sections in `sections` that fail on their own (audit 2026-10-22 D-3). */
+/** The judge-output sections in `sections` that fail on their own (D-111). */
 export function invalidJudgeOutputSections(sections: Record<string, unknown>): string[] {
   return invalidTopLevelSections(JudgeOutputObjectSchema, sections);
 }
 
-/** The analyst-case sections in `sections` that fail on their own (audit 2026-10-22 D-3). */
+/** The analyst-case sections in `sections` that fail on their own (D-111). */
 export function invalidAnalystCaseSections(sections: Record<string, unknown>): string[] {
   return invalidTopLevelSections(AnalystCaseObjectSchema, sections);
 }
@@ -3202,7 +3200,7 @@ export function fillNullableGaps(schema: z.ZodType, data: unknown): unknown {
 }
 
 export function collapseNullableComplexity<T>(schema: T): T {
-  // WS7 (D-20): a nullable leaf used by two or more fields is HOISTED into
+  // D-20: a nullable leaf used by two or more fields is HOISTED into
   // `$defs` by `reused: "ref"`, and every use becomes a bare `$ref`. Before this
   // pass ran only over inline properties, so a hoisted `X | null` survived as a
   // union — invisible until a second field happened to share its exact shape,
@@ -3241,7 +3239,7 @@ export function collapseNullableComplexity<T>(schema: T): T {
         const ref = (prop as Record<string, unknown>).$ref;
         const collapsed =
           collapseNullableUnion(prop as Record<string, unknown>) ||
-          (typeof ref === "string" && collapsedRefs.has(ref)); // WS7
+          (typeof ref === "string" && collapsedRefs.has(ref)); // D-20
         if (collapsed && required) {
           const idx = required.indexOf(key);
           if (idx !== -1) required.splice(idx, 1);
@@ -3304,7 +3302,7 @@ const ALWAYS_FILLED_BY_GENERATION = new Set([
   "managementPlan",
   "industry",
   "competitorsByProductLine",
-  // Q1: optional only for saved reports; arrays/objects with an honest empty
+  // D-177: optional only for saved reports; arrays/objects with an honest empty
   // form, and a date the generation normalizer turns to null when unreadable.
   "recentDevelopments",
   "managementActions",
@@ -3314,7 +3312,7 @@ const ALWAYS_FILLED_BY_GENERATION = new Set([
   // reports remain readable; a blank or null value from a model that had no
   // registry ID is read as absent, so the claim cites its `source` (D-114).
   "sourceId",
-  // WS7 (D-20): the analyst self-assessment. Optional on the Zod schema only so
+  // D-20: the analyst self-assessment. Optional on the Zod schema only so
   // a bull/bear artifact persisted before the field existed still parses on
   // resume; a fresh analyst pass is prompted for it and the request schema
   // requires it, so "I forgot" is not an available answer.
@@ -3395,9 +3393,9 @@ export function removeVerifierOwnedRequestFields<T>(schema: T): T {
  * (N, the number of quarters a rank is taken among) is therefore pipeline-owned
  * in exactly the way `verified` is verifier-owned, so it is removed from the
  * REQUEST schema — which also keeps it off Anthropic's optional-parameter
- * counter, the reason N was not carried as a row field before (WS6 review,
- * SHOULD-FIX 3). The Zod field stays `.optional()` so persisted reports written
- * before the review still parse.
+ * counter, the reason N was not carried as a row field before (D-19). The Zod
+ * field stays `.optional()` so persisted reports written before that change
+ * still parse.
  */
 export function removePipelineOwnedRequestFields<T>(schema: T): T {
   const seen = new WeakSet<object>();
@@ -3552,7 +3550,7 @@ function withoutRequestProperty<T>(schema: T, key: string): T {
 /**
  * JSON Schema the bull/bear passes request.
  *
- * D-185 (ASML Opus 5.5 paid run, 2026-11-03): the request schema required
+ * D-185: the request schema required
  * `sourceId` beside `source` on every claim and evidence number. The analyst has
  * no second identity to give, so Opus wrote the placeholder "x" (or "") into the
  * first claim and closed the case: one thesis claim and every other section

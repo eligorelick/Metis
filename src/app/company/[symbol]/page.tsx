@@ -345,7 +345,7 @@ function ReturnsPanel({ computed }: { computed: ComputedMetrics }) {
     : [...roicSeries].reverse().find((y) => y.roicPct !== null)?.date ?? r.roic.asOf;
   // The spread is the module's figure or nothing: subtracting a years-old ROIC
   // from today's WACC produced a green "+5.1 pp" above the module's own
-  // "spread unavailable" note (audit 2026-09-06, F220). The ROIC cell keeps
+  // "spread unavailable" note. The ROIC cell keeps
   // its dated fallback because it stamps the year beneath the figure.
   const spreadDisplay = r.roicVsWacc.spreadPctPts;
 
@@ -447,7 +447,7 @@ function ForensicsPanel({ computed }: { computed: ComputedMetrics }) {
           tone={beneishTone}
         />
         {/*
-          WS5: a financial route scores 3 of the paper's 9 signals, so the label
+          D-17: a financial route scores 3 of the paper's 9 signals, so the label
           names the variant and the tone bands are proportional. The 9-point
           thresholds would have painted a perfect 3/3 red.
         */}
