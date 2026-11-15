@@ -4,10 +4,10 @@
  *
  * A holding-company reorganization creates a NEW SEC registrant that takes over
  * the listed ticker and files a Form 8-K12B ("registration of a successor
- * issuer"). ExxonMobil Holdings Corp did this in July 2026: CIK 2115436 now
- * carries the XOM ticker, and its `companyfacts` payload starts at the
- * reorganization — a hundred years of Exxon Mobil Corp's filings sit under CIK
- * 34088, and neither `submissions` nor `companyfacts` links the two.
+ * issuer"). In the recorded case the new holding company's CIK now carries the
+ * listed ticker, and its `companyfacts` payload starts at the
+ * reorganization — a century of the predecessor's filings sit under the old
+ * CIK, and neither `submissions` nor `companyfacts` links the two.
  *
  * The consequence for a report was severe and silent: every long-window growth
  * rate, every multi-year average and every trend for such an issuer measured a
@@ -15,7 +15,7 @@
  *
  * The link is machine-readable, but NOT where this module first looked. The
  * 8-K12B says the registrant is a successor; it does not necessarily say whose.
- * ExxonMobil Holdings' own 8-K12B (0001193125-26-291990, filed 2026-07-01,
+ * The successor's own 8-K12B (0001193125-26-291990, filed 2026-07-01,
  * recorded under `fixtures/edgar/`) carries a single FILER block — itself. The
  * co-registration appears on the filings the two entities made JOINTLY after
  * the reorganization: the 10-Q of 2026-08-03 and the POSASR of 2026-07-01 each
@@ -67,7 +67,7 @@ export interface CandidateFiling {
  *   0. the 8-K12B itself — it co-registers for some issuers, and it is the one
  *      filing whose whole purpose is the succession;
  *   1. periodic reports, newest first — while the two entities file jointly,
- *      every 10-K and 10-Q names both (this is what resolves ExxonMobil);
+ *      every 10-K and 10-Q names both (this resolves the recorded case);
  *   2. anything else riding on another registrant's registration statement,
  *      newest first — a POSASR or S-3ASR amended by the successor names the
  *      predecessor whose shelf it is;
@@ -125,7 +125,7 @@ export interface PredecessorFacts extends PredecessorRegistrant {
 /**
  * The predecessor among one filing's FILER blocks: the co-registrant that is
  * not the successor itself. A header naming only the successor yields null —
- * the common case, including ExxonMobil's own 8-K12B — and the caller moves on
+ * the common case, including the recorded successor's own 8-K12B — and the caller moves on
  * to the next candidate. Guessing a CIK from a company NAME would be a
  * fabricated identity, so it is never done.
  */
@@ -169,7 +169,7 @@ export function hasOwnAnnualHistory(facts: CompanyFacts | null, mergedAccessions
     for (const rawPoints of Object.values(parsed.data.units)) {
       if (!Array.isArray(rawPoints)) continue;
       for (const p of filterToCoreForms(parseFactPoints(rawPoints))) {
-        // Audit 2026-10-22 B-23: a point merged from a newer filing's instance
+        // D-112: a point merged from a newer filing's instance
         // is not history companyfacts carried.
         if (p.start === undefined || mergedAccessions.has(p.accn)) continue;
         const days = (Date.parse(`${p.end}T00:00:00Z`) - Date.parse(`${p.start}T00:00:00Z`)) / DAY_MS;
@@ -215,11 +215,11 @@ function tagDurationPoints(facts: CompanyFacts, tag: string): Map<string, number
 
 /**
  * Whether the successor's own filings re-present the predecessor's periods
- * unchanged (audit 2026-10-22 B-36): a net income it reports for an interval
+ * unchanged (D-112): a net income it reports for an interval
  * the predecessor also reported, with every such net income and per-share
  * comparative equal. That is the evidence of one continuing reporting entity
- * on one share basis — ExxonMobil Holdings' first 10-Q restates Exxon Mobil
- * Corp's Q2 2025 at 7,082M and 1.64 a share — so the predecessor's quarters
+ * on one share basis — a successor's first 10-Q restates the predecessor's
+ * prior-year quarter at the same net income and EPS — so the predecessor's quarters
  * may share a trailing twelve months with the successor's. EPS is compared by
  * role, basic and diluted, so a combined basic-and-diluted tag on one side
  * meets separate tags on the other, and at least one per-share comparative

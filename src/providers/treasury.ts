@@ -1,5 +1,5 @@
 /**
- * U.S. Treasury daily par yield curve, 10-year point (audit 2026-10-22 B-4).
+ * U.S. Treasury daily par yield curve, 10-year point (D-111).
  *
  * Server-only. The last source in the risk-free fallback chain, used only when
  * FRED DGS10 (keyed, then fredgraph.csv), FMP's treasury endpoint and the last

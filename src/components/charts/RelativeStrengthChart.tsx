@@ -45,7 +45,7 @@ export interface RsRow {
 }
 
 export interface RsSeries {
-  /** Legend label, e.g. "NVDA", "SPY", "XLK". */
+  /** Legend label, e.g. the subject's symbol, "SPY", "XLK". */
   label: string;
   rows: readonly RsRow[];
   /**

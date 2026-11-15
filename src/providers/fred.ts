@@ -188,8 +188,7 @@ const FRED_NATIVE_UNITS: Readonly<Record<string, string>> = {
  * dollars per barrel — is shown as a plain count or currency amount (the
  * served value × `scale`) with the conversion named in a section note. A
  * figure rendered in the native spelling ("thousands") could not be
- * registered at all, so every citation of it failed as unknown-source (live
- * haiku CAT run, 2026-09-02).
+ * registered at all, so every citation of it failed as unknown-source.
  */
 export interface FredFigureUnit {
   /** Unit rendered on the figure and matched by the verification pass. */
@@ -208,8 +207,7 @@ const FRED_FIGURE_UNITS: Readonly<Record<string, FredFigureUnit>> = {
   thousands: { unit: "count", scale: 1e3, qualifier: "persons (FRED serves thousands; shown ×1,000)" },
   // HOUST and TOTALSA are published at a seasonally adjusted ANNUAL rate; the
   // rate basis is part of the unit, and a qualifier that dropped it let the
-  // model read a 1.42-million annualised starts figure as a month's count
-  // (audit 2026-09-06, F224).
+  // model read a 1.42-million annualised starts figure as a month's count.
   "thousands of units": { unit: "count", scale: 1e3, qualifier: "units at a seasonally adjusted annual rate (FRED serves thousands; shown ×1,000)" },
   "millions of units": { unit: "count", scale: 1e6, qualifier: "units at a seasonally adjusted annual rate (FRED serves millions; shown ×1,000,000)" },
   "USD/bbl": { unit: "USD", scale: 1, qualifier: "USD per barrel" },
@@ -219,7 +217,7 @@ const FRED_FIGURE_UNITS: Readonly<Record<string, FredFigureUnit>> = {
   "USD/tonne": { unit: "USD", scale: 1, qualifier: "USD per tonne" },
   "USD millions": { unit: "USD", scale: 1e6, qualifier: "USD (FRED serves millions; shown ×1,000,000)" },
   "USD billions": { unit: "USD", scale: 1e9, qualifier: "USD (FRED serves billions; shown ×1,000,000,000)" },
-  // PCE, PCEND and PCEDG are "Billions of Dollars, Seasonally Adjusted Annual Rate" (AI-310).
+  // PCE, PCEND and PCEDG are "Billions of Dollars, Seasonally Adjusted Annual Rate" (D-124).
   "USD billions SAAR": { unit: "USD", scale: 1e9, qualifier: "USD at a seasonally adjusted annual rate (FRED serves billions; shown ×1,000,000,000)" },
 };
 const PERCENT_TRANSFORMS: ReadonlySet<FredUnits> = new Set<FredUnits>(["pc1", "pch", "pca", "cch", "cca"]);
@@ -235,7 +233,7 @@ export function fredFigureUnit(seriesId: string, units: FredUnits): FredFigureUn
   const native = FRED_NATIVE_UNITS[seriesId.trim().toUpperCase()];
   const base = native === undefined ? AS_SERVED("") : FRED_FIGURE_UNITS[native] ?? AS_SERVED(native);
   // FRED's `chg` is "Change" from the prior observation: the figure is a
-  // difference, not the level the series' native unit describes (AI-310).
+  // difference, not the level the series' native unit describes (D-124).
   if (units !== "chg") return base;
   const level = base.qualifier ?? base.unit;
   return { ...base, qualifier: `${level === "" ? "" : `${level}, `}as the change from the prior observation` };
@@ -460,7 +458,7 @@ interface HttpText {
 const MAINTENANCE_TITLE = /<title[^>]*>\s*Site Maintenance\s*\|\s*St\. Louis Fed\s*</i;
 
 /**
- * Audit 2026-10-22 B-1: neither the API (JSON) nor fredgraph.csv (CSV) ever
+ * D-111: neither the API (JSON) nor fredgraph.csv (CSV) ever
  * returns HTML as data, so an HTTP 200 whose body opens with '<' is an outage or
  * maintenance page. It is retried like a 503. The body decides, not the content
  * type: an edge that labels a good CSV text/html must not turn it into an outage.

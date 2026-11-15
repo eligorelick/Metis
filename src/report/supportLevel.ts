@@ -1,5 +1,5 @@
 /**
- * D-300 (P12, P19, P22; release items R40 and R41): the report's support level
+ * D-300 (P12, P19, P22): the report's support level
  * and its share of confirmed statements, stated once near the top of every
  * reader surface and defined here once for the README.
  *
@@ -24,7 +24,7 @@ export { DCF_TAX_OPERANDS_FIELD };
 
 export type SupportLevelKey = "full" | "limited";
 
-/** The two levels, in the words every surface and the README use (R41). */
+/** The two levels, in the words every surface and the README use (D-300). */
 export const SUPPORT_LEVELS: Readonly<Record<SupportLevelKey, { label: string; definition: string }>> = {
   full: {
     label: "Full support",
@@ -106,7 +106,7 @@ function partialGrades(scores: Report["scores"] | undefined, named: readonly str
 }
 
 /**
- * D-309 review round 1 (P10, P12, P19): the manifest fields of valuation inputs and headline figures. Any such entry
+ * D-309 (P10, P12, P19): the manifest fields of valuation inputs and headline figures. Any such entry
  * that is not an expected omission means a valuation input or headline figure is withheld, unchecked or qualified, so
  * the report is not full support. Scores (`scores.*`) are excluded: grade evidence is judged by its share above.
  */
@@ -227,12 +227,12 @@ export function supportLevel(report: SupportReport): SupportLevel {
     const use = fv.currentUse;
     if (use?.reason === "route-policy") add("route-no-per-share-value", "no per-share fair value: this company's route does not apply the cash-flow valuation model");
     else if (fv.status === "dated-reference" || use?.status === "dated-reference") add("fair-value-dated", `the fair value is a dated reference${use?.valueDate ? ` (valued at ${use.valueDate})` : ""}, not updated to the current price`);
-    // Review round 1: a domain failure (non-positive equity value, negative explicit-period value) is a model limit, not missing evidence.
+    // D-300: a domain failure (non-positive equity value, negative explicit-period value) is a model limit, not missing evidence.
     else if (fv.status === "outside-domain") add("fair-value-withheld", "the per-share fair value is withheld because the cash-flow model's result falls outside the range it is valid for");
     else if (fv.status === "suppressed") add("fair-value-withheld", "the per-share fair value is withheld because an input could not be established");
   }
   // P12: the qualifications the grades already carry (assessment.ts withAssessmentQualification).
-  // Review round 1 (D-300): every reason code limits support; a grade with no recorded
+  // D-300: every reason code limits support; a grade with no recorded
   // qualification is not shown to be supported, so it cannot establish full support (P19).
   const qualification = report.scores === undefined ? undefined : report.scores.qualification;
   if (report.scores !== undefined && (qualification === undefined || qualification.composite.status === "unknown")) {
@@ -272,7 +272,7 @@ export function supportLevel(report: SupportReport): SupportLevel {
   }
   const gaps: readonly ManifestEntry[] = report.appendix.missingData;
   const capital = capitalRecords(report);
-  // Review round 1 (D-300): the cash-flow valuation's tax rate is a headline input. Its operands are
+  // D-300: the cash-flow valuation's tax rate is a headline input. Its operands are
   // checked against a filing unless the typed manifest entry says otherwise; a saved report written
   // before that entry existed does not record which, so it is not shown to be checked (P19).
   const dcfHeadline = fv !== undefined && fv.method === "fcff-dcf" && (fv.status === "available" || fv.status === "dated-reference");
@@ -290,7 +290,7 @@ export function supportLevel(report: SupportReport): SupportLevel {
     const period = refusedCapitalPeriod(capital, "capital.fcf.sbc");
     add("fcf-after-sbc-withheld", `stock-based compensation is not established for ${period ? `the historical annual period ended ${period}` : "the historical annual calculation (period not recorded)"}, so free cash flow after it is withheld`);
   }
-  // D-309 review round 1: the literal definition. Every other unexpected entry on a valuation input or headline
+  // D-309: the literal definition. Every other unexpected entry on a valuation input or headline
   // figure limits support, in one plain sentence per typed field, unless a limitation above already names it.
   const has = (...codes: SupportLimitationCode[]) => out.some(item => codes.includes(item.code));
   for (const gap of gaps) {

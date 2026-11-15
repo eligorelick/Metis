@@ -103,7 +103,7 @@ export function makeLimiter(
  * serializes at 500 ms per request, ≤2 req/s; finra.ts and finnhub.ts carry
  * their own retry loops). Registry rows for them — with a "burst 8 admits one
  * sector-overlay volley" rationale and a test pinning it — described pacing
- * no request ever received (audit 2026-09-06, F222/F230), so they are gone;
+ * no request ever received, so they are gone;
  * `getProviderLimiter("fred")` now returns the generic fallback and governs
  * nothing.
  */
@@ -235,7 +235,7 @@ export interface FetchPolicy {
    * A declared Content-Length above it is refused before a byte is read; an
    * undeclared body is read in chunks and abandoned the moment the running
    * total passes it. Not retried: a body that is too large will be too large
-   * again (audit 2026-09-06, F229 — `response.text()` used to materialise
+   * again (`response.text()` used to materialise
    * whatever a provider or a same-origin redirect target streamed, with only
    * the 30 s timeout bounding it, and then retry the download).
    */
@@ -639,7 +639,7 @@ function errorMessage(err: unknown): string {
   return String(err);
 }
 
-/** OD-4: explicit provider refusals and schema/identity failures never qualify. */
+/** D-148: explicit provider refusals and schema/identity failures never qualify. */
 export function isTransientProviderError(error:unknown):boolean {
  if(error instanceof HttpBodyTooLargeError)return false;
  if(error instanceof HttpTransportError)return true;

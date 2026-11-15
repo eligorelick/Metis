@@ -181,7 +181,7 @@ import { formatScore } from "@/report/scoreText";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
 import { executiveTenureText, executiveCardClaims, executiveOfficeContext } from "@/report/executiveDecisions";
 
-/** AMZN audit 2026-10-20 finding 17: the evidence-scope line, when a pass ran on a plan allowance. */
+/** D-98: the evidence-scope line, when a pass ran on a plan allowance. */
 function evidenceRow(report: Report): string[][] {
   const scope = evidenceScopeSummary(report);
   return scope === null ? [] : [["Evidence", scope]];
@@ -273,11 +273,11 @@ interface GradeContext {
   completeness?: ReportCompletenessPresentation;
   /** A key number's reader label when its registry label would mislead (an unfinished session's "last close"). */
   labelFor?: (n: TracedNumber) => string | undefined;
-  /** D-282 review round 2: the report is AI-written, so its AI-authored tables and cards carry the block caption. */
+  /** D-282: the report is AI-written, so its AI-authored tables and cards carry the block caption. */
   aiAuthored?: boolean;
 }
 
-/** D-282 review round 2: the caption on an AI-authored table or card, as a whole. */
+/** D-282: the caption on an AI-authored table or card, as a whole. */
 function aiCaption(ai: boolean | undefined): string[] {
   return ai ? [`_${markdownProse(AI_BLOCK_CAPTION)}_`, ""] : [];
 }
@@ -398,13 +398,13 @@ function renderHeader(report: Report): string {
   ].join("\n");
 }
 
-/** D-300 (R40): the support level and the confirmed share, near the top of the report. */
+/** D-300: the support level and the confirmed share, near the top of the report. */
 function renderSupportBlock(report: Report): string {
   const block = supportBlock(report, isModelWrittenReport(report));
   return [`### ${block.heading}`, "", ...block.rows.map(([label, text]) => `- **${label}:** ${markdownListItem(text)}`), "", `_${markdownProse(block.note)}_`].join("\n");
 }
 
-/** The page-1 key-data box (audit P1-12); rows without inputs are omitted. */
+/** The page-1 key-data box (D-62); rows without inputs are omitted. */
 function renderKeyData(report: Report): string {
   const rows = keyDataRows(report);
   if (rows.length === 0) return "";
@@ -451,7 +451,7 @@ function renderBusinessBrief(report: Report): string[] {
     : part.claims.map(c => `${markdownListItem(displayClaimText(c))} _(${markdownProse(claimCitation(c))})_${statusMarkSuffix(c)}`).join(" ")}`), ""];
 }
 
-/** Q1: absent on saved reports (nothing printed); an empty list says so. */
+/** D-177: absent on saved reports (nothing printed); an empty list says so. */
 function renderRecentDevelopments(developments: Verdict["recentDevelopments"], ai = false): string[] {
   if (developments === undefined) return [];
   const lines = [`### ${RECENT_DEVELOPMENTS_HEADING}`, ""];
@@ -473,7 +473,7 @@ function renderScores(scores: Scoring): string {
     // A sub-heading of the verdict, as on the print surface.
     "### Scorecard (deterministic)",
     "",
-    // F-19: no letter under the evidence floor; the qualifier inside 45–55.
+    // D-100: no letter under the evidence floor; the qualifier inside 45–55.
     `**Composite: ${c.score === null ? DASH : formatScore(c.score)} / 100 (${c.band === null ? DASH : compositeDisplay(scores).label})**`,
     "",
     `_${markdownProse(compositeNote(scores))}_`,
@@ -575,7 +575,7 @@ function renderBalanceSheet(bs: BalanceSheet, report: Pick<Report, "filingDisclo
 }
 
 /**
- * WS5 (D-17): the route metrics a bank, insurer or mortgage REIT leads with.
+ * D-17: the route metrics a bank, insurer or mortgage REIT leads with.
  * `withheldReason` is the load-bearing column: a blank reads as a failed fetch
  * when the figure was REFUSED. `proxy` marks a labeled stand-in.
  */
@@ -623,7 +623,7 @@ function renderValuation(
       headline.perShare !== null && headline.valueText !== null
         ? `${headline.label}: **${markdownProse(headline.valueText)}**${asOfSuffix(headline.perShare.asOf)}${headline.comparison === null ? "" : ` — ${headline.comparison.label} ${headline.comparison.text}`}`
         : `${headline.label}: **${VALUATION_WITHHELD_TEXT}** — ${headline.withheldReason ?? ""}`,
-      // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
+      // D-111: substituted inputs, beside the value they moved.
       ...(headline.degradedCaveat !== null ? ["", `**${markdownProse(headline.degradedCaveat)}**`] : []),
       ...(headline.basisCaveat !== null ? [`_${markdownProse(headline.basisCaveat)}_`] : []),
       "",
@@ -735,7 +735,7 @@ function renderScenario(row: ScenarioRowView): string {
   if (assumptions.length > 0) {
     lines.push("", "Assumptions:", "", assumptions.map((assumption) => `- ${markdownListItem(assumption)}`).join("\n"));
   }
-  // D-273 review round 1: a repeated label is stated once; every condition still prints.
+  // D-273: a repeated label is stated once; every condition still prints.
   const shown = scenarioReaderLists(sc, assumptions);
   if (shown.conditions.length > 0) {
     lines.push("", "What would have to be true:", "", shown.conditions.map((condition) => `- ${item(condition)}`).join("\n"));
@@ -896,7 +896,7 @@ function renderCompetitive(c: Competitive, ctx: GradeContext = {}, report?: Repo
 function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: readonly ReportAuditTable[] = []): string {
   const lines: string[] = [sectionHeading("catalystsRisks"), ""];
   if (dataOnly) lines.push("Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.", "");
-  // D-282 review round 2: each AI-written table carries the caption; an empty table prints nothing.
+  // D-282: each AI-written table carries the caption; an empty table prints nothing.
   const captioned = (body: string): string => body.length === 0 ? "" : [...aiCaption(!dataOnly), body].join("\n");
   lines.push(...subsection("### Catalysts", captioned(bodyTable(
     ["Catalyst", "Expected", "Direction", "Significance", "Note"],
@@ -1121,7 +1121,7 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
   return hasComputedFigures(report) ? withComputedMarkLegend(markdown) : markdown;
 }
 
-/** F-23: a data-only report says what "computed" means under its first table with a Cited column. */
+/** D-110: a data-only report says what "computed" means under its first table with a Cited column. */
 function withComputedMarkLegend(markdown: string): string {
   const lines = markdown.split("\n");
   const header = lines.findIndex((line) => line.startsWith("|") && line.endsWith(" | Cited |"));

@@ -7,7 +7,7 @@
  * enriched sidebar. Client-only; talks to the API, never to the DB directly.
  * Kept visually quiet (faint ×, red on hover) so it does not compete with the
  * ticker link it sits beside — beside, not inside: Sidebar renders it as a
- * sibling of the row link (audit 2026-09-06, F218).
+ * sibling of the row link.
  */
 
 import { useCallback, useState, useTransition } from "react";

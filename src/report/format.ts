@@ -113,8 +113,8 @@ export function formatMultiple(value: number | null | undefined, digits = 1): st
  * Render a monetary magnitude in its ACTUAL currency.
  *
  * The canonical unit is named "usd" for historical reasons, but the figure it
- * carries is denominated in the statements' reportedCurrency — TWD for TSM, CHF
- * for Nestlé. Printing those with a "$" is a false statement about the number,
+ * carries is denominated in the statements' reportedCurrency — TWD for a
+ * Taiwanese filer, CHF for a Swiss one. Printing those with a "$" is a false statement about the number,
  * not a formatting nit. A non-USD code is appended (ISO-4217) rather than
  * guessed at a symbol, because symbols are ambiguous across currencies ($ alone
  * is used by a dozen of them).
@@ -126,7 +126,7 @@ export function formatMultiple(value: number | null | undefined, digits = 1): st
  * known to be in dollars.
  */
 /**
- * N4b L10: amounts from a million use the compact scale; below a million only a
+ * D-155: amounts from a million use the compact scale; below a million only a
  * whole number of thousands does ("$122K", not "$122,000.00"). Any other amount
  * keeps its two decimals, so a price per tonne or an exact sum is not rounded
  * to one decimal of a thousand.
@@ -203,7 +203,7 @@ export function formatMoneyAmount(
  * a share count as "15,204,000,000.00 shares" and an RSI as "55.00 rsi".
  */
 function formatPipelineUnit(value: number, unit: string): string | null {
-  // RPT-204: lowercase m is the Beneish score, not millions.
+  // D-146: lowercase m is the Beneish score, not millions.
   if (unit.trim() === "m") return formatNumber(value, 2);
   switch (unit.trim().toLowerCase()) {
     case "shares":

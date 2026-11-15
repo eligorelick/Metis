@@ -18,7 +18,7 @@ export function readerConventionText(text: string, context = ""): string {
       : "Not applicable to a non-bank lender: owner cash flow is not established (see Lender conventions).";
   return text.replace(LENDER_PARAGRAPH, reason).replace(/\bdcf-suppressed\b/g, "cash-flow valuation unavailable")
     // "Provider enterprise value not applicable: Not applicable to a non-bank
-    // lender: ..." states the reason once (pre-run re-render of the FIGR report).
+    // lender: ..." states the reason once (D-162).
     .replace(/\bnot applicable:\s+Not applicable to a non-bank lender:/g, "not applicable to a non-bank lender:");
 }
 
@@ -43,7 +43,7 @@ export function lenderConventionTables(report: Report): ReportAuditTable[] {
 /**
  * An identifier, never an amount, by the words just before it: a hash, seed, fingerprint or accession; a CIK (also
  * "CIK number"/"CIK no."); a version; an id, number or "no."/"#" reference (file, account, registration, serial,
- * document, reference or filing number). D-308 review round 1 (P22).
+ * document, reference or filing number). D-308 (P22).
  */
 export const IDENTIFIER_CONTEXT = /(?:\b(?:seed|hash|fingerprint|accession|version|ver\.|v\.|id|ids|identifier|serial)|\bCIK(?:\s+(?:number|no\.?))?|\b(?:file|account|registration|serial|document|reference|filing|form|case|order|invoice|CUSIP|ISIN)\s+(?:number|no\.?)|\bno\.|#)\s*[:=]?\s*$/i;
 
@@ -72,7 +72,7 @@ function basicDate(digits: string): boolean {
  * an amount that ends a sentence ("SBC of 270000000.") or a clause ("31234567890.12, UNADJUSTED") are grouped too, at
  * most two decimals, the exact-amount format the reported-FCF sentence already prints ("-1,234,000,000"). Text only:
  * no stored number changes. Never applied to model-written prose, quotes or claims, which are shown as written
- * (review round 1). A leading-zero run, an 8-digit basic date and a number after an identifier word are left alone.
+ * (D-308). A leading-zero run, an 8-digit basic date and a number after an identifier word are left alone.
  */
 export function readerBaseUnits(text: string): string {
   return text.replace(/(?<![\w./:,\-])-?(?!0\d)\d{7,15}(?:\.\d+)?(?![\w/:-]|[.,]\d)/g, (value: string, offset: number) => {
@@ -96,7 +96,7 @@ export function unavailableModelInputTables(report: Pick<Report, "valuation" | "
 }
 
 /**
- * D-308 review round 2: a grade block's one-line reason and interpretation (a section's `graded`, the moat block, the
+ * D-308: a grade block's one-line reason and interpretation (a section's `graded`, the moat block, the
  * grade strip) can be written by the AI, so the reader view never groups them. Display groups them only when no
  * model-prose mark is attached (a data-only report's code-written grade text).
  */
@@ -110,7 +110,7 @@ export function withReaderConventions(report: Report): Report {
       // D-308 sweep: basis lists (fair value, scenario targets), the scenario interpretation, a signal's fallback
       // reason and period cell, and a grade qualification's detail carry the same producer amounts as the fields
       // already listed. Traced figures are returned unchanged above, so their periods and identities are untouched.
-      // Review round 1: code-written fields only; a grade line (oneLineWhy) can be model-written and is shown as written.
+      // D-308: code-written fields only; a grade line (oneLineWhy) can be model-written and is shown as written.
       if (AI_WRITTEN_GRADE_PROSE.test(path)) return text;
       return /\.(?:note|basis|reason|definition|enterpriseValueNote|multiplesBasis|interpretation|fallbackReason|ownHistoryBasis|earningsCaveat|detail|period)$|\.(?:notes|assumptions|basis)\.\d+$/.test(path) ? readerBaseUnits(text) : text;
     }

@@ -115,7 +115,10 @@ export const GAP_CAUSES = [
   "dcf-balance-date-mismatch",
   /** G5: "temporary-equity SEC enrichment withheld: <reason>" for the whole balance date (`supplementTemporaryEquity` `refuse`). */
   "temporary-equity-enrichment-withheld",
-  /** G5 (and the R4 sentence): "temporary-equity SEC enrichment withheld: vendor A/L/permanent-equity operands are missing, ..." for one category. */
+  /**
+   * G5: "temporary-equity SEC enrichment withheld: vendor A/L/permanent-equity operands are missing, ..."
+   * for one category.
+   */
   "temporary-equity-operands-unmatched",
   /** P1: the gap an `FmpQuotaError` leaves ("FMP quota/rate limit (HTTP n): ..."), with any retry note appended. */
   "fmp-quota",

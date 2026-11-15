@@ -1,6 +1,6 @@
 /**
  * Noncontrolling interest from a periodic filing's own equity statement
- * (audit 2026-10-22 C-15).
+ * (D-105).
  *
  * Some filers tag NCI on the 10-K face (`MinorityInterest`) but in each 10-Q
  * only as a dimensional fact: the consolidated-equity concept on

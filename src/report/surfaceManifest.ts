@@ -553,7 +553,7 @@ export const VERIFICATION_LOG_FIELD_ORDER = [
   "source",
   "reason",
   "traceKind",
-  "check", // WS7 (D-20)
+  "check", // D-20
   "validationStatus",
   "sourceSpans",
   "numericSupportStatus",
@@ -569,7 +569,7 @@ export const VERIFICATION_LOG_FIELDS = [
   { id: "verification-log-field:source", key: "source", label: "Source", optional: true },
   { id: "verification-log-field:reason", key: "reason", label: "Reason", optional: true },
   { id: "verification-log-field:traceKind", key: "traceKind", label: "Trace kind", optional: true },
-  // WS7 (D-20): which deterministic check produced this entry, when one did.
+  // D-20: which deterministic check produced this entry, when one did.
   { id: "verification-log-field:check", key: "check", label: "Check", optional: true },
   { id: "verification-log-field:validationStatus", key: "validationStatus", label: "Factual validation", optional: true },
   { id: "verification-log-field:sourceSpans", key: "sourceSpans", label: "Supporting source passages", optional: true },
@@ -586,7 +586,7 @@ export const VERIFICATION_LOG_FIELD_BY_KEY = {
   source: VERIFICATION_LOG_FIELDS[5],
   reason: VERIFICATION_LOG_FIELDS[6],
   traceKind: VERIFICATION_LOG_FIELDS[7],
-  check: VERIFICATION_LOG_FIELDS[8], // WS7 (D-20)
+  check: VERIFICATION_LOG_FIELDS[8], // D-20
   validationStatus: VERIFICATION_LOG_FIELDS[9],
   sourceSpans: VERIFICATION_LOG_FIELDS[10],
   numericSupportStatus: VERIFICATION_LOG_FIELDS[11],
@@ -722,8 +722,8 @@ export interface ProjectionPeriodRow {
  * `FY2025` (the fiscal year's end year), forward periods `12M ending
  * 2027-07-26` or `FY2027 ending 2027-01-31`, or `Y+3 (period basis
  * unavailable)` when the basis is unknown. A plain string sort put every
- * "12M ending" period before "FY2023", so NVDA report #48 (2026-10-26) drew
- * its history to the right of its forecast. A bare fiscal year sorts at its
+ * "12M ending" period before "FY2023", so a report drew its history to the
+ * right of its forecast. A bare fiscal year sorts at its
  * year's end: the first forward period ends a full year after the anchor,
  * which is never earlier than the last fiscal year end.
  */

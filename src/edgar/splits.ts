@@ -6,20 +6,20 @@
  * split restates its comparatives to the post-split share basis, so a period
  * that reappears in a later filing is picked up post-split by the max(filed)
  * dedup — but a period reported only in pre-split filings keeps its original
- * per-share and share-count figures forever. Apple's FY2016 diluted EPS is the
- * live example: 8.31 as filed (2016-2018), against 7.46 for FY2025 after the
- * 4-for-1 split of 2020, which read as a NEGATIVE ten-year EPS CAGR.
+ * per-share and share-count figures forever. A pre-split year's diluted EPS as
+ * filed (say 8.31), set against a recent year's 7.46 after a later 4-for-1
+ * split, reads as a NEGATIVE ten-year EPS CAGR.
  *
  * A split has several dates and they are not interchangeable:
  *
  *  - the ANNOUNCEMENT (the earliest filing that tags it, here `announced`);
- *  - the RECORD date and the LEGAL-EFFECTIVE moment (NVIDIA's 10-for-1 of 2024
+ *  - the RECORD date and the LEGAL-EFFECTIVE moment (one filer's 10-for-1 of 2024
  *    was legally effective on 2024-06-07 at 4:01 p.m. Eastern) — neither is in
  *    companyfacts as a machine-readable date;
- *  - the FIRST SPLIT-ADJUSTED TRADING SESSION (NVIDIA: 2024-06-10), the date a
+ *  - the FIRST SPLIT-ADJUSTED TRADING SESSION (that split: 2024-06-10), the date a
  *    price's share basis turns on;
  *  - the XBRL CONTEXT DATE of `us-gaap:StockholdersEquityNoteStockSplitConversionRatio1`,
- *    which filers set to whichever of these they choose (NVIDIA tagged
+ *    which filers set to whichever of these they choose (that filer tagged
  *    2024-06-07 and 2024-06-10 in different filings). It is an accounting
  *    context and is never taken as proof of any of the others.
  *
@@ -69,7 +69,7 @@ const EVIDENCE_TOLERANCE = 0.03;
 /**
  * Two tagged dates this close with the same ratio are one split whose context
  * date differs between filings (approval or record date in one, distribution
- * date in another — NVIDIA's 2021 split is tagged 2021-06-03 in two 10-Qs and
+ * date in another — one filer's 2021 split is tagged 2021-06-03 in two 10-Qs and
  * 2021-07-19 in the 10-K, 46 days apart), not two splits.
  */
 const SAME_SPLIT_WINDOW_DAYS = 60;
@@ -84,7 +84,7 @@ const REPEAT_TAG_WINDOW_DAYS = 550;
  * Without a vendor session, the first split-adjusted session is taken to lie
  * between this many days before the earliest context date (a filer that tags
  * the distribution or payable date) and `SESSION_AFTER_CONTEXT_MAX_DAYS` after
- * the latest one (a filer that tags the board approval: NVIDIA's 2021 approval
+ * the latest one (a filer that tags the board approval: one filer's 2021 approval
  * was tagged 47 days before the first split-adjusted session). Both are stated
  * assumptions; a vendor session replaces them.
  */
@@ -93,7 +93,7 @@ export const SESSION_AFTER_CONTEXT_MAX_DAYS = SAME_SPLIT_WINDOW_DAYS;
 /**
  * Legal effectiveness precedes the first split-adjusted session by at most this
  * many days: the exchanges begin split-adjusted trading on the first business
- * day after the distribution (NVIDIA: effective Friday 2024-06-07 4:01 p.m.,
+ * day after the distribution (one split: effective Friday 2024-06-07 4:01 p.m.,
  * first session Monday 2024-06-10, three days). A stated assumption: a filing
  * made in the days between is withheld, never assigned a basis.
  */

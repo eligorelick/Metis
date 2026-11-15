@@ -429,7 +429,7 @@ function ExtraAuditTables({ tables }: { tables: readonly (ReportAuditTable | Bod
 
 export function CompositeScorecard({ scores }: { scores: Scoring }) {
   const c = scores.composite;
-  // F-19: no letter under the evidence floor; the qualifier inside 45–55.
+  // D-100: no letter under the evidence floor; the qualifier inside 45–55.
   const shown = compositeDisplay(scores);
   return (
     <div className="dossier-scorecard border border-edge-strong bg-panel">
@@ -539,8 +539,8 @@ export function BusinessBriefBlock({ report }: { report: Report }) {
   );
 }
 
-/** Q1: dated recent developments, read after the executive summary. Absent on saved reports. */
-/** D-282 review round 2 (lead decision): the caption on an AI-authored table, card or row group, as a whole. */
+/** D-177: dated recent developments, read after the executive summary. Absent on saved reports. */
+/** D-282: the caption on an AI-authored table, card or row group, as a whole. */
 export function AiBlockCaption({ show }: { show?: boolean }) {
   return show ? <p className="ai-block text-[10px] italic leading-snug text-muted">{AI_BLOCK_CAPTION}</p> : null;
 }
@@ -582,7 +582,7 @@ export function RecentDevelopmentsBlock({ developments, aiAuthored = false }: { 
   );
 }
 
-/** Q1: dated actions by the CEO, other executives or the board. Absent on saved reports. */
+/** D-177: dated actions by the CEO, other executives or the board. Absent on saved reports. */
 function ManagementActionsBlock({ actions, aiAuthored = false }: { actions: NonNullable<Leadership["managementActions"]>; aiAuthored?: boolean }) {
   return (
     <SubBlock id="report-management-actions" label={MANAGEMENT_ACTIONS_HEADING}>
@@ -940,7 +940,7 @@ export function BalanceSheetSection({
 }) {
   // One identity map per section: the capital bridge registers each figure twice.
   const seen = new Map<string, FigureRow>();
-  // RPT-216: register the same metric/basis identities the subsequent rows use.
+  // D-146: register the same metric/basis identities the subsequent rows use.
   figureRows(withoutTabled(report, balanceSheet.graded?.keyNumbers ?? []).kept, seen);
   const blocks: Array<{
     label: string;
@@ -1023,8 +1023,7 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
               {
                 // A 0–100 percentile rank among N quarters, printed the way
                 // the Markdown and print exports print it; "rank 85 of 12
-                // quarters" read as an impossible ordinal (audit
-                // 2026-09-06, F214).
+                // quarters" read as an impossible ordinal.
                 ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations)
               }
             </span>
@@ -1056,7 +1055,7 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
 }
 
 /**
- * WS5 (D-17): the metrics a bank, insurer or mortgage REIT leads with.
+ * D-17: the metrics a bank, insurer or mortgage REIT leads with.
  *
  * A withheld metric renders its REASON, never a blank cell: a blank reads as a
  * fetch that failed when in fact the figure was refused because the filer's
@@ -1161,7 +1160,7 @@ export function ValuationSection({
               </span>
             </div>
           )}
-          {/* Audit 2026-10-22 F-13: substituted inputs are named beside the value they moved. */}
+          {/* D-111: substituted inputs are named beside the value they moved. */}
           {headline.degradedCaveat !== null && (
             <p className="text-[11px] leading-snug text-warn">{headline.degradedCaveat}</p>
           )}
@@ -1814,7 +1813,7 @@ const SIGNIFICANCE_TONE: Record<"high" | "medium" | "low", Tone> = {
  * The Catalysts & Risks panel — the design requires it to be VISUALLY PROMINENT.
  * Rendered with a strong accent border, in manifest order as section 10
  * (between Competitive and Outlook; it is NOT hoisted above the numbered
- * sections — audit 2026-09-06, F215). The weight comes from the border,
+ * sections). The weight comes from the border,
  * the significance chips and the two-column layout,
  * Catalysts are a dated
  * timeline with direction arrows + significance; risks are placed on a
@@ -1827,7 +1826,7 @@ export function CatalystsRisksPanel({
   extraTables = [],
   aiAuthored = false,
 }: {
-  /** D-282 review round 2: caption the AI-written catalyst and risk lists. */
+  /** D-282: caption the AI-written catalyst and risk lists. */
   aiAuthored?: boolean;
   catalystsRisks: CatalystsRisks;
   index?: number;
@@ -2199,7 +2198,7 @@ export function AppendixSection({
   const presentation = completeness ?? deriveReportCompletenessPresentation(m.dataCompleteness, appendix.missingData, appendix.sources);
   const trust = trustRows(displayedProvenanceCoverage(report, "appendix"), appendix.verificationLog);
   const evidenceScope = evidenceScopeSummary(report);
-  const checks = appendix.consistencyChecks; // WS7 (D-20)
+  const checks = appendix.consistencyChecks; // D-20
   const checked = checks ? checks.direction.checked + checks.period.checked + checks.unit.checked + checks.namedIndividual.checked : 0;
   const failed = checks ? checks.direction.failed + checks.period.failed + checks.unit.failed + checks.namedIndividual.failed : 0;
   const families = gapSummary(appendix.missingData, presentation.classification);

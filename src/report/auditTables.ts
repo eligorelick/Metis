@@ -126,7 +126,7 @@ export function valuationAuditTables(dcf: Dcf, recordedPerShare: Dcf["perShare"]
   if (b) {
     const money = (v:number|null)=>v === null ? "unavailable" : formatFinancialValue(v,"currency",b.currency);
     const claim = (v:number|null)=>v === null ? "not disclosed; model uses 0" : money(v);
-    // FIN-119: the redeemable claims (temporary equity) inside the two lines below, named so the line is not read as permanent preferred or book NCI alone.
+    // D-135: the redeemable claims (temporary equity) inside the two lines below, named so the line is not read as permanent preferred or book NCI alone.
     const temporary = b.temporaryEquity;
     const temporaryPreferred = temporary === undefined ? 0 : temporary.redeemablePreferred + temporary.unsplit;
     const preferredNote = temporaryPreferred === 0 ? "" : ` (includes ${money(temporaryPreferred)} of redeemable preferred and other temporary equity)`;
@@ -166,7 +166,7 @@ export function valuationAuditTables(dcf: Dcf, recordedPerShare: Dcf["perShare"]
     headers:["Growth shift / margin shift",...gm.marginShiftsPp.map(shift)],
     rows:gm.perShare.map((row,i)=>[shift(gm.growthShiftsPp[i] ?? 0),...row.map(v=>v===null?"withheld":formatFinancialValue(v,"currency/share",b?.currency ?? null))]),
     note:gm.notes.join("; ")});
-  // C-11: the excess-return route's start-return × cost-of-equity grid.
+  // D-102: the excess-return route's start-return × cost-of-equity grid.
   const er = dcf.excessReturnGrid;
   // The headline's established currency: its ISO field, else the code its traced unit names ("USD/share").
   const erCurrency = recordedPerShare ? establishedCurrency(recordedPerShare.unit, recordedPerShare.currency) : null;
@@ -234,11 +234,11 @@ export function factualValidationText(coverage?: ProvenanceCoverage, log?: reado
   // Preserve the separate denominator so zero prose matches cannot be read as
   // zero numeric figures tracing to their source.
   // Claims that state no figure have nothing to check numerically; say how
-  // many of the unchecked are those (NVDA report 34: 60 of 89).
+  // many of the unchecked are those (in one report, 60 of 89).
   const partition = numericClaimPartition(v);
   const matching = partition.total === null ? partition.unknownText : `${v.validated}/${partition.total} numeric factual claims numerically matched; ${partition.unmatched} unmatched numeric claims`;
   const split = v.qualitative === undefined ? "Qualitative split was not recorded in this legacy snapshot." : `${v.qualitative} qualitative claims cited but not machine-checkable.`;
-  // F-21: the grade strip's reasoning claims stay in the log but are not counted.
+  // D-110: the grade strip's reasoning claims stay in the log but are not counted.
   const unprinted = unprintedFactualClaimCount(coverage.factualValidation!, log);
   const unprintedText = unprinted === 0 ? "" : ` ${unprinted} grade-strip reasoning claim${unprinted === 1 ? "" : "s"}, which no report surface prints, ${unprinted === 1 ? "is" : "are"} listed in the verification log but not counted.`;
   return `${matching}. ${split} Displayed factual-claim statuses: ${v.validated} numeric matches, ${v.unchecked} unchecked, ${v.contradicted} contradicted; ${v.total} total. Factual claims cited: ${v.cited}/${v.total}. Figure traceability: ${coverage.numeric.supported}/${coverage.numeric.total} citation-traced (a separate denominator). Numeric matches do not validate whole prose claims.${unprintedText}`;

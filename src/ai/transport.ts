@@ -417,7 +417,7 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
             ...(args.outputSchema ? { text: { format: { type: "json_object" } } } : {}),
             // Fast is the "priority" service tier on the wire: the Responses
             // endpoint behind ChatGPT plan usage rejects "fast" with
-            // "Unsupported service_tier: fast" (live NVDA run 2026-10-26),
+            // "Unsupported service_tier: fast" (observed on a live run),
             // as Codex itself sends "priority" for its Fast mode.
             service_tier: chatGptWireServiceTier(options.serviceTier),
           }),

@@ -57,7 +57,7 @@ function formatValue(metric: ProjectionSeries["metric"], v: number | null, digit
 /**
  * Round value-axis ticks (steps of 1, 2, 2.5 or 5 × 10ⁿ) covering zero and
  * every plotted value. Recharts' own steps are multiples of 0.05 × 10ⁿ, which
- * put a "550B" tick on NVDA report #48's revenue axis (2026-10-26).
+ * can put an awkward "550B" tick on a revenue axis.
  */
 export function projectionValueTicks(values: readonly number[]): number[] | undefined {
   const finite = values.filter((v) => Number.isFinite(v));
@@ -171,8 +171,7 @@ function buildData(series: ProjectionSeries): { data: FanDatum[]; firstForward: 
     anchor.bull = value;
     anchor.bear = value;
     // A drawing convenience only: the schema carries no scenario point at a
-    // historical period, and the tooltip must not show one (audit
-    // 2026-09-06, F212).
+    // historical period, and the tooltip must not show one.
     anchor.bridge = true;
   }
   return { data, firstForward, joined, firstWindowStart };

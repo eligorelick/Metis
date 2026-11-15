@@ -1,11 +1,11 @@
 /**
  * D-66: the figures an equity reader takes from a filing's notes, statements
  * and commentary that no typed statement row carries, read as citable facts.
- * NVDA final rerun (2026-10-16): the report could not state the scale of the
- * strategic investments (non-marketable $51.2B, $36.9B under lock-up, $42.4B
- * of equity purchases in the half), the Groq consideration, the supply
- * commitments' jump, the DSO stretch or the officers' trading plans, although
- * every one is printed in the filings the pipeline already reads.
+ * Without them a report could not state the scale of strategic investments
+ * (non-marketable holdings, amounts under lock-up, equity purchases in the
+ * period), an acquisition's consideration, the supply commitments' jump, the
+ * DSO stretch or the officers' trading plans, although every one is printed in
+ * the filings the pipeline already reads.
  *
  * Every parser is pure, reads one standard phrasing and returns nothing when
  * the phrasing is absent: a missing fact is never inferred. Money is returned
@@ -241,7 +241,7 @@ const STANDARD_FINANCING = /\b(?:debt|borrowings?|notes|repurchases?|dividends?|
 /**
  * The condensed statements' investment lines no typed statement row carries:
  * purchases and sales of equity securities and acquisitions (investing), a
- * financing line that is not a standard one (NVIDIA: "Groq, Inc. (2,944)"),
+ * financing line that is not a standard one (e.g. a line named for a counterparty),
  * and the non-marketable securities balance. Amounts are the current column
  * (year to date for a flow), as paid or received.
  */

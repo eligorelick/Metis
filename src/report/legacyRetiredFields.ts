@@ -23,7 +23,7 @@ const frozenFilingRef = z.object({
 }).strict();
 
 /**
- * `filingDisclosures.corporateActionBridge`: written on 2026-11-01 by local,
+ * `filingDisclosures.corporateActionBridge`: written by local,
  * uncommitted work on a spec 1.23.x checkout (later kept only in a git stash).
  * It never reached main. Frozen copy of that build's schema.
  */

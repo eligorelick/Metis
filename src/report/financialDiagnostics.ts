@@ -70,7 +70,7 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
     const execution = decisions.length > 0 || metricClaims.some(({claim,kind}) => kind !== undefined &&
       executiveMetricDuringTenure(context.numericRecords?.find(r => r.id === citationSourceId(claim) && r.asOf === claim.asOf), establishedStart, context.asOf));
     const grade = execution ? executive.grade : "not-assessed";
-    // FIGR extra-high audit B2-09: name which assessment is missing.
+    // D-163: name which assessment is missing.
     const missingCredibility = "Credibility is not assessed: no validated comparison of earlier guidance with a later actual for the same period and basis.";
     const tenureReason = !execution && metricClaims.some(c => c.kind !== undefined)
       ? !establishedStart ? "Execution is not assessed: no office start is established, so company metrics cannot be attributed to this tenure."
@@ -170,7 +170,7 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
     for (const field of ["netDebtToEbitda", "interestCoverage", "fcfConversionBeforeSbc", "sbcPctOfFcf"] as const) {
       append(next.balanceSheet.coverage.numbers, numeric(`computed.capital.current.${field}`, current[field], field === "sbcPctOfFcf" ? "%" : "x", current.asOf, null, period));
     }
-    // Method statements, not issuer facts: JUDGMENT (audit 2026-10-22 F-20).
+    // Method statements, not issuer facts: JUDGMENT (D-110).
     next.balanceSheet.coverage.commentary.push({ label: "JUDGMENT", source: "computed.capital.current", asOf: current.asOf,
       text: `Capital grading basis: ${period}. ${current.fallbackReason ?? trailingFlowStatement(current)} ${current.cashBridge.definition}` });
     next.balanceSheet.debtProfile.commentary.push({ label: "JUDGMENT", source: "computed.capital.current", asOf: current.asOf,

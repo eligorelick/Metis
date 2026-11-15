@@ -34,7 +34,7 @@ const DATE_PHRASE_WORDS = new Set(["on", "by", "as", "of", "around", "about", "a
   "saturday", "sunday"]);
 
 /**
- * The comma pieces of a clause that state the event on `date` (review M-2). A
+ * The comma pieces of a clause that state the event on `date`. A
  * comma splits the clause, so a dividend or other dated statement beside an
  * earnings phrase is left alone; a bare date phrase set off by a comma reads
  * with the piece beside it. `pieces` keeps the commas (odd indices) for rejoining.
@@ -119,7 +119,7 @@ export function guardEarningsSchedule<T extends object>(input: T, notes: readonl
       const qualifier = event.status === "company-newswire"
         ? `company-announced via newswire on ${event.announcedAt}; company-hosted release or SEC confirmation not established`
         : `${provider} calendar estimate; not confirmed by an SEC filing or a company-hosted release`;
-      // Pre-run check for the FIGR extra-high run (2026-11-02): a date the prose
+      // D-162: a date the prose
       // already encloses in parentheses ("(scheduled for 2026-11-12)") takes the
       // qualifier after a comma instead of a nested parenthesis.
       const inline = event.status === "company-newswire" ? qualifier : `${provider === "FMP" ? "an" : "a"} ${provider} calendar estimate not confirmed by an SEC filing or a company-hosted release`;
@@ -139,7 +139,7 @@ export function guardEarningsSchedule<T extends object>(input: T, notes: readonl
       // Only a provider-only date holds the claim back from verification (the
       // verify pass calls it "Provider-only event date qualified"). A date the
       // company announced keeps its qualifier, and the claim is checked on its
-      // own citation like any other (integration of R9 with the verifier).
+      // own citation like any other (D-167).
       if (claim && event.status === "vendor-calendar") qualifiedClaimPaths.add(path);
       const amended = parts.map(part => {
         if (!isEvent(part)) return part;
