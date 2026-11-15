@@ -10,6 +10,10 @@ import { REPORT_SPEC_VERSION } from "@/report/versions";
 import { ReportSchema, type FairValue, type Report, type TracedNumber } from "@/report/schema";
 import { MODEL_PROSE_MARK, consensusTables, displayClaimText, displayProse, figureRow, indexModelWrittenClaims } from "@/report/presentation";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
+import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
+import type { ComputedMetrics } from "@/pipeline/compute";
+import { computeCapital } from "@/pipeline/stageB/capital";
+import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { loadTask28Fixture } from "./helpers/task28Report";
 import { readableHtml } from "./helpers/uiParityContract";
 
@@ -74,6 +78,19 @@ describe("raw base-unit amounts in reader text (D-308, check 3)", () => {
     expect(view.valuation.dcf.assumptions[0]!.basis).toBe("TTM revenue 12,345,678,901 as of 2025-12-31");
     // The D-67 precision pass does not round a version number either.
     expect(displayProse("Model deck version 1234567.123456 states the figures.")).toBe("Model deck version 1234567.123456 states the figures.");
+  });
+
+  it("review round 1: code-written method statements that assembly adds to an AI-written report carry grouped amounts", () => {
+    const capital = attachCurrentCapital(computeCapital([], [], [], [], { price: null }), {
+      income: { date: "2026-06-30", revenue: 100, netIncome: 20, operatingIncome: 30, interestExpense: 2 },
+      cashFlow: { date: "2026-06-30", operatingCashFlow: 40, capitalExpenditure: -25, stockBasedCompensation: 9, financeLeasePrincipalPayments: 3 },
+      balance: { date: "2026-06-30", totalDebt: 30, cashAndShortTermInvestments: 15, operatingLeaseLiability: 10, capitalLeaseObligations: 10 }, currency: "USD",
+    });
+    capital.current!.cashBridge.definition = "TTM net income = filed fiscal year 77670000000 + current YTD 12902000000 - prior YTD 1234567.";
+    const out = applyFinancialDiagnostics(ReportSchema.parse(loadTask28Fixture()), { capital } as ComputedMetrics);
+    const statement = out.balanceSheet.coverage.commentary.at(-1)!.text;
+    expect(statement).toContain("filed fiscal year 77,670,000,000 + current YTD 12,902,000,000 - prior YTD 1,234,567.");
+    expect(statement).toContain("2026-06-30");
   });
 
   it("leaves dates, accessions, identifiers, small and already-grouped numbers alone (controls)", () => {
