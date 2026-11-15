@@ -26,12 +26,12 @@
     "pipelineVersion": "1.94.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
-    "verificationRate": 0.8501742160278746,
+    "verificationRate": 0.8506944444444444,
     "provenanceCoverage": {
       "numeric": {
-        "supported": 244,
-        "total": 287,
-        "rate": 0.8501742160278746
+        "supported": 245,
+        "total": 288,
+        "rate": 0.8506944444444444
       },
       "factualClaims": {
         "supported": 42,
@@ -1566,19 +1566,36 @@
         ]
       },
       {
-        "label": "ROIC − WACC spread",
+        "label": "WACC at fiscal year end (risk-free rate at that date; beta, equity risk premium and weights current)",
         "values": [
           {
-            "period": "latest",
+            "period": "2025-12-31",
             "value": {
-              "value": 33.64642,
-              "unit": "pp",
-              "period": "latest",
-              "sourceId": "computed.returns.roicVsWacc",
-              "source": "computed.returns.roicVsWacc",
+              "value": 8.18,
+              "unit": "%",
+              "period": "2025-12-31",
+              "sourceId": "computed.returns.roicVsWacc.waccPct",
+              "source": "computed.returns.roicVsWacc.waccPct",
               "asOf": "2025-12-31",
               "verified": false,
               "verificationNote": "[unverified] unknown-source"
+            }
+          }
+        ]
+      },
+      {
+        "label": "ROIC − fiscal-year-end WACC spread",
+        "values": [
+          {
+            "period": "2025-12-31",
+            "value": {
+              "value": 33.64642,
+              "unit": "pp",
+              "period": null,
+              "sourceId": "computed.returns.roic-fiscal-year-end-wacc-spread-current-beta-equity-risk-premium-and-weights",
+              "source": "computed.returns.roic-fiscal-year-end-wacc-spread-current-beta-equity-risk-premium-and-weights",
+              "asOf": "2025-12-31",
+              "verified": true
             }
           }
         ]
@@ -4045,12 +4062,12 @@
         "severity": "info"
       }
     ],
-    "verificationRate": 0.8501742160278746,
+    "verificationRate": 0.8506944444444444,
     "provenanceCoverage": {
       "numeric": {
-        "supported": 244,
-        "total": 287,
-        "rate": 0.8501742160278746
+        "supported": 245,
+        "total": 288,
+        "rate": 0.8506944444444444
       },
       "factualClaims": {
         "supported": 42,
@@ -4837,15 +4854,26 @@
         "traceKind": "untraced"
       },
       {
-        "claim": "33.64642 pp [computed.returns.roicVsWacc · 2025-12-31]",
+        "claim": "8.18 % [computed.returns.roicVsWacc.waccPct · 2025-12-31]",
         "outcome": "unverified",
         "validationStatus": "unchecked",
         "note": "[unverified] unknown-source",
         "path": "fundamentals.returns[5].values[0].value",
         "evidenceKind": "number",
-        "source": "computed.returns.roicVsWacc",
+        "source": "computed.returns.roicVsWacc.waccPct",
         "reason": "unknown-source",
         "traceKind": "untraced"
+      },
+      {
+        "claim": "33.64642 pp [computed.returns.roic-fiscal-year-end-wacc-spread-current-beta-equity-risk-premium-and-weights · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
+        "path": "fundamentals.returns[6].values[0].value",
+        "evidenceKind": "number",
+        "source": "computed.returns.roic-fiscal-year-end-wacc-spread-current-beta-equity-risk-premium-and-weights",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "147000000 currency [computed.capital.fcf · 2023-12-31]",

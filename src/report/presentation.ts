@@ -376,7 +376,7 @@ export function signalLabel(id: string): string {
   const fixed: Record<string, string> = {
     revenueCagr: "Revenue CAGR", operatingMarginSlope: "Operating-margin slope", epsCagr: "EPS CAGR",
     fcfCagr: "FCF CAGR", dcfUpside: "DCF upside", reverseImpliedVsAchievable: "Reverse-DCF implied vs achievable growth",
-    roicVsWaccSpread: "ROIC − WACC spread", piotroskiF: "Piotroski F (share of signals)",
+    roicVsWaccSpread: "ROIC − fiscal-year-end WACC spread", piotroskiF: "Piotroski F (share of signals)",
     altmanZOriginalScale: "Altman Z (original scale)", accrualsRatioAbs: "Accruals ratio (absolute)",
     beneishM: "Beneish M-score", netDebtToEbitda: "Net debt / EBITDA", interestCoverage: "Interest coverage",
     fcfConversionBeforeSbc: "FCF conversion before SBC", sbcPctOfFcf: "SBC as % of FCF", roicLevel: "ROIC level",
