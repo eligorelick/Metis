@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Model-value move check and the LLY trace (P16, P17, P27, D-281, D-291) (2026-11-14)
 
+- D-292..D-295 (P3/P7/P8/P13/P15/P18/P20/P22): disclose combined PP&E/intangible spending, filed investment/liquidity and redeemable-minority scope, period-specific debt lease basis, ADS-equivalent counts and the model tangible-capital convention across report surfaces. Figures and scoring remain unchanged. R12's exact annual revenue-line definition remains an open release blocker pending retained filed proof.
+
 - New `npm run golden:value-check BEFORE AFTER`: prints every golden case's model value before and after with its percentage move, and fails when a value moves more than 10% either way (the owner's limit), appears, disappears or changes unit, unless an approval names a decision entry that names the company (D-291, R43). Documented beside golden:diff in docs/OPERATIONS.md.
 - D-281 records the exact bridge of the Eli Lilly model value from 518.37 (#63) to 739.34 (#65): +143.71 from the D-260/D-267 date-consistency correction, +77.11 from the four-year terminal-return rule after D-268 admitted FY2025's return, +0.15 from the September short-term investments; zero residual, no remaining error (R42). The terminal-return switch is a disclosed house convention.
 - Tooling and documents only: no report, figure, stamp or accuracy expectation changes.

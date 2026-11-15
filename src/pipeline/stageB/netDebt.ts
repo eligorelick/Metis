@@ -384,3 +384,24 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
       (vendorNetDebt !== null ? "; the row's cash-only net debt is not used" : ""),
   };
 }
+
+/** D-293: an extension of the issuer subtotal must be named beside the model amount. */
+export function liquidityDefinition(tags: readonly string[]): string | null {
+  return tags.some(t => /(?:^|\/)CashCashEquivalentsAndShortTermInvestments$/.test(t)) &&
+    tags.some(t => /(?:^|\/)MarketableSecurities$/.test(t))
+    ? "cash, cash equivalents and short-term investments subtotal plus marketable securities" : null;
+}
+
+export const LIQUIDITY_DEFINITION_FAMILIES = [["us-gaap/CashCashEquivalentsAndShortTermInvestments", "us-gaap/MarketableSecurities"]] as const;
+
+/** D-294: scope identity comes from filed financing components, not the provider's lease zero. */
+export const DEBT_DEFINITION_FAMILIES = [
+  ["us-gaap/LongTermDebtNoncurrent", "us-gaap/DebtCurrent", "us-gaap/CommercialPaper", "us-gaap/OperatingLeaseLiabilityCurrent", "us-gaap/OperatingLeaseLiabilityNoncurrent"],
+  ["us-gaap/LongTermDebtNoncurrent", "us-gaap/DebtCurrent", "us-gaap/CommercialPaper"],
+  ["us-gaap/LongTermDebtNoncurrent", "us-gaap/DebtCurrent"],
+] as const;
+export function debtDefinition(tags: readonly string[]): string {
+  if (tags.some(t => /OperatingLeaseLiability/.test(t))) return "includes operating leases";
+  if (tags.includes("us-gaap/LongTermDebtNoncurrent") && tags.includes("us-gaap/DebtCurrent")) return "filed borrowings; operating leases excluded";
+  return "retained debt basis; operating-lease inclusion not independently established";
+}

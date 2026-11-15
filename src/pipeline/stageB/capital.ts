@@ -1371,3 +1371,14 @@ export function computeCapital(
   }
   return result;
 }
+
+/** D-292 (P13, P20): describe the retained filed spending family without changing it. */
+export function capexDefinition(tags: readonly string[]): string | null {
+  return tags.some(tag => /Intangible/i.test(tag))
+    ? "cash spending on property, plant and equipment plus intangible assets; standardized FCF deducts this combined spending" : null;
+}
+
+export const CAPEX_DEFINITION_FAMILIES = [
+  ["ifrs-full/PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities", "ifrs-full/PurchaseOfIntangibleAssetsClassifiedAsInvestingActivities"],
+  ["us-gaap/PaymentsToAcquirePropertyPlantAndEquipment", "us-gaap/PaymentsToAcquireIntangibleAssets"],
+] as const;

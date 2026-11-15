@@ -1,3 +1,4 @@
+import { vendorAgreesWithFiled } from "./vendorAgreement";
 /**
  * SEC EDGAR XBRL companyfacts processing: concept tag-fallback chains, the
  * critical form-filtered dedup rule, period-scoped lookups, and the FMP
@@ -671,4 +672,26 @@ export function latestFactEnd(facts: CompanyFacts, tags: string[]): string | nul
     }
   }
   return latest;
+}
+
+/** D-292..D-294: same-filing definition identity using the existing P8 comparison for disclosure only.
+ * Never admits, replaces or rounds a figure. Duration components must share their explicit start.
+ */
+export function filedDefinitionMatches(facts: CompanyFacts | null, unit: string | null, end: string, value: number,
+  cutoff: string, groups: readonly (readonly string[])[], annual = false): string[] {
+  if (!facts || !unit || !Number.isFinite(value)) return [];
+  for (const tags of groups) {
+    const families = tags.map(tag => {
+      const [ns, name] = tag.split("/");
+      const c = conceptFactsSchema.safeParse(facts.facts[ns!]?.[name!]);
+      return c.success ? parseFactPoints(c.data.units[unit] ?? []).filter(p => p.end === end && p.filed <= cutoff.slice(0,10) &&
+        CORE_FACT_FORMS.has(p.form) && Number.isFinite(p.val) && (!annual || !!p.start &&
+          durationMatchesHint(p, "FY"))) : [];
+    });
+    for (const first of families[0] ?? []) {
+      const points = families.map(ps => ps.find(p => p.accn === first.accn && p.start === first.start));
+      if (points.every(p => p !== undefined) && vendorAgreesWithFiled(Math.abs(value),points.reduce((sum,p) => sum + p!.val,0))) return [...tags];
+    }
+  }
+  return [];
 }

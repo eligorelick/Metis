@@ -7549,3 +7549,16 @@ export function taxRateWithoutOneOffs(i: { pretax: number | null; taxExpense: nu
   const pct = isNum(i.historicalMedianPct) ? Math.min(Math.max(noTaxEffectPct, marginalEffectPct), Math.max(Math.min(noTaxEffectPct, marginalEffectPct), i.historicalMedianPct)) : marginalEffectPct;
   return { pct, noTaxEffectPct, marginalEffectPct, source: !isNum(i.historicalMedianPct) ? "marginal-reading" : pct === i.historicalMedianPct ? "historical-median-inside" : "historical-median-held" };
 }
+
+/** D-293: retained filed line scope, never a replacement observation. */
+export function investmentDefinition(tags: readonly string[]): string | null {
+  if (tags.some(t => /(?:^|\/)LongTermInvestmentsAndReceivablesNet$/.test(t))) return "long-term investments, advances and long-term receivables, net (filed carrying value)";
+  if (tags.some(t => /(?:^|\/)EquityMethodInvestments$/.test(t))) return "equity-method investments only (filed carrying value; other investments not established in this line)";
+  return null;
+}
+export function revenueDefinition(tags: readonly string[]): string | null {
+  return tags.some(t => /(?:^|\/)SalesAndOtherOperatingRevenue$/.test(t)) ? "sales and other operating revenue" : null;
+}
+
+export const INVESTMENT_DEFINITION_FAMILIES = [["us-gaap/LongTermInvestmentsAndReceivablesNet"], ["us-gaap/EquityMethodInvestments"]] as const;
+export const REVENUE_DEFINITION_FAMILIES = [["us-gaap/SalesAndOtherOperatingRevenue"]] as const;
