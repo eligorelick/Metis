@@ -2402,6 +2402,14 @@ function newsSection(bundle: DataBundle): PayloadSection {
 /** The feed-level citation ids a news or press row carries (the tags `attachProvenanceRegistry` registers). */
 const FEED_CITATION = /^(?:(?:fmp|finnhub):news|fmp:press-release)$/;
 const ARTICLE_CITATION_PREFIX = "news: ";
+/**
+ * D-285: the statement lists the report schema requires to hold at least one
+ * statement (a development's facts, a catalyst's or risk's reasoning, a
+ * management action, a product-line item's claims, what the company sells).
+ * Emptying one removes its list item; an optional list (a development's
+ * why-it-matters, an action's assessment) may become empty.
+ */
+const REQUIRED_CLAIM_LISTS: ReadonlySet<string> = new Set(["whatHappened", "reasoning", "action", "claims", "whatTheySell"]);
 
 /**
  * D-285: the citation id a statement re-cited to one article carries. It names
@@ -2434,9 +2442,10 @@ export interface FeedRecitation {
  * ("fmp:news" on a date) names no article a reader can find. It is re-cited to
  * the one payload article of that feed and date when exactly one exists and has
  * a link, and removed otherwise; no title or wording is matched (no fuzzy
- * binding). A list item left with no statements in a list that needs one (a
- * catalyst's reasoning, a development's facts) is removed with it. Runs on the
- * writer's output before verification, so every later path is current.
+ * binding). A list item left with no statements in a list that needs one
+ * ({@link REQUIRED_CLAIM_LISTS}), or whose single required statement goes, is
+ * removed with it; an optional list may become empty. Runs on the writer's
+ * output before verification, so every later path is current.
  */
 export function reciteFeedClaims(root: object, articles: readonly PayloadNewsArticle[]): FeedRecitation {
   const result: FeedRecitation = { recited: 0, removed: [] };
@@ -2451,7 +2460,7 @@ export function reciteFeedClaims(root: object, articles: readonly PayloadNewsArt
     return !!row && typeof row === "object" && !Array.isArray(row) && typeof row.text === "string" && typeof row.source === "string" &&
       row.label === undefined && FEED_CITATION.test(row.source.trim());
   };
-  /** Returns false when the claim must go. */
+  /** Re-cites the claim and returns true, or returns false (and logs the removal) when it must go. */
   const visitClaim = (claim: SourcedClaim, path: string): boolean => {
     const sourceId = citationSourceId(claim);
     if (sourceId === null || !FEED_CITATION.test(sourceId)) return true;
@@ -2464,30 +2473,55 @@ export function reciteFeedClaims(root: object, articles: readonly PayloadNewsArt
     result.recited += 1;
     return true;
   };
-  /** Returns false when the node lost every statement of a list that held some, so its list item must go. */
-  const visit = (node: unknown, path: string): boolean => {
-    if (!node || typeof node !== "object") return true;
-    if (Array.isArray(node)) {
-      const holdsClaims = node.some(isClaim);
-      for (let i = node.length - 1; i >= 0; i -= 1) {
-        const child = node[i];
-        const keep = isClaim(child) ? visitClaim(child, `${path}[${i}]`)
-          : isFeedStatement(child) ? (result.removed.push({ path: `${path}[${i}]`, claim: { text: child.text, label: "FACT", source: child.source, asOf: null }, candidates: 0 }), false)
-            : visit(child, `${path}[${i}]`);
-        if (!keep) node.splice(i, 1);
-      }
-      return !(holdsClaims && node.length === 0);
+  /** Statements in an array: unbindable ones are spliced out. */
+  const visitArray = (node: unknown[], path: string): void => {
+    for (let i = node.length - 1; i >= 0; i -= 1) {
+      const child = node[i];
+      const keep = isClaim(child) ? visitClaim(child, `${path}[${i}]`)
+        : isFeedStatement(child) ? (result.removed.push({ path: `${path}[${i}]`, claim: { text: child.text, label: "FACT", source: child.source, asOf: null }, candidates: 0 }), false)
+          : visit(child, `${path}[${i}]`, true);
+      if (!keep) node.splice(i, 1);
     }
+  };
+  /**
+   * Returns false when this list item must go: its required statement list
+   * emptied, or its required single statement could not be kept. A node that is
+   * not a list item is never removed; a required list or single statement it
+   * owns is then left as written (its reader label says no single article is
+   * named), so the report stays complete.
+   */
+  const visit = (node: unknown, path: string, inList: boolean): boolean => {
+    if (!node || typeof node !== "object") return true;
+    if (Array.isArray(node)) { visitArray(node, path); return true; }
     let keep = true;
     for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
       if (!path && (key === "meta" || key === "appendix")) continue;
       const childPath = path ? `${path}.${key}` : key;
-      if (isClaim(value)) { visitClaim(value, childPath); continue; }
-      if (!visit(value, childPath) && Array.isArray(value)) keep = false;
+      if (isClaim(value)) {
+        // A single statement (a saved catalyst's or risk's reasoning) goes only with its list item.
+        if (inList) { if (!visitClaim(value, childPath)) keep = false; }
+        else {
+          const logged = result.removed.length;
+          if (!visitClaim(value, childPath)) result.removed.length = logged;
+        }
+        continue;
+      }
+      if (Array.isArray(value)) {
+        const required = REQUIRED_CLAIM_LISTS.has(key) && value.some(isClaim);
+        const before = [...value];
+        const logged = result.removed.length;
+        visitArray(value, childPath);
+        if (required && value.length === 0) {
+          if (inList) keep = false;
+          else { value.splice(0, 0, ...before); result.removed.length = logged; }
+        }
+        continue;
+      }
+      visit(value, childPath, false);
     }
     return keep;
   };
-  visit(root, "");
+  visit(root, "", false);
   return result;
 }
 

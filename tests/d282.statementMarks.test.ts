@@ -174,6 +174,21 @@ describe("D-285: a whole-feed news citation names one article or is removed (P20
     expect(root.catalystsRisks.catalysts[0]!.reasoning).toEqual([{ label: "FACT", text: "Filed fact.", source: "edgar:10-K", asOf: "2025-12-31" }]);
   });
 
+  it("keeps a development whose optional judgment goes, and removes a saved single-statement catalyst (review round 1)", () => {
+    const filed: SourcedClaim = { label: "FACT", text: "Filed event.", source: "edgar:8-K", asOf: "2026-11-12" };
+    const root = {
+      verdict: { recentDevelopments: { summary: [], items: [{ title: "kept", whatHappened: [filed], whyItMatters: [feed("2026-11-13", "JUDGMENT")] }] } },
+      catalystsRisks: { catalysts: [{ title: "single", reasoning: feed("2026-11-13") }, { title: "other", reasoning: filed }] },
+      business: { whatTheySell: [feed("2026-11-13")] },
+    };
+    const result = reciteFeedClaims(root, [article({ date: "2026-11-13" }), article({ date: "2026-11-13", url: "https://news.example/two" })]);
+    expect(root.verdict.recentDevelopments.items).toEqual([{ title: "kept", whatHappened: [filed], whyItMatters: [] }]);
+    expect(root.catalystsRisks.catalysts.map(c => c.title)).toEqual(["other"]);
+    // A required list owned by a section (not a list item) keeps its only statement; nothing is logged as removed for it.
+    expect(root.business.whatTheySell).toHaveLength(1);
+    expect(result.removed.map(r => r.path).sort()).toEqual(["catalystsRisks.catalysts[0].reasoning", "verdict.recentDevelopments.items[0].whyItMatters[0]"]);
+  });
+
   it("leaves a filing, press-free or web citation untouched (control) and names a saved report's bare feed tag plainly", () => {
     const filed: SourcedClaim = { label: "FACT", text: "Filed.", source: "edgar:10-K item 7", asOf: "2025-12-31" };
     const web: SourcedClaim = { label: "FACT", text: "Web.", source: "web:https://example.com/a", asOf: "2026-11-01" };
