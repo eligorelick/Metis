@@ -99,7 +99,7 @@ const DISCARDED_REASON_BY_KIND: Readonly<Record<string, string>> = {
   // D-116: the default restated the failure ("did not produce usable output
   // because the attempt did not produce a usable result").
   transport: "the provider request failed before a usable response arrived",
-  // AI-112: a judge output that parsed but could not be assembled into a report.
+  // D-123: a judge output that parsed but could not be assembled into a report.
   assembly: "the report could not be assembled from its output",
 };
 const DISCARDED_REASON_DEFAULT = "the attempt did not produce a usable result";
@@ -140,7 +140,7 @@ function readDiscardedAttempts(jobId: string, assemblyRejected: readonly Assembl
         kept: keptSectionsOf(artifact, lineage),
       }];
     });
-    // AI-112: a success artifact the report could not be assembled from.
+    // D-123: a success artifact the report could not be assembled from.
     const assembly = assemblyRejected.flatMap((entry): DiscardedAttempt[] => {
       const artifact = lineage.find((candidate) => candidate.attemptId === entry.attemptId && candidate.envelope.outcome === "success");
       if (artifact === undefined) return [];
@@ -163,8 +163,8 @@ function readDiscardedAttempts(jobId: string, assemblyRejected: readonly Assembl
 /**
  * D-116: the completed sections a failed attempt held that the pass's final
  * output kept. A retry reuses a cut-off attempt's finished sections, so that
- * attempt's output was not all thrown away: NVDA report #50's verdict came
- * from a judge attempt the report called excluded. A section counts only when
+ * attempt's output was not all thrown away: a verdict can come from a judge
+ * attempt the report would otherwise call excluded. A section counts only when
  * the final output's kept text has the digest of the text this attempt held.
  */
 function keptSectionsOf(artifact: CurrentGenerationPassArtifact, lineage: readonly CurrentGenerationPassArtifact[]): string[] {
@@ -186,7 +186,7 @@ export function buildCostBreakdown(state: RunState): CostBreakdownEntry[] {
 }
 
 /**
- * RPT-210: the one ledger-to-breakdown join. A row whose attempt was discarded
+ * D-123: the one ledger-to-breakdown join. A row whose attempt was discarded
  * (and kept no section, D-116) carries the mark and its reason; the live
  * report and durable verify recovery both build their rows here, so recovery
  * cannot drop the mark. Recovery also keeps the per-attempt `fallbackUsed`
@@ -300,7 +300,7 @@ interface CostLedgerRow {
 }
 
 /**
- * R1 (FIGR paid audit): a settled request's own token counts. A presumed charge
+ * D-156: a settled request's own token counts. A presumed charge
  * reports none, and a row whose counts are both the column default of zero was
  * written without usage (no real request reports zero tokens both ways).
  */

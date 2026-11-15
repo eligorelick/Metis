@@ -23,7 +23,7 @@ export interface DebtBridge {
   leaseEvidenceNote?: string;
   leaseScopeNote?: string;
   /**
-   * Audit 2026-10-29, AMZN #51 (FIG-2; D-133): why the lease-inclusive total is
+   * D-133: why the lease-inclusive total is
    * withheld (the lease guard's conflict, or the admission's refusal), or that
    * it was composed from a filing because the vendor's own total was partial.
    * Absent for a total that reconciles as served.
@@ -65,7 +65,7 @@ export interface CurrentCapitalSnapshot {
 }
 const finite = (v: unknown): number | null => typeof v === "number" && Number.isFinite(v) ? v : null;
 const sub = (a: number | null, b: number | null): number | null => a !== null && b !== null ? a - b : null;
-/** Review m3 (2026-10-29): close a quoted reason with one period, never two. */
+/** Close a quoted reason with one period, never two (P22). */
 const closeSentence = (text: string): string => text.endsWith(".") ? text : `${text}.`;
 export function cashFlowBridge(row: CapitalCashFlowRow | null): CashFlowBridge {
   const operatingCashFlow = finite(row?.operatingCashFlow), capex = finite(row?.capitalExpenditure);
@@ -88,7 +88,7 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
   const resolution = resolveNetDebt(row ?? {});
   const net = resolution.value;
   const equity = resolution.nonOperatingEquitySecurities;
-  // FIG-2: a total the lease guard or the admission refused is never published as "including leases".
+  // D-133: a total the lease guard or the admission refused is never published as "including leases".
   const conflict = leaseDebtConflict(row ?? {});
   const refusal = debt === null && row?.fieldConflicts?.totalDebt?.usable === false ? row.fieldConflicts.totalDebt.reason : null;
   if (conflict !== null || refusal !== null) return {
@@ -150,7 +150,7 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
   /** Revenue admission alone must not replace a complete annual cash basis
    * with a newly available income window whose cash capex is unknown. */
   preserveAnnualCashBasis?: boolean;
-  /** AMZN audit 2026-10-20, finding 20 (b): the enterprise value's lease basis, for the leverage ratio. */
+  /** D-99 (leverage basis): the enterprise value's lease basis, for the leverage ratio. */
   evIncludeLeases?: boolean;
 }): CapitalResult {
   const { income, cashFlow, balance } = input;

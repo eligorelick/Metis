@@ -240,7 +240,7 @@ function splitSentences(text: string): string[] {
     // both of which are real sentence ends. "vs.", "e.g.", "i.e." and the
     // corporate suffixes are abbreviations, not ends: "orforglipron vs.
     // Wegovy" split before a capitalised drug name and the fragment raised a
-    // relationship conflict the sentence never made (audit 2026-09-06, F193).
+    // relationship conflict the sentence never made (P19).
     .split(/(?<!\b[A-Z])(?<!\b[Vv]s)(?<!\b[Ee]\.g)(?<!\b[Ii]\.e)(?<!\bInc)(?<!\bCorp)(?<!\bLtd)(?<!\bCo)[.!?]+[ \t]+(?=[A-Z0-9"'“‘])|[\r\n]+/)
     .map((part) => part.trim())
     .filter((part) => part.length > 0);
@@ -371,8 +371,7 @@ export function validateJudgeEntityResolution(
     // A relationship conflict's canonical name is "TRIAL / DRUG"; every part
     // must be named. Each part may itself carry alternates in parentheses —
     // "Foundayo (orforglipron)" — and naming EITHER alternate is naming the
-    // entity (audit 2026-09-06, F195: the judge had to write the parenthetical
-    // form verbatim or be retried and then failed).
+    // entity (P19: the judge need not write the parenthetical form verbatim).
     const recordTerms = conflict.canonicalName
       .split(/\s*\/\s*/)
       .map((term) =>

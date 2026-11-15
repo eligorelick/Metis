@@ -16,8 +16,8 @@ export interface ScenarioAssumptions {
   /**
    * `marginDeltaPp` is the shock requested; `effectiveMarginDeltaPp` (D-65),
    * present only when the scenario margin cap or the house bounds cut it, is
-   * the year-one shift the path actually carries (NVDA bull: +10.12pp
-   * requested, 0pp effective under the 65.21% cap).
+   * the year-one shift the path actually carries (a requested shift can be
+   * 0pp effective under the cap).
    */
   scenarios: { name: "bull" | "base" | "bear"; growthDeltaPp: number; marginDeltaPp: number; effectiveMarginDeltaPp?: number }[];
   alternatives: { name: "decaying-growth-shock"; bullPerShare: number | null; bearPerShare: number | null; basis: string }[];
@@ -27,8 +27,8 @@ export { SCENARIO_PATHS_METHOD_VERSION } from "@/report/versions";
 
 /**
  * D-60: mean-reverting scenario shocks. A ±σ growth shift held for all ten
- * explicit years (NVDA: +25pp a year to $7.9T of revenue, or ten straight
- * years of decline) compounds a one-year dispersion into a decade. Growth
+ * explicit years (a large shift a year for ten years, or ten straight years
+ * of decline) compounds a one-year dispersion into a decade. Growth
  * beyond one or two years is not persistent (Chan, Karceski and Lakonishok
  * 2003) and profitability mean-reverts (Fama and French 2000), so each shock
  * takes the base path's convergent fade weight: full size in year one, gone in
@@ -65,7 +65,7 @@ export function scenarioTerminalTransition(a: DcfAssumptions): string {
   );
 }
 
-/** AMZN audit 2026-10-20 finding 11: says when the correlated margin shift was held at base, and what it would have been. */
+/** D-99 (scenario margins): says when the correlated margin shift was held at base, and what it would have been. */
 export function marginWithheldText(shared: { correlatedMarginDeltaPp: number; marginShiftWithheld: boolean }): string {
   if (!shared.marginShiftWithheld) return "";
   const pp = Math.round(Math.abs(shared.correlatedMarginDeltaPp) * 100) / 100;
@@ -87,9 +87,8 @@ export function buildScenarioPaths(a: DcfAssumptions, opts: DcfRunOptions, dispe
     return { growthDeltaPp, marginDeltaPp, effectiveMarginDeltaPp: effectiveMargin[0] ?? 0,
       marginCapBinding: Math.abs((effectiveMargin[0] ?? 0) - marginDeltaPp) > 1e-9, result: runDcf(shocked, opts) };
   };
-  // AMZN audit 2026-10-20 finding 11: a negative growth/margin correlation
-  // (AMZN −0.378) gave the +growth bull a 1.17pp margin cut and the bear a
-  // margin gain. Each scenario now takes the growth shift that raises (bull) or
+  // D-99 (scenario margins): a negative growth/margin correlation would give
+  // the +growth bull a margin cut and the bear a margin gain. Each scenario takes the growth shift that raises (bull) or
   // lowers (bear) value with the margin at base, and the margin shift history
   // pairs with that growth shift only when it moves the same way: never a cut
   // for the bull, never a gain for the bear. Otherwise the margin stays at base.

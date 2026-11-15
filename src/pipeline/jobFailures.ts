@@ -105,9 +105,8 @@ function issueListInWords(list: ZodIssueList, ruleMessages: boolean): string {
 }
 
 /**
- * A rejected analyst output in words a reader can follow, for the run panel.
- * NVDA run #49 (2026-10-26) printed the parse error there as the raw Zod
- * issue array. The full text still goes back to the model as repair feedback
+ * A rejected analyst output in words a reader can follow, for the run panel,
+ * never the raw Zod issue array (P24). The full text still goes back to the model as repair feedback
  * and stays on the pass artifact.
  */
 export function plainRejectionNote(detail: string): string {
@@ -162,7 +161,7 @@ export function partialTextOfError(err: unknown): string {
   return typeof partial === "string" ? partial : "";
 }
 
-/** The carried sections a retry may keep, and the ones it must write again (audit 2026-10-22 D-3). */
+/** The carried sections a retry may keep, and the ones it must write again (D-111). */
 export function checkCarried(
   passes: Pick<PipelinePasses, "checkCarriedSections">,
   pass: "bull" | "bear" | "synthesize",
@@ -199,7 +198,7 @@ export function rawTextOfError(err: unknown): string {
  */
 export const MAX_ANALYST_REPAIRS = 1;
 
-/** OD-10: the same provider class controls both backoff and explanation. */
+/** D-143: the same provider class controls both backoff and explanation. */
 export const PROVIDER_BUSY_PATTERN = /server_is_overloaded|server_error|subscription_sharing_(?:usage|user)_unavailable|HTTP (?:429|5\d\d)\b|rate_limit_exceeded/i;
 export function providerWasBusy(error: unknown): boolean { return PROVIDER_BUSY_PATTERN.test(errMessage(error)); }
 

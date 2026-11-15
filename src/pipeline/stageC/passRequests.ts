@@ -167,8 +167,8 @@ export function buildAnalystRunPassArgs(
 
 /**
  * The feedback turn of an analyst REPAIR attempt: the side's first output was
- * received but rejected by the ANALYST_CASE schema (a haiku bull pass wrote
- * "2026-Q1" for `asOf` on 2026-09-02 and the pair was lost). The runner
+ * received but rejected by the ANALYST_CASE schema (for example "2026-Q1" for
+ * `asOf`), so the pair is not lost (P23). The runner
  * drives the attempt under its own settlement checkpoint; here the cached
  * payload turn and schema stay byte-identical to the first writing attempt;
  * successful research is reused and the error plus rejected output ride in a second user

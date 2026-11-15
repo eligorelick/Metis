@@ -91,9 +91,9 @@ export interface EconomicEquityScope {
   classPriceDates?: { classId: string; asOf: string }[];
   /** Admitted main quote valuation day, independent of report build/fetch day. */
   priceAsOf?: string | null;
-  /** Audit 2026-10-22 B-8: a class in force on the price day carries other than one economic unit per quoted share. */
+  /** D-103: a class in force on the price day carries other than one economic unit per quoted share. */
   weightedClasses?: true;
-  /** Audit 2026-10-22 B-8: unresolved because the issuer has more than one common class, not for an ADR or vendor basis. */
+  /** D-103: unresolved because the issuer has more than one common class, not for an ADR or vendor basis. */
   classAmbiguity?: true;
 }
 
@@ -182,7 +182,7 @@ export function resolveEconomicEquityScope(
     basis: "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope." };
 }
 
-/** Audit 2026-10-22 B-37: the filed weighted-average counts, both from one income row. */
+/** D-105: the filed weighted-average counts, both from one income row. */
 export interface WeightedShareCounts {
   basic: number | null;
   diluted: number | null;
@@ -198,7 +198,7 @@ const ECONOMIC_COUNT_TOLERANCE = 0.03;
 const ECONOMIC_COUNT_WINDOW_DAYS = 120;
 
 /**
- * Audit 2026-10-22 B-37: the filed diluted count is on the all-class economic
+ * D-105: the filed diluted count is on the all-class economic
  * basis when the basic count from the same row matches the resolved economic
  * share total on exactly one class's unit basis, within 3% and within half the
  * smallest class's share of that total, so a count that leaves out a class
@@ -208,7 +208,7 @@ export function issuerEconomicDilutedShares(
   scope: EconomicEquityScope,
   evidence: readonly EconomicShareEvidence[],
   counts: WeightedShareCounts,
-  /** `countNotFiled`: the count was substituted or is a loss period's basic count (FIN-404), so it is not called the filed count. A kept filed count (not restored) is filed. */
+  /** `countNotFiled`: the count was substituted or is a loss period's basic count (D-135), so it is not called the filed count. A kept filed count (not restored) is filed. */
   options: { countNotFiled?: boolean; combinedClassEps?: CombinedClassEpsBasis | null } = {},
 ): { shares: number; basis: string } | { shares: null; reason: string } | null {
   if (scope.status !== "resolved" || !evidence.some(row => row.classes.length > 1)) return null;
