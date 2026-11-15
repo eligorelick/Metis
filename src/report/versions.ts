@@ -239,6 +239,8 @@
 // 1.88.0 (D-274, P18/P19): independently verify excerpt figures and explicit metric units.
 // 1.89.0 (D-277, P18): assembly admits filed quarterly segment member labels as heading names.
 // 1.90.0 (D-278, P19): a "Differs from the record" note needs the figure to name only the record's metric.
+// 1.91.0 (D-279, P4): a vendor enterprise value is shown only when its same-date balance establishes the listing currency; otherwise it is withheld with its cause.
+// 1.92.0 (D-280, P7/P10/P13): shared filed-aware TTM interest admission and typed segment-share refusals.
 export const REPORT_SPEC_VERSION = "1.92.0" as const;
 
 /**

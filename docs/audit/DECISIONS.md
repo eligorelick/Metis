@@ -11,6 +11,75 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-279 - A vendor EV is shown only in an established currency; identifiers are never compacted (2026-11-14)
+
+P4 and P22. Owners: `src/pipeline/marketData.ts` (`providerEnterpriseValueRefusal`, using the P4 owner's
+`comparePriceCurrency`) and `src/report/presentation.ts` (`compactLongIntegers`). Evidence: the filing audit of a
+fresh TSM report (findings TSM-05 and TSM-06).
+
+**TSM-05 (P4, wrong figure).** The vendor's enterprise-value row states no currency; its debt and cash come from
+that date's balance. The market-data table printed it in the listing currency (USD). For a foreign filer whose
+balance is in its reporting currency, the old refusal check skipped every balance row not in the trading currency,
+so the value was never checked and a TWD figure was printed as "$72.77T" beside a US$2.07T market cap. Rule: a
+provider EV is shown only when the same-date balance (quarterly and annual rows together) is established in one
+currency equal to the displayed listing currency, decided by the owner's `establishedCurrencyOn` and
+`comparePriceCurrency`. Otherwise it is withheld with a note naming the cause (the comparison's own reason, for
+example "statements in TWD, quote in USD — no FX conversion is attempted", or "statements' currency unknown" when
+no same-date balance establishes it). It is never relabelled or converted; no new normaliser, tolerance or status
+word is added. The report's own market EV is separate and unchanged.
+
+**TSM-06 (P22, presentation).** `compactLongIntegers` compacted any run of ten or more digits, including inside a
+URL path, so the WACC basis printed `.../data/1046179/162.83T/` for the filing link
+`.../data/1046179/000162828026025362/`. Rule: nothing inside a URL (`http://`, `https://` or `www.`) is rewritten,
+and a digit run that starts with a zero is never compacted (a quantity never does; an SEC accession, dashed or not,
+or a padded CIK does). An ordinary long integer in prose still compacts. Read time only: saved reports render with
+it and their bytes do not change.
+
+**Approved report changes (same-report check, main f97588e2 vs this branch; 17 stored cases plus the 2 LLY cases).**
+
+| Case | Figure | Before | After | Filed proof |
+|---|---|---|---|---|
+| tsm-data-only | Provider enterprise value at 2026-09-30 (key data; `marketData.enterpriseValue`, `enterpriseValueNote`; audit export gains the withheld note) | "$72.77T" | withheld: "the vendor row states no currency and its same-date balance does not establish it in the displayed currency (statements in TWD, quote in USD — no FX conversion is attempted)" | The issuer files in TWD: the FY2025 20-F (accession 0001628280-26-025362, period ended 2025-12-31) tags its IFRS balance sheet and income statement in TWD, and the same-date balance is established in TWD; the ADS trades in USD. No rate converts it here. |
+| tsm-data-only | WACC basis filing link (Markdown, print, web) | `.../data/1046179/162.83T/` | `.../data/1046179/000162828026025362/` | the accession of that 20-F |
+
+No other figure or text changes: every other stored case and both LLY cases differ only in version metadata and the
+identity hashes that follow it (the new check withholds no other provider EV). Accuracy check: 173 match / 5 mismatch / 61 gap / 26 not-established, unchanged; no
+expectation moves.
+
+**Version.** A shown figure becomes withheld for new reports, so report spec moves to 1.91.0 (as for D-133; first
+delivered as 1.89.0 and renumbered after D-277 took 1.89.0 and D-278 took 1.90.0).
+Payload, Stage B and score bands are unchanged (market data is not part of the model's payload). Stamp checklist:
+the METHODOLOGY declared-versions sentence, `npm run sample:build` (DEMO sample stamp only), `npm run freeze:refresh`
+for the audit fixture (scope: the report stamp and its projection digests), and the stamp pins in
+`tests/report.versionStamps.test.ts`, `tests/jobRunner.test.ts` and `tests/stageC.payload.passes.test.ts` (each
+asserts the new exact stamp; no assertion is loosened).
+
+**Tests.** `tests/d279.providerEvCurrencyAndIdentifiers.test.ts`: a foreign filer listed in USD with a TWD balance
+(refused), a date with no same-date balance (refused), and controls that must not fire: a domestic USD filer and a
+foreign filer reporting in its listing currency (EUR). Compaction: a URL with an undashed accession, an undashed and
+a dashed accession and a padded CIK in prose (untouched), and an ordinary long integer that still compacts, also
+beside a URL and when negative. Synthetic fixtures only.
+
+**Test revision (stricter, listed per the round rules).** `tests/stageB.lenderCashFlow.test.ts` "L5" used a default
+helper bundle as its non-lender control; that bundle's balance quarters carry no currency label, so this decision
+withholds its provider EV. The control now labels its balance quarters USD and still asserts the EV is shown, and
+the test additionally asserts that the unlabelled bundle is withheld for its currency cause and never for the
+lender reason. No assertion is removed or loosened.
+
+**Checks.** Focused tests, `tsc`, ESLint; `npx vitest run --changed origin/main` once (16,475 passed, one existing
+skip; its single failure was the control above, fixed and rerun with the stamp, sample and P8-agreement tests).
+
+**Limits and open items.**
+
+- Saved reports are immutable (P21): earlier TSM reports keep the "$72.77T" row. A read-time view could refuse it
+  only with currency evidence the stored report does not carry, so none is added here.
+- TSM-09 (per-ADS diluted EPS is the rounded ordinary-share fact times the ratio, 327.35 / 223.35 / 164.25, where
+  the 20-F also tags exact ADS-member facts 327.34 / 223.37 / 164.24) is not fixed. The filed EPS reconciliation in
+  `src/pipeline/keyless.ts` reads companyfacts, which carry no dimensional facts, and the instance reader
+  (`src/edgar/instanceFacts.ts`, D-268) admits only undimensioned facts and the carrying-amount axis. Preferring an
+  ADS-member fact needs a new admitted dimension (P3/P5) plus routing into the reconciliation: larger than this
+  package. D-275's acceptance of 327.35 stands until then.
+
 ## D-278 - A conflict note needs the figure to name only the record's metric (2026-11-14)
 
 P19. Owner: `src/pipeline/stageC/claimEvidence.ts` (`checkPlainFigures`); the note text is written in `src/pipeline/stageC/passes.ts`.

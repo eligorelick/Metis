@@ -2436,7 +2436,11 @@ $42.78B of equity stakes as cash and reconciled to $5.17T). The DCF bridge's
 the operating business; it excludes the non-operating assets the bridge adds
 back. The **Provider enterprise value (vendor definition, period end)** is the
 vendor's own figure at its period end (that date's market cap + debt − cash and
-equivalents) and is shown only as provider data.
+equivalents) and is shown only as provider data. The vendor row states no
+currency, so it is shown only when that date's balance is established in the
+listing currency it is printed in; a foreign filer whose balance is in its
+reporting currency, or a date with no established balance, gets the withheld
+note with its cause instead of a relabelled figure (D-279, P4).
 
 **Long-term investments (D-65; FIN-401 / FIN-401-V1).** Sales-to-capital removes
 the non-operating portion of the balance sheet's long-term investments from

@@ -21,6 +21,7 @@ import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { readEstimateTiming } from "@/report/estimateTiming";
 import type { MarketData } from "@/report/schema";
 import { quotePriceObservationDay } from "@/providers/fmp";
+import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { completedTotalOmission, leaseDebtConflict, millions, type LeaseDebtInputs } from "@/pipeline/stageB/netDebt";
 
 type Row = Record<string, unknown>;
@@ -71,6 +72,14 @@ const DEBT_FIELDS = ["totalDebt", "shortTermDebt", "longTermDebt", "capitalLease
  */
 function providerEnterpriseValueRefusal(ev: NonNullable<MarketData["enterpriseValue"]>, balances: readonly Row[], currency: string | null,
   currencyEvidence: ReturnType<typeof statementCurrencyEvidence>, withheld: ReadonlyMap<string, string>): string | null {
+  // D-279 (P4): the vendor's EV row states no currency; its debt and cash come from that date's balance. It is shown
+  // in the listing currency only when that balance is established in it (one known currency, the owner's rule);
+  // otherwise it is refused, never relabelled.
+  const sameDate = balances.filter((row) => day(row.date) === ev.periodEnd);
+  const basis = comparePriceCurrency(sameDate.length === 0 ? null : establishedCurrencyOn(sameDate, ev.periodEnd, currencyEvidence), currency);
+  if (!basis.comparable) {
+    return `the vendor row states no currency and its same-date balance does not establish it in the displayed currency (${basis.reason})`;
+  }
   const operand = ev.totalDebt === null ? "(not stated)" : millions(ev.totalDebt);
   for (const row of balances) {
     if (day(row.date) !== ev.periodEnd || currency === null || establishedCurrencyOn([row], ev.periodEnd, currencyEvidence) !== currency) continue;

@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Vendor EV currency and filing identifiers (P4, P22, D-279) (2026-11-14)
+
+- A vendor enterprise value is shown only when its same-date balance is established in the listing currency it is printed in; a foreign filer's value in its reporting currency (TSM: "$72.77T", really TWD) is withheld with its cause, never relabelled.
+- Long-integer compaction no longer rewrites anything inside a URL or any zero-padded identifier such as an SEC accession (dashed or not) or a padded CIK; ordinary long integers still compact. Read time only.
+- Report 1.91.0 (after D-277 took 1.89.0 and D-278 1.90.0); payload, Stage B and score bands unchanged. Only the TSM same-report case changes; accuracy is unchanged.
+
 ## Unreleased - D-280 complete ratio denominators
 
 - Admit filed zero interest, withhold undisclosed vendor-zero quarters in the shared TTM gate used by coverage and WACC. Annual fallback stays explicit (P1/P7/P10).
