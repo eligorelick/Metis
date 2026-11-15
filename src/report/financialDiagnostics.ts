@@ -327,13 +327,14 @@ export function applyFigureDefinitions(report: Report, bundle: DataBundle, compu
           if (row) add(debtCompositionDefinition(row) ?? "lease treatment not established from the filing");
         }
       }
-      if (source === "computed.returns.rote" || tangibleTtm && ["computed.returns.commonReturnTtm","computed.returns.rote-trailing-four-quarters"].includes(source) || bankTangibleSources.has(source)) add(MODEL_TANGIBLE_COMMON_BASIS);
+      if (/^computed\.scores\.moat\.rote(?:Level|Floor)$/.test(source) || source === "computed.returns.rote" || tangibleTtm && ["computed.returns.commonReturnTtm","computed.returns.rote-trailing-four-quarters"].includes(source) || bankTangibleSources.has(source)) add(MODEL_TANGIBLE_COMMON_BASIS);
       if (shareUnit && statement?.[1] === "income-statement" && ["diluted-shares","basic-shares","shares-outstanding"].includes(statement[4]!)) add("ADS-equivalent shares");
       if (notes.length) n.definition = notes.join("; ");
     }
     for (const [key,child] of Object.entries(obj)) if (key !== "scores" && typeof child === "object") visit(child);
   };
   visit(report);
+  for (const aspect of Object.values(report.scores?.aspects ?? {})) visit(aspect.drivers);
   if (shareUnit && report.marketData?.shares) report.marketData.shares.shareUnit = shareUnit;
   const bridge = report.valuation.dcf.bridge;
   if (bridge) {

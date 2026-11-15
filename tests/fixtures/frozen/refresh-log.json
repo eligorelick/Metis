@@ -4786,5 +4786,75 @@
       "$.projection.report.scores.aspects.moat.note",
       "$.projection.report.marketData.estimateCurrencyBasis"
     ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "stagec-payload",
+    "decision": "D-306",
+    "reason": "D-306 corrects SBC and threshold wording without changing calculations; refresh current payload text and version stamps.",
+    "scope": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary",
+      "$.prompt",
+      "$.finance.scores",
+      "$.finance.valuation",
+      "$.payload.computed",
+      "$.payload.payloadVersion",
+      "$.payload.fingerprint"
+    ],
+    "beforeSha256": "856c6996beb7bb386f48ce00051832a5768c8b3dab07b68fdabb7fcf8f76e9aa",
+    "afterSha256": "1db69696fe20b8f8b2d4aeb5a207c451ae27f369726af9c718b480f6f754837d",
+    "changedLeaves": 20,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptBytes",
+      "$.summary.promptFnv1a32",
+      "$.summary.financeHash",
+      "$.prompt.bytes",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.prompt.sections[8].bytes",
+      "$.prompt.sections[8].sha256",
+      "$.finance.scores.aspects.quality.note",
+      "$.finance.valuation.assumptions.sbc.basis",
+      "$.finance.valuation.assumptions.terminal.reinvestmentRate.basis",
+      "$.finance.valuation.assumptions.notes[6]",
+      "$.finance.valuation.sensitivity.notes[1]",
+      "$.finance.valuation.multiples.multiples[3].basis",
+      "$.finance.valuation.notes[6]",
+      "$.payload.payloadVersion",
+      "$.payload.computed[6].notes[8]",
+      "$.payload.computed[6].notes[17]"
+    ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "audit-fixture",
+    "decision": "D-306",
+    "reason": "D-306 corrects reader threshold and SBC wording and advances the sample report stamps; financial calculations remain unchanged.",
+    "scope": [
+      "$.fixtureIdentity.reportSha256",
+      "$.projectionSha256",
+      "$.projection.stageB.scores",
+      "$.projection.stageB.valuation",
+      "$.projection.report"
+    ],
+    "beforeSha256": "26ec44abfdc9cd0338f754d2732a1c68c66b59215a96a67f8a6abde48b425cb1",
+    "afterSha256": "7030069dd36049fe5d5555a2d8ca205616a91510d1a4135d191c6833bc77b58f",
+    "changedLeaves": 10,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.stageB.valuation.assumptions.terminal.reinvestmentRate.basis",
+      "$.projection.stageB.valuation.sensitivity.notes[1]",
+      "$.projection.stageB.valuation.multiples.multiples[3].basis",
+      "$.projection.stageB.scores.aspects.quality.note",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.valuation.dcf.assumptions[10].basis",
+      "$.projection.report.valuation.dcf.sensitivityNotes[1]",
+      "$.projection.report.valuation.multiples[3].basis",
+      "$.projection.report.scores.aspects.quality.note"
+    ]
   }
 ]

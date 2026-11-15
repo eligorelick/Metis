@@ -268,3 +268,12 @@ describe("D-65 anchor stop suffix reads a typed value (O1, D-223)", () => {
     expect(Object.keys(CASES).filter((name) => /not covered/.test(stops[name] ?? ""))).toEqual(withSuffix);
   });
 });
+
+
+describe("D-306 SBC wording follows disclosed state",()=>{
+  it.each([null,0,5])("states the deduction only when SBC is disclosed (%s)",sbc=>{
+    const basis=build({fcfSbc:{beforeSbc:50,afterSbc:sbc===null?null:50-sbc,sbc,asOf:"2026-07-26",basis:"test"}}).sbc.basis;
+    if(sbc===null){expect(basis).not.toContain("metric subtracts it");expect(basis).toContain("not disclosed, so it is not deducted");}
+    else expect(basis).toContain("after subtracting SBC");
+  });
+});

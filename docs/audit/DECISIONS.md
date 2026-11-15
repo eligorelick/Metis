@@ -11,6 +11,49 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+
+## D-306 - Typed SBC wording and reader threshold names (2026-11-15)
+
+P13, P20 and P22; release R22/R28. The DCF assumption owner now states that undisclosed SBC is not deducted from reported FCF, while disclosed SBC still names the deduction. If the FCF bridge is unavailable, the adjustment is unestablished. The P/FCF comparison definition states the same conditional convention. No inputs, amounts, scores or valuation results change.
+
+The grading explanation names the original-scale Altman equivalent in words. Forensic rule strings name net other income and expenses, operating income and discontinued-operation income. The producer sweep also found terminal-growth identifiers in valuation threshold/consistency text; those now name terminal growth, terminal return on invested capital and terminal excess return. Source ids, filed XBRL tags and gap-field labels remain evidence/audit identifiers (the gap-label work belongs to release PR #214).
+
+Approved report changes: all panel cases receive the revised quality-method explanation and applicable SBC/multiple/terminal-rule wording. XOM, WMT, UNP and TSM no longer claim an SBC deduction beside unadjusted FCF. FIGR's material-other-income rule names the quantities in words. No company-specific code or numerical adjustment is introduced.
+
+Test-pin revisions under D-306: `liquidity.unrepairedParity.test.ts` updates only 48 disclosure-hash instances (32 distinct hashes) after independently confirming all 216 numerical result objects unchanged. `report.forensicObservationContext.test.ts` expects the new discontinued-income rule and uses exact wording reversals in the existing public-polish helper to preserve its historical whole-output hash. `research.routePanel.test.ts` asserts the exact new model-equity definition on typed ROTE drivers before comparing every remaining score byte to computed scores. Version assertions and both frozen current records advance with the stamps; no test is removed, skipped or weakened.
+
+## D-305 - Model tangible-equity definition follows summary figures (2026-11-15)
+
+P13/P22; release R18. `applyFigureDefinitions` includes the typed moat ROTE level/floor sources and score-card drivers, and the shared score signal table reads the existing model-equity definition for those signal ids. Detailed rows, summaries, cards and app signals use `MODEL_TANGIBLE_COMMON_BASIS`; common-equity ROE is a negative control. JPM and BAC retain their exact returns with the provider-field composition qualification beside them. No denominator or calculation changes.
+
+## D-304 - A checked number must agree at reader display precision (2026-11-15)
+
+P19/P22; release R6. The numeric verifier already compares the named registry record at its declared precision. That alone allowed an analyst's intermediate rounding to cross a later reader rounding boundary. After the existing identity, value and description checks succeed, verification now also compares the shared formatter's output for the submitted value and its exact record, preserving the stated monetary scale. A disagreement uses the existing value-mismatch status. No tolerance or rounding mode changes, and stored report bytes remain immutable.
+
+Filed example: JPM fiscal 2025 loans / deposits comes from `us-gaap/FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss` and `us-gaap/Deposits`, 2025-12-31, 10-K accession 0001628280-26-008131. The full ratio is 55.049974211900036%; its direct one-decimal rendering is 55.0%. The submitted 55.05% renders as 55.1% and loses its checkmark. The number is retained and visibly unconfirmed; the full-precision filed calculation remains available. Regression cases cover positive/negative values on both sides of the boundary and exact/ordinary matching controls.
+
+Stamps for D-304-D-306: report 1.98.0, payload 1.111.0, pipeline stage-c-1.6.52 and Stage B READER_PRECISION_84. Score bands and valuation methods remain unchanged. The synthetic sample and both frozen current records are refreshed with explicit scopes.
+
+
+Replay approval against main `555f7d6f466eec10e635ee5857e5b51ee3539669`: all 33 cases completed, 231 report files compared; 264 artifact/fingerprint differences. The complete JSON comparison has 119 Stage B leaves and 260 report leaves. Every changed leaf belongs to one of these classes (the corresponding payload, Markdown, audit, print and app changes are their serialization):
+
+| Decision / changed leaves | Cases and before ? after |
+| --- | --- |
+| D-306 `scores.aspects.quality.note`; deterministic quality reasoning in `quality.graded` and `verdict.gradeStrip` | All 33 score notes and 24 deterministic reasoning copies: internal Altman driver name ? original-scale equivalent used for scoring. |
+| D-306 `valuation.assumptions.terminal.reinvestmentRate.basis`; report DCF terminal assumption basis | 19 DCF cases: internal terminal-growth/return identifiers ? names in words. |
+| D-306 `valuation.sensitivity.notes[1]`; report `valuation.dcf.sensitivityNotes[1]` | The same 19 DCF cases: internal terminal-growth identifier ? terminal growth. |
+| D-306 Stage B `valuation.multiples.multiples[3].basis`; report `valuation.multiples[3].basis` | 26 cases with P/FCF: unconditional capital-block SBC subtraction ? deduction where disclosed, otherwise unadjusted. |
+| D-306 `valuation.assumptions.sbc.basis`, copies in assumption/valuation notes and the report SBC assumption basis | TSM (data-only and fixed analyst), WMT, XOM, UNP, NVO: claims subtraction ? says undisclosed SBC was not deducted. Amounts and disclosed/undisclosed states unchanged. |
+| D-306 `forensics.flags[*].rule`; report `quality.flags[*].text` | FIGR: net-other-income and operating-income identifiers ? words. QCOM, DUK, DIS: discontinued-operation income identifier ? words. |
+| D-305 `competitive.moatGraded.keyNumbers[*].definition`, `verdict.gradeStrip.moat.keyNumbers[*].definition`, `scores.aspects.moat.drivers[*].definition` | FIGR/JPM/BAC: both level and floor gain the existing definition. PGR/MET: level gains it. JPM fixed analyst: both score drivers gain it. Every return is unchanged. |
+| D-304 `balanceSheet.graded.keyNumbers[3].verified`, added verification note, `appendix.verificationLog[70]` outcome/note/reason/traceKind/validationStatus | JPM fixed analyst only: verified/supported/computed-derived/validated ? unverified/value-mismatch/untraced/contradicted; printed figure retained, check removed. This is the complete claim-status change list; no prose status changes. |
+| D-304 numeric coverage supported/rate and verificationRate in `meta` and `appendix` | JPM fixed analyst only: 153/156 ? 152/156 (98.0769% ? 97.4359%). All other coverage figures unchanged. |
+| Version stamps and resulting hashes | All 33 reports: spec 1.97.0 ? 1.98.0, pipeline 1.6.51 ? 1.6.52; all payload versions/fingerprints advance. |
+
+The 19 DCF cases are AMZN, MU, NVDA, QCOM, TSM, LLY, WMT, XOM, CAT, KO, UNH, DIS, UNP, NVO data-only plus AMZN, MU, NVDA, LLY #65 and TSM #66 fixed analyst. The 26 P/FCF cases are every panel case except FIGR, JPM, PGR, VKTX, BAC, MET data-only and JPM fixed analyst. Case names in this table refer to the fixed 33-case panel; LLY #63/#65 fixed analyst are separately retained.
+
+`golden:value-check`: 33 cases, zero model-value moves. Accuracy: all 535 figures across 25 data-only companies retain their expected status (330 match, 14 mismatch, 121 gap, 70 not established). No accuracy expectation was revised. The only numeric JSON differences are the six JPM coverage count/rate leaves above; financial figures do not change.
+
 ## D-299 - Product-line headings and segment row names are code-owned (2026-11-14)
 
 P18 and P19; release items R37, R38 and R32. Owners: `src/pipeline/stageC/passes.ts` (assembly),

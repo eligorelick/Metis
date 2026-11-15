@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.97.0** and
-payload **1.110.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.98.0** and
+payload **1.111.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,13 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - D-304-D-306
+
+- Refuse a numeric checkmark when intermediate rounding disagrees with the exact record at reader precision (R6).
+- Carry the model tangible-equity definition beside moat ROTE summaries, cards and app signals (R18).
+- State SBC deductions only where disclosed; name scoring and forensic thresholds in words (R22/R28).
+- Report 1.98.0 / payload 1.111.0; calculations, score bands and model values unchanged.
 
 ## Unreleased - Current release documentation (P20, P24, W7) (2026-11-15)
 
@@ -29,7 +36,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - A withheld dividend-payout year with no source is a disclosed gap, not an "ambiguous legacy citation"; a withheld operating margin names its period and sits with the quarterly trend (D-297).
 - 20-F/40-F filers get a foreign-filer note (6-K results releases are not read) instead of the domestic Item 2.02 8-K note; the TTM capital basis names the flows it admitted and the ones withheld (D-298).
 - Product-line headings stand only on code-owned names (unchanged rule); an unnamed heading reads "Product line". A segment row's name is its cited record's label when period, currency, unit and amount match, else "Segment (name not established)". A trailing XBRL "[Member]" marker is removed from segment labels (D-299).
-- Report 1.97.0, payload 1.110.0, Stage B `STAGE_B_2026_11_READER_WORDING_83`, pipeline `stage-c-1.6.51`; no figure changes.
+- Report 1.97.0, payload 1.110.0, Stage B `STAGE_B_2026_11_READER_PRECISION_84`, pipeline `stage-c-1.6.52`; no figure changes.
 
 ## Unreleased - Corrected debt composition and complete ADS labels (P3, P18, P22, D-294/D-295) (2026-11-15)
 

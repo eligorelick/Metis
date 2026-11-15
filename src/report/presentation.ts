@@ -1,3 +1,4 @@
+import { MODEL_TANGIBLE_COMMON_BASIS } from "@/pipeline/stageB/returns";
 import type { ReportAuditTable } from "@/report/auditTables";
 import { qualifiedGradeLabel } from "@/report/assessment";
 import { supplementalNumericInventoryText } from "@/report/supplementalNumericAudit";
@@ -2802,7 +2803,7 @@ export function scoreDriverTable(scores: NonNullable<Report["scores"]>): BodyTab
     formatNumber(signal.transformedScore, 0),
     formatPct(signal.effectiveCompositeWeightPct, 1),
     signedPoints(signal.contributionPoints),
-    signal.fallbackReason ?? "—",
+    [signal.id === "roteLevel" || signal.id === "roteFloor" ? MODEL_TANGIBLE_COMMON_BASIS : null, signal.fallbackReason].filter(Boolean).join("; ") || "—",
   ]));
   if (rows.length === 0) return null;
   return {

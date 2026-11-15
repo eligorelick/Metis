@@ -329,3 +329,22 @@ describe("D-296 (R28/R39): retained historical text reads in current words; stor
     expect(retained.gaps.at(-1)!.reason).toBe(RETIRED.gap);
   });
 });
+
+
+describe("D-304 matching includes the shared reader rounding", () => {
+  it.each([[12.049974,false],[12.050026,true],[-12.049974,false],[-12.050026,true],[12.05,true],[-12.05,true],[12.1,true]])("checks %s at the displayed precision (%s)", async (value,verified) => {
+    const rec: NumericProvenanceRecord = {id:"computed.test.ratio",label:"ratio",kind:"computed",value:value as number,unit:"percent",currency:null,period:null,asOf:"2025-12-31",origin:"computed.test",formulaVersion:"test",displayPrecision:4};
+    const n={value:Number((value as number).toFixed(2)),unit:"%",source:rec.id,asOf:rec.asOf,verified:false};
+    const result=await runVerifyPass({runPass:async()=>{throw new Error("no model");}} as unknown as PassDeps,
+      {provenanceRegistry:[rec],citationRegistry:[],filings:[]} as unknown as ContextPayload,{n});
+    expect((result.verifiedReport as {n:typeof n}).n.verified).toBe(verified);
+    expect((result.verifiedReport as {n:typeof n}).n.value).toBe(n.value);
+  });
+});
+
+it("D-306 names forensic thresholds and score quantities in reader words",()=>{
+  const forensic=fs.readFileSync(path.join(ROOT,"src/pipeline/stageB/forensics.ts"),"utf8");
+  const rules=forensic.split("\n").filter(line=>/rule:/.test(line));
+  expect(rules.join("\n")).not.toMatch(/totalOtherIncomeExpensesNet|operatingIncome|netIncomeFromDiscontinuedOperations/);
+  expect(fs.readFileSync(path.join(ROOT,"src/pipeline/stageB/grading.ts"),"utf8")).not.toContain("altmanZOriginalScale driver carries");
+});

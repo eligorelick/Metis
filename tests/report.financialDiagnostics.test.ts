@@ -50,7 +50,7 @@ import { capexDefinition } from "@/pipeline/stageB/capital";
 import { liquidityDefinition } from "@/pipeline/stageB/netDebt";
 import { investmentDefinition, revenueDefinition } from "@/pipeline/stageB/valuation";
 import { MODEL_TANGIBLE_COMMON_BASIS } from "@/pipeline/stageB/returns";
-import { figureRow } from "@/report/presentation";
+import { scoreDriverTable, figureRow } from "@/report/presentation";
 
 describe("D-292 figure definitions from filed families", () => {
   it("names combined tangible/intangible spending, including foreign concepts, and leaves PP&E alone unchanged", () => {
@@ -320,4 +320,25 @@ it("labels the actual Stage B debt rebuild from filed borrowings and complete le
   applyFigureDefinitions(r,bundle,computed);
   expect(r.balanceSheet.debtProfile.numbers[0]!.definition).toBe("includes operating leases in the filed debt composition");
   expect(current.debtBridge.leaseEvidenceNote).toContain(r.balanceSheet.debtProfile.numbers[0]!.definition!);
+});
+
+
+it("D-305 defines moat summary and score drivers while leaving common ROE alone",()=>{
+  const r=report();
+  r.fundamentals.graded.keyNumbers=["roteLevel","roteFloor","roeLevel"].map(key=>({value:20,unit:"%",source:`computed.scores.moat.${key}`,asOf:"2025-12-31",verified:true}));
+  applyFigureDefinitions(r,{symbol:"TEST",builtAt:"2026-01-01"} as DataBundle);
+  expect(r.fundamentals.graded.keyNumbers.slice(0,2).map(n=>n.definition)).toEqual([MODEL_TANGIBLE_COMMON_BASIS,MODEL_TANGIBLE_COMMON_BASIS]);
+  expect(r.fundamentals.graded.keyNumbers[2]!.definition).toBeUndefined();
+});
+
+it("D-305 defines score cards and app signal rows from the same typed ROTE identity",()=>{
+  const r=report();
+  const n={value:20,unit:"%",source:"computed.scores.moat.roteLevel",asOf:"2025-12-31",verified:true};
+  r.scores!.aspects.moat.drivers=[n];
+  r.scores!.aspects.moat.signals=[{id:"roteLevel",raw:20,unit:"%",transformedScore:70,signalWeight:1,evidenceFraction:1,effectiveCompositeWeightPct:10,contributionPoints:2,family:"returns",asOf:"2025-12-31",period:"2025-12-31",startDate:null,endDate:null,windowYears:1,fallbackReason:null,operands:[]}];
+  applyFigureDefinitions(r,{symbol:"TEST",builtAt:"2026-01-01"} as DataBundle);
+  expect(r.scores!.aspects.moat.drivers[0]!.definition).toBe(MODEL_TANGIBLE_COMMON_BASIS);
+  expect(scoreDriverTable(r.scores!)!.rows.flat().join(" ")).toContain(MODEL_TANGIBLE_COMMON_BASIS);
+  r.scores!.aspects.moat.signals[0]!.id="roeLevel";
+  expect(scoreDriverTable(r.scores!)!.rows.flat().join(" ")).not.toContain(MODEL_TANGIBLE_COMMON_BASIS);
 });

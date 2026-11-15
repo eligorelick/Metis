@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.97.0",
+    "specVersion": "1.98.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.97.0",
+    "pipelineVersion": "1.98.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8506944444444444,
@@ -2282,7 +2282,7 @@
         {
           "name": "terminal reinvestment (terminal growth / terminal ROIC)",
           "value": "30.6%",
-          "basis": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 285.09M in year 10 becomes 213.92M in year 11 (-24.97%): reinvestment moves from 5.15% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 47.4%) to 30.56% (terminal growth 2.5% / terminal ROIC 8.18%). The step is where the two reinvestment conventions meet, not a forecast"
+          "basis": "terminal reinvestment = terminal growth / terminal return on invested capital (Damodaran consistency rule); terminal transition: FCFF 285.09M in year 10 becomes 213.92M in year 11 (-24.97%): reinvestment moves from 5.15% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 47.4%) to 30.56% (terminal growth 2.5% / terminal ROIC 8.18%). The step is where the two reinvestment conventions meet, not a forecast"
         },
         {
           "name": "discounting convention",
@@ -2297,7 +2297,7 @@
         {
           "name": "free cash flow, SBC treatment",
           "value": "180.0M (unadjusted)",
-          "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-31: 180000000, UNADJUSTED — stock-based compensation was not disclosed."
+          "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; SBC was not disclosed, so it is not deducted from the reported free-cash-flow metric. The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-31: 180000000, UNADJUSTED — stock-based compensation was not disclosed."
         }
       ],
       "sensitivityGrid": [
@@ -2429,7 +2429,7 @@
       ],
       "sensitivityNotes": [
         "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
-        "grid cells with WACC - gTerm < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
+        "grid cells with WACC - terminal growth < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
         "terminal ROIC held at WACC + 0pp in every cell (the house convention defines it relative to the discount rate)"
       ],
       "upsidePct": 10.843749999999996,
@@ -2804,7 +2804,7 @@
       },
       {
         "name": "P/FCF (before SBC)",
-        "basis": "market cap / (operating cash flow + capital expenditure) (TTM; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+        "basis": "market cap / (operating cash flow + capital expenditure) (TTM; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block deducts SBC where disclosed and otherwise labels free cash flow unadjusted; its treatment is stated separately. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 17.77777777777778,
         "peerMedian": null,
         "peerCount": null,
@@ -9923,7 +9923,7 @@
           }
         ],
         "notApplicableReason": null,
-        "note": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
+        "note": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the original-scale equivalent used for scoring — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
       },
       "balanceSheet": {
         "score": 86.14,
