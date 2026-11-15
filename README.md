@@ -236,7 +236,7 @@ Report security problems through the repository's [private advisory form](https:
 
 ## Development
 
-Metis is a Next.js (App Router) application written in TypeScript, with React, a local SQLite database (better-sqlite3 and Drizzle ORM), Tailwind CSS and Vitest.
+Metis is a Next.js (App Router) application written in TypeScript, with React, a local SQLite database (better-sqlite3 and Drizzle ORM), Tailwind CSS and Vitest. See [Architecture](docs/ARCHITECTURE.md) for the pipeline, folder responsibilities and invariants.
 
 - `src/app`: pages and the local HTTP API.
 - `src/providers`, `src/edgar`: data providers, and SEC filing and XBRL handling.
