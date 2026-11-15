@@ -78,6 +78,14 @@ Foreign filers such as TSM and NVO. Form 6-K interim statements are not parsed i
 
 All panel checks. Inputs are private, and not-established figures mean the checker lacks a proven reference. A passing regression gate is not proof of universal accuracy.
 
+## L20: AI copies of figures
+
+Analyst reports. When the AI's key-number table repeats a figure that code also computes, both rows print: the code row and, beside it, the AI's copy with its own verification mark. They are not merged, so a copy that disagrees with the record stays visible as not confirmed or contradicted.
+
+## L21: App evidence details
+
+The app only. The expandable provenance details beside a figure name the internal source field (for example a computed score path) and raw gap ids. Markdown and print show plain names only.
+
 ## Additional release decisions and deferred work
 
 Vendor qualifications use labels and separate gaps; there is no new typed vendor-qualification code in 1.0. Provider revenue may represent a provider revenue line rather than the filed total (R12); the report labels that basis alongside the filed total.
