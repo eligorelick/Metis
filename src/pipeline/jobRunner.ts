@@ -2758,9 +2758,9 @@ export async function runJob<TPayload = unknown>(
       throwFirstSettlementRejection(fallbackSettlements);
 
       // One repair attempt per side whose output was RECEIVED but rejected by
-      // the schema — the judge has had this loop all along; the analysts had
-      // none, so a haiku bull pass writing "2026-Q1" for `asOf` (2026-09-02)
-      // lost both paid passes and the whole analysis. The sibling's paid
+      // the schema — the judge has had this loop all along; without one for the
+      // analysts, a bull pass writing "2026-Q1" for `asOf` would lose both paid
+      // passes and the whole analysis (P23). The sibling's paid
       // output is kept. A dropped zero-cost subscription stream is retried the
       // same way (the facade marks it retryable), and a side that never
       // launched because that sibling failed first runs fresh. A paid transport
