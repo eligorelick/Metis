@@ -172,6 +172,97 @@ with the panel branch's accuracy files, restored afterwards).
 - R6 (K1: LLY 34.0% against 33.9%, JPM 55.1% against 55.0%) and R7 (K22: LLY accrual 0.3x against 29%) already fail
   closed (metric or period not established) and now read "[not confirmed]"; no conflict rule is added.
 
+## D-291 - A model value that moves more than 10% needs a decision entry (2026-11-14)
+
+P16, P17 and P27. Owner: `scripts/golden/value-check.ts` (`npm run golden:value-check`), beside `golden:diff` in the
+same-report procedure (docs/OPERATIONS.md). Release item R43.
+
+**Problem.** The same-report check (`golden:diff`) proves whether reports changed, and an approval needs a reason, but
+it treats a moved model value like any other changed byte. The Eli Lilly model value went from 518.37 (report #63) to
+739.34 (report #65), a 42.6% move, and stayed untraced through a whole release round until D-281. Nothing made a large
+move of the one number a reader acts on stop for a written explanation.
+
+**Rule.** `golden:value-check BEFORE AFTER` reads every case's model value from two golden runs and prints a table
+of each case's before, after and percentage move. The model value is the per-share value the report headlines, read
+from the stored Stage B output: `fairValue.perShare` when it is current, otherwise `fairValue.reference.perShare` when
+the report shows it only as a dated reference value. It fails when any case's value moves by more than
+`MODEL_VALUE_MOVE_LIMIT_PCT` (10%) either way, when a value appears or disappears, when its unit or currency changes,
+or when a case did not run, unless the approvals file (`--approved`, its `valueMoves` list) names that case with a
+decision id that has its own entry in this file and whose entry names the company by ticker or case id. An approval
+that matches no move also fails, so the list stays exact. 10% is the owner's number, defined once with the owner's
+reason; a move of exactly 10% passes (the move is compared after rounding to 1e-9 percentage points, so binary
+floating-point noise such as 89.60 -> 98.56 computing as 10.000000000000009% does not count). A case present in only
+one run is a move too, even when neither side shows a value. Nothing is recomputed: the check only reads stored values.
+
+**Limits.** It checks only the headline model value, not scenarios, the reverse DCF or other figures (golden:diff
+still holds every byte, and `accuracy:check` holds the filed inputs). The company match is a whole-word search of the
+decision text, so it proves that the entry names the company, not that the entry explains this particular move: D-279
+lists the LLY cases among its unchanged ones, so an LLY approval naming D-279 would pass. The lead still reads the
+named entry. A one-letter ticker such as O matches only as a separate capital letter.
+
+**Same-report check and evidence.** Main 07b4edda against this branch, 33 cases: no case's model value moves (the
+change touches only tooling and documents; `golden:diff` reports no changes). The check run on the D-281 trace builds
+(LLY #63 inputs at their original code against main) fails at +27.72% (518.37 dated reference to 662.08) and passes
+with an approval naming D-281. Tests: `tests/goldenValueCheck.test.ts` (a 9.9% move passes; 10.1% fails either way;
+a move approved by a real decision that names the company passes; an approval naming a missing or unrelated decision
+fails; appearance and disappearance fail without approval; a case withheld in both runs passes; currency change,
+a failed case and a stale approval fail).
+
+## D-281 - Eli Lilly model value 518.37 (#63) -> 739.34 (#65): traced (2026-11-14)
+
+P1, P13, P16 and P17. Release item R42 (finding K53). Analysis only: no code, figure or saved report changes.
+
+**In plain English.** The Eli Lilly (LLY) model value rose from $518.37 a share in report #63 to $739.34 in report
+#65. We rebuilt both reports offline from their frozen inputs, at their original code and at current main, and explained
+every cent of the difference. No remaining error was found. About two thirds of the rise ($143.71) is a correction:
+report #63's model started from the 2025 fiscal year (ending 2025-12-31) but valued the company with a balance sheet
+from September 2026, mixing two dates. D-260 made the model start from the twelve months ending on the same
+September date as the balance sheet, and D-267 closed the same date-mixing shape for every company. The remaining
+$77.26 comes from newer filed evidence in report #65's inputs: with FY2025's return on capital now admitted (D-268),
+Lilly has four observed years in which its return beat its cost of capital, which switches the long-run assumption
+from "returns fall to the cost of capital" to "half the excess return is kept" ($77.11). The rest is the September
+2026 short-term investments now admitted (D-268), which move capital and net debt by 15 cents in total. The code used
+for report #65 and current main give the identical value.
+
+**Limit (house convention, disclosed).** The long-run return rule switches on discretely when a fourth above-hurdle
+year is observed (`terminalRoic`, `TERMINAL_EXCESS_RETURN_MIN_YEARS` = 4, capped at `TERMINAL_EXCESS_RETURN_CAP_PP`
+= 5 points, src/pipeline/stageB/valuation.ts). For Lilly the switch alone is worth $77.11 a share. Without it the value
+would be $662.23 (a sensitivity, not a correction). Changing the threshold or smoothing the switch is a methodology
+change that needs an owner decision under "How to change a rule" (P16, P17); it is listed in the known limitations.
+
+**Bridge (USD per share; production `runDcf` with each operand changed in turn; zero residual).**
+
+| Step | Value | Change | Code or input effect | Owner decision |
+| --- | --- | --- | --- | --- |
+| #63 as stored: fiscal-year model dated 2025-12-31 (a dated reference value, not current) | 518.3661 | start | — | D-65 dated annual fallback |
+| Same #63 inputs at current main: true trailing twelve months 2025-10-01..2026-09-30, value date 2026-09-30 | 662.0785 | +143.7124 | code (#63 code 78630135 vs main) | D-260 exact operating window; D-267 date consistency |
+| FY2025 return on capital admitted: four above-hurdle years, terminal ROIC 7.81% -> 12.81% | 739.1860 | +77.1074 | input (#65 evidence, refreshed under D-268) | D-268 evidence; `terminalRoic` house convention |
+| September 2026 short-term investments 74M lower operating capital (sales-to-capital 1.0691 -> 1.0700) | 739.2535 | +0.0676 | input | D-268 bounded carrying investment subtotals |
+| The same 74M lowers net debt 44,618M -> 44,544M in the equity bridge | 739.3364 | +0.0828 | input | D-268 |
+| #65 at its original code 17c791d2 and at main | 739.3364 | 0 | code: none | — |
+
+Total +220.97 (code +143.71, input +77.26); $739.34 at display rounding.
+
+**Filed evidence behind the operands.** Revenue: FY2025 `Revenues` 65,179M (10-K 0000059478-26-000013) plus the
+2026 nine months 67,170M less the 2025 nine months 45,887M (10-Q 0000059478-26-000108) = 86,462M trailing twelve
+months to 2026-09-30. Operating income (complete reconciliation): FY 26,302M + YTD 26,501M - comparative YTD 17,927M
+= 34,876M. Short-term investments: `AvailableForSaleSecuritiesDebtSecuritiesCurrent` at the carrying-amount member,
+105M at 2025-12-31 (10-K and the 10-Q comparative) and 74M at 2026-09-30 (10-Q). Debt 49,503M, cash 4,885M and
+long-term investments 4,013M at 2026-09-30 (10-Q). FY2025 ROIC 39.75% on FY2025 NOPAT over average 2024-2025 capital
+(10-K 0000059478-26-000013 and 0000059478-25-000067). The divisor is the 10-Q's three-month
+`WeightedAverageNumberOfDilutedSharesOutstanding` 893.4M. The discount rate inputs (risk-free rate, equity premium,
+beta, synthetic debt cost) are dated market inputs and conventions, unchanged across all four builds, so they explain
+none of the move.
+
+**Earlier intermediate values.** 619.30 and 583.88 were rejected D-261 branch builds (cash-only FY2025 capital where
+the filer disclosed investments) and are not steps of this bridge; 739.19 was a D-268 scratch value, reproduced here
+exactly as the "terminal rule only" step.
+
+**Verdict.** No remaining calculation or admission error. #63's mixed-date fiscal-year anchor was the defect, and
+D-260/D-267 removed it. No product change. Reproduction: the offline replays and the attribution script are kept
+locally with the release evidence (not committed: they contain vendor data). D-291 adds the check that would have
+stopped this move for a decision entry.
+
 ## D-279 - A vendor EV is shown only in an established currency; identifiers are never compacted (2026-11-14)
 
 P4 and P22. Owners: `src/pipeline/marketData.ts` (`providerEnterpriseValueRefusal`, using the P4 owner's
