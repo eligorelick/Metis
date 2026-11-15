@@ -84,8 +84,8 @@ export function isDataOnlyReport(report: Report): boolean {
 }
 
 /**
- * Audit 2026-10-22 B-24: a results release the statements do not reach yet;
- * B-23: a 10-Q or 10-K on file they do not reach.
+ * D-103: a results release the statements do not reach yet;
+ * D-112: a 10-Q or 10-K on file they do not reach.
  */
 function NewerResultsBanner({ text, label = "newer results not reflected" }: { text: string; label?: string }) {
   return (
@@ -123,7 +123,7 @@ export function ReportView({
   selectedReportId?: number;
   selectedReportStatus?: string;
 }) {
-  // The shared preparation also indexes the verification marks the claim chips read (F-21).
+  // The shared preparation also indexes the verification marks the claim chips read (D-110).
   const { report, lenderTables, scopeQualifications, completeness } = prepareReportForSurface(sourceReport, "web");
   const reportId = presentationReportId(report,{selectedReportId});
   // D-227: the recorded build identity is stored data, not display identity; so are the
@@ -208,7 +208,7 @@ export function ReportView({
   );
 }
 
-/** D-300 (R40): the support level and the confirmed share, near the top of the dossier. */
+/** D-300: the support level and the confirmed share, near the top of the dossier. */
 function SupportLevelBlock({ report }: { report: Report }) {
   const block = supportBlock(report, isModelWrittenReport(report));
   return (

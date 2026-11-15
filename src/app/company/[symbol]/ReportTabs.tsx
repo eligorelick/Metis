@@ -36,7 +36,7 @@ export function ReportTabs({
   const tabId = (key: Tab): string => `report-tabs-tab-${key}`;
   // WAI-ARIA tabs: the active tab is announced through aria-selected and the
   // arrow keys move between tabs, so the state is not conveyed by colour
-  // alone (audit 2026-09-06, F219).
+  // alone.
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();

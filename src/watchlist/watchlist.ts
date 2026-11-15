@@ -111,7 +111,7 @@ export function addToWatchlist(symbol: string): string {
   const normalized = normalizeSymbol(symbol);
   const canonical = canonicalEntitySymbol(normalized);
   const db = getDb();
-  // `normalizeSymbol` only uppercases, so BRK.B and BRK-B used to create two
+  // `normalizeSymbol` only uppercases, so ABC.B and ABC-B used to create two
   // rows for one company — and since every report and run read folds that
   // share-class alias, both rows resolved to the same report and the sidebar
   // listed the company twice. Keep the spelling already stored (provider
@@ -136,7 +136,7 @@ export function addToWatchlist(symbol: string): string {
 export function removeFromWatchlist(symbol: string): void {
   const normalized = normalizeSymbol(symbol);
   const canonical = canonicalEntitySymbol(normalized);
-  // Remove by entity, so an entry added as BRK.B is removable as BRK-B.
+  // Remove by entity, so an entry added as ABC.B is removable as ABC-B.
   getDb()
     .delete(watchlist)
     .where(

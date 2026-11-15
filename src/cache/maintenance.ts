@@ -1,5 +1,5 @@
 /**
- * api_cache maintenance sweep (2026-07 audit item 5: the DB grew unbounded —
+ * api_cache maintenance sweep (the DB once grew unbounded —
  * 90MB of 103MB was 28 uncompressed EDGAR HTML rows and 174/231 FMP rows sat
  * expired forever).
  *
