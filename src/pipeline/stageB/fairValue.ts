@@ -2,8 +2,8 @@
  * Stage B — deterministic intrinsic per-share fair value.
  *
  * PURE, deterministic TypeScript. This is the authority for the report's DCF-card
- * headline (valuation.dcf.perShare + upsidePct), which used to be authored by the
- * judge/LLM (2026-07-11 DCF-credibility checkpoint). It resolves the ROUTE-
+ * headline (valuation.dcf.perShare + upsidePct), which the judge/LLM never
+ * authors (P18). It resolves the ROUTE-
  * APPROPRIATE deterministic per-share already computed by valueCompany — reused,
  * never recomputed, so it can never disagree with the valuation engine:
  *
@@ -56,14 +56,14 @@ const isNum = (v: number | null | undefined): v is number =>
 const round2 = (v: number): number => Math.round(v * 100) / 100;
 
 /**
- * VAL-10 (audit 2026-10-29, AMZN #51): the gap that withheld a DCF per-share,
+ * D-133: the gap that withheld a DCF per-share,
  * quoted with the upstream reason it rests on. A critical DCF gap first (the
  * model was not built, and why), then the equity bridge's own gap with the net
  * debt refusal behind it. Null when no gap says.
  */
 /**
- * The warn gap that withheld the DCF for a refused temporary-equity operand (FIN-119-V1), for invested capital the
- * operating-lease removal emptied (FIN-303, I6), or for a balance not dated at the statement date (D-267); every other
+ * The warn gap that withheld the DCF for a refused temporary-equity operand (D-135), for invested capital the
+ * operating-lease removal emptied (D-135), or for a balance not dated at the statement date (D-267); every other
  * warn gap stays unquoted.
  */
 export function dcfWithheldWarnGap(gaps: readonly ManifestEntry[]): ManifestEntry | undefined {
@@ -139,7 +139,7 @@ export interface DegradedInputs {
 }
 
 /**
- * Audit 2026-10-22 F-13 (owner decision): the "degraded inputs" reason beside
+ * D-111 (owner decision): the "degraded inputs" reason beside
  * an available headline fair value, naming each substitution an outage or a
  * refusal forced — the risk-free rate from a source other than FRED DGS10, a
  * ROIC-vs-WACC history with no per-year DGS10, an FMP member the value reads served by the keyless layer, the analyst-growth method left out
@@ -235,7 +235,7 @@ function resolveFairValue(inputs: FairValueInputs): FairValue {
     ? valuation.gaps.find(g => g.field === "valuation.excessReturn.preferredCapital") : undefined;
   if (preferredBook) return suppressed([preferredBook], [`Common-book intrinsic value unavailable: ${preferredBook.reason}`]);
 
-  // Audit 2026-10-22 B-29: a DCF outside its domain is not a fair value.
+  // D-102: a DCF outside its domain is not a fair value.
   if (valuation.kind === "dcf" && valuation.dcf?.domain !== undefined) {
     const domain = valuation.dcf.domain;
     return {
@@ -252,7 +252,7 @@ function resolveFairValue(inputs: FairValueInputs): FairValue {
     };
   }
 
-  // Audit 2026-10-22 E-5: withheld because NCI's earnings key is unestablished.
+  // D-102: withheld because NCI's earnings key is unestablished.
   const nciKeyReason = valuation.kind === "dcf" ? valuation.dcf?.noncontrollingKeyWithheld : undefined;
   if (nciKeyReason !== undefined) {
     return suppressed(
@@ -260,7 +260,7 @@ function resolveFairValue(inputs: FairValueInputs): FairValue {
       [`Intrinsic value per share unavailable: ${nciKeyReason}`],
     );
   }
-  // FIN-119: withheld because a temporary-equity claim is refused or may overlap the NCI earnings key.
+  // D-135: withheld because a temporary-equity claim is refused or may overlap the NCI earnings key.
   const temporaryEquityReason = valuation.kind === "dcf" ? valuation.dcf?.temporaryEquityWithheld : undefined;
   if (temporaryEquityReason !== undefined) {
     return suppressed(
@@ -326,7 +326,7 @@ function resolveFairValue(inputs: FairValueInputs): FairValue {
       ? (perShare.value / inputs.currentPrice - 1) * 100
       : null;
 
-  // Audit 2026-10-22 C-10: the excess-return start, and the fiscal-year start
+  // D-102: the excess-return start, and the fiscal-year start
   // beside it when the two differ by more than the house threshold.
   const startLines: string[] = [];
   let alternative: FairValue["alternative"];
@@ -398,9 +398,9 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
   // rows, so a reader sees the WACC inputs and the method spread, not just the
   // point estimate the fade starts from.
   const anchor = a.growthAnchor;
-  // WS6 review (SHOULD-FIX 1): `pointPct` is the CLAMPED anchor the DCF fades
-  // from, and the row says so when the clamp moved it — the table used to print
-  // the pre-clamp median beside a year-one growth taken from the clamped value.
+  // D-18: `pointPct` is the CLAMPED anchor the DCF fades from, and the row says
+  // so when the clamp moved it, so the table never prints the pre-clamp median
+  // beside a year-one growth taken from the clamped value.
   const clampNote =
     anchor.preClampMedianPct === undefined
       ? ""
@@ -474,8 +474,8 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
 }
 
 /**
- * HOUSE CONVENTION base rate (audit 2026-10-22 B-30): how the general-route
- * FCFF DCF compared with price across the audit's census of large caps. Stated
+ * HOUSE CONVENTION base rate (D-102): how the general-route FCFF DCF compared
+ * with price across a census of large caps. Stated
  * beside every general-route DCF headline so one value far below price is read
  * against how often the house model sits there. A dated panel, not a live
  * statistic: update it only from a new census.
@@ -488,7 +488,7 @@ export function dcfBaseRateText(): string {
     `(median ${c.medianUpsidePct < 0 ? "−" : "+"}${Math.abs(c.medianUpsidePct)}%; ${c.moreThan30PctBelow} of ${c.companies} more than 30% below)`;
 }
 
-/** E-5: the reader-facing basis of the NCI deduction in the bridge. */
+/** D-102: the reader-facing basis of the NCI deduction in the bridge. */
 function noncontrollingBasisText(bridge: DcfBridge): string {
   const share = bridge.noncontrollingEarningsShare;
   if (bridge.noncontrollingDeductionBasis === "earnings-share" && isNum(share)) {
@@ -514,11 +514,11 @@ export interface DcfDisplay {
     sharesOutstandingAtQuote?: number;
     /** D-265: why a diluted divisor below the quote count differs from it (absent when the divisor is at or above it). */
     shareBasisNote?: string;
-    /** E-5: how the NCI deducted in `minorityInterest` was sized (book, or its share of trailing profit). */
+    /** D-102: how the NCI deducted in `minorityInterest` was sized (book, or its share of trailing profit). */
     noncontrollingBasis?: string;
-    /** E-5: the filed book NCI, shown beside an earnings-share deduction. */
+    /** D-102: the filed book NCI, shown beside an earnings-share deduction. */
     noncontrollingBook?: number;
-    /** FIN-119: the redeemable claims (temporary equity) already inside `preferredEquity` and `minorityInterest`. */
+    /** D-135: the redeemable claims (temporary equity) already inside `preferredEquity` and `minorityInterest`. */
     temporaryEquity?: { redeemablePreferred: number; redeemableNoncontrolling: number; unsplit: number };
   };
   /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
@@ -526,14 +526,14 @@ export interface DcfDisplay {
     fiscalYears: string; status: string }[];
   growthMarginGrid?: { growthShiftsPp: number[]; marginShiftsPp: number[]; perShare: (number | null)[][]; notes: string[] };
   taxCapitalSensitivity?: TaxCapitalSensitivity;
-  /** Audit 2026-10-22 C-11: the excess-return route's start-return × cost-of-equity grid. */
+  /** D-102: the excess-return route's start-return × cost-of-equity grid. */
   excessReturnGrid?: { rows: { label: string; startReturnPct: number; bookValue: number }[]; costOfEquityPcts: number[]; perShare: (number | null)[][]; notes: string[] };
   forecastRows?: { year: number; period: string; periodStart?: string; periodEnd?: string; periodBasis?: "rolling-12-month" | "fiscal-year";
     revenue: number; growthPct: number; ebitMarginPct: number; taxRatePct: number; nopat: number; reinvestment: number; fcff: number; presentValue: number }[];
 }
 
 export function computeDcfDisplay(valuation: ValuationResult, currency: string | null = null, currentUse?: ValuationUse): DcfDisplay {
-  // C-11: the excess-return route carries its own start-return × CoE grid.
+  // D-102: the excess-return route carries its own start-return × CoE grid.
   const erGrid = valuation.kind === "excess-return" ? valuation.excessReturn.startCoeGrid : undefined;
   if (erGrid !== undefined) {
     return { assumptions: [], sensitivityGrid: [], excessReturnGrid: {

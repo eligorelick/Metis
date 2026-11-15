@@ -212,8 +212,8 @@ const NAMED_INDICATOR_UNITS = new Map([
  * record. The report shows the model's unit string verbatim beside a verified
  * number, so "-4.8154 RSI" citing the MACD histogram would render a verified
  * figure under the wrong indicator's name; id, value and as-of all match, so
- * nothing else catches it (D-44, found by simulation on 2026-10-13 — the
- * lowercase "rsi" driver spelling already had this hole). Units that name no
+ * nothing else catches it (D-44; the lowercase "rsi" driver spelling is
+ * covered too). Units that name no
  * indicator ("index", "%") are unaffected.
  */
 export function namedUnitMatchesRecord(displayUnit: string, recordId: string): boolean {
@@ -245,7 +245,7 @@ export function canonicalizeTracedUnit(
   // record; a spelling that names one indicator is additionally bound to that
   // indicator's record (namedUnitMatchesRecord). "pctile" is the retired
   // spelling, kept so persisted reports still trace; "rank" is what grading
-  // emits now (WS6 review, SHOULD-FIX 3).
+  // emits now (D-19).
   if (INDICATOR_UNIT_SPELLINGS.has(normalized)) return { unit: "index", currency: null };
   // A MACD histogram is a difference of price-scale EMAs, not an index.
   // Keep its named alias source-bound, and never supply a default currency.
@@ -254,7 +254,7 @@ export function canonicalizeTracedUnit(
   // A bare ISO code in the unit ("EUR", "EUR/share") names the currency
   // itself; when the number ALSO declares a currency, the two must agree — a
   // figure labelled EUR with currency USD is a conflict, not a USD figure, and
-  // fails closed like any other unreadable unit (audit 2026-09-06, F181).
+  // fails closed like any other unreadable unit (P4, P19).
   const currencyPerShare = /^([A-Z]{3})\/share$/.exec(raw);
   if (currencyPerShare) {
     if (declaredCurrency !== null && declaredCurrency !== currencyPerShare[1]) return null;
@@ -292,7 +292,7 @@ export function canonicalizeTracedUnit(
   // stockholders equity", "% Standardized CET1"): the model sometimes writes the
   // figure label into the unit slot. The first token still has to be a canonical
   // unit, and id, value, currency, period and as-of are all matched separately,
-  // so canonicalization reads only the unit. AI-407 separately checks the
+  // so canonicalization reads only the unit. D-144 separately checks the
   // printed description for conflicts with the matched record in the verifier. "% points" is excluded:
   // it would silently turn percentage points into a percent.
   const tail = /^(\S+)\s+(.+)$/.exec(raw);
@@ -566,12 +566,12 @@ export function matchProvenanceRecord(
   // Half a unit of the last displayed decimal — the largest error a faithful
   // rounding can carry. A tie (a fifth decimal of exactly 5 against a 4-dp
   // rendering) sits ON the bound, and binary float noise in the subtraction
-  // used to push it a few ulps over (audit 2026-09-06, F180/F196); the slack
+  // can push it a few ulps over (P19); the slack
   // is relative and ~1e-9, far below any display precision the registry uses.
   const tolerance = 0.5 * 10 ** -record.displayPrecision;
   const slack = 1e-9 * Math.max(1, Math.abs(record.value), Math.abs(candidate.value));
   const differs = Math.abs(record.value - candidate.value) > tolerance + slack;
-  // D-282 (P19, A1; review round 1): a wrong cited date no longer hides a value
+  // D-282 (P19): a wrong cited date no longer hides a value
   // conflict, but only when the same measurement window is established on both
   // sides: the record names its window and the figure stated that window itself
   // (checked above). Then a figure that differs from the record even at its own

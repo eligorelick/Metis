@@ -44,7 +44,7 @@ export interface SelectedEvidence {
   originalChars: number;
   spans: EvidenceSpan[];
   coverage: EvidenceCoverage;
-  /** C-16: the measures whose passages the superseding pass itself kept, when one ran. */
+  /** D-103: the measures whose passages the superseding pass itself kept, when one ran. */
   superseded?: string[];
 }
 const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
@@ -52,8 +52,8 @@ const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
   guidance: /\b(?:outlook|guidance|expect(?:s|ed)?|anticipate|forecast|project(?:s|ed)?|intend|plan to)\b/i,
   "capex-liquidity": /\b(?:capital expenditur|capex|liquidity|capital resources|cash (?:and|flows)|finance leases?|debt maturit)/i,
   tax: /\b(?:income tax|tax (?:charge|expense|rate|benefit)|valuation allowance|effective tax|deferred tax)\b/i,
-  // D-63: "we incurred a $0.4 billion charge associated with H200 for excess
-  // inventory" named no listed family and was dropped from NVDA's 10-Q MD&A.
+  // D-63: "we incurred a $0.4 billion charge associated with [a product] for
+  // excess inventory" must name a listed family so a 10-Q MD&A keeps it.
   exceptional: /\b(?:exceptional|one[- ](?:off|time)|non[- ]recurring|restructur|severance|legal (?:charge|expense|accrual)|litigation|settlement|impairment|write[- ]?downs?|charges? (?:associated|related) (?:with|to)|(?:a|an) \$\s?[\d.,]+\s*(?:billion|million) charge)\b/i,
   fcf: /\b(?:free cash flow|reconcil(?:e|iation)|principal payments|purchases of property)\b/i,
   "earnings-quality": /\b(?:other income(?:\s*\(expense\))?|other expense(?:\s*\(income\))?|non[- ]operating|(?:unrealized|non[- ]cash|investment) (?:gains?|losses?)|equity (?:securities|warrant) valuations?|(?:upward|downward|reclassification|fair[- ]value) adjustments?)\b/i,
@@ -79,9 +79,9 @@ const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
   contingencies: /\b(?:litigation|lawsuits?|legal proceedings|contingen(?:t|cy|cies)|indemnit(?:y|ies|ification))\b/i,
   "internal-controls": /\b(?:material weaknesses?|internal control over financial reporting|segregation of duties|remediat(?:e|ion|ing))\b/i,
   "business-combinations": /\b(?:business combinations?|acquisitions? of|acquired|license agreement|(?:total|purchase) consideration|purchase price|goodwill|intangible assets?)\b/i,
-  // AMZN audit 2026-10-20 finding 6: the contracted revenue not yet recognized
-  // (ASC 606 remaining performance obligations, a backlog). No family named it,
-  // so Amazon's $496 billion AWS backlog read only as "commitments" and lost.
+  // D-99 (evidence families): the contracted revenue not yet recognized (ASC
+  // 606 remaining performance obligations, a backlog). Without a family a large
+  // backlog would read only as "commitments" and be lost.
   "performance-obligations": /\b(?:(?:remaining )?performance obligations?|RPO|backlog|not yet (?:been )?(?:billed (?:or|nor) )?recogni[sz]ed|contracted (?:but (?:not yet |un)recogni[sz]ed )?revenue|unrecogni[sz]ed revenue)\b/i,
 };
 /**
@@ -90,8 +90,8 @@ const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
  * quantified customer concentration (revenue and receivables), extended
  * payment terms, an indirect customer that contributed a meaningful share of
  * revenue, where billed revenue's end customers are, and a deal's
- * consideration and goodwill. NVDA final rerun: 3 of 16 concentration
- * passages were kept and the quarter's 16% customer was not one of them.
+ * consideration and goodwill. Otherwise most concentration passages, and the
+ * quarter's largest customer, can fall out of the selection.
  */
 const NOTES_PRIORITY: readonly RegExp[] = [
   /\b(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:direct\s+|indirect\s+)?(?:customers?|distributors?|partners?)\b[^.]{0,120}?\b(?:represented|accounted for)\s+\d/i,
@@ -102,7 +102,7 @@ const NOTES_PRIORITY: readonly RegExp[] = [
   // The deal itself: "In December 2025, we entered into a non-exclusive license agreement with Groq, Inc.".
   /\b(?:entered into|completed)\b[^.]{0,80}?\b(?:acquisition|acquire|license agreement|merger)\b[^.]{0,40}?\bwith\s+[A-Z]/,
   /\binvestments?\b[^.]{0,120}\baccounted for (?:using|under) the equity method\b/i,
-  // AMZN audit 2026-10-20 finding 6: the backlog's amount ("those commitments
+  // D-99 (evidence families): the backlog's amount ("those commitments
   // not yet recognized were approximately $ 496 billion"; "revenue related to
   // remaining performance obligations … was $ 3.2 billion") and when it turns
   // into revenue (a weighted-average remaining contract life, the share
@@ -154,11 +154,11 @@ const DATED_LEAD = /^\s*(?:Item \d\.\d{2} \([^)]*\):\s*)?(?:(?:[A-Z][A-Za-z&'’
 /** R1: a dollar amount with a scale word, or one written out in digits to the millions ("$532,426,000"). */
 const EVENT_AMOUNT = /(?:US)?\$\s?(?:\d[\d,.]*\s*(?:billion|million|trillion)\b|\d{1,3}(?:,\d{3}){2,}(?:\.\d+)?(?![\d,]))/;
 /**
- * R1 (FIGR paid audit): the event profile's priority tiers. The dated lead says
- * who did what and when; the amounts are the deal's terms; a passage that only
- * defines a party ("Northwind (the “Merger”)") comes last. In source order,
- * that defined-term passage used the room and the completion 8-K's
- * consideration ("approximately $590 million") was cut.
+ * D-156: the event profile's priority tiers. The dated lead says who did what
+ * and when; the amounts are the deal's terms; a passage that only defines a
+ * party ("Northwind (the “Merger”)") comes last. In source order, that
+ * defined-term passage could use the room and cut the completion 8-K's
+ * consideration ("approximately $590 million").
  */
 function eventPriorityTier(passage: string): number | null {
   if (DATED_LEAD.test(passage)) return 0;
@@ -170,13 +170,13 @@ const CONTROL_DISCLOSURE = /\b(?:(?:we|Company)\s+(?:(?:have|had|has)\s+)?(?:pre
 const HYPOTHETICAL_CONTROL = /^\s*(?:if|should|in (?:the )?future)\b|\b(?:may|could|might)\s+(?:identify|develop)\b/i;
 const LITIGATION_DISCLOSURE = /\b(?:class action\b[^.]{0,180}|(?:actions?|complaints?) (?:were|was|have been) filed|(?:filed|consolidated)\b[^.]{0,120}\b(?:Derivative Actions?|Securities Action)|claims\b[^.]{0,100}\bwithout merit|(?:loss|range of loss)\b[^.]{0,100}\bcannot be reasonably estimated|not accrued any material potential loss)\b/i;
 /**
- * AMZN audit 2026-10-20 finding 16: the proceedings that can change a thesis.
+ * D-99 (evidence families): the proceedings that can change a thesis.
  * A case a government brought ("state Attorneys General, and the Federal
  * Trade Commission have filed cases … alleging … monopolization"), antitrust
  * claims actually alleged, relief that reaches billions of dollars or the
- * structure of the business, a regulator's fine, and a dated trial. They
- * named no family and no clause above, so only an orphaned "one class action
- * has been certified" reached the passes.
+ * structure of the business, a regulator's fine, and a dated trial. Without
+ * this family only an orphaned "one class action has been certified" could
+ * reach the passes.
  */
 const AGENCY = String.raw`(?:Federal Trade Commission|FTC|Department of Justice|DOJ|Attorneys? General|European Commission|Competition and Markets Authority|Securities and Exchange Commission|Competition Authority)`;
 const PROCEEDING_NOUN = String.raw`(?:cases?|complaints?|lawsuits?|suits?|actions?|charges|proceedings?)`;
@@ -245,11 +245,10 @@ const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   },
 };
 /**
- * Audit 2026-10-22 C-16: operating figures a 10-K states as a count of an
- * operating measure. Southern Co.'s 10-K excerpt stated "approximately nine
- * GWs" of large-load contracts; its newer 10-Q's "approximately 16 gigawatts"
- * sat 70% into a 172k-character MD&A and the interim selection dropped it,
- * so the passes argued from the superseded figure.
+ * D-103 (10-Q supersession): operating figures a 10-K states as a count of an
+ * operating measure ("approximately nine GWs" of contracts). A newer 10-Q's
+ * figure for the same measure can sit deep in a long MD&A; if the interim
+ * selection dropped it, the passes would argue from the superseded figure.
  */
 // A count ends in a digit or is a number word; a bare year ("in 2025 customers") is not one.
 const COUNT = String.raw`(?:(?!(?:19|20)\d\d\b(?![,.]\d))\d(?:[\d,.]*\d)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty)(?:\s+(?:thousand|million|billion))?`;
@@ -272,11 +271,9 @@ export function operatingMeasuresStated(text: string): OperatingMeasure[] {
 /** The share of a budget that passages restating a 10-K operating figure may take. */
 const SUPERSEDING_SHARE = 0.15;
 /**
- * Integration of R8 (FIGR extra-high audit): R8 made flattened tables atomic,
- * and a table never takes a family's turn, so the MD&A's results-of-operations
- * table (FIGR: gain on sale of loans, gain on servicing asset) and its non-GAAP
- * reconciliation left the evidence; the old 1,100-character chunks had carried
- * them. An interim excerpt reserves a bounded share for these primary tables,
+ * D-165: flattened tables are atomic, and a table never takes a family's turn,
+ * so the MD&A's results-of-operations table and its non-GAAP reconciliation
+ * would leave the evidence that fixed-size chunks had carried. An interim excerpt reserves a bounded share for these primary tables,
  * read from the table's own lead, before the qualifying contexts rotate.
  */
 const PRIMARY_TABLE = /\b(?:Results of Operations|statements? of (?:operations|income|earnings)|reconciliation of\b[^.]{0,160}\b(?:adjusted|non-GAAP))/i;
@@ -309,7 +306,7 @@ const PRONOUN_LEAD = /^\s*(?:(?:In|During|On)\s[^,]{1,40},\s*)?(?:she|he|her|his
 const fullNameEnding = (surname: string) =>
   new RegExp(String.raw`\b[A-Z][\p{L}'’-]+(?:\s+[A-Z]\.)?\s+${surname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\b`, "u");
 /**
- * AI-101: the passage that says who an event passage is about. An honorific and
+ * D-124: the passage that says who an event passage is about. An honorific and
  * surname at the start: the nearest earlier passage naming that person in full
  * ("Alan R. Testcase", "Jane Testcase"; "Mr. Testcase" does not match, because
  * "Mr" is followed by "."). A leading third-person pronoun: the previous passage.
@@ -489,10 +486,10 @@ function strategyKind(passage: Passage): StrategyKind | null {
  */
 /**
  * Class votes, a holder's share of the vote, or controlled-company status.
- * Integration review (R6): "voting power" alone also names regulatory
- * ownership thresholds ("10% or more of the outstanding interests or voting
- * power of our Company" in a state-licensing change-of-control rule), which
- * brought unrelated licensing passages into FIGR's governance excerpt.
+ * D-158: "voting power" alone also names regulatory ownership thresholds ("10%
+ * or more of the outstanding interests or voting power of our Company" in a
+ * state-licensing change-of-control rule), which would bring unrelated
+ * licensing passages into the governance excerpt.
  */
 const GOVERNANCE_TRIGGER = new RegExp([
   String.raw`\bvotes? per share\b`,
@@ -575,7 +572,7 @@ function passages(text: string, profile: EvidenceProfile, budget = 0): Passage[]
       const body = text.slice(start, end);
       if (body.trim() !== "") {
         const categories = families.filter((category) => (CATEGORY_PATTERNS[category].test(body) || (profile === "business" && category === "products-roadmap" && /\b(?:products?|services?|therapies|medicines|indications?|clinical|pipeline|Phase\s*[1-3]|submitted|approved)\b/i.test(body))));
-        // An 8-K award "for 4,912 shares" ranks with the dollar amounts (AI-101).
+        // An 8-K award "for 4,912 shares" ranks with the dollar amounts (D-124).
         const quantities = (body.match(/\d[\d,.]*\s*(?:%|billion|million)|\$\s*\d/g) ?? []).length +
           (profile === "event" ? (body.match(/\b\d[\d,]*\s+shares\b/g) ?? []).length : 0);
         let score = Math.min(quantities, 8) * 3 + categories.length * 2 +
@@ -598,7 +595,7 @@ function passages(text: string, profile: EvidenceProfile, budget = 0): Passage[]
 }
 
 /**
- * `superseding` (C-16): measures an older annual excerpt states a figure for.
+ * `superseding` (D-103): measures an older annual excerpt states a figure for.
  * The passages of this newer text stating a count of one of them are kept
  * first, one per measure in turn and in source order, within a fixed share of
  * the budget, displacing lower-ranked text.
@@ -652,15 +649,15 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
       /\b(?:invested|investment|acquired|acquisition|purchase|agreement|commitment|loan|notes?)\b/i.test(previous.text);
     const marketingContext = passage.categories.includes("distribution-costs") && /^\s*(?:the|this)\s+(?:increase|decrease|change)\b/i.test(passage.text) &&
       previous?.categories.includes("distribution-costs");
-    // AMZN audit 2026-10-20 finding 6: "those commitments not yet recognized
-    // were approximately $ 496 billion" is a customer backlog only beside the
-    // sentence that says whose commitments they are (Amazon's own purchase
-    // commitments are another $650 billion).
+    // D-99 (evidence families): "those commitments not yet recognized were
+    // approximately $ 496 billion" is a customer backlog only beside the
+    // sentence that says whose commitments they are (the issuer's own purchase
+    // commitments are a different figure).
     const backlogContext = passage.categories.includes("performance-obligations") &&
       /\b(?:those|these|such|this)\s+(?:commitments|obligations|amounts?|revenue|backlog)\b/i.test(passage.text) &&
       previous?.categories.includes("performance-obligations");
     const needsContext = fundingContext || marketingContext || backlogContext;
-    // AI-101: an event passage about a person named elsewhere travels with the
+    // D-124: an event passage about a person named elsewhere travels with the
     // sentence naming them (up to three hops, stopping at one already kept).
     const chain: Passage[] = [passage];
     if (profile === "event") {
