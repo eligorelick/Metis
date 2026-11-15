@@ -718,14 +718,10 @@ export interface ProjectionPeriodRow {
 }
 
 /**
- * Chronological sort key of a projection period label. History is labelled
- * `FY2025` (the fiscal year's end year), forward periods `12M ending
- * 2027-07-26` or `FY2027 ending 2027-01-31`, or `Y+3 (period basis
- * unavailable)` when the basis is unknown. A plain string sort put every
- * "12M ending" period before "FY2023", so NVDA report #48 (2026-10-26) drew
- * its history to the right of its forecast. A bare fiscal year sorts at its
- * year's end: the first forward period ends a full year after the anchor,
- * which is never earlier than the last fiscal year end.
+ * D-113 (P22): sort projection periods chronologically from explicit end dates, fiscal-year ends, then
+ * numbered offsets. History labels and forward labels have different textual prefixes, so lexical order is
+ * invalid. A bare fiscal year sorts at its year end; the first forecast period ends a year after its anchor,
+ * never before the latest historical fiscal year end. Unknown bases remain labelled unavailable.
  */
 function projectionPeriodSortKey(period: string): string {
   const ending = /ending (\d{4}-\d{2}-\d{2})$/.exec(period);

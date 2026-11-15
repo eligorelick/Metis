@@ -1,27 +1,9 @@
 /**
- * Form 8-K current reports — pure parsers for the two things a 10-K/10-Q
- * reading never sees (NVDA report #34 audit, P1-1 / P0-11 / P1-11).
- *
- *   1. The earnings release (Item 2.02, EX-99.1) and the CFO commentary that
- *      some issuers furnish beside it (EX-99.2): next-period guidance, the
- *      issuer's own free-cash-flow figure and its capital-return facts.
- *   2. The material-event items of every other 8-K (1.01 agreements, 2.03
- *      off-balance-sheet obligations, 5.02 officer changes, 8.01 other events
- *      and their close relatives), as dated events.
- *
- * Parsers read the plain text `parseDocument(html).fullText` makes of a filing;
- * current-only guidance tables also require that parsed document's source
- * structure. They are deliberately conservative: a sentence is read only when
- * its numbers can be assigned without guessing (a "respectively" pairs values
- * with bases only when the counts agree; a scale word must be printed). What
- * cannot be read is left out and the caller discloses it — a wrong guidance
- * figure in a DCF anchor is worse than none.
- *
- * Money is returned in base units with the printed symbol kept separately:
- * "$" is not a currency until the caller binds it to the issuer's reporting
- * currency (payload currency rule, 1.4.0).
- *
- * Pure: no network, no clock.
+ * D-63 (P9, P20): pure parsers read earnings releases and CFO commentary for guidance, issuer FCF and capital
+ * returns, and other material 8-K items as dated events. Use parsed filing text and source structure for
+ * current-only tables; require printed scales and unambiguous assignments, including equal counts for
+ * 'respectively' pairs. Return money with its printed symbol; the caller establishes currency. Missing
+ * evidence is omitted and disclosed, never guessed.
  */
 
 import { annualGuidanceSectionAfterTable, parseAnnualDocumentTable, parseGuidanceTables } from "@/edgar/guidanceTables";
@@ -86,10 +68,9 @@ const MONEY_SYMBOL = String.raw`US\$|\$|€|£|¥`;
 const MONEY_NUMBER = String.raw`\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?`;
 const MONEY_RE = new RegExp(String.raw`(${MONEY_SYMBOL})\s?(${MONEY_NUMBER})(?:\s*(thousand|million|billion|trillion)\b)?`, "gi");
 /**
- * Audit 2026-10-22 B-25: "$73-76 billion", "$58–$61 billion" and "between $58
- * and $61 billion" print the scale once, after the high end. Both ends take
- * that scale, and a bare high end takes the low end's symbol; otherwise the low
- * end read as $73 and "76 billion", having no symbol, was not money at all.
+ * "$73-76 billion", "$58–$61 billion" and "between $58 and $61 billion" print the scale once, after the high end.
+ * Both ends take that scale, and a bare high end takes the low end's symbol; otherwise the low end read as $73 and
+ * "76 billion", having no symbol, was not money at all (D-100).
  */
 const MONEY_RANGE_RE = new RegExp(String.raw`(${MONEY_SYMBOL})\s?(${MONEY_NUMBER})(\s*(?:-|–|—|\bto\b|\band\b)\s*)(?:${MONEY_SYMBOL})?\s?(${MONEY_NUMBER})\s*(thousand|million|billion|trillion)\b`, "gid");
 /** "and" joins the ends of a range only after "between". */
@@ -123,9 +104,8 @@ export function moneyMentions(text: string, defaultScale = 1): MoneyMention[] {
 }
 
 /**
- * B-25: in "15-17%", "15 to 17%" and "between 15%-17%" the high end's % covers
- * the low end, and a hyphen that follows a number or % is never a minus sign
- * (it read "15-17%" as −17%).
+ * D-100: in "15-17%", "15 to 17%" and "between 15%-17%" the high end's % covers the low end, and a hyphen that
+ * follows a number or % is never a minus sign (it read "15-17%" as −17%).
  */
 const PERCENT_RANGE_RE = /(?<![\d.])(-?\d+(?:\.\d+)?)\s?%?(\s*(?:-|–|—|\bto\b|\band\b)\s*)(\d+(?:\.\d+)?)\s?%/gd;
 
@@ -166,16 +146,9 @@ function fiscalPeriod(fiscalYear: number, fiscalQuarter: 1 | 2 | 3 | 4 | null): 
 }
 
 /**
- * AMZN audit 2026-10-20: a period named as the base of a comparison ("compared
- * with $167.7 billion in second quarter 2025", "to grow between 9% and 12%
- * compared with third quarter 2025") is the year-ago quarter, never the one a
- * release reports or guides. Amazon's releases name no other year in those
- * sentences, so the base year labelled both its reported and its guided quarter.
- * The cue governs the phrase only when nothing but amounts and connecting
- * words stand between them ("compared with $167.7 billion in second quarter
- * 2025", "compared with $18.2 billion, or $1.68 per diluted share, in second
- * quarter 2025"); a cue earlier in the clause ("the impact from foreign currency,
- * revenue for the fourth quarter of 2026") governs something else.
+ * D-98: a period directly governed by a comparison cue is the comparison base, never the reported or guided
+ * quarter. The cue applies only across amounts and connecting words; a cue governing another part of the
+ * clause cannot take the period.
  */
 const COMPARISON_FILLER = String.raw`(?:(?:the|a|an|or|per|diluted|basic|share|same|prior|prior-year|year-ago|year|ago|period|in|of|for|during|levels?|approximately|about|roughly|nearly)[\s,]+|[$€£¥]?\s?\d[\d,]*(?:\.\d+)?\s*(?:%|percent|billion|million|thousand|trillion)?[\s,]+)*`;
 const COMPARISON_TAIL = new RegExp(String.raw`\b(?:compared (?:with|to)|versus|vs\.?|relative to|against|from|over|above|below|than)\s+${COMPARISON_FILLER}$`, "i");
@@ -225,16 +198,12 @@ function withoutComparisonParts(text: string): string {
 }
 
 /**
- * Audit 2026-10-22 B-25: an outlook that names its year without "full year"
- * ("2026 capital expenditures", "Adjusted EPS of $2.25 to $2.35 in 2026",
- * "investment goals for 2025") guides that fiscal year. It took the outlook
- * block's quarter. A sentence about a quarter or part of a year keeps the
- * block's quarter, unless the quarter is only a comparison base ("compared
- * with fourth quarter 2025 revenue"), which names neither the sentence's period
- * nor its year. A date's year ("December 31, 2025") or a maturity's ("notes
- * due 2030") names no outlook. With the block's period known, only its fiscal
- * year or the next is an outlook's ("the 2024 divestiture" in a 2026 release
- * is not).
+ * an outlook that names its year without "full year" ("2026 capital expenditures", "Adjusted EPS of $2.25 to $2.35
+ * in 2026", "investment goals for 2025") guides that fiscal year. It took the outlook block's quarter. A sentence
+ * about a quarter or part of a year keeps the block's quarter, unless the quarter is only a comparison base
+ * ("compared with fourth quarter 2025 revenue"), which names neither the sentence's period nor its year. A date's
+ * year ("December 31, 2025") or a maturity's ("notes due 2030") names no outlook. With the block's period known,
+ * only its fiscal year or the next is an outlook's ("the 2024 divestiture" in a 2026 release is not) (D-100).
  */
 function namedYearPhrase(text: string, block: FiscalPeriod | null): FiscalPeriod | null {
   const own = withoutComparisonParts(text);
@@ -252,7 +221,7 @@ function namedYearPhrase(text: string, block: FiscalPeriod | null): FiscalPeriod
 /** "notes due 2030", "a facility maturing in 2029": a maturity's year. */
 const MATURITY_YEAR = /\b(?:due|matur(?:es|ing|ity)|expir(?:es|ing|y))\s+(?:in\s+)?(?:fiscal\s+)?20\d{2}\b/gi;
 
-/** B-25: "full-year revenue guidance" with no year is the outlook block's fiscal year. */
+/** D-100: "full-year revenue guidance" with no year is the outlook block's fiscal year. */
 function unyearedFullYear(text: string, block: FiscalPeriod | null): FiscalPeriod | null {
   return block !== null && /\bfull[ -](?:fiscal[ -])?year\b/i.test(text) ? fiscalPeriod(block.fiscalYear, null) : null;
 }
@@ -320,9 +289,8 @@ const METRIC_RULES: { metric: GuidanceMetric; pattern: RegExp; unit: GuidanceIte
 ];
 
 const OUTLOOK_HEADING = /\b(?:Business |Financial |Fiscal \d{4} )?(?:Outlook|Guidance)\b/g;
-// "Webcast Information" (FIGR's Q1 and Q2 2026 releases) heads the call notice
-// that follows a one-row guidance table; case-sensitive like the others, so a
-// webcast mentioned inside an outlook sentence does not end the block.
+// D-272 (P9): Webcast Information heads the call notice after a one-row annual guidance table and ends the
+// guidance bounds.
 const OUTLOOK_STOP = /\b(?:Highlights|CFO Commentary|Conference Call|Webcast Information|Webcast and Conference Call|Non-GAAP Measures|For further information|Forward-Looking Statements|Certain statements in this|About [A-Z][A-Za-z]+|Data Center •|Reconciliation of)\b/;
 const EXPECTATION = /\b(?:expect(?:s|ed)?|anticipat(?:e|es|ed)|outlook|guid(?:e|ance)|project(?:s|ed)|forecast)\b/i;
 // Some releases introduce compact bullets with a dated heading, not an
@@ -411,8 +379,8 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
   if (!verb) return [];
   let clause = sentence.slice(verb.index + verb[0].length);
   clause = clause.split(/\b(?:inclusive of|including|excluding|exclusive of|which includes|reflecting)\b/i)[0]!;
-  // B-25: the amount a guide is compared with ("an increase from our prior
-  // outlook of 13-16%", "versus $3.00 in 2025") is not the guide.
+  // D-100: the amount a guide is compared with ("an increase from our prior outlook of 13-16%", "versus $3.00 in
+  // 2025") is not the guide.
   clause = clause.split(/\b(?:compared (?:with|to)|versus|relative to|an? (?:increase|decrease|rise|decline|change) from|up from|down from|from (?:our|the|its) (?:prior|previous))\b|\bvs\.(?=\s|$)/i)[0]!;
 
   // A tolerance applies to every value it follows: "± 2%" scales a money
@@ -461,7 +429,7 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
   const yearless = valueClause.replace(otherKind, " ")
     .replace(/(?<![\d,.$])(?:19|20)\d{2}(?![\d,.]\d|\s*(?:%|billion|million|thousand))/g, "Y");
   const isRange =/\b(?:between|range of|in the range)\b[^.;]{0,24}?[$€£\d]|\d\s*(?:%|billion|million)?\s*(?:to|-|–|—)\s*\$?\d/i.test(yearless);
-  // B-25: one end of a stated range is never published as a point.
+  // D-100: one end of a stated range is never published as a point.
   if (isRange && values.length < 2) return [];
   // Sort only one signed range; respectively pairs retain the printed basis order.
   if (signed && negativeWords && values.length === 2 && isRange && !respectively) values.sort((a,b)=>a.value-b.value);
@@ -584,10 +552,9 @@ export function parseGuidance(rawText: string, document?: ParsedDocument): Issue
     proseText = proseText.replace(htmlToText(table[0]), ".");
   }
   const prose = parseGuidanceWithoutAnnual(proseText);
-  // Review round 2 (P9): quarterly prose beside the annual table counts only
-  // inside the guidance section the issuer's own structure bounds (after the
-  // table, before the next heading or table). Quoted speech, forward-looking
-  // boilerplate and scenario language never set a guidance value.
+  // quarterly prose beside the annual table counts only inside the guidance section the issuer's own structure
+  // bounds (after the table, before the next heading or table). Quoted speech, forward-looking boilerplate and
+  // scenario language never set a guidance value.
   const paragraphItems = [...annualGuidanceSectionAfterTable(document!).matchAll(/<(p|div)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)]
     .map(block => htmlToText(block[2]!))
     .filter(text => !/["“”]|\bforward-looking\b|\bsafe harbor\b|\bscenarios?\b/i.test(text))
@@ -662,7 +629,7 @@ export interface ReportedPeriod {
 const OUTLOOK_HEADING_AFTER = /^\s*(?:(?:Business|Financial)\s+)?(?:Guidance|Outlook)\b/i;
 /**
  * An outlook heading right before a period phrase: "Outlook for Second Quarter
- * 2026", "Business Outlook for the first quarter of 2027" (Codex review of PR #41).
+ * 2026", "Business Outlook for the first quarter of 2027" (P20).
  */
 const OUTLOOK_HEADING_BEFORE = /\b(?:(?:Business|Financial)\s+)?(?:Guidance|Outlook)(?:\s+(?:for|of))?(?:\s+the)?\s*$/i;
 
@@ -672,18 +639,13 @@ export function parseReportedPeriod(rawText: string): ReportedPeriod {
   // 30, 2025 and ... ended September 30, 2026"): the latest end is the release's own.
   const ended = [...text.matchAll(/\b(?:(first|second|third|fourth) )?quarter (?:of fiscal (?:year )?\d{4} )?ended ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2},? \d{4})/gi)]
     .filter((m) => isoFromMonthDate(m[2]!) !== null).sort((a, b) => isoFromMonthDate(b[2]!)!.localeCompare(isoFromMonthDate(a[2]!)!))[0] ?? null;
-  // "second-quarter 2026" is the same title as "Second Quarter 2026" (Lilly, Southern Co.).
+  // "second-quarter 2026" is the same title as "Second Quarter 2026" (issuer, Southern Co.).
   const titles = [...text.matchAll(/\b(First|Second|Third|Fourth)[ -]Quarter(?:\s+and)?(?:\s+Full[ -]Year)?(?:\s+of)?(?:\s+Fiscal)?(?:\s+Year)?\s+(\d{4})\b/gi)]
     .map((m) => ({ quarter: ORDINAL_QUARTER[m[1]!.toLowerCase()]!, year: Number(m[2]), base: comparisonBase(text, m.index),
       guided: OUTLOOK_HEADING_AFTER.test(text.slice(m.index + m[0].length, m.index + m[0].length + 40))
         || OUTLOOK_HEADING_BEFORE.test(text.slice(Math.max(0, m.index - 40), m.index)) }));
-  // AMZN audit 2026-10-20: the first title phrase was taken, and Amazon's
-  // first is the year-ago base ("compared with $167.7 billion in second
-  // quarter 2025"), its next the guided quarter's heading. When the "quarter
-  // ended" sentence names its quarter, only a phrase for that quarter counts:
-  // one the release reports, else a year-ago base read one year on. A phrase
-  // heading an outlook ("Third Quarter 2026 Guidance", "Outlook for Second
-  // Quarter 2026") names the guided quarter, never the reported one.
+  // D-98: skip title phrases that name a comparison base or an outlook. Without a quarter-ended sentence, use
+  // the first remaining reported-quarter title.
   const reportedQuarter = ended?.[1] ? ORDINAL_QUARTER[ended[1].toLowerCase()]! : null;
   const own = titles.find((t) => !t.base && !t.guided && (reportedQuarter === null || t.quarter === reportedQuarter));
   const yearAgo = reportedQuarter === null ? undefined : titles.find((t) => t.base && t.quarter === reportedQuarter);
@@ -698,12 +660,11 @@ export function parseReportedPeriod(rawText: string): ReportedPeriod {
 const COMPACT_TITLE_CHARS = 300;
 
 /**
- * Audit 2026-10-22 B-24: a release titled only in compact form ("3Q26
- * Financial Highlights", "Q3 2026 Update") names its quarter there, and with
- * no reported ordinal title and no "quarter ended" sentence that is the only
- * period it states; an ordinal phrase heading guidance ("Third Quarter 2026
- * Guidance") or naming a year-ago base does not stand in for it. A compact label heading an outlook names the guided quarter and
- * is skipped, as is one after a comparison word.
+ * a release titled only in compact form ("3Q26 Financial Highlights", "Q3 2026 Update") names its quarter there,
+ * and with no reported ordinal title and no "quarter ended" sentence that is the only period it states; an ordinal
+ * phrase heading guidance ("Third Quarter 2026 Guidance") or naming a year-ago base does not stand in for it. A
+ * compact label heading an outlook names the guided quarter and is skipped, as is one after a comparison word.
+ * (D-103).
  */
 function compactTitlePeriod(head: string): FiscalPeriod | null {
   for (const m of head.matchAll(/\b(?:([1-4])Q(\d{4}|\d{2})|Q([1-4])\s?(?:FY\s?)?(\d{4}|\d{2}))\b/g)) {
@@ -754,14 +715,12 @@ function sentencePrefix(text: string, index: number): string {
 }
 
 /**
- * Audit 2026-10-22 B-24: a results release's headline revenue and diluted
- * EPS, from its opening text. A figure is kept only when every matching
- * statement there gives the same amount, so a release that states another
- * basis's figure beside the reported one yields none. Revenue is read only
- * where it opens its sentence, optionally as total, net or consolidated
- * revenue, so a segment's revenue ("Cloud revenues of $15.2 billion") is never
- * taken for the total; it needs a stated scale (billion or million). A figure
- * whose sentence names an adjusted or other non-GAAP basis is not read.
+ * a results release's headline revenue and diluted EPS, from its opening text. A figure is kept only when every
+ * matching statement there gives the same amount, so a release that states another basis's figure beside the
+ * reported one yields none. Revenue is read only where it opens its sentence, optionally as total, net or
+ * consolidated revenue, so a segment's revenue ("Cloud revenues of $15.2 billion") is never taken for the total;
+ * it needs a stated scale (billion or million). A figure whose sentence names an adjusted or other non-GAAP basis
+ * is not read (D-103).
  */
 export function parseReleaseHeadline(rawText: string): ReleaseHeadline {
   const text = normalizeFilingText(rawText).slice(0, HEADLINE_CHARS);
@@ -788,14 +747,12 @@ const OUTLOOK_AFTER_CHARS = 60;
 const OUTLOOK_OR_DIVIDEND = /\b(?:expect(?:s|ed|ations?)?|outlook|guid(?:ance|es|ed)|forecast(?:s|ed)?|anticipat(?:es?|ed)|project(?:s|ed|ions?)?|target(?:s|ed)?|rais(?:es?|ed|ing)|ranges?|reaffirm(?:s|ed|ing)?|reiterat(?:es?|ed|ing)|dividends?)\b/i;
 
 /**
- * Audit 2026-10-22 B-24: the release states results, not only operating
- * statistics (a deliveries or operational update can be filed under Item 2.02):
- * it states an amount for earnings, diluted earnings per share or operating
- * income. "Our net income ... will be announced" states none, nor does a
- * dividend per share or an amount in a sentence giving an outlook, before the
- * amount or in the words right after it ("EPS of $3.10 is expected"). The
- * words after it are bounded: a headline list printed without full stops
- * (Tesla: "$0.8B GAAP net income ... projects spanning ...") is no sentence.
+ * the release states results, not only operating statistics (a deliveries or operational update can be filed under
+ * Item 2.02): it states an amount for earnings, diluted earnings per share or operating income. "Our net income...
+ * will be announced" states none, nor does a dividend per share or an amount in a sentence giving an outlook,
+ * before the amount or in the words right after it ("EPS of $3.10 is expected"). The words after it are bounded: a
+ * headline list printed without full stops (issuer: "$0.8B GAAP net income... projects spanning...") is no
+ * sentence (D-103).
  */
 export function reportsResults(rawText: string): boolean {
   const text = normalizeFilingText(rawText).slice(0, 20_000);
@@ -1034,14 +991,10 @@ function compactEpsColumns(text: string, rowIndex: number): { ends: string[]; mo
 }
 
 /**
- * D-63 (NVDA audit P1-A, P1-B): the GAAP-to-non-GAAP reconciliation an
- * earnings release or CFO commentary prints — the free-cash-flow bridge (so
- * the issuer's FCF and operating cash flow less capex reconcile: NVIDIA's
- * Q2 FY2027 $59 million gap is principal payments), the equity-securities
- * gains the non-GAAP figures remove, their tax effect, and GAAP and non-GAAP
- * diluted EPS by quarter. Each row binds to its own table's columns; a row
- * that also appears in the cash-flow statement binds there too, and the first
- * value read for a metric, period and window wins. Pure.
+ * D-63: bind GAAP-to-non-GAAP reconciliation rows to their own table columns: the FCF bridge, equity-security
+ * gains, their tax effects and diluted EPS. The FCF bridge can include principal payments beyond operating
+ * cash flow less capex. A repeated cash-flow row binds there too; the first metric, period and window value
+ * wins. Pure.
  */
 export function parseReconciliation(rawText: string): ReconciliationFact[] {
   const text = normalizeFilingText(rawText);
@@ -1095,10 +1048,8 @@ export function parseReconciliation(rawText: string): ReconciliationFact[] {
 }
 
 /**
- * D-63: the issuer's statement that its non-GAAP basis changed ("Beginning in
- * the first quarter of fiscal 2027, NVIDIA's non-GAAP financial measures no
- * longer exclude stock-based compensation expense."), with the sentence after
- * it when that says how history was restated. Null when none is printed.
+ * D-63: retain the issuer's non-GAAP basis-change sentence and the following sentence when it explains
+ * restated history; return null if no basis change is printed.
  */
 export function parseNonGaapBasisNote(rawText: string): string | null {
   const text = normalizeFilingText(rawText);
@@ -1341,12 +1292,8 @@ function tableRows(body: string, columns: number, maxRows = 12): { label: string
 }
 
 /**
- * D-63 (NVDA audit P1-D): the commitments and guarantees tables a CFO
- * commentary or a 10-Q note prints — "Future commitments by fiscal year as of
- * July 26, 2026 … Total (In billions) Supply and capacity $ 92 … $ 279" and
- * "maximum gross exposure related to our guarantees … (in billions): …
- * Total $ 108.5". Each row keeps its total column. Pure; a table whose rows do
- * not line up with its header is skipped, never guessed.
+ * D-63: read commitments and guarantees from CFO-commentary or filing-note tables, retaining each row's total
+ * column. Pure; reject tables whose rows do not line up with their headers.
  */
 export function parseCommitmentTables(rawText: string): CommitmentTable[] {
   const text = normalizeFilingText(rawText);
@@ -1495,8 +1442,8 @@ export const MATERIAL_EVENT_ITEMS: Readonly<Record<string, string>> = Object.fre
   "2.06": "Material Impairments",
   "3.02": "Unregistered Sales of Equity Securities",
   "5.02": "Departure of Directors or Certain Officers; Election of Directors; Appointment of Certain Officers; Compensatory Arrangements of Certain Officers",
-  // D-63 (NVDA audit P1-J): the annual meeting's votes — director elections
-  // and say-on-pay — are governance evidence the leadership section needs.
+  // D-63: the annual meeting's votes — director elections and say-on-pay — are governance
+  // evidence the leadership section needs.
   "5.07": "Submission of Matters to a Vote of Security Holders",
   "8.01": "Other Events",
 });
@@ -1705,10 +1652,9 @@ export function summarizeItem(section: EightKItemSection, maxChars = 600): strin
   if (picked.length === 0 && sentences[0]) picked.push(sentences[0]);
   const money = sentences.find((s) => !picked.includes(s) && /(?:US)?\$\s?\d[\d,.]*\s*(?:billion|million|trillion)?/.test(s));
   if (money && section.item !== "5.02") picked.push(money);
-  // D-63 (NVDA audit P1-E): whole sentences, never a cut mid-list. A notes
-  // offering's dated sentence names every tranche ("…$3,500,000,000 of 4.25%
-  // Notes due 2028, …") and used to end "…Notes due …" with the total unread,
-  // so the series' aggregate principal is stated, marked as computed.
+  // D-63: whole sentences, never a cut mid-list. A notes offering's dated sentence names
+  // every tranche ("…$3,500,000,000 of 4.25% Notes due 2028, …") and used to end "…Notes due …" with the total
+  // unread, so the series' aggregate principal is stated, marked as computed.
   const total = aggregatePrincipal(section.text);
   const suffix = total === null ? "" : ` [computed from ${total.count} distinct named issuance tranches: ${total.text} principal sum]`;
   const room = Math.max(0, maxChars - suffix.length);
@@ -1768,7 +1714,7 @@ function aggregatePrincipal(text: string): { count: number; text: string } | nul
     const parsedSeparator = validSeparator.exec(separator);
     if (parsedSeparator === null) return null;
     const definition = parsedSeparator[1];
-    // Only bounded defined-note labels, including NVIDIA's final collective
+    // Only bounded defined-note labels, including issuer's final collective
     // label. A parenthetical cannot conceal another amount or transaction role.
     if (definition !== undefined && (!/^the\b/i.test(definition) ||
       /[^\s,“”"'‘’]/.test(definition.replace(/\b(?:the|notes|and|together|with|\d{4})\b/gi, "")))) return null;

@@ -3,7 +3,7 @@
 /**
  * AddTicker — the "add ticker" control at the top of the sidebar.
  *
- * POSTs /api/watchlist { symbol } then calls router.refresh() so the parent
+ * POSTs /api/watchlist { symbol } then calls router.refresh so the parent
  * server component (WatchlistSidebar) re-runs getWatchlistView with the new
  * symbol enriched. Dense terminal styling: a mono input + a compact add button.
  * Client-only — it never imports server modules; all data flows through the API.

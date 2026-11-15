@@ -64,17 +64,15 @@ function classifyCompleteness(
   const fixtureOnly = gaps.some((gap) => gap.field.startsWith(`${RESERVED_FIXTURE_MANIFEST_FIELD}(`));
   const criticalCount = actionableGaps.filter((gap) => gap.severity === "critical").length;
   const warningCount = actionableGaps.filter((gap) => gap.severity === "warn").length;
-  // A `keyless.*` entry reports on the EDGAR + Yahoo SUBSTITUTION layer, not on
-  // EDGAR's availability, and it names its sources in prose ("served by edgar
-  // (companyfacts→income-statement)"). Classifying those as EDGAR gaps inverted
-  // the meaning: a keyed run that successfully filled its statements FROM
-  // companyfacts — the best possible EDGAR outcome — reported `edgar: "missing"`
-  // and downgraded forensics to "provisional". When EDGAR really is unavailable
-  // its own `edgar.*` member gaps are in this same manifest and still classify.
-  // An `info` entry is a note about one derived reading, not an outage: NVDA
-  // report #48 (2026-10-26) recorded `edgar: "missing"` and provisional
-  // forensics for "No unique matched annual geography revenue table" beside
-  // 15 retained EDGAR sources, and the page then read "EDGAR partial".
+  // A `keyless.*` entry reports on the EDGAR + Yahoo SUBSTITUTION layer, not on EDGAR's availability, and it names
+  // its sources in prose ("served by edgar (companyfacts→income-statement)"). Classifying those as EDGAR gaps
+  // inverted the meaning: a keyed run that successfully filled its statements FROM companyfacts — the best
+  // possible EDGAR outcome — reported `edgar: "missing"` and downgraded forensics to "provisional". When EDGAR
+  // really is unavailable its own `edgar.*` member gaps are in this same manifest and still classify. An `info`
+  // D-113: informational entries about derived readings do not establish a provider outage or provisional
+  // forensics. Judge provider state from missing evidence and failure severity.
+  // "missing"` and provisional forensics for "No unique matched annual geography revenue table" beside 15 retained
+  // EDGAR sources, and the page then read "EDGAR partial".
   const edgarGaps = actionableGaps.filter(
     (gap) => (edgarNotesCount || gap.severity !== "info") &&
       /^(?:legacy\.audit\.)?(?:edgar(?:[.:(]|$)|company.?facts(?:[.:(]|$))/i.test(gap.field),
@@ -155,11 +153,10 @@ const DATASET_ALIAS: Record<string, string> = {
 };
 
 /**
- * The dataset a manifest field is about, so the provider failure, the
- * substitution layer's verdict and its detail entry count as one gap:
- * `fmp.historicalMarketCap(NVDA)`, `keyless.marketCapHistory` and
- * `keyless.marketCapHistory.shareBasis` all describe the missing market-cap
- * history. A field-level backfill entry keeps its own key.
+ * The dataset a manifest field is about, so the provider failure, the substitution layer's verdict and its detail
+ * entry count as one gap: `fmp.historicalMarketCap`, `keyless.marketCapHistory` and
+ * `keyless.marketCapHistory.shareBasis` all describe the missing market-cap history. A field-level backfill entry
+ * keeps its own key.
  */
 /** Infer the subject only from endpoints not also fetched for peers/benchmarks. */
 export function manifestIssuer(gaps: readonly ManifestEntry[]): string | null {
@@ -404,7 +401,7 @@ export function deriveReportCompletenessPresentation(
   };
 }
 
-/** B10-OD-2: confirm the recorded convention before carrying added gaps. */
+/** B10-P20: confirm the recorded convention before carrying added gaps. */
 export function recordedCompletenessRule(persisted: PersistedDataCompleteness | undefined, gaps: readonly ManifestEntry[]): "current" | "pre-1.44.0" | null {
  if (!persisted) return null;
  if (completenessMatches(persisted, buildDataCompleteness(gaps))) return "current";

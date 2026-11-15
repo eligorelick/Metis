@@ -1,5 +1,5 @@
 import { factPointSchema, conceptFactsSchema, type CompanyFacts } from "./xbrl";
-/** OD-5: a quarterly duration alone cannot establish a payment frequency. */
+/** P20: a quarterly duration alone cannot establish a payment frequency. */
 export function dividendFrequencyFromFacts(facts:CompanyFacts,asOf:string,perShare:number):"quarterly"|null {
  return dividendFrequencyEvidenceFromFacts(facts,asOf,perShare)?.frequency ?? null;
 }

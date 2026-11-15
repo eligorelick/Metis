@@ -45,7 +45,7 @@ export interface RsRow {
 }
 
 export interface RsSeries {
-  /** Legend label, e.g. "NVDA", "SPY", "XLK". */
+  /** P22: legend label identifying the issuer, benchmark or sector series. */
   label: string;
   rows: readonly RsRow[];
   /**

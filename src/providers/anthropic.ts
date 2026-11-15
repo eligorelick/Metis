@@ -84,7 +84,7 @@ import { canonicalizeFetchedUrl } from "@/pipeline/stageC/provenance";
  *
  * Opus FIRST is this application's research policy. Opus 5.5 leads at $4/$20
  * per MTok and a 1M context window. Older active Opus entries remain available
- * at their own registry prices. Resolution probes models.list() and falls
+ * at their own registry prices. Resolution probes models.list and falls
  * through the registry order when an account cannot reach a preferred model.
  *
  * Fable 5 is deliberately LAST despite being the "most capable" model: at 2x
@@ -108,17 +108,9 @@ function defaultAutoModel(): string {
 }
 
 /**
- * The two web-search tool variants the SDK gives a type to. These are SDK
- * DISCRIMINANTS, not policy: which variant a model gets is the registry's
- * per-model `webSearchToolType`, and these names exist only so the typed
- * request object can be narrowed and built. A registry value outside this set
- * is refused by {@link webSearchTool} rather than sent.
- *
- * `web_search_20260318` = dynamic filtering + `response_inclusion` (the
- * Anthropic API contract). `web_search_20250305` is the basic variant for
- * models without dynamic-filtering support: Haiku 4.5 rejects the modern one
- * with 400 "does not support programmatic tool calling" (verified live
- * 2026-07-08).
+ * P25: SDK web-search discriminants narrow the typed request; the registry’s per-model webSearchToolType owns
+ * selection. Refuse unknown variants. The modern type supports dynamic filtering and response inclusion;
+ * models lacking that capability require the basic variant.
  */
 export const WEB_SEARCH_TOOL_TYPE = "web_search_20260318" as const;
 export const WEB_SEARCH_TOOL_TYPE_BASIC = "web_search_20250305" as const;
@@ -140,33 +132,10 @@ export function streamIdleTimeoutMs(): number {
 }
 
 /**
- * Effort multipliers on the idle limit.
- *
- * The guard is blind to two things at once. It cannot see that the request is
- * alive — Anthropic keeps a long stream warm with SSE `ping` events, and the
- * SDK drops them before any listener runs (`core/streaming.js`:
- * `if (sse.event === 'ping') continue;`) — and it cannot see that the model is
- * working, because Metis never asks for thinking summaries: the Fable family
- * gets no `thinking` param at all (always-on), as does Opus 5.5; older Opus gets
- * `{type: "adaptive"}` with no `display`, so `display` is the API default
- * "omitted" on every model and reasoning produces no stream traffic.
- *
- * So the guard measures "no application events", which on a thinking model is
- * normal. Effort is the only knob that sets how deep that reasoning goes, and
- * Anthropic's guidance is that a single Fable request at high effort runs many
- * minutes — a flat limit survivable at `low` is a guaranteed false abort at
- * `max`. That is what happened on 2026-09-03: AMZN on claude-fable-5-1 at
- * effort `max`, five reported output tokens, abandoned at 120s and settled at
- * a presumed 127,995-token remainder ($6.40 of a $6.86 pass) for a run that
- * produced no report.
- *
- * The tiers are policy, not measurement: a straight-line widening with thinking
- * depth on top of a base that already sits at undici's body-timeout window, so
- * a dead connection is caught by the layer that CAN see pings and this guard is
- * left as the backstop for a socket kept warm by pings that never produces
- * anything. The ceiling is the model stage's own deadline, past which the guard
- * could never fire. METIS_STREAM_IDLE_SECONDS scales all of them; zero still
- * disables the guard entirely.
+ * P24: the idle guard observes application events, not SSE pings or hidden reasoning. High-effort reasoning
+ * can remain silent for minutes, so widen the guard with effort above the transport body-timeout window. The
+ * tiers are policy, not measured deadlines; the stage deadline caps them. METIS_STREAM_IDLE_SECONDS scales the
+ * guard; zero disables it.
  */
 export const STREAM_IDLE_EFFORT_MULTIPLIER: Readonly<Record<RegistryEffortLevel, number>> = {
   low: 1,
@@ -595,7 +564,7 @@ export function preSendClassifyingFetch(inner?: typeof fetch): typeof fetch {
  * timeout, a socket reset, a clean close before `message_stop` — reaches the
  * stream's error handler as an ordinary Error and is re-wrapped as a BARE
  * `AnthropicError` (not an APIError) carrying the network error on `cause`
- * (`lib/BetaMessageStream.js` #handleError), or thrown by `finalMessage()`
+ * (`lib/BetaMessageStream.js` #handleError), or thrown by `finalMessage`
  * with one of the SDK's own "stream ended without producing …" messages.
  * Until this was recognised, every such death was classified as a programming
  * error: the pass promise REJECTED, nothing was retried, and the usage the
@@ -730,7 +699,7 @@ export function getClient(): Anthropic | null {
 
 /**
  * TEST-ONLY. Overrides the client singleton and clears the model-resolution
- * cache. Call with no argument to reset (env re-read on next getClient()),
+ * cache. Call with no argument to reset (env re-read on next getClient),
  * `null` to force keyless mode, or a (fake) client instance to inject.
  */
 export function _resetAnthropicForTests(client?: Anthropic | null): void {
@@ -771,7 +740,7 @@ export function pickPreferredModel(availableIds: readonly string[]): string {
 /**
  * Resolve a model setting.
  * - Explicit ids pass through untouched (no network, works keyless).
- * - "auto" queries `client.models.list()` and picks the first available model
+ * - "auto" queries `client.models.list` and picks the first available model
  *   in PREFERENCE_ORDER; the resolution is cached for 1 hour.
  * - "auto" with no key resolves deterministically to PREFERENCE_ORDER[0]
  *   without network (harmless: every actual call gaps out in dry-run mode).
@@ -921,15 +890,10 @@ export function requestInputTokenUpperBound(opts: RunPassOptions): number {
 }
 
 /**
- * Bytes per token used for the context-fit estimate (DECISIONS D-121).
- * Calibrated on Metis's billed NVDA requests (2.38 bytes/token on the newer
- * tokenizer) and Anthropic's note that the newer tokenizer gives about 30%
- * more tokens (about 23% fewer on the earlier one); rounded down so the
- * estimate over-counts. The estimate is
- * calibrated on Metis payloads, not a ceiling: it leaves about 11% margin on
- * the prior tokenizer and about 5% on the current one. The backstop for a
- * prompt it misses is the provider's own context-window 400, which settles
- * at $0 (D-121).
+ * D-121: estimate context fit from measured payload density of 2.38 bytes per token and the documented
+ * tokenizer difference, rounded down to overcount. This leaves about 11% margin on the prior tokenizer and 5%
+ * on the current one; it is an estimate, not a ceiling. A provider context-window rejection settles at zero
+ * cost.
  */
 export const CONTEXT_ESTIMATE_BYTES_PER_TOKEN: Readonly<{ current: number; prior: number }> = {
   current: 2.25,
@@ -1374,17 +1338,13 @@ function aggregateUsage(messages: readonly BetaMessage[]): BetaUsage {
 }
 
 /**
- * Provider-produced kinds: no_key | refusal | max_tokens | context_window |
- * paused | transport. Stage C (src/pipeline/stageC/passes.ts) fabricates two
- * more so run forensics can tell a genuine safety refusal from a model that
- * produced malformed output (the 2026-07 audit found "refusal" covering both):
- *   parse     — output was not valid JSON
- *   schema    — JSON parsed but failed Zod validation
- *
- * "transport" is produced HERE (2026-07-10 incident fix) when a request/stream
- * fails after {@link PASS_TRANSPORT_MAX_ATTEMPTS}, carrying the billed usage
- * of every attempt so cost_log records real spend; Stage C's hardFailure
- * fabricates the same kind only as a safety net for unexpected rejections.
+ * Provider-produced kinds: no_key | refusal | max_tokens | context_window | paused | transport. Stage C
+ * (src/pipeline/stageC/passes.ts) fabricates two more so run forensics can tell a genuine safety refusal from a
+ * model that produced malformed output (the runtime failure found "refusal" covering both): parse — output was not
+ * valid JSON schema — JSON parsed but failed Zod validation * "transport" is produced HERE (runtime failure) when
+ * a request/stream fails after {@link PASS_TRANSPORT_MAX_ATTEMPTS}, carrying the billed usage of every attempt so
+ * cost_log records real spend; Stage C's hardFailure fabricates the same kind only as a safety net for unexpected
+ * rejections.
  */
 export type PassErrorKind =
   | "no_key"
@@ -2138,7 +2098,7 @@ async function streamFinalMessage(
  * that keeps re-pausing can't loop forever.
  *
  * The resumption STREAMS, under the same idle guard as the first request
- * (DECISIONS D-09). It used to be a plain non-streaming `create()` with the
+ * (DECISIONS D-09). It used to be a plain non-streaming `create` with the
  * 600 s client timeout: the paused content is fully materialized, so there was
  * no cache-warming reason to stream — but the resumed turn is itself a full
  * generation, up to the registry output ceiling at high effort, and a
@@ -2270,12 +2230,9 @@ export interface StreamingPassHandle {
 /* -- billed-usage tracking for in-flight streams --------------------------- */
 
 /**
- * Last-known cumulative usage snapshot of an in-flight stream attempt, updated
- * from `message_start` (input + cache tokens, serving model) and
- * `message_delta` (cumulative output tokens, server tool use) events. When the
- * stream dies mid-generation, Anthropic has still billed everything streamed
- * so far — this snapshot is the best-effort record of that spend (the exact
- * failure mode of 2026-07-10: two ~8-minute passes billed, $0 recorded).
+ * P23, P24: retain the latest cumulative message_start and message_delta usage for each stream attempt,
+ * including model, cache, output and tool usage. A stream failure still incurs spend; settle from this best
+ * available snapshot rather than record zero.
  */
 interface StreamedUsageSnapshot {
   model: string | null;
@@ -2410,7 +2367,7 @@ function abandonedRequestCostUsd(
 ): number {
   // Nothing reported: the input the provider may have billed is unknown as
   // well as the output, so the whole request (the figure a lost connection
-  // in the same wire state settles; DECISIONS D-10, B7 OD-2). The permit's
+  // in the same wire state settles; DECISIONS D-10, B7 P20). The permit's
   // own maximum, like the answered or timed-out no-usage charge: one wire
   // state, one figure.
   if (reported === null) return requestMaximumUsd;
@@ -2734,8 +2691,7 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
           const delays = PASS_TRANSPORT_RETRY_DELAYS_MS;
           const delay = transportRetryDelayMs(cause, delays[Math.min(attempt - 1, delays.length - 1)]);
           // Server-log every retry — post-mortems must not depend on the
-          // transient pipeline UI (2026-07-10: the only trace of two failed
-          // ~8-minute passes was a step detail on one page).
+          // transient pipeline UI.
           console.warn(
             `[anthropic] ${opts.field ?? "llm.pass"}: transport failure on attempt ${attempt}/${PASS_TRANSPORT_MAX_ATTEMPTS}, retrying in ${Math.round(delay / 1000)}s: ${errorMessageOf(cause)}`,
           );

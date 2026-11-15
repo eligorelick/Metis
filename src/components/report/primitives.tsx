@@ -152,7 +152,7 @@ export function ClaimReasoning({ reasoning }: { reasoning: SourcedClaim | Source
  * to a source", NOT "confirmed correct". Source + as-of live in the title.
  */
 export function VerificationDot({ n }: { n: TracedNumber }) {
-  // F-23: a data-only report ran no citation check; its figures were computed.
+  // P20: a data-only report ran no citation check; its figures were computed.
   if (n.verified === true && isComputedFigure(n)) {
     return (
       <span
@@ -303,7 +303,7 @@ export function HeadlineGrade({ block, aspect }: { block: GradeBlock; aspect?: A
       </span>
     );
   }
-  // F-19: the deterministic band of a 45–55 score carries the neutral qualifier.
+  // P20: the deterministic band of a 45–55 score carries the neutral qualifier.
   if (grade !== null && aspect != null && aspect.band === grade && isNeutralScore(aspect.score)) {
     return (
       <span className="flex items-center gap-1" title={gradeDisplayLabel(block, aspect)}>

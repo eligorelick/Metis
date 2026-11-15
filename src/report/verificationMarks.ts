@@ -3,16 +3,14 @@ import { numericCitationTraceLabel } from "./format";
 import type { Report, SourcedClaim, TracedNumber, VerificationLogEntry } from "./schema";
 
 /**
- * Audit 2026-10-22 F-21: each factual claim carries its verification status
- * after its citation, so a reader sees which bullets the header's counts are.
- * The status comes from the claim's own verification-log entry; a claim with
- * no factual-claim entry (a judgment, a data-only report, a note written after
- * the verify pass) is not marked.
+ * each factual claim carries its verification status after its citation, so a reader sees which bullets the
+ * header's counts are. The status comes from the claim's own verification-log entry; a claim with no factual-claim
+ * entry (a judgment, a data-only report, a note written after the verify pass) is not marked (D-110).
  */
 export type ClaimStatusMark = "validated" | "unverified" | "contradicted" | "qualitative";
 
 const marks = new WeakMap<object, ClaimStatusMark>();
-/** F-23: figures of a data-only report, whose `verified` means computed, not citation-checked. */
+/** P20: figures of a data-only report, whose `verified` means computed, not citation-checked. */
 const computedFigures = new WeakSet<object>();
 /** Indexed data-only reports holding at least one computed figure. */
 const computedReports = new WeakSet<object>();
@@ -149,26 +147,25 @@ export function isContradictedFigure(n: TracedNumber): boolean {
 
 /**
  * True for a figure of an indexed data-only report: no citation-check pass
- * ran, and `verified` records only that the pipeline computed it (F-23).
+ * ran, and `verified` records only that the pipeline computed it (P20).
  */
 export function isComputedFigure(n: TracedNumber): boolean {
   return computedFigures.has(n);
 }
 
 /**
- * True for an indexed data-only report with a computed figure: the reports
- * whose Cited column needs the legend. A checked report's own cells may read
- * "computed" (a Sources row's provider), so the exporters ask this instead of
- * reading their output (review of F-23).
+ * True for an indexed data-only report with a computed figure: the reports whose Cited column needs the legend. A
+ * checked report's own cells may read "computed" (a Sources row's provider), so the exporters ask this instead of
+ * reading their output.
  */
 export function hasComputedFigures(report: Report): boolean {
   return computedReports.has(report);
 }
 
-/** The legend printed under the first table with a Cited column in a data-only report (F-23). */
+/** The legend printed under the first table with a Cited column in a data-only report (P20). */
 export const COMPUTED_MARK_LEGEND = "Cited column: \"computed\" means the pipeline calculated the figure from its stated inputs. No citation-check pass ran on this data-only report, so no figure is marked ✓ (citation-traced).";
 
-/** A figure's citation status in words: "computed (no citation check ran)" for a data-only report's figure (F-23). */
+/** A figure's citation status in words: "computed (no citation check ran)" for a data-only report's figure (P20). */
 export function figureCitationStatus(n: TracedNumber): string {
   return n.verified === true && isComputedFigure(n) ? "computed (no citation check ran)" : numericCitationTraceLabel(n.verified);
 }

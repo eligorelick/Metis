@@ -1,15 +1,8 @@
 /**
- * Review conditions derived only from the stored financial model. These are
- * prompts to revisit assumptions, not forecasts of price or mechanical ratings.
- * The reverse solve varies one path while holding the remaining model fixed.
- *
- * D-60: every condition must be observable. The former projection milestones
- * restated the base path (NVDA: "revenue below $469.70B", "margin below
- * 65.48%") and the reverse threshold was a growth rate on a modeled fade. Now:
- * the reverse threshold also names the revenue level it implies for the first
- * modeled year and the evidence beside it, and guidance supplies the
- * next-quarter checkpoints (revenue and gross margin against the low end of
- * management's own range).
+ * D-60: derive observable review conditions solely from the stored model, varying one path while holding
+ * others fixed. Show the reverse threshold’s first-year revenue level and supporting evidence, plus
+ * next-quarter revenue and gross-margin checkpoints against management’s range low. These are prompts to
+ * revisit assumptions, not price forecasts or mechanical ratings.
  */
 import type { ComputedMetrics } from "@/pipeline/compute";
 import type { ThesisTrigger, TracedNumber } from "@/report/schema";
@@ -49,11 +42,8 @@ export function buildThesisTriggers(
   const start = val.assumptions.startRevenue?.value;
   const anchorEnd = val.assumptions.forecastPeriod?.anchorEndDate;
   const firstWindow = anchorEnd ? forecastYearPeriod(anchorEnd, 1, val.assumptions.forecastPeriod?.basis ?? "rolling-12-month") : null;
-  // AMZN audit 2026-10-20 finding 10: the condition that would change the
-  // assessment lies on the far side of the price-implied value from the base
-  // case. Every trigger read "below", so a price above the model value (AMZN:
-  // a 52.3% implied terminal margin against a 12.1% base) printed a condition
-  // the base case already met. Without a base value, "below" as before.
+  // D-99: place the review threshold on the far side of the price-implied value from the base case. When
+  // implied exceeds base, use above; otherwise use below. Without a base value, retain below.
   const awayFromBase = (implied: number, base: number | null | undefined): "above" | "below" =>
     finite(base) && implied > base ? "above" : "below";
   if (validHorizon && reverse?.method === "growth" && finite(reverse.impliedRevenueGrowthPct)) {

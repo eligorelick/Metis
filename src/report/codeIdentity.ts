@@ -32,7 +32,7 @@ export const ReportCodeIdentitySchema = z.object({
   dirtyDiffHash: sha256Hex().nullable(),
   /** SHA-256 of docs/METHODOLOGY.md as captured by the build. */
   methodDocumentHash: sha256Hex(),
-  /** SHA-256 of the verified, sorted list of compiled modules (relative path and SHA-256). */
+  /** SHA-256 of the verified, sorted list of compiled modules (relative path and P20). */
   compiledArtifactHash: sha256Hex(),
   /** The combined method and compiled-artifact hash run-input snapshot custody records. */
   methodArtifactHash: sha256Hex(),

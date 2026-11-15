@@ -1,18 +1,7 @@
 /**
- * Stock-split events as a PRICE vendor reports them, and the span of sessions
- * the report covers.
- *
- * A vendor split event is dated by the first session that traded on the
- * post-split basis — the date the vendor's own split-adjusted price series
- * pivots on. That is the date a price's share basis turns on, and it is
- * different from the dates a filer's XBRL carries (see src/edgar/splits.ts):
- * NVIDIA's 10-for-1 of 2024 became legally effective on 2024-06-07 at 4:01 p.m.
- * Eastern, and the first split-adjusted session was 2024-06-10.
- *
- * The evidence is either `retrieved` — the vendor answered for the stated
- * coverage, so a split absent from `events` inside it is a split the vendor
- * does not know of — or `unavailable`, which establishes nothing: a failed or
- * never-made request is never read as "no splits".
+ * P3: a price vendor dates a split by the first session on its adjusted price basis, independently of legal
+ * effectiveness or XBRL context. Retrieved coverage establishes which events the vendor knows within that
+ * span; unavailable or unrequested coverage never means no splits.
  */
 
 export interface VendorSplitEvent {

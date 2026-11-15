@@ -11,9 +11,8 @@ import type { Grade } from "@/types/core";
 export const MIN_HEADLINE_EVIDENCE = 0.5;
 
 /**
- * Audit 2026-10-22 F-19: the house band table puts the composite's neutral
- * prior (50) in D, so a score from 45 to 55 inclusive carries a "neutral"
- * qualifier wherever its letter is shown. The letter itself is unchanged.
+ * the house band table puts the composite's neutral prior (50) in D, so a score from 45 to 55 inclusive carries a
+ * "neutral" qualifier wherever its letter is shown. The letter itself is unchanged (D-110).
  */
 export const NEUTRAL_SCORE_BAND = { low: 45, high: 55 } as const;
 
@@ -46,7 +45,7 @@ export function evidencePercentText(share: number): string {
 }
 
 /**
- * F-19: the composite carries the aspects' evidence floor. Below half of the
+ * P20: the composite carries the aspects' evidence floor. Below half of the
  * route-applicable signal weight no letter is shown, only the score and the
  * evidence share; an older report without the share keeps its letter.
  */
@@ -174,11 +173,9 @@ export function gradeContractText(block: GradeBlock): string | null {
 }
 
 /**
- * The contract line a reader export prints: only when the contract changed
- * the outcome (a refused or an admitted override). FIGR extra-high audit B2-18:
- * "unchanged (matches-deterministic-band)" and "unavailable
- * (no-deterministic-band)" repeated on every section and told a reader
- * nothing; the audit export lists every contract.
+ * The contract line a reader export prints: only when the contract changed the outcome (a refused or an admitted
+ * override). "unchanged (matches-deterministic-band)" and "unavailable (no-deterministic-band)" repeated on every
+ * section and told a reader nothing; the audit export lists every contract.
  */
 export function readerGradeContractText(block: GradeBlock): string | null {
   const status = block.gradeContract?.status;
@@ -189,9 +186,8 @@ export function readerGradeContractText(block: GradeBlock): string | null {
 export type AspectEvidence = Pick<AspectScore, "score" | "band" | "dataCompleteness"> & Partial<Pick<AspectScore, "signals">>;
 
 /**
- * Audit PGR-4: one signal carrying part of an aspect's intended evidence is
- * not corroborated, however large its weight. A route that designs a single
- * signal (the REIT P/FFO rank) and observes it in full is not affected.
+ * one signal carrying part of an aspect's intended evidence is not corroborated, however large its weight. A route
+ * that designs a single signal (the REIT P/FFO rank) and observes it in full is not affected (D-97).
  */
 export function restsOnSingleSignal(aspect: AspectEvidence): boolean {
   return aspect.signals?.length === 1 && aspect.dataCompleteness < 1;
@@ -208,14 +204,14 @@ export function hasLimitedEvidence(aspect: AspectEvidence | null | undefined): b
  * a letter for it (the strip, the section header, the scorecard band and the
  * live chips all withhold it), and every surface shows the same deterministic
  * score with the marker and the evidence share. The composite applies the
- * same floor to its own route-applicable evidence (F-19, `compositeDisplay`).
+ * same floor to its own route-applicable evidence (P20, `compositeDisplay`).
  */
 export function limitedEvidenceText(aspect: AspectEvidence): string {
   return `score ${formatScore(aspect.score ?? 0)}/100 on ${restsOnSingleSignal(aspect) ? "one signal, " : ""}${evidencePercentText(aspect.dataCompleteness)} of signals`;
 }
 
 /**
- * The shown letter, qualified "neutral" (F-19) when it is the deterministic
+ * The shown letter, qualified "neutral" (P20) when it is the deterministic
  * band of a score in the neutral range. An analyst letter that differs from
  * the band is the analyst's, and is not qualified by the score.
  */
@@ -242,7 +238,10 @@ export type FinancialEvidenceQualification = {
   field: string; detail: string; affectedAspects: ScoreAspect[];
 };
 
-/** D-300 review round 1 (P12): the manifest field Stage B writes when the cash-flow valuation's tax-rate operands are vendor data not checked against a filing. */
+/**
+ * D-300: the manifest field Stage B writes when the cash-flow valuation's tax-rate operands are vendor data not
+ * checked against a filing.
+ */
 export const DCF_TAX_OPERANDS_FIELD = "valuation.dcf.taxOperands";
 
 /** D-290 (P12): one qualification shared by the calculation and statement tables. */

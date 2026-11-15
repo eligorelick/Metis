@@ -75,7 +75,7 @@ export default async function PrintReportPage({
     <>
       <style>{PRINT_CSS}</style>
       {/* Body HTML is assembled from schema-validated report content with every
-          interpolated string HTML-escaped in printHtml.ts (esc()); no
+          interpolated string HTML-escaped in printHtml.ts (esc); no
           user-controlled markup is injected. */}
       <div
         className="print-doc"

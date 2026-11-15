@@ -290,10 +290,9 @@ export function parseAnnualDocumentTable(text: string, document: ParsedDocument)
 }
 
 /**
- * D-272 review round 2 (P9): the passage the issuer's own structure bounds as
- * its annual guidance section. It starts after the first table introduced as
- * full-year guidance (the same table parseAnnualDocumentTable reads) and ends
- * at the next heading or table. Empty when no such table exists.
+ * D-272: the passage the issuer's own structure bounds as its annual guidance section. It starts after the first
+ * table introduced as full-year guidance (the same table parseAnnualDocumentTable reads) and ends at the next
+ * heading or table. Empty when no such table exists.
  */
 export function annualGuidanceSectionAfterTable(document: ParsedDocument): string {
   for (const table of document.pre.matchAll(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi)) {

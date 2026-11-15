@@ -1,50 +1,12 @@
 /**
- * Stock splits: which ones happened, WHEN each one changed the share basis,
- * and whether a given share count can be put on the basis a given price is on.
- *
- * Companyfacts stores every fact AS FILED. Under ASC 260 a filing made after a
- * split restates its comparatives to the post-split share basis, so a period
- * that reappears in a later filing is picked up post-split by the max(filed)
- * dedup — but a period reported only in pre-split filings keeps its original
- * per-share and share-count figures forever. Apple's FY2016 diluted EPS is the
- * live example: 8.31 as filed (2016-2018), against 7.46 for FY2025 after the
- * 4-for-1 split of 2020, which read as a NEGATIVE ten-year EPS CAGR.
- *
- * A split has several dates and they are not interchangeable:
- *
- *  - the ANNOUNCEMENT (the earliest filing that tags it, here `announced`);
- *  - the RECORD date and the LEGAL-EFFECTIVE moment (NVIDIA's 10-for-1 of 2024
- *    was legally effective on 2024-06-07 at 4:01 p.m. Eastern) — neither is in
- *    companyfacts as a machine-readable date;
- *  - the FIRST SPLIT-ADJUSTED TRADING SESSION (NVIDIA: 2024-06-10), the date a
- *    price's share basis turns on;
- *  - the XBRL CONTEXT DATE of `us-gaap:StockholdersEquityNoteStockSplitConversionRatio1`,
- *    which filers set to whichever of these they choose (NVIDIA tagged
- *    2024-06-07 and 2024-06-10 in different filings). It is an accounting
- *    context and is never taken as proof of any of the others.
- *
- * The first split-adjusted session comes only from a price vendor's split
- * events (src/providers/splitEvents.ts). Without one it is bounded to a window
- * around the context dates, and a price or share count inside that window is
- * withheld rather than guessed. The legal-effective moment decides a filing's
- * basis (a filing made after it states the post-split basis); it is bounded
- * below by the earliest context date and by the first session less
- * `LEGAL_BEFORE_SESSION_MAX_DAYS`, and a filing between that bound and the first
- * session is withheld.
- *
- * The ratio comes from the filer's equity note, checked against the share
- * counts later filings actually restated (its documentation is ambiguous for a
- * reverse split, and filers tag a 1-for-8 as 8 or as 0.125), and against the
- * vendor's numerator/denominator when there is one. A split the vendor lists
- * and companyfacts does not (the ratio is usually tagged only in the next
- * periodic report) is applied from the vendor's event; a split both describe is
- * applied once.
- *
- * A vendor list that was not retrieved establishes nothing: without one, no
- * share count is put on any price's basis, because a split since the count was
- * filed cannot be ruled out.
- *
- * The module is pure: no network, no clock, no environment.
+ * P3: companyfacts preserves as-filed share bases; later comparative restatements cannot repair periods filed
+ * only before a split. Announcement, record, legal-effective, trading-session and XBRL-context dates are
+ * distinct. Only price-vendor split events establish the first adjusted session; otherwise use disclosed
+ * bounds and withhold observations inside them. Bound legal effectiveness below by the earliest context and
+ * first session less LEGAL_BEFORE_SESSION_MAX_DAYS, withholding intervening filings. Verify the tagged ratio
+ * against restated counts and vendor numerator/denominator; reverse-ratio notation can differ. Apply
+ * vendor-only events and overlapping vendor/filed descriptions once. Without retrieved vendor coverage, no
+ * historical count can establish the price basis. Pure: no network, clock or environment.
  */
 
 import { conceptFactsSchema, filterToCoreForms, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
@@ -67,10 +29,8 @@ const SHARE_EVIDENCE_TAGS = [
 /** Relative tolerance when matching restated share counts (or a vendor's ratio) to a tagged ratio. */
 const EVIDENCE_TOLERANCE = 0.03;
 /**
- * Two tagged dates this close with the same ratio are one split whose context
- * date differs between filings (approval or record date in one, distribution
- * date in another — NVIDIA's 2021 split is tagged 2021-06-03 in two 10-Qs and
- * 2021-07-19 in the 10-K, 46 days apart), not two splits.
+ * P3: same-ratio tags within this window describe one split even when filings use different approval, record
+ * or distribution context dates.
  */
 const SAME_SPLIT_WINDOW_DAYS = 60;
 /**
@@ -81,21 +41,15 @@ const SAME_SPLIT_WINDOW_DAYS = 60;
 const REPEAT_TAG_WINDOW_DAYS = 550;
 
 /**
- * Without a vendor session, the first split-adjusted session is taken to lie
- * between this many days before the earliest context date (a filer that tags
- * the distribution or payable date) and `SESSION_AFTER_CONTEXT_MAX_DAYS` after
- * the latest one (a filer that tags the board approval: NVIDIA's 2021 approval
- * was tagged 47 days before the first split-adjusted session). Both are stated
- * assumptions; a vendor session replaces them.
+ * P3: without a vendor session, bound the first adjusted session from this many days before the earliest
+ * context through SESSION_AFTER_CONTEXT_MAX_DAYS after the latest context. These are disclosed assumptions,
+ * replaced by a vendor session.
  */
 export const SESSION_BEFORE_CONTEXT_MAX_DAYS = 7;
 export const SESSION_AFTER_CONTEXT_MAX_DAYS = SAME_SPLIT_WINDOW_DAYS;
 /**
- * Legal effectiveness precedes the first split-adjusted session by at most this
- * many days: the exchanges begin split-adjusted trading on the first business
- * day after the distribution (NVIDIA: effective Friday 2024-06-07 4:01 p.m.,
- * first session Monday 2024-06-10, three days). A stated assumption: a filing
- * made in the days between is withheld, never assigned a basis.
+ * P3: bound legal effectiveness to this many days before the first adjusted session, allowing the business-day
+ * gap after distribution. This is an assumption; withhold intervening filings rather than assign a basis.
  */
 export const LEGAL_BEFORE_SESSION_MAX_DAYS = 7;
 /**

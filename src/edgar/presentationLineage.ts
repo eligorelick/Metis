@@ -1,17 +1,11 @@
 /**
- * Derived quarters on one presentation (audit 2026-10-27 FIN-511, decision C-9).
- *
- * A quarter derived by subtraction (fiscal year less nine-month year to date, a
- * difference of two year-to-date figures, or the fiscal year less three
- * quarters) must net two figures that sit on one presentation. Filing-date
- * lineage (D-13) is the minimum; this module decides when it is not enough.
- * The statement builder and the vendor-enrichment derivation
- * (`financialEnrichment.ts`, audit 2026-10-27 FIN-511-V2) call the same
- * helpers, so a derived value means the same thing in both. Pure: no I/O, no
- * clock.
- *
- * See docs/METHODOLOGY.md "Derived quarters on one presentation" for the
- * rules and their sources (ASC 250-10-45-23, ASC 205-20-45-3, SEC FRM 13110.4).
+ * Derived quarters on one presentation. * A quarter derived by subtraction (fiscal year less nine-month year to
+ * date, a difference of two year-to-date figures, or the fiscal year less three quarters) must net two figures
+ * that sit on one presentation. Filing-date lineage (D-13) is the minimum; this module decides when it is not
+ * enough. The statement builder and the vendor-enrichment derivation (`financialEnrichment.ts`, D-134) call the
+ * same helpers, so a derived value means the same thing in both. Pure: no I/O, no clock. * See docs/METHODOLOGY.md
+ * "Derived quarters on one presentation" for the rules and their sources (ASC 250-10-45-23, ASC 205-20-45-3, SEC
+ * FRM 13110.4).
  */
 
 /** The slice of a fact the pairing rules read. A `FactPoint` satisfies it. */
@@ -26,7 +20,7 @@ export interface LineageCopy {
   unit?: string;
 }
 
-/** A copy of a discontinued-operations element, with its tag and unit (C-9 labels). */
+/** A copy of a discontinued-operations element, with its tag and unit (D-134 labels). */
 export interface LabelCopy extends LineageCopy {
   tag: string;
   unit: string;
@@ -63,9 +57,8 @@ export function firstReportedCopy<T extends LineageCopy>(copies: readonly T[], p
 
 /**
  * SEC filers present in thousands or millions, so a difference no larger than half a million against a copy that
- * is a whole number of millions is below the re-filing's own stated precision: a re-rounding, not a move (audit
- * 2026-10-27 FIN-511 I2). The allowance is strict on purpose: unlike a floor, looseness here would admit a mixed
- * quarter.
+ * is a whole number of millions is below the re-filing's own stated precision: a re-rounding, not a move. The
+ * allowance is strict on purpose: unlike a floor, looseness here would admit a mixed quarter.
  */
 export const ROUNDING_UNIT = 1_000_000;
 export const ROUNDING_ALLOWANCE = 500_000;
@@ -86,14 +79,10 @@ export function movedBeyond(first: LineageCopy, later: LineageCopy, thresholdPct
 }
 
 /**
- * True when the filing CHANGED a period of this concept: it carries a copy of a period it did not first report
- * that `movedBeyond` the copy filed just before it. A filing that only repeats a recast an earlier filing made
- * (a 10-K carrying a prior year the previous 10-K had already re-presented) re-presented nothing, so the
- * nine-month figures filed after that earlier recast are on its basis (measured against the first-reported copy,
- * every later 10-K would count: American Tower's FY2023 revenue, recast once in the 10-K of 2025-02-25).
- * `exceptPeriod` leaves out the period under derivation; `presentationMixed` passes it only for an amendment
- * minuend, because an amendment that corrects its own year re-presents nothing (any other filing that moves its
- * own year has re-presented).
+ * D-134: a filing re-presents a period only when its copy moves beyond the immediately preceding filed copy.
+ * Repeating an earlier recast is not a new re-presentation. exceptPeriod excludes the derived period only for
+ * an amendment minuend: an amendment correcting its own year is not a re-presentation, while another filing
+ * moving its own year is.
  */
 export function filingRepresented(copies: readonly LineageCopy[], accn: string, thresholdPct: number, exceptPeriod?: LineageCopy): boolean {
   for (const c of copies) {
@@ -108,10 +97,10 @@ export function filingRepresented(copies: readonly LineageCopy[], accn: string, 
 }
 
 /**
- * C-9: the re-filing labels its copy of `refiled`'s period a re-presentation for a discontinued operation
- * (ASC 205-20-45-3, 45-3A). Among `labelCopies` (every core copy of every discontinued-operations element),
- * some copy with `accn === refiled.accn`, the same start and end as `refiled`, and `val !== 0` either is its own
- * (tag, unit, period)'s first-reported copy (the line is new in the re-filing) or `movedBeyond` that copy.
+ * D-134: the re-filing labels its copy of `refiled`'s period a re-presentation for a discontinued operation (ASC
+ * 205-20-45-3, 45-3A). Among `labelCopies` (every core copy of every discontinued-operations element), some copy
+ * with `accn === refiled.accn`, the same start and end as `refiled`, and `val !== 0` either is its own (tag, unit,
+ * period)'s first-reported copy (the line is new in the re-filing) or `movedBeyond` that copy.
  */
 export function representationLabelled(labelCopies: readonly LabelCopy[], refiled: LineageCopy, thresholdPct: number): boolean {
   for (const l of labelCopies) {
@@ -127,7 +116,9 @@ export function representationLabelled(labelCopies: readonly LabelCopy[], refile
 
 const filingOf = (c: LineageCopy): string => `${c.form.trim()} of ${c.filed} (${c.accn})`;
 
-/** The reason a minuend/subtrahend pair nets two presentations, or null when they share one (FIN-511 (b)). */
+/**
+ * D-134: return a reason when minuend and subtrahend use different presentations, else null.
+ */
 export function presentationMixed(
   copies: readonly LineageCopy[],
   minuend: LineageCopy,
@@ -151,7 +142,7 @@ export type PairChoice<T> =
       subtrahends: readonly T[];
       basis: "as-filed" | "first-reported";
       refiledBy: T | null;
-      /** Why the first-reported copy stands in (basis "first-reported" only): C-9's two admitted cases. */
+      /** Why the first-reported copy stands in (basis "first-reported" only): D-134's two admitted cases. */
       refiledAs: "within-threshold" | "labelled-representation" | null;
     }
   | { kind: "withheld"; reason: string }
@@ -167,10 +158,10 @@ const pctMove = (from: LineageCopy, to: LineageCopy): number | null =>
   from.val === 0 ? null : ((to.val - from.val) / Math.abs(from.val)) * 100;
 
 /**
- * The pair a derivation may net (OD-5 (a) with the review's two sharpenings and C-9, (a2') on the subtrahend
- * side, then (b)). `subtrahendsFor(m)` returns the subtrahend copies minuend `m`'s filing lineage saw (the caller's
- * lineagePoints lookup), or null. `labelled(m)` says whether `m`'s filing labels `m`'s period a re-presentation
- * (callers pass `(m) => representationLabelled(labelCopies, m, thresholdPct)`).
+ * The pair a derivation may net (OD-5 (a) with the review's two sharpenings and D-134, (a2') on the subtrahend
+ * side, then (b)). `subtrahendsFor(m)` returns the subtrahend copies minuend `m`'s filing lineage saw (the
+ * caller's lineagePoints lookup), or null. `labelled(m)` says whether `m`'s filing labels `m`'s period a
+ * re-presentation (callers pass `(m) => representationLabelled(labelCopies, m, thresholdPct)`).
  */
 export function oneBasisPair<T extends LineageCopy>(
   copies: readonly T[],
@@ -181,7 +172,7 @@ export function oneBasisPair<T extends LineageCopy>(
 ): PairChoice<T> {
   const wasRefiled = (c: T): boolean => movedBeyond(firstReportedCopy(copies, c), c, 0);
 
-  // Rule 4 (C-9, subtrahend side): a later, material, unlabelled copy of a subtrahend supersedes the one netted.
+  // Rule 4 (D-134, subtrahend side): a later, material, unlabelled copy of a subtrahend supersedes the one netted.
   // The later copy is never netted (D-13); this only decides between the pair and a withholding.
   const checked = (pair: Pair<T>): PairChoice<T> => {
     for (const s of pair.subtrahends) {
@@ -222,7 +213,7 @@ export function oneBasisPair<T extends LineageCopy>(
     return mixedOrPair(winner, subs, { basis: "as-filed", refiledBy: null, refiledAs: null });
   }
 
-  // Rule 3a (C-9): a material change that the re-filing does not label is not shown to be a re-presentation.
+  // Rule 3a (D-134): a material change that the re-filing does not label is not shown to be a re-presentation.
   const material = movedBeyond(first, winner, thresholdPct);
   if (material && !labelled(winner)) {
     return {

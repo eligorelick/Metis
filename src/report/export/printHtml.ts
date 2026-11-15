@@ -8,7 +8,7 @@ import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
 import { AI_BLOCK_CAPTION, isModelWrittenReport, macroDisplayRows, plainFigureReaderNote, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
 
-/** D-282 review round 2: the caption on an AI-authored table or card, as a whole. */
+/** D-282: the caption on an AI-authored table or card, as a whole. */
 const aiCaption = (ai: boolean): string => ai ? `<p class="ai-block">${esc(AI_BLOCK_CAPTION)}</p>` : "";
 import { SCENARIO_TARGET_UNAVAILABLE_TEXT, VALUATION_WITHHELD_TEXT, scenarioTargetsCaveat, valuationHeadlineView, valuationNoModelWithheldText, valuationScenarioView, type ScenarioRowView } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
@@ -186,7 +186,7 @@ import {
   RECENT_DEVELOPMENTS_HEADING, SHAREHOLDER_ALIGNMENT_LABELS, developmentClaims, eventDateText, managementActionClaims,
 } from "@/report/qualitativeAnalysis";
 
-/** AMZN audit 2026-10-20 finding 17: the evidence-scope line, when a pass ran on a plan allowance. */
+/** the evidence-scope line, when a pass ran on a plan allowance. */
 function evidenceRow(report: Report): string[][] {
   const scope = evidenceScopeSummary(report);
   return scope === null ? [] : [["Evidence", scope]];
@@ -310,7 +310,7 @@ function subsection(heading: string, body: string, level = "h3"): string {
   return body ? `<${level}>${esc(heading)}</${level}>${body}` : "";
 }
 
-/** F-21: a factual claim's verification status after its citation, or nothing. */
+/** P20: a factual claim's verification status after its citation, or nothing. */
 function statusMark(claim: SourcedClaim): string {
   const mark = claimStatusMarkText(claim);
   return mark === null ? "" : ` <span class="claim-status">${esc(mark)}</span>`;
@@ -520,7 +520,7 @@ function sectionScores(scores: Scoring): string {
   const c = scores.composite;
   const card = scorecardTable(scores);
   const assessment = assessmentLine(scores);
-  // F-19: no letter under the evidence floor; the qualifier inside 45–55.
+  // P20: no letter under the evidence floor; the qualifier inside 45–55.
   const shown = compositeDisplay(scores);
   const compositeChip = c.band === null ? DASH
     : `<span class="chip ${gradeClass(shown.grade ?? "unavailable")}">${esc(shown.label)}</span>`;
@@ -631,7 +631,7 @@ function sectionValuation(
         ? `<h3>${headline.heading}</h3><p>${headline.label}: <strong class="mono">${esc(headline.valueText)}</strong>${asOfTag(headline.perShare.asOf)}${headline.comparison === null ? "" : ` &mdash; ${headline.comparison.label} <span class="mono">${esc(headline.comparison.text)}</span>`}</p>`
         : `<h3>${headline.heading}</h3><p>${headline.label}: <strong>${VALUATION_WITHHELD_TEXT}</strong> &mdash; ${headline.withheldReason ?? ""}</p>`,
     );
-    // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
+    // substituted inputs, beside the value they moved (D-111).
     if (headline.degradedCaveat !== null) parts.push(`<p class="disclaimer">${esc(headline.degradedCaveat)}</p>`);
     if (headline.basisCaveat !== null) parts.push(`<p class="faint">${esc(headline.basisCaveat)}</p>`);
     parts.push(bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))])));
@@ -715,7 +715,7 @@ function scenarioCard(row: ScenarioRowView): string {
   const shown = scenarioReaderLists(sc, assumptions);
   const blocks = [
     assumptions.length > 0 ? `<div><em>Assumptions</em>${list(assumptions)}</div>` : "",
-    // D-273 review round 1: a repeated label is stated once; every condition still prints.
+    // D-273: a repeated label is stated once; every condition still prints.
     shown.conditions.length > 0 ? `<div><em>What would have to be true</em>${list(shown.conditions)}</div>` : "",
     shown.commentary.length > 0 ? `<div><em>Qualitative commentary (not valuation inputs)</em>${list(shown.commentary)}</div>` : "",
     shown.separateConditions.length > 0 ? `<div><em>${esc(SEPARATE_CONDITIONS_HEADING)}</em>${list(shown.separateConditions)}</div>` : "",
@@ -971,7 +971,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
   return hasComputedFigures(report) ? withComputedMarkLegend(body) : body;
 }
 
-/** F-23: a data-only report says what "computed" means under its first table with a Cited column. */
+/** P20: a data-only report says what "computed" means under its first table with a Cited column. */
 function withComputedMarkLegend(html: string): string {
   const header = html.indexOf("<th>Cited</th></tr></thead>");
   const end = header < 0 ? -1 : html.indexOf("</table>", header);
@@ -1076,7 +1076,7 @@ ul.claims li { margin: 3pt 0; }
 const AUTOPRINT_SCRIPT = `<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},250);});</script>`;
 
 export interface ReportToPrintHtmlOptions extends ReportPresentationContext {
-  /** When true, embed a script that fires window.print() on load. */
+  /** When true, embed a script that fires window.print on load. */
   autoPrint?: boolean;
 }
 

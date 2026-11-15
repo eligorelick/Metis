@@ -2,7 +2,7 @@
  * FINRA Query API client — consolidated equity short interest.
  *
  * Server-only. Dataset: otcMarket/consolidatedShortInterest (all exchange-listed
- * + OTC equities, 5 rolling years). LIVE-verified unauthenticated 2026-07-06:
+ * + OTC equities, 5 rolling years). documented
  * both the partitions GET and the filtered POST return 200 with no credentials.
  * FINRA's docs officially describe OAuth2 client-credentials — public access may
  * tighten at any time, so an `authToken` config hook is provided; when set it is
@@ -109,9 +109,8 @@ export function normalizeDaysToCover(value: number | null | undefined): {
 }
 
 /**
- * Build the POST body for consolidatedShortInterest.
- * One settlement date → EQUAL compareFilter (required for any future sorting);
- * several dates → domainFilters IN (LIVE-verified 2026-07-06).
+ * P20: build the short-interest request with EQUAL compareFilter for one settlement date, required for
+ * sorting, or domainFilters IN for multiple dates.
  */
 export function buildShortInterestQuery(
   symbol: string,

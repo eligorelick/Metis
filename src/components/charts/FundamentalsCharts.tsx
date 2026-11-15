@@ -2,10 +2,10 @@
 
 /**
  * FundamentalsCharts — recharts (v3) trend charts for the fundamentals section:
- *   - RevenueTrendChart : revenue bars + YoY-growth line (secondary axis)
- *   - MarginTrendChart  : gross / operating / net margin lines
- *   - FcfChart          : FCF bars + FCF-conversion line (secondary axis)
- *   - ShareCountChart   : diluted share-count trend (buybacks vs dilution)
+ *   - RevenueTrendChart: revenue bars + YoY-growth line (secondary axis)
+ *   - MarginTrendChart: gross / operating / net margin lines
+ *   - FcfChart: FCF bars + FCF-conversion line (secondary axis)
+ *   - ShareCountChart: diluted share-count trend (buybacks vs dilution)
  *
  * Each takes a small, explicit row type (defined + exported here); the page
  * integrator maps ComputedMetrics into these. Dense (~220px), dark-themed,
@@ -386,10 +386,9 @@ export function ShareCountChart({ rows }: { rows: readonly ShareCountRow[] }) {
               axisLine={{ stroke: THEME.border }}
               tickLine={{ stroke: THEME.border }}
               width={44}
-              // Bars encode magnitude by length, so the baseline is zero (the
-              // recharts default the revenue and FCF charts already use). An
-              // auto domain started every bar at the niced minimum, so a 16%
-              // buyback read as an 87% collapse (audit 2026-09-06, F211).
+              // Bars encode magnitude by length, so the baseline is zero (the recharts default the revenue and FCF
+              // charts already use). An auto domain started every bar at the niced minimum, so a 16% buyback read
+              // as an 87% collapse.
             />
             <Tooltip
               cursor={{ fill: "#ffffff08" }}

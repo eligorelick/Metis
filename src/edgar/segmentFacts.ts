@@ -1,26 +1,16 @@
 /**
- * Quarterly segment revenue from periodic-report XBRL instances (NVDA report
- * #34 audit, P1-3).
- *
- * The companyfacts API carries no dimensional facts, so the latest 10-Q's
- * segment mix — NVIDIA's Hyperscale / ACIE / Edge Computing presentation —
- * never reached a report; the only segment rows were the vendor's annual
- * product split. Each 10-Q/10-K instance tags revenue against its segment
- * axes (srt:ProductOrServiceAxis, us-gaap:StatementBusinessSegmentsAxis,
- * srt:StatementGeographicalAxis), with the quarter, the year-to-date window
- * and the prior-year comparatives on the issuer's CURRENT presentation.
- *
- * Quarters are taken as the instance states them (a duration of 80-100
- * days). A quarter a filing does not state directly is derived only as the
- * difference of two windows that share a boundary (six months less the
- * second quarter is the first quarter; a fiscal year less nine months is the
- * fourth). Pooled differences carry both operand accessions. Proven member
- * recasts exclude earlier-presentation cells from analyst context and growth;
- * cross-filing differences require both operands on the current presentation.
- * Without a proven recast they remain disclosed estimates (OD-11).
- * Across filings, the latest figure for a member and quarter wins.
- *
- * Pure: no network, no clock.
+ * Quarterly segment revenue from periodic-report XBRL instances (P1-3). * The companyfacts API carries no
+ * dimensional facts, so the latest 10-Q's segment mix — issuer's Hyperscale / ACIE / Edge Computing presentation —
+ * never reached a report; the only segment rows were the vendor's annual product split. Each 10-Q/10-K instance
+ * tags revenue against its segment axes (srt:ProductOrServiceAxis, us-gaap:StatementBusinessSegmentsAxis,
+ * srt:StatementGeographicalAxis), with the quarter, the year-to-date window and the prior-year comparatives on the
+ * issuer's CURRENT presentation. * Quarters are taken as the instance states them (a duration of 80-100 days). A
+ * quarter a filing does not state directly is derived only as the difference of two windows that share a boundary
+ * (six months less the second quarter is the first quarter; a fiscal year less nine months is the fourth). Pooled
+ * differences carry both operand accessions. Proven member recasts exclude earlier-presentation cells from analyst
+ * context and growth; cross-filing differences require both operands on the current presentation. Without a proven
+ * recast they remain disclosed estimates (P20). Across filings, the latest figure for a member and quarter wins.
+ * * Pure: no network, no clock.
  */
 
 import type { FetchResult } from "@/types/core";
@@ -152,7 +142,7 @@ function dedupe(facts: RevenueFact[]): RevenueFact[] {
  * ("nvda:HyperscaleMember") -> the standard label without " [Member]".
  */
 /**
- * D-299 (R32, lead decision): the trailing XBRL type marker " [Member]" (any
+ * D-299 (R32, ): the trailing XBRL type marker " [Member]" (any
  * case, as the whole last token) is label syntax, not part of the name; the text
  * before it is the filer's own label, so nothing is invented. A label that is
  * only the marker is left as it is.
@@ -367,14 +357,14 @@ export interface SegmentSeries {
    * D-63: cells filled as the quarter's total less the axis's other top-level
    * members, where the members are shown to be exhaustive (they sum to the
    * total in the latest quarter) and exactly one is untagged in that quarter —
-   * a member renamed between filings (NVIDIA's "Other" geography) or a quarter
+   * a member renamed between filings (issuer's "Other" geography) or a quarter
    * no filing states for it (Edge Computing = total less Data Center).
    */
   residualCells: number;
 }
 
 /**
- * D-63 (AI-406): the windows, in days before the latest quarter end, that make
+ * D-63 (P20): the windows, in days before the latest quarter end, that make
  * a column the adjacent quarter (a 14-week quarter is 98 days) or the
  * year-ago quarter (52-week years give 364 days, 53-week years 371).
  */
@@ -407,7 +397,7 @@ export interface QuarterlySegmentRevenue {
 }
 
 /**
- * AI-509 (OD-4, D-80): provider "geographic" rows are company geography only
+ * P20 (P20, D-80): provider "geographic" rows are company geography only
  * when the issuer's own XBRL in the same bundle does not contradict them.
  * Type-only imports above: this module stays free of runtime imports so Stage A
  * and the stored-report view can use it.
@@ -583,18 +573,13 @@ export function buildQuarterlySegments(
 }
 
 /**
- * Mark a member as the child of a subtotal member when that member equals the
- * sum of two or three others (NVIDIA's Data Center = Hyperscale + ACIE).
- * Tolerance: 0.1% of the subtotal.
- *
- * AMZN audit 2026-10-20 finding 13: the sum is checked in every quarter where
- * the parent and all the candidate children are tagged, and must hold in at
- * least two of them. Amazon's axis carries two partitions of revenue (product
- * / service, and seven business lines); in the latest quarter alone online
- * stores + third-party seller services + physical stores came within 0.002%
- * of net service sales by coincidence, so product sales were shown as
- * components of service sales. A real subtotal holds in every quarter; a
- * parent the data cannot establish is not given.
+ * Mark a member as the child of a subtotal member when that member equals the sum of two or three others (issuer's
+ * Data Center = Hyperscale + ACIE). Tolerance: 0.1% of the subtotal. * the sum is checked in every quarter where
+ * the parent and all the candidate children are tagged, and must hold in at least two of them. the issuer's axis
+ * carries two partitions of revenue (product / service, and seven business lines); in the latest quarter alone
+ * online stores + third-party seller services + physical stores came within 0.002% of net service sales by
+ * coincidence, so product sales were shown as components of service sales. A real subtotal holds in every quarter;
+ * a parent the data cannot establish is not given.
  */
 export function markSubtotals<T extends Pick<SegmentRow, "member" | "values" | "childOf">>(rows: T[], maxComponents = 3): void {
   const latest = rows.map((r) => r.values[0] ?? null);

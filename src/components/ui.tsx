@@ -123,7 +123,7 @@ export function ScorePill({
 }: {
   score: number | null;
   band: Grade | null;
-  /** The score sits in the 45–55 neutral range (audit 2026-10-22 F-19). */
+  /** The score sits in the 45–55 neutral range (D-110). */
   neutral?: boolean;
 }) {
   if (score === null || band === null) {

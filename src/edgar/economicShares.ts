@@ -152,11 +152,10 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
     result.observations.push({ classId: context.member, shares: count, asOf: context.date, contextId,
       sourceId: `${identity.documentUrl}#${attr(fact[1], "id") || contextId}` });
   }
-  // Audit 2026-10-22 B-8 (owner decision): a cover outside the two layouts
-  // above can still establish issuer-economic scope when the filing tags each
-  // class's count at one date, binds the quote symbol to one of those classes
-  // and states every class's economic relation in a supported sentence. Each
-  // other class is then valued at its economic weight x the quoted price.
+  // a cover outside the two layouts above can still establish issuer-economic scope when the filing tags each
+  // class's count at one date, binds the quote symbol to one of those classes and states every class's economic
+  // relation in a supported sentence. Each other class is then valued at its economic weight x the quoted price.
+  // (D-103).
   const classTagged = (): FilingEconomicShares | null => {
     const observed = result.observations ?? [];
     const asOf = observed.map(o => o.asOf).sort().at(-1);

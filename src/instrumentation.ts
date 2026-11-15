@@ -6,7 +6,7 @@ export async function register(): Promise<void> {
     if (process.env.NEXT_PHASE === "phase-production-build") return;
     // D-228 (P23, P24, P26): refuse retired Thesis-era setting names before
     // anything else runs, so a leftover hold, cap or path is never silently
-    // dropped. Next only logs a register() failure and keeps listening (every
+    // dropped. Next only logs a register failure and keeps listening (every
     // request would then fail with a bare 500), so the process exits instead:
     // the one message names each key to rename, and nothing is served.
     const { assertNoStaleSettings, StaleSettingsError } = await import("@/config/namespace");

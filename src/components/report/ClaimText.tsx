@@ -76,7 +76,7 @@ export function ClaimText({
   className?: string;
   numbers?: readonly TracedNumber[];
 }) {
-  // F-21: the verification status after the citation; judgments carry none.
+  // P20: the verification status after the citation; judgments carry none.
   const statusMark = claimStatusMarkText(claim);
   return (
     <details {...evidenceAttributes("claim", claim)} className={`report-claim group flex flex-col gap-1 ${className ?? ""}`}>

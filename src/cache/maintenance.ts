@@ -1,25 +1,14 @@
 /**
- * api_cache maintenance sweep (2026-07 audit item 5: the DB grew unbounded —
- * 90MB of 103MB was 28 uncompressed EDGAR HTML rows and 174/231 FMP rows sat
- * expired forever).
- *
- * Three passes over the raw better-sqlite3 handle (runs inside createDatabase
- * before Drizzle wraps it, so it takes the handle directly and must NOT import
- * @/db — that would be an import cycle):
- *
- *  1. Compress: any plain row whose bodyJson meets the compression threshold
- *     is moved into the bodyGz BLOB (retrofit for rows written before the
- *     codec existed).
- *  2. Purge: rows older than their stored ttlSeconds + a 30-day margin are
- *     deleted. Serve-stale-while-revalidate means an expired row still has
- *     value for instant renders, hence the wide margin; cache-forever rows
- *     (filings/transcripts, 10-year TTL) never match the predicate. The stored
- *     ttlSeconds is advisory (freshness is judged against the caller's TTL at
- *     read time), so a purge is safe — worst case is a refetch.
- *  3. VACUUM when either pass did work, so the file actually shrinks.
- *
- * A settings-table stamp guards the sweep to once per 24h so the startup hook
- * stays free in the steady state.
+ * Cache maintenance bounds storage by compression and TTL-based purging (P24). Three passes over the raw
+ * better-sqlite3 handle (runs inside createDatabase before Drizzle wraps it, so it takes the handle directly and
+ * must NOT import @/db — that would be an import cycle): * 1. Compress: any plain row whose bodyJson meets the
+ * compression threshold is moved into the bodyGz BLOB (retrofit for rows written before the codec existed). 2.
+ * Purge: rows older than their stored ttlSeconds + a 30-day margin are deleted. Serve-stale-while-revalidate means
+ * an expired row still has value for instant renders, hence the wide margin; cache-forever rows
+ * (filings/transcripts, 10-year TTL) never match the predicate. The stored ttlSeconds is advisory (freshness is
+ * judged against the caller's TTL at read time), so a purge is safe — worst case is a refetch. 3. VACUUM when
+ * either pass did work, so the file actually shrinks. * A settings-table stamp guards the sweep to once per 24h so
+ * the startup hook stays free in the steady state.
  */
 
 import "server-only";
@@ -75,7 +64,7 @@ export function maintainApiCache(
     }
   }
 
-  // 1) Compress plain rows at/above the threshold. SQLite length() counts
+  // 1) Compress plain rows at/above the threshold. SQLite length counts
   //    characters for TEXT; chars <= UTF-8 bytes, so every row the byte
   //    threshold would catch is included (a few multibyte-heavy rows just
   //    under the char count slip until their next write — harmless).

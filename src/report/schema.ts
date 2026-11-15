@@ -1,38 +1,23 @@
 import { EstimateTimingSchema } from "@/report/estimateTiming";
 /**
- * The Report Zod schema — THE contract for the entire Metis Report object.
- *
- * This module is the single source of truth for the shape of a generated
- * report (report sections 1–13). It is consumed by:
- *   - the LLM passes, which request output via Anthropic structured outputs
- *     (`output_config.format`) using {@link reportToJsonSchema} / the pass-level
- *     sub-schemas, and are additionally validated with Zod on the way back;
- *   - the pipeline job runner, which fills `meta`/`appendix` around the judge
- *     output and persists the parsed `Report`;
- *   - the UI, which renders `Report` and diffs two of them (see ./diff.ts).
- *
- * Design principles (the non-negotiable analysis rules):
- *   1. Every LLM-authored claim is a {@link SourcedClaim} carrying its label
- *      (FACT | ESTIMATE | JUDGMENT), a `source` payload-path/citation, and an
- *      `asOf` date. Rule #2 ("every claim is labeled") and #5 ("every figure
- *      carries its as-of date") are structural here, not conventions.
- *   2. Every numeric the LLM emits is a {@link TracedNumber} — value + unit +
- *      source + asOf, plus a `verified` flag the verification pass sets. Rule
- *      #1 ("no figure from model memory") is enforced downstream by the
- *      verification pass tracing each `source`; the schema makes the source
- *      mandatory so an untraceable number cannot even be represented.
- *   3. Per-section grades are {@link GradeBlock}s: grade + one-line why +
- *      reasoning (SourcedClaims) + confidence + the key numbers behind it.
- *   4. NOTHING permits buy/sell/hold *ratings*. Selected pass-level strings and
- *      the complete final Report object are guarded by {@link noBuySellHold}.
- *      See the refine docs below for exactly what is and is not rejected.
- *
- * Strictness: every object is `.strict()` so an LLM emitting an unexpected key
- * fails Zod validation (and the pipeline retries with the error fed back). The
- * JSON-schema emitted for the model likewise closes every object with
- * `additionalProperties: false` (see {@link reportToJsonSchema}).
- *
- * Zod v4: schemas use `import { z } from "zod"` and JSON Schema is produced
+ * The Report Zod schema — THE contract for the entire Metis Report object. * This module is the single source of
+ * truth for the shape of a generated report (report sections 1–13). It is consumed by: - the LLM passes, which
+ * request output via Anthropic structured outputs (`output_config.format`) using {@link reportToJsonSchema} / the
+ * pass-level sub-schemas, and are additionally validated with Zod on the way back; - the pipeline job runner,
+ * which fills `meta`/`appendix` around the judge output and persists the parsed `Report`; - the UI, which renders
+ * `Report` and diffs two of them (see./diff.ts). * Design principles (the non-negotiable analysis rules): 1. Every
+ * LLM-authored claim is a {@link SourcedClaim} carrying its label (FACT | ESTIMATE | JUDGMENT), a `source`
+ * payload-path/citation, and an `asOf` date. Rule #2 ("every claim is labeled") and #5 ("every figure carries its
+ * as-of date") are structural here, not conventions. 2. Every numeric the LLM emits is a {@link TracedNumber} —
+ * value + unit + source + asOf, plus a `verified` flag the verification pass sets. Rule #1 ("no figure from model
+ * memory") is enforced downstream by the verification pass tracing each `source`; the schema makes the source
+ * mandatory so an untraceable number cannot even be represented. 3. Per-section grades are {@link GradeBlock}s:
+ * grade + one-line why + reasoning (SourcedClaims) + confidence + the key numbers behind it. 4. NOTHING permits
+ * buy/sell/hold *ratings*. Selected pass-level strings and the complete final Report object are guarded by {@link
+ * noBuySellHold}. See the refine docs below for exactly what is and is not rejected. * Strictness: every object is
+ * `.strict` so an LLM emitting an unexpected key fails Zod validation (and the pipeline retries with the error fed
+ * back). The JSON-schema emitted for the model likewise closes every object with `additionalProperties: false`
+ * (see {@link reportToJsonSchema}). * Zod v4: schemas use `import { z } from "zod"` and JSON Schema is produced
  * with the native `z.toJSONSchema(...)`.
  */
 
@@ -56,7 +41,7 @@ export { REPORT_SPEC_VERSION } from "@/report/versions";
  * persisted under earlier spec versions contain asOf strings like "2026-06"
  * or "2025-12-31/2026-05-05" and prose the newer regex battery would reject —
  * re-validating them retroactively on READ would make already-paid reports
- * unrenderable (observed 2026-07-20: 12 of 36 stored reports). The stored-
+ * unrenderable . The stored-
  * report read path (history.parseStoredReport) therefore retries a failed
  * strict parse inside withLenientLegacyRead, which relaxes ONLY these two
  * gates; shape/strictness/enums stay fully enforced, and every save/assembly
@@ -91,7 +76,7 @@ function compatibleIsoDateTime(offset = false) {
  * Strict calendar date used by newly generated evidence objects. The rejected
  * value is named in the issue: a model pass that fails here is billed and
  * discarded, and "Invalid ISO date" alone left no way to tell a timestamp
- * from a bare month or a fiscal-quarter label (live haiku run, 2026-09-02).
+ * from a bare month or a fiscal-quarter label (P20).
  */
 export const IsoDateSchema = z.string().refine(
   (v) => lenientLegacyRead || STRICT_ISO_DATE.safeParse(v).success,
@@ -123,7 +108,7 @@ export const IsoDateSchema = z.string().refine(
  *     "buyback", "sell-side", "shareholder", "holding company", "household".
  *
  * Returns `true` when the text is CLEAN — suitable as a
- * `z.string().refine(noBuySellHold, ...)` predicate.
+ * `z.string.refine(noBuySellHold, ...)` predicate.
  */
 const RATING_PATTERNS: readonly RegExp[] = [
   // "Strong Buy" / "strong sell" / "strong-hold".
@@ -163,7 +148,7 @@ const RATING_PATTERNS: readonly RegExp[] = [
   /^(?:strong\s+)?(?:buy|sell|hold)[.!]?$/i,
 ];
 
-/** OD-5: closed abbreviation exceptions; rating patterns remain intact. */
+/** P20: closed abbreviation exceptions; rating patterns remain intact. */
 function maskNamePeriods(text: string): string {
   return text.replace(/\b([A-Z][a-z]+\s+(?:[A-Z]\.\s+)*[A-Z])\.(?=\s+(?:Buy|Sell|Hold)(?:\s*[\u2014\u2013(]|,\s+(?:the|a|an|our|its|who|whose)\b|['\u2019]s\b))/g, "$1")
     .replace(/\b(Mr|Ms|Mrs|Mx|Dr|Prof|Rev|Hon|Sen|Rep|Gov|Gen|Col|Capt|Lt)\.(?=\s+[A-Z])(?!\s+(?:Strong\s+)?(?:Buy|Sell|Hold)\s*(?:[.!?]|$))/g, "$1");
@@ -507,7 +492,7 @@ export const ProvenanceCoverageSchema = z
 export type ProvenanceCoverage = z.infer<typeof ProvenanceCoverageSchema>;
 
 /* ------------------------------------------------------------------------ *
- * WS7 (D-20) begin — adversarial-protocol and deterministic-check metadata.
+ * D-20 — adversarial-protocol and deterministic-check metadata.
  *
  * Two things the pre-remediation report never said out loud:
  *
@@ -709,7 +694,7 @@ export type JudgeProtocol = z.infer<typeof JudgeProtocolSchema>;
 // aspects A-F and can print scenario price targets; a reader could
 // reasonably read those as a call. The rating-safety scan skips this key
 // (NON_NARRATIVE_STRING_KEYS), so the words it must disclaim can be named.
-// It contains no HTML-sensitive characters, so the print renderer's esc() is
+// It contains no HTML-sensitive characters, so the print renderer's esc is
 // a no-op on it and it appears byte-for-byte.
 export const DISCLAIMER_TEXT =
   "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security." as const;
@@ -966,10 +951,9 @@ export const LEGACY_UNNAMED_PRODUCT_LINE_HEADING = "Product line (its name is no
 export const BUSINESS_STORY_HEADING = "The business";
 
 /**
- * Trademark, service-mark, registered and copyright signs, and the emoji
- * variation selector that can follow them. Removed BEFORE compatibility
- * normalization, which would otherwise turn "™" into the letters "TM" and
- * glue them to the name ("Verandol™" read as "verandoltm"; review round 1).
+ * Trademark, service-mark, registered and copyright signs, and the emoji variation selector that can follow them.
+ * Removed BEFORE compatibility normalization, which would otherwise turn "™" into the letters "TM" and glue them
+ * to the name ("Verandol™" read as "verandoltm").
  */
 const MARK_SIGNS = /[™℠®©]\uFE0F?/g;
 
@@ -1131,7 +1115,7 @@ export type SensitivityCell = z.infer<typeof SensitivityCellSchema>;
 export const DcfSchema = z
   .object({
     /**
-     * Intrinsic value per share. NULLABLE (2026-07-11 DCF-credibility checkpoint):
+     * Intrinsic value per share. NULLABLE (P10):
      * the pipeline OVERWRITES this at assembly with the deterministic route-
      * appropriate fair value ({@link FairValueSchema}: FCFF DCF on the general
      * route, the book-value excess-return model for banks/insurers), or sets it
@@ -1166,10 +1150,12 @@ export const DcfSchema = z
       shareBasisNote: z.string().optional(),
       shareUnit: z.literal("ADS-equivalent").optional(),
       minorityInterestDefinition: z.string().optional(),
-      /** E-5: how the NCI deducted in minorityInterest was sized. */
+      /**
+       * D-135: record how the deducted minority-interest claim was sized.
+       */
       noncontrollingBasis: z.string().optional(),
       noncontrollingBook: z.number().optional(),
-      /** FIN-119: the redeemable claims (temporary equity) already inside preferredEquity and minorityInterest. */
+      /** D-135: the redeemable claims (temporary equity) already inside preferredEquity and minorityInterest. */
       temporaryEquity: z.object({ redeemablePreferred: z.number(), redeemableNoncontrolling: z.number(), unsplit: z.number() }).strict().optional(),
     }).strict().optional(),
     /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
@@ -1191,7 +1177,7 @@ export const DcfSchema = z
       growthShiftsPp: z.array(z.number()), marginShiftsPp: z.array(z.number()),
       perShare: z.array(z.array(z.number().nullable())), notes: z.array(z.string()),
     }).strict().optional(),
-    /** Audit 2026-10-22 C-11: excess-return start-return × cost-of-equity per-share grid (null cells withheld). */
+    /** excess-return start-return × cost-of-equity per-share grid (null cells withheld) (D-102). */
     excessReturnGrid: z.object({
       rows: z.array(z.object({ label: z.string(), startReturnPct: z.number(), bookValue: z.number() }).strict()),
       costOfEquityPcts: z.array(z.number()),
@@ -1236,7 +1222,7 @@ export const MultipleRowSchema = z
     }).strict()).optional(),
     ownHistoryBasis: z.string().optional(),
     // WS6 (D-19) end ---------------------------------------------------------
-    /** AMZN audit 2026-10-20: why a P/E on gain-inflated earnings is caveated and not ranked; pipeline-owned. */
+    /** the issuer why a P/E on gain-inflated earnings is caveated and not ranked; pipeline-owned. */
     earningsCaveat: z.string().optional(),
     sectorAppropriate: z.boolean(),
   })
@@ -1249,8 +1235,7 @@ export const ScenarioSchema = z
     /** Legacy key: new reports store a fixed display weight, never calibrated odds. */
     probability: z.number().min(0).max(1).nullable(),
     /**
-     * Headline scenario price target. NULLABLE (2026-07-11 scenario-credibility
-     * checkpoint): the pipeline OVERWRITES this at assembly with the deterministic
+     * Headline scenario price target. NULLABLE (P10): the pipeline OVERWRITES this at assembly with the deterministic
      * computed target ({@link ScenarioTargetsSchema}), or sets it null when the
      * DCF route / inputs are insufficient. The judge no longer authors it — a
      * null here means "scenario target unavailable", not "zero". Persisted 1.x
@@ -1315,7 +1300,7 @@ export const ValuationSchema = z
       approximate: z.boolean(), basis: z.string(),
       multiClass: z.literal(true).optional(),
       classPriceDates: z.array(z.object({ classId: z.string(), asOf: z.string() }).strict()).optional(),
-      /** Unresolved because the issuer has more than one common class (audit 2026-10-22 B-8). */
+      /** Unresolved because the issuer has more than one common class (D-103). */
       classAmbiguity: z.literal(true).optional(),
       enterpriseValue: z.number().nullable(), enterpriseValueBasis: z.string(),
     }).strict().optional(),
@@ -1338,7 +1323,7 @@ export type Valuation = z.infer<typeof ValuationSchema>;
  * with the same shape would emit four separate $defs entries (8 nullable
  * fields total) instead of one shared entry (2), needlessly inflating both of
  * Anthropic's schema-complexity counters (optional-parameter count and
- * union-type count) for no semantic benefit. Confirmed live 2026-07-08: this
+ * union-type count) for no semantic benefit. This
  * duplication was part of what pushed JUDGE_OUTPUT_SCHEMA's optional-parameter
  * count to 29 against a documented limit of 24.
  */
@@ -1728,14 +1713,14 @@ export const VerificationLogEntrySchema = z
         "named-individual-web-source",
         "credibility-source-restricted",
         // end WS7
-        // D-43 (2026-10-13): gap/unestablished citations never carry a
+        // D-43 : gap/unestablished citations never carry a
         // number, person-row citations are read for the person and title, and
         // a currency on a figure of unknown currency fails. Additive.
         "gap-source-number",
         "named-individual-not-in-source",
         "named-individual-title-mismatch",
         "currency-not-established",
-        // D-45 (2026-10-13): a number cited to a filing/transcript excerpt is
+        // D-45 : a number cited to a filing/transcript excerpt is
         // read against that excerpt's text. Additive.
         "text-ambiguous",
         "text-context-mismatch",
@@ -1750,7 +1735,7 @@ export const VerificationLogEntrySchema = z
       .optional(),
     /**
      * How the number traced — separates the CITATION-COVERAGE modes the audit
-     * asks to keep distinct (2026-07-11 finding #2). Optional for backward-compat
+     * asks to keep distinct (P20). Optional for backward-compat
      * with reports written before this field existed:
      *  - "payload-match": exact provider registry ID plus numeric dimensions.
      *  - "source-cited": exact payload text source/date or observed fetched URL.
@@ -1780,7 +1765,7 @@ export function verificationEntryOutcomeLabel(entry: VerificationLogEntry): stri
   if (entry.outcome === "removed") return citationOutcomeLabel(entry.outcome);
   if (entry.check === "plain-figure" && entry.traceKind === "value-match") return "Value match; context not confirmed";
   if (entry.claimSupportStatus === "numeric-only") return "Numeric match; prose unchecked";
-  // A contradicted claim was cited; a legacy metadata gap reads as unchecked (F-22).
+  // A contradicted claim was cited; a legacy metadata gap reads as unchecked (P20).
   if (entry.claimSupportStatus === "contradicted") {
     return displayedValidationStatus(entry) === "unchecked" ? "Cited; prose unchecked" : "Cited; contradicted by its source";
   }
@@ -1829,9 +1814,8 @@ export const CostBreakdownEntrySchema = z
     /** Why it was discarded, in the words the failure was recorded under. */
     discardedReason: z.string().optional(),
     /**
-     * R1 (FIGR paid audit): the tokens this request's settled usage reported
-     * (uncached input and output). Absent on presumed rows, plan-allowance rows
-     * and reports saved before the field existed.
+     * the tokens this request's settled usage reported (uncached input and output). Absent on presumed rows,
+     * plan-allowance rows and reports saved before the field existed.
      */
     inputTokens: z.number().int().nonnegative().optional(),
     outputTokens: z.number().int().nonnegative().optional(),
@@ -2093,7 +2077,7 @@ export type Projections = z.infer<typeof ProjectionsSchema>;
  * §7.5b deterministic scenario price targets (Stage B; computed-derived)
  *
  * The headline bull/base/bear price targets are COMPUTED, not judge-authored
- * (2026-07-11 scenario-credibility checkpoint). base IS the deterministic DCF
+ * (P10). base IS the deterministic DCF
  * fair value; bull/bear re-run the SAME DCF with the growth + operating-margin
  * paths shifted ±1σ of the company's OWN historical dispersion — the identical
  * construction as the projection fan (scenarioTargets.ts reuses projections.ts's
@@ -2156,7 +2140,7 @@ export type ScenarioTargets = z.infer<typeof ScenarioTargetsSchema>;
  * §7.5c deterministic intrinsic per-share fair value (Stage B; computed-derived)
  *
  * The headline DCF fair value (valuation.dcf.perShare + upsidePct) is COMPUTED,
- * not judge-authored (2026-07-11 DCF-credibility checkpoint). The route-
+ * not judge-authored (P10). The route-
  * appropriate deterministic per-share — the FCFF DCF on the general route, the
  * book-value excess-return model for banks/insurers — is injected into
  * valuation.dcf at assembly (assembleReport.applyFairValue), or nulled when no
@@ -2177,7 +2161,7 @@ export type ValuationUse = z.infer<typeof ValuationUseSchema>;
 
 export const FairValueSchema = z
   .object({
-    // "outside-domain": audit 2026-10-22 B-29, the DCF failed a domain test; no per-share is published.
+    // "outside-domain": D-102, the DCF failed a domain test; no per-share is published.
     status: z.enum(["available", "suppressed", "outside-domain", "dated-reference"]),
     /** Pipeline-owned admission; absent only on older stored reports. */
     auditValuation: z.object({ scenarios: z.array(ScenarioSchema), reverseDcf: ReverseDcfSchema,
@@ -2201,9 +2185,8 @@ export const FairValueSchema = z
     /** Why suppressed (ManifestEntry gaps). */
     reasons: z.array(ManifestEntrySchema),
     /**
-     * Audit 2026-10-22 C-10: the excess-return value from the fiscal-year start
-     * when the model started from the trailing four quarters and the two starts
-     * differ by more than 5pp; printed beside the headline.
+     * the excess-return value from the fiscal-year start when the model started from the trailing four quarters
+     * and the two starts differ by more than 5pp; printed beside the headline (D-102).
      */
     alternative: z.object({ label: z.string(), perShare: z.number(), upsidePct: z.number().nullable() }).strict().optional(),
   })
@@ -2268,12 +2251,12 @@ export const RouteMetricsSchema = z
   .strict();
 export type RouteMetrics = z.infer<typeof RouteMetricsSchema>;
 
-/* ------------------------------------------------------------------------ *
- * Filing disclosures — pipeline-filled from 8-K exhibits/items, periodic
- * XBRL segment facts and the quarterly statements (NVDA report #34 audit,
- * work package 3 and the data-depth part of 9). Deterministic: never
- * judge-authored. Money is in base units of `currency`.
- * ------------------------------------------------------------------------ */
+/**
+ * ------------------------------------------------------------------------ * Filing disclosures — pipeline-filled
+ * from 8-K exhibits/items, periodic XBRL segment facts and the quarterly statements (and the data-depth part of
+ * 9). Deterministic: never judge-authored. Money is in base units of `currency`.
+ * ------------------------------------------------------------------------
+ */
 
 const IsoDaySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const IsoCurrencySchema = z.string().regex(/^[A-Z]{3}$/);
@@ -2307,7 +2290,7 @@ const GuidanceBasisSchema = z.enum(["gaap", "non-gaap", "unspecified"]);
 
 export const GuidanceRowSchema = z
   .object({
-    /** Issuer fiscal label, or fiscal quarter/year when contradicted (AI-512-V1). */
+    /** Issuer fiscal label, or fiscal quarter/year when contradicted (P20). */
     period: z.string(),
     metric: GuidanceMetricSchema,
     basis: GuidanceBasisSchema,
@@ -2481,7 +2464,7 @@ export const FilingDisclosuresSchema = z
      * one-presentation growth check ran. Omitted otherwise (FMP-route and older reports).
      */
     quarterlyTrendPresentationChecked: z.literal(true).optional(),
-    /** N4b: the evidenced lender applicability reason; absent on older reports. */
+    /** P20: the evidenced lender applicability reason; absent on older reports. */
     quarterlyGrossMarginNotApplicable: z.string().optional(),
     quarterlyTrend: z.array(
       z
@@ -2491,7 +2474,10 @@ export const FilingDisclosuresSchema = z
           revenue: z.number().nullable(),
           revenueYoyPct: z.number().nullable(),
           revenueQoqPct: z.number().nullable(),
-          /** FIN-511-V1: why a growth cell uses a first-reported copy or is a dash. Optional: absent on older reports. */
+          /**
+           * D-134: record why a growth cell uses a first-reported copy or is withheld; absent on older
+           * reports.
+           */
           revenueGrowthNotes: z.array(z.string()).optional(),
           grossMarginPct: z.number().nullable(),
           operatingExpenses: z.number().nullable(),
@@ -2502,7 +2488,7 @@ export const FilingDisclosuresSchema = z
           freeCashFlow: z.number().nullable(),
           /**
            * D-63: the quarter's net gains (losses) from equity securities and
-           * non-GAAP diluted EPS, from the issuer's reconciliation (8-K EX-99).
+           * non-GAAP diluted EPS, from the issuer's reconciliation (8-K P20).
            * Optional: absent on reports written before them.
            */
           equitySecuritiesGains: z.number().nullable().optional(),
@@ -2551,11 +2537,9 @@ export const FilingDisclosuresSchema = z
     /** D-63: the issuer's statement of a non-GAAP basis change ("no longer exclude stock-based compensation"). */
     nonGaapBasisNote: z.string().nullable().optional(),
     /**
-     * Audit 2026-10-22 B-24: a results release for a period later than the
-     * newest statement period. The statements, TTM and multiples end at
-     * `statementsEnd` and do not reflect it. Revenue and diluted EPS are the
-     * release's unaudited headline figures, null unless both were read with an
-     * established currency. Optional on older reports.
+     * a results release for a period later than the newest statement period. The statements, TTM and multiples end
+     * at `statementsEnd` and do not reflect it. Revenue and diluted EPS are the release's unaudited headline
+     * figures, null unless both were read with an established currency. Optional on older reports (D-103).
      */
     newerResults: z.object({
       source: FilingRefSchema,
@@ -2567,10 +2551,9 @@ export const FilingDisclosuresSchema = z
       currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
     }).strict().optional(),
     /**
-     * Audit 2026-10-22 B-23: a 10-Q or 10-K on file for a period later than
-     * the newest statement period, whose facts did not reach the statements
-     * (companyfacts had not carried it and its XBRL instance was not merged).
-     * Optional on older reports.
+     * a 10-Q or 10-K on file for a period later than the newest statement period, whose facts did not reach the
+     * statements (companyfacts had not carried it and its XBRL instance was not merged). Optional on older
+     * reports (D-112).
      */
     newerFiling: z.object({
       source: FilingRefSchema,
@@ -2715,15 +2698,13 @@ export const MarketDataSchema = z
   .strict();
 export type MarketData = z.infer<typeof MarketDataSchema>;
 
-/* ------------------------------------------------------------------------ *
- * The judge output — everything the judge/synthesis pass must emit.
- *
- * This is the full report MINUS `meta` and `appendix`, which the pipeline
- * fills. The judge emits section content + disagreements; the job
- * runner wraps it with meta (symbol/model/cost/asOfMap) and appendix (sources
- * /manifest/verification log/cost breakdown). `.strict()` so any extra key the
- * model invents fails validation.
- * ------------------------------------------------------------------------ */
+/**
+ * ------------------------------------------------------------------------ * The judge output — everything the
+ * judge/synthesis pass must emit. * This is the full report MINUS `meta` and `appendix`, which the pipeline fills.
+ * The judge emits section content + disagreements; the job runner wraps it with meta (symbol/model/cost/asOfMap)
+ * and appendix (sources /manifest/verification log/cost breakdown). `.strict` so any extra key the model invents
+ * fails validation. ------------------------------------------------------------------------
+ */
 
 const JudgeOutputObjectSchema = z
   .object({
@@ -2836,8 +2817,7 @@ const ReportObjectSchema = z
     projections: ProjectionsSchema.optional(),
     /**
      * Deterministic bull/base/bear price targets + their trace/suppression state
-     * (pipeline-filled by assembleReport from Stage B; 2026-07-11 scenario-
-     * credibility checkpoint). Optional so persisted pre-checkpoint reports parse.
+     * (pipeline-filled by assembleReport from Stage B; P10). Optional so persisted pre-checkpoint reports parse.
      * When present and available, assembleReport also overwrites
      * valuation.scenarios[].priceTarget from it so the two never diverge.
      */
@@ -2846,7 +2826,7 @@ const ReportObjectSchema = z
     thesisTriggers: z.array(ThesisTriggerSchema).optional(),
     /**
      * Deterministic intrinsic per-share fair value + its trace/suppression state
-     * (pipeline-filled by assembleReport from Stage B; 2026-07-11 DCF-credibility
+     * (pipeline-filled by assembleReport from Stage B; P10
      * checkpoint). Optional so persisted pre-checkpoint reports parse. When present
      * and available, assembleReport also overwrites valuation.dcf.perShare +
      * upsidePct from it so the two never diverge.
@@ -2895,7 +2875,7 @@ export const AnalystPriceTargetSchema = z
 
 /**
  * One side of the case (bull or bear). Both passes emit this shape; the judge
- * receives both plus the payload. `.strict()` so extra keys fail.
+ * receives both plus the payload. `.strict` so extra keys fail.
  */
 const AnalystCaseObjectSchema = z
   .object({
@@ -2932,11 +2912,9 @@ export const ANALYST_CASE_SCHEMA = AnalystCaseObjectSchema.superRefine(
 export type AnalystCase = z.infer<typeof ANALYST_CASE_SCHEMA>;
 
 /**
- * Audit 2026-10-22 D-3: the keys of `sections` that would fail the whole
- * output on their own, which is either a key the schema lacks, or a section
- * that fails its own sub-schema or the rating-safety walk. Each section is
- * checked alone, so one bad section never condemns the others. The caller
- * applies the parser's normalization first.
+ * the keys of `sections` that would fail the whole output on their own, which is either a key the schema lacks, or
+ * a section that fails its own sub-schema or the rating-safety walk. Each section is checked alone, so one bad
+ * section never condemns the others. The caller applies the parser's normalization first (D-3).
  */
 function invalidTopLevelSections(
   schema: z.ZodObject<z.ZodRawShape>,
@@ -2951,12 +2929,12 @@ function invalidTopLevelSections(
   });
 }
 
-/** The judge-output sections in `sections` that fail on their own (audit 2026-10-22 D-3). */
+/** The judge-output sections in `sections` that fail on their own (D-3). */
 export function invalidJudgeOutputSections(sections: Record<string, unknown>): string[] {
   return invalidTopLevelSections(JudgeOutputObjectSchema, sections);
 }
 
-/** The analyst-case sections in `sections` that fail on their own (audit 2026-10-22 D-3). */
+/** The analyst-case sections in `sections` that fail on their own (D-3). */
 export function invalidAnalystCaseSections(sections: Record<string, unknown>): string[] {
   return invalidTopLevelSections(AnalystCaseObjectSchema, sections);
 }
@@ -2966,22 +2944,15 @@ export function invalidAnalystCaseSections(sections: Record<string, unknown>): s
  * ------------------------------------------------------------------------ */
 
 /**
- * Recursively force `additionalProperties: false` on every JSON-schema object
- * node that declares `properties`, so Anthropic structured outputs treats the
- * schema as closed (extra keys rejected, matching our `.strict()`
- * Zod schemas).
- *
- * z.toJSONSchema already emits `additionalProperties: false` for `.strict()`
- * (and even plain) object schemas in Zod v4, so this is a defensive pass — it
- * guarantees the invariant regardless of future Zod default changes and covers
- * any node produced without it.
- *
- * `z.record(...)` fields (e.g. meta.asOfMap) are intentionally LEFT as open
- * maps: their JSON-schema form is `{type:"object", propertyNames, additional
- * Properties: <valueSchema>}` with NO `properties` key. Those are legitimately
- * open-ended string→string maps, so we only close nodes that have an explicit
- * `properties` object. This is documented behavior — a record is the ONE place
- * a report object is not `additionalProperties:false`.
+ * Recursively force `additionalProperties: false` on every JSON-schema object node that declares `properties`, so
+ * Anthropic structured outputs treats the schema as closed (extra keys rejected, matching our `.strict` Zod
+ * schemas). * z.toJSONSchema already emits `additionalProperties: false` for `.strict` (and even plain) object
+ * schemas in Zod v4, so this is a defensive pass — it guarantees the invariant regardless of future Zod default
+ * changes and covers any node produced without it. * `z.record(...)` fields (e.g. meta.asOfMap) are intentionally
+ * LEFT as open maps: their JSON-schema form is `{type:"object", propertyNames, additional Properties:
+ * <valueSchema>}` with NO `properties` key. Those are legitimately open-ended string→string maps, so we only close
+ * nodes that have an explicit `properties` object. This is documented behavior — a record is the ONE place a
+ * report object is not `additionalProperties:false`.
  */
 export function closeAdditionalProperties<T>(schema: T): T {
   const seen = new WeakSet<object>();
@@ -3017,13 +2988,13 @@ export function closeAdditionalProperties<T>(schema: T): T {
  *
  *  - array `minItems` other than 0 or 1 ("other array constraints" — i.e.
  *    `maxItems` too — are unsupported outright regardless of value). Observed
- *    2026-07-07: `.length(3)` on {@link ScenariosSchema} (bull/base/bear)
+ *    P18: `.length(3)` on {@link ScenariosSchema} (bull/base/bear)
  *    emits `minItems:3,maxItems:3` → "For 'array' type, 'minItems' values
  *    other than 0 or 1 are not supported".
- *  - numeric `minimum`/`maximum`/`multipleOf`. Observed 2026-07-08 (AFTER the
+ *  - numeric `minimum`/`maximum`/`multipleOf`. observed (AFTER the
  *    array fix above unmasked it — Anthropic reports one violation class per
  *    request, so fixing the first surfaces the next): `probability:
- *    z.number().min(0).max(1)` on the same ScenarioSchema → "For 'number'
+ *    z.number.min(0).max(1)` on the same ScenarioSchema → "For 'number'
  *    type, properties maximum, minimum are not supported".
  *
  * The full disallowed list per the docs also includes string `minLength`/
@@ -3033,7 +3004,7 @@ export function closeAdditionalProperties<T>(schema: T): T {
  *
  * Strips all of the above from the REQUEST schema only — the original Zod
  * schema still enforces every bound when the response is parsed
- * (`.safeParse()`); a model that violates a stripped constraint is caught
+ * (`.safeParse`); a model that violates a stripped constraint is caught
  * there and fed back through the existing judge retry loop
  * (MAX_JUDGE_RETRIES) rather than the request never reaching the model at all.
  *
@@ -3044,8 +3015,8 @@ export function closeAdditionalProperties<T>(schema: T): T {
  * from the wire schema, appends them to descriptions, and validates
  * client-side against the original").
  * This codebase hand-builds the request schema instead of using that helper
- * (`zodOutputFormat`/`client.messages.parse()`), so this function is the
- * substitute: without it, e.g. `probability: z.number().min(0).max(1)` would
+ * (`zodOutputFormat`/`client.messages.parse`), so this function is the
+ * substitute: without it, e.g. `probability: z.number.min(0).max(1)` would
  * reach the model as a bare, unconstrained number with no indication anywhere
  * in the schema that it must be within [0,1].
  */
@@ -3117,8 +3088,8 @@ export function relaxUnsupportedConstraints<T>(schema: T): T {
  * Anthropic additionally caps schema COMPLEXITY, separate from the supported-
  * keyword list above: "Schemas contains too many parameters with union types
  * (N parameters with type arrays or anyOf)... limit: 16 parameters with
- * unions" (400, observed live 2026-07-08 on JUDGE_OUTPUT_SCHEMA at 17 — every
- * `.nullable()` field compiled to a 2-branch `anyOf: [T, {type:"null"}]`
+ * unions" (400, observed on JUDGE_OUTPUT_SCHEMA at 17 — every
+ * `.nullable` field compiled to a 2-branch `anyOf: [T, {type:"null"}]`
  * (newer emitters also use `type: [T, "null"]` for plain primitives),
  * and JUDGE_OUTPUT_SCHEMA had 21 of them once `reused:
  * "ref"` (toStructuredJsonSchema) collapsed the duplicate-shape inlining that
@@ -3160,11 +3131,11 @@ function collapseNullableUnion(node: Record<string, unknown>): boolean {
 /**
  * Parse-time counterpart to {@link collapseNullableComplexity}: walks a Zod
  * schema alongside a raw (just-`JSON.parse`d) value and, for every field the
- * schema types as `.nullable()` (not `.optional()`) whose key is ABSENT from
+ * schema types as `.nullable` (not `.optional`) whose key is ABSENT from
  * the data, injects an explicit `null` before validation. Needed because the
  * REQUEST schema now lets the model omit a "no value" field entirely instead
- * of sending `null` — without this, `.safeParse()` would reject an omitted
- * nullable field (Zod's `.nullable()` accepts `T | null`, not `T | undefined`).
+ * of sending `null` — without this, `.safeParse` would reject an omitted
+ * nullable field (Zod's `.nullable` accepts `T | null`, not `T | undefined`).
  * Non-destructive: returns a new value, never mutates the input.
  */
 export function fillNullableGaps(schema: z.ZodType, data: unknown): unknown {
@@ -3259,11 +3230,11 @@ export function collapseNullableComplexity<T>(schema: T): T {
 
 /**
  * Anthropic's "too many optional parameters" cap (400: "Schemas contains too
- * many optional parameters (N)... limit: 24", observed live 2026-07-08 at 26
+ * many optional parameters (N)... limit: 24", observed at 26
  * even after {@link collapseNullableComplexity} and consolidating the four
  * forensic-score schemas into one shared $ref) is a SEPARATE complexity budget
  * from the union-type one. A few remaining optional fields are optional on the
- * shared Zod schema ONLY so `ReportSchema.safeParse()` can still parse older
+ * shared Zod schema ONLY so `ReportSchema.safeParse` can still parse older
  * PERSISTED reports that predate the field (spec 1.0.0 → 1.1.0) — a freshly
  * generated judge output always includes them (each field's own docstring
  * says so: "the judge is prompted to..." / "the judge fills it on 1.1.0+").
@@ -3274,7 +3245,7 @@ export function collapseNullableComplexity<T>(schema: T): T {
  * unambiguous among the currently-OPTIONAL set (verified — see the call site).
  *
  * Also includes `ExecutiveEvidenceSchema`'s four array fields and `outlook.tam`
- * (all `z.array(SourcedClaimSchema).optional()`, no backward-compat docstring):
+ * (all `z.array(SourcedClaimSchema).optional`, no backward-compat docstring):
  * safe to force required for a DIFFERENT reason — an array has a genuine,
  * non-fabricated "nothing here" representation (`[]`) that a bare scalar
  * doesn't, so requiring the key costs nothing even when the judge has no
@@ -3390,14 +3361,12 @@ export function removeVerifierOwnedRequestFields<T>(schema: T): T {
 }
 
 /**
- * The multiples table is replaced WHOLESALE by `applyMultiples` from computed
- * Stage B numbers, and the judge is told to emit `[]`. `ownHistoryObservations`
- * (N, the number of quarters a rank is taken among) is therefore pipeline-owned
- * in exactly the way `verified` is verifier-owned, so it is removed from the
- * REQUEST schema — which also keeps it off Anthropic's optional-parameter
- * counter, the reason N was not carried as a row field before (WS6 review,
- * SHOULD-FIX 3). The Zod field stays `.optional()` so persisted reports written
- * before the review still parse.
+ * The multiples table is replaced WHOLESALE by `applyMultiples` from computed Stage B numbers, and the judge is
+ * told to emit `[]`. `ownHistoryObservations` (N, the number of quarters a rank is taken among) is therefore
+ * pipeline-owned in exactly the way `verified` is verifier-owned, so it is removed from the REQUEST schema — which
+ * also keeps it off Anthropic's optional-parameter counter, the reason N was not carried as a row field before
+ * (WS6 review, SHOULD-FIX 3). The Zod field stays `.optional` so persisted reports written before the review still
+ * parse.
  */
 export function removePipelineOwnedRequestFields<T>(schema: T): T {
   const seen = new WeakSet<object>();
@@ -3552,7 +3521,7 @@ function withoutRequestProperty<T>(schema: T, key: string): T {
 /**
  * JSON Schema the bull/bear passes request.
  *
- * D-185 (ASML Opus 5.5 paid run, 2026-11-03): the request schema required
+ * D-185 : the request schema required
  * `sourceId` beside `source` on every claim and evidence number. The analyst has
  * no second identity to give, so Opus wrote the placeholder "x" (or "") into the
  * first claim and closed the case: one thesis claim and every other section

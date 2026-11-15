@@ -1,11 +1,8 @@
 import type { Executive } from "@/report/schema";
 
 /**
- * Why an executive card lacks an assessment. Reports stored before the FIGR
- * extra-high audit (B2-09, 2026-11-02) carry one generic sentence for either
- * gap, so "execution and/or guidance-versus-actual evidence is absent" printed
- * beside an admitted execution grade. Readers now see which assessment is
- * missing; the stored text is mapped at read time.
+ * D-163: name the specific missing executive assessment. Map the older combined execution-or-guidance gap
+ * sentence at read time so an admitted grade does not appear beside a claim that its evidence is absent.
  */
 export const LEGACY_EXECUTIVE_ASSESSMENT_REASON =
   "Attributable, validated execution and/or guidance-versus-actual evidence is absent. A citation, rejected claim, compensation or job title alone cannot establish the missing assessment.";

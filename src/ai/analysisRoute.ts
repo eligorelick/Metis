@@ -1,7 +1,7 @@
 /**
  * Which AI route a report runs on. Pure and browser-safe: no credential
  * material is read here, so nothing a label could leak ever reaches it.
- * The server wrapper `describeAnalysisRoute()` lives in connections.ts.
+ * The server wrapper `describeAnalysisRoute` lives in connections.ts.
  */
 import { autoPreferenceIds, resolveRegistryModel } from "@/models/registry";
 import { subscriptionModel, type AiSelection } from "./contracts";

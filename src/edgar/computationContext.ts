@@ -107,7 +107,7 @@ function slotFor(namespace: string, input: object | string, key: string): { get:
 /**
  * Compute once per (namespace, input identity or string, canonical args) within
  * the open context; every caller receives its own deep copy. Outside a context,
- * or when `args` cannot be encoded exactly, this is just `compute()`.
+ * or when `args` cannot be encoded exactly, this is just `compute`.
  */
 export function memoize<T>(namespace: string, input: object | string, args: unknown, compute: () => T): T {
   const key = active === null ? null : canonicalKey(args);

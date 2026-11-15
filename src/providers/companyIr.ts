@@ -196,9 +196,9 @@ export interface CompanyIrMaterialEvent {
 }
 export interface CompanyIrMaterialEvents { events: CompanyIrMaterialEvent[]; notes: string[] }
 
-/** Reviewed issuer alias, not a generic single-word legal-name relaxation.
- * Adobe's official site and 2026-09-23 blog announcement bind Adobe to Adobe Inc.
- * https://blog.adobe.com/en/publish/2026/09/23/adobe-completes-acquisition-of-topaz-labs
+/**
+ * P5: admit only the explicit issuer alias bound by its reviewed official-site evidence; this is not a generic
+ * relaxation for single-word legal names.
  */
 export function verifiedCompanyIrAliases(issuer: ConfirmedIssuerIdentity): string[] {
   const website = safeUrl(issuer.verifiedWebsite);
@@ -207,7 +207,7 @@ export function verifiedCompanyIrAliases(issuer: ConfirmedIssuerIdentity): strin
 }
 
 /** Reviewed source index, not a pinned event, search result or event date.
- * Adobe's static homepage delegates navigation to client-side fragments. Its
+ * issuer's static homepage delegates navigation to client-side fragments. Its
  * public blog index publishes featuredCards in a gzip CaaS configuration.
  * Exact issuer binding and the final article's subject/date checks still apply.
  */

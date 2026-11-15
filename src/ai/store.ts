@@ -62,7 +62,7 @@ const aiStoreSchema = z.object({
 }).passthrough();
 
 export const AI_RUNTIME_CONFLICT_MESSAGE = "AI connections are active in another Metis server. Use that server or stop it before connecting here.";
-/** Where the operator is sent: the OPERATIONS.md troubleshooting row for this refusal (audit 2026-10-22 F-12). */
+/** Where the operator is sent: the OPERATIONS.md troubleshooting row for this refusal (D-111). */
 export const AI_RUNTIME_CONFLICT_HELP = 'See "AI store is held by another server" in the troubleshooting table of docs/OPERATIONS.md.';
 
 export function isAiRuntimeConflict(error: unknown): boolean {
@@ -77,11 +77,9 @@ export function claimAiRuntime(store: AiStore): void {
 }
 
 /**
- * Audit 2026-10-22 F-12: claim the runtime before a plan-connection job
- * fetches any data, so a connection owned by another Metis server stops the
- * job at once instead of after the data stage. Without a saved store there is
- * no connection to own, and the pass reports that itself. Throws the same
- * errors `claimAiRuntime` and `withAiStore` throw.
+ * claim the runtime before a plan-connection job fetches any data, so a connection owned by another Metis server
+ * stops the job at once instead of after the data stage. Without a saved store there is no connection to own, and
+ * the pass reports that itself. Throws the same errors `claimAiRuntime` and `withAiStore` throw (D-111).
  */
 export async function claimAiRuntimeForRun(): Promise<void> {
   if (!fs.existsSync(filePath())) return;

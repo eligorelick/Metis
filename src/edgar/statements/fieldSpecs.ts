@@ -129,7 +129,7 @@ const LONG_TERM_DEBT_COMPONENT_DISCLOSURE =
 const INCLUSIVE_DEBT_COMPONENT_TAGS: ReadonlySet<string> = new Set(["DebtLongtermAndShorttermCombinedAmount", "NotesPayable", "SeniorNotes", "LoansPayable", "SecuredDebt", "ConvertibleNotesPayable"]);
 /* D-100: The inclusive long-term debt and finance-lease tag already holds its current maturities. */
 const INCLUSIVE_LONG_TERM_TAG = "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities";
-/* D-100: Compose debt from compatible filed components without counting an inclusive amount twice. */
+/** D-100: Current-portion tags paired with LongTermNotesAndLoans; the noncurrent line excludes them. */
 const NOTES_AND_LOANS_CURRENT_TAGS: readonly string[] = tagsFor("longTermNotesAndLoansCurrent");
 /**
  * Whether a long-term-debt figure was composed from tags that hold current debt
@@ -414,8 +414,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   epsDiluted: lineItemChain("epsDiluted", "perShare"),
   weightedAverageShsOut: lineItemChain("weightedAverageShsOut", "shares"),
   weightedAverageShsOutDil: lineItemChain("weightedAverageShsOutDil", "shares"),
-  // Read only by standInEpsFromContinuingOperations, which removes them from
-  /* D-112: Disclose when continuing-operations EPS stands in for the missing net-income EPS line. */
+  // D-112: standInEpsFromContinuingOperations alone reads these fields and removes them from emitted rows.
   [CONTINUING_EPS_FIELDS.eps]: lineItemChain(CONTINUING_EPS_FIELDS.eps, "perShare"),
   [CONTINUING_EPS_FIELDS.epsDiluted]: lineItemChain(CONTINUING_EPS_FIELDS.epsDiluted, "perShare"),
   ...Object.fromEntries(DISCONTINUED_ELEMENT_FIELDS.map((element) => [element.field, element.spec])),
@@ -445,8 +444,7 @@ function describeDerivedEbit(ctx: {
   const head = `EBIT derived as ${named}: the filer reports no OperatingIncomeLoss line`;
   const parts: string[] = [];
   const withAmount = (label: string): string => (ctx.amounts[label] === undefined ? label : `${label} (${ctx.amounts[label]})`);
-  // Components of the aggregate the filer tags stand in for it when it is not filed, or is filed on another basis
-  /* D-134: Explain each missing or unusable component of a derived EBIT figure. */
+  // D-134: Filed components stand in for an aggregate absent or filed on another basis than this row.
   const aggregate = "NonoperatingIncomeExpense";
   const aggregateProblem = ctx.unusable.find((u) => u.label === aggregate)?.problem;
   const standInComponents = ctx.unavailable.includes(aggregate) || aggregateProblem !== undefined
@@ -569,7 +567,12 @@ const RESTRICTED_CASH_CURRENT_TAGS = tagsFor("restrictedCashCurrent");
 const RESTRICTED_CASH_NONCURRENT_TAGS = tagsFor("restrictedCashNoncurrent");
 
 const BALANCE_CHAINS: Record<string, ChainSpec> = {
-  /* D-105: Prefer current cash evidence and disclose cash or restricted-cash stand-ins. */
+  /**
+   * D-105: a bank cash tag can go stale while CashAndDueFromBanks carries operating cash. A combined
+   * restricted-plus-unrestricted total establishes available cash only when the same filing tags both current
+   * and noncurrent restricted parts. AtCarryingValue covers current restrictions only; try pure
+   * restricted-cash variants after the cash-and-equivalents variants.
+   */
   cashAndCashEquivalents: {
     kind: "chain", unit: "money", steps: [
       lineItemChain("cashAndCashEquivalents", "money"),
@@ -673,8 +676,7 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
     unit: "money",
     steps: [
       lineItemChain("longTermDebt", "money"),
-      // Noncurrent notes and loans with their separately tagged current
-      /* D-100: Compose debt from compatible filed components without counting an inclusive amount twice. */
+      // D-100: Combine noncurrent notes and loans with their current portion; never serve the current portion alone.
       {
         kind: "chain",
         unit: "money",
@@ -720,9 +722,9 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
   retainedEarnings: lineItemChain("retainedEarnings", "money"),
   accumulatedOtherComprehensiveIncomeLoss: lineItemChain("accumulatedOtherComprehensiveIncomeLoss", "money"),
   /**
-   * D-108: When no parent-equity line is filed, derive parent equity from consolidated equity less
-   * an established NCI allocation. Without either the parent line or the allocation, parent equity
-   * remains unavailable; consolidated equity can still support consolidated operating returns.
+   * D-248: use filed parent equity, else consolidated equity less an established NCI allocation. Without a
+   * parent line or allocation, parent equity is unavailable; consolidated equity may still support
+   * consolidated operating returns.
    */
   totalStockholdersEquity: {
     kind: "chain",

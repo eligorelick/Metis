@@ -131,12 +131,12 @@ const READERS = {
     codes: new Set<StatementConflictCause>(["vendor-sec-value-conflict"]),
     legacy: (reason) => legacyValueComparison(reason, "cash"),
   },
-  /** D-261 review: the lease comparison, on the operating/finance lease field only. */
+  /** D-261: the lease comparison, on the operating/finance lease field only. */
   vendorSecLease: {
     codes: new Set<StatementConflictCause>(["vendor-sec-value-conflict"]),
     legacy: (reason) => legacyValueComparison(reason, "lease"),
   },
-  /** D-261 review: complete matched temporary-equity categories may replace this old comparison. */
+  /** D-261: complete matched temporary-equity categories may replace this old comparison. */
   vendorSecTemporaryEquity: {
     codes: new Set<StatementConflictCause>(["vendor-sec-value-conflict"]),
     legacy: (reason) => legacyValueComparison(reason, "temporary"),

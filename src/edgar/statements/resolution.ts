@@ -283,7 +283,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           return r;
         }
         // A presentation refusal ends the field in every chain: no stand-in, derivation or other
-        // tag list may serve it (D-134 C1). Other refusal kinds end only the chains that ask
+        // tag list may serve it (D-134). Other refusal kinds end only the chains that ask
         // (`stopOnRefusal`).
         if (notes.presentationRefusals.length > presentationBefore) return null;
         if (spec.stopOnRefusal === true && notes.refusals.length > refusalsBefore) return null;
@@ -454,7 +454,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         if (refusedTags.includes(rule.partTag)) return rule.disclose;
         if (rule.discloseRefiled === undefined) return null;
         const { r: child } = probe(rule.partTag, true); /**
-         * Magnitude-only: probe the period interest for taxonomy nesting, including
+         * D-134: Probe the period interest by magnitude for taxonomy nesting, including
          * presentation-refused quarters.
          */
         return child !== null && child.unit === present[0]!.unit ? rule.discloseRefiled : null;
@@ -602,8 +602,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
             const r = resolve(tag, spec.unit);
             if (r === null && notes.presentationRefusals.length > presentationBefore) {
               // A refused adjustment is not an untagged one: dropping it would publish a figure
-              // that still holds the item, with a disclosure that says the filer tags none (D-134
-              // I4).
+              // that still holds the item, with a disclosure that says the filer tags none (D-134).
               notes.refusePresentation(
                 `${field} not derived: ${adjustment.label} for the period is withheld (${notes.presentationRefusals[notes.presentationRefusals.length - 1]})`,
               );
@@ -618,7 +617,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         /* D-134: An absent part may be skipped only beside its established filed aggregate; otherwise refuse the incomplete derivation. */
         for (const { part, problem, nested } of deferred) {
           if (nested !== undefined) {
-            notAdded.push(nested); // a refused part the nesting leaves out (I-1); the aggregate served
+            notAdded.push(nested); // D-134: the served aggregate makes this refused nested part unnecessary
             continue;
           }
           const rule = part.optionalWhenAdjustment!;
@@ -643,8 +642,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           );
           return null;
         }
-        // A part the taxonomy nests inside a subtracted aggregate is already
-        /* D-134: Do not add a component already included in the served aggregate. */
+        // D-134: A part nested inside a subtracted aggregate is already in it, so do not add it back.
         for (const rule of spec.notAddedWhen ?? []) {
           const inside = [...resolvedByLabel.values()].some((r) => r.tags.includes(rule.adjustmentTag));
           const index = present.findIndex((r) => r.tags.includes(rule.partTag));

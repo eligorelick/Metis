@@ -429,7 +429,7 @@ function ExtraAuditTables({ tables }: { tables: readonly (ReportAuditTable | Bod
 
 export function CompositeScorecard({ scores }: { scores: Scoring }) {
   const c = scores.composite;
-  // F-19: no letter under the evidence floor; the qualifier inside 45–55.
+  // P20: no letter under the evidence floor; the qualifier inside 45–55.
   const shown = compositeDisplay(scores);
   return (
     <div className="dossier-scorecard border border-edge-strong bg-panel">
@@ -540,7 +540,7 @@ export function BusinessBriefBlock({ report }: { report: Report }) {
 }
 
 /** Q1: dated recent developments, read after the executive summary. Absent on saved reports. */
-/** D-282 review round 2 (lead decision): the caption on an AI-authored table, card or row group, as a whole. */
+/** D-282: the caption on an AI-authored table, card or row group, as a whole. */
 export function AiBlockCaption({ show }: { show?: boolean }) {
   return show ? <p className="ai-block text-[10px] italic leading-snug text-muted">{AI_BLOCK_CAPTION}</p> : null;
 }
@@ -940,7 +940,7 @@ export function BalanceSheetSection({
 }) {
   // One identity map per section: the capital bridge registers each figure twice.
   const seen = new Map<string, FigureRow>();
-  // RPT-216: register the same metric/basis identities the subsequent rows use.
+  // P20: register the same metric/basis identities the subsequent rows use.
   figureRows(withoutTabled(report, balanceSheet.graded?.keyNumbers ?? []).kept, seen);
   const blocks: Array<{
     label: string;
@@ -1021,10 +1021,8 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
             </div>
             <span className="text-right text-[10px] leading-snug text-muted">
               {
-                // A 0–100 percentile rank among N quarters, printed the way
-                // the Markdown and print exports print it; "rank 85 of 12
-                // quarters" read as an impossible ordinal (audit
-                // 2026-09-06, F214).
+                // A 0–100 percentile rank among N quarters, printed the way the Markdown and print exports print
+                // it; "rank 85 of 12 quarters" read as an impossible ordinal.
                 ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations)
               }
             </span>
@@ -1161,7 +1159,7 @@ export function ValuationSection({
               </span>
             </div>
           )}
-          {/* Audit 2026-10-22 F-13: substituted inputs are named beside the value they moved. */}
+          {/** substituted inputs are named beside the value they moved (D-111). */}
           {headline.degradedCaveat !== null && (
             <p className="text-[11px] leading-snug text-warn">{headline.degradedCaveat}</p>
           )}
@@ -1811,14 +1809,11 @@ const SIGNIFICANCE_TONE: Record<"high" | "medium" | "low", Tone> = {
 };
 
 /**
- * The Catalysts & Risks panel — the design requires it to be VISUALLY PROMINENT.
- * Rendered with a strong accent border, in manifest order as section 10
- * (between Competitive and Outlook; it is NOT hoisted above the numbered
- * sections — audit 2026-09-06, F215). The weight comes from the border,
- * the significance chips and the two-column layout,
- * Catalysts are a dated
- * timeline with direction arrows + significance; risks are placed on a
- * severity × probability matrix and also listed with their sources.
+ * The Catalysts & Risks panel — the design requires it to be VISUALLY PROMINENT. Rendered with a strong accent
+ * border, in manifest order as section 10 (between Competitive and Outlook; it is NOT hoisted above the numbered
+ * sections —, P9). The weight comes from the border, the significance chips and the two-column layout, Catalysts
+ * are a dated timeline with direction arrows + significance; risks are placed on a severity × probability matrix
+ * and also listed with their sources.
  */
 export function CatalystsRisksPanel({
   catalystsRisks,
@@ -1827,7 +1822,7 @@ export function CatalystsRisksPanel({
   extraTables = [],
   aiAuthored = false,
 }: {
-  /** D-282 review round 2: caption the AI-written catalyst and risk lists. */
+  /** D-282: caption the AI-written catalyst and risk lists. */
   aiAuthored?: boolean;
   catalystsRisks: CatalystsRisks;
   index?: number;

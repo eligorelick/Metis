@@ -1,16 +1,11 @@
 /**
- * U.S. Treasury daily par yield curve, 10-year point (audit 2026-10-22 B-4).
- *
- * Server-only. The last source in the risk-free fallback chain, used only when
- * FRED DGS10 (keyed, then fredgraph.csv), FMP's treasury endpoint and the last
- * good cached DGS10 observation are all unavailable. FRED's DGS10 is the
- * Federal Reserve's H.15 copy of this same Treasury par-curve 10-year point, so
- * it is the same rate from its primary publisher, not a proxy.
- *
- * The yearly CSV lists one row per business day, newest first, with a `Date`
- * column (MM/DD/YYYY) and one column per tenor. Columns are found by header
- * name, so an added tenor does not move the 10-year read; any other shape is a
- * disclosed gap, never a guessed number. No key; no identity is sent.
+ * U.S. Treasury daily par yield curve, 10-year point. * Server-only. The last source in the risk-free fallback
+ * chain, used only when FRED DGS10 (keyed, then fredgraph.csv), FMP's treasury endpoint and the last good cached
+ * DGS10 observation are all unavailable. FRED's DGS10 is the Federal Reserve's H.15 copy of this same Treasury
+ * par-curve 10-year point, so it is the same rate from its primary publisher, not a proxy. * The yearly CSV lists
+ * one row per business day, newest first, with a `Date` column (MM/DD/YYYY) and one column per tenor. Columns are
+ * found by header name, so an added tenor does not move the 10-year read; any other shape is a disclosed gap,
+ * never a guessed number. No key; no identity is sent (D-111).
  */
 
 import "server-only";

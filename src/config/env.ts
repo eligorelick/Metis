@@ -400,7 +400,7 @@ export function getConfig(): ThesisConfig {
   return cached;
 }
 
-/** Test hook: drop the cache so the next getConfig() re-reads process.env. */
+/** Test hook: drop the cache so the next getConfig re-reads process.env. */
 export function resetConfigCache(): void {
   cached = undefined;
 }

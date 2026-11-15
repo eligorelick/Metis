@@ -55,10 +55,8 @@ const DAY_SECONDS = 86_400;
 export const YAHOO_TTLS = { history: 24 * HOUR, quote: 15 * MINUTE } as const;
 
 /**
- * Yahoo requires a browser User-Agent. The former application-suffixed
- * header received HTML 404s even for supported symbols (SPCX and XLI,
- * verified 2026-10-15); this browser header received chart JSON on the same
- * requests. Provider identity is recorded separately in every sourced result.
+ * P24: use a browser User-Agent to obtain chart JSON; the application-suffixed header can receive HTML errors
+ * for supported symbols. Record provider identity separately in every sourced result.
  */
 export const YAHOO_DEFAULT_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
@@ -82,11 +80,9 @@ export interface YahooMeta {
   fiftyTwoWeekHigh: number | null;
   fiftyTwoWeekLow: number | null;
   /**
-   * Yahoo's `chartPreviousClose`: the close BEFORE THE CHART RANGE, not the
-   * prior session's. Under `range=5d` it is the close five sessions back
-   * (verified live 2026-09-06: AAPL gave 319.7 under 5d and 309.38 under 1mo
-   * while the true prior-session close was 328.21). Kept under its real name;
-   * the quote uses {@link YahooMeta.previousSessionClose}.
+   * Yahoo's `chartPreviousClose`: the close BEFORE THE CHART RANGE, not the prior session's. Under `range=5d` it
+   * is the close five sessions back. Kept under its real name; the quote uses {@link
+   * YahooMeta.previousSessionClose}.
    */
   chartPreviousClose: number | null;
   /**
@@ -282,10 +278,8 @@ function num(value: number | null | undefined): number | null {
 }
 
 /**
- * The prior session's close from the chart bars (see
- * {@link YahooMeta.previousSessionClose}); `chartPreviousClose` is anchored to
- * the range and gave a five-session move labelled as the daily change (audit
- * 2026-09-06, F225).
+ * The prior session's close from the chart bars (see {@link YahooMeta.previousSessionClose}); `chartPreviousClose`
+ * is anchored to the range and gave a five-session move labelled as the daily change.
  */
 function previousSessionClose(result: ChartResult): number | null {
   const stamps = result.timestamp ?? [];
@@ -481,14 +475,12 @@ export class YahooClient {
       const low = quote?.low?.[i] ?? null;
       const close = quote?.close?.[i] ?? null;
       const volume = quote?.volume?.[i] ?? null;
-      // A halted session comes back as nulls. Emitting it as a zero bar would
-      // poison every return, drawdown and moving average. An IN-PROGRESS
-      // session during market hours is reported to arrive as an ordinary bar
-      // (timestamp at the last trade, partial volume); it is kept here and
-      // dated to its session, which the FMP path's "no bar until the close"
-      // premise does not share — a limitation of the unofficial endpoint,
-      // recorded rather than filtered because it could not be verified
-      // against a live session during the 2026-09-06 audit (F228).
+      // A halted session comes back as nulls. Emitting it as a zero bar would poison every return, drawdown and
+      // moving average. An IN-PROGRESS session during market hours is reported to arrive as an ordinary bar
+      // (timestamp at the last trade, partial volume); it is kept here and dated to its session, which the FMP
+      // path's "no bar until the close" premise does not share — a limitation of the unofficial endpoint, recorded
+      // rather than filtered because it could not be verified against a live session during the runtime failure
+      // (P9).
       if (close === null || open === null || high === null || low === null) continue;
       rows.push({
         symbol: ySymbol,

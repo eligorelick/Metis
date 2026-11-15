@@ -34,10 +34,9 @@ const DATE_PHRASE_WORDS = new Set(["on", "by", "as", "of", "around", "about", "a
   "saturday", "sunday"]);
 
 /**
- * The comma pieces of a clause that state the event on `date` (review M-2). A
- * comma splits the clause, so a dividend or other dated statement beside an
- * earnings phrase is left alone; a bare date phrase set off by a comma reads
- * with the piece beside it. `pieces` keeps the commas (odd indices) for rejoining.
+ * The comma pieces of a clause that state the event on `date`. A comma splits the clause, so a dividend or other
+ * dated statement beside an earnings phrase is left alone; a bare date phrase set off by a comma reads with the
+ * piece beside it. `pieces` keeps the commas (odd indices) for rejoining.
  */
 function eventPieces(clause: string, date: string, eventContext = false): { pieces: string[]; hits: Set<number> } {
   // A comma inside "November 12, 2026" belongs to the date, not a new clause.
@@ -119,9 +118,8 @@ export function guardEarningsSchedule<T extends object>(input: T, notes: readonl
       const qualifier = event.status === "company-newswire"
         ? `company-announced via newswire on ${event.announcedAt}; company-hosted release or SEC confirmation not established`
         : `${provider} calendar estimate; not confirmed by an SEC filing or a company-hosted release`;
-      // Pre-run check for the FIGR extra-high run (2026-11-02): a date the prose
-      // already encloses in parentheses ("(scheduled for 2026-11-12)") takes the
-      // qualifier after a comma instead of a nested parenthesis.
+      // a date the prose already encloses in parentheses ("(scheduled for 2026-11-12)") takes the qualifier after
+      // a comma instead of a nested parenthesis.
       const inline = event.status === "company-newswire" ? qualifier : `${provider === "FMP" ? "an" : "a"} ${provider} calendar estimate not confirmed by an SEC filing or a company-hosted release`;
       const qualifyDates = (piece: string): string => {
         if (piece.includes(qualifier) || piece.includes(inline)) return piece;

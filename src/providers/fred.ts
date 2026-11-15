@@ -7,7 +7,7 @@
  *     Observation values are STRINGS; missing = "." — skipped here.
  *     Server-side transforms via `units` (pc1 = YoY, chg, ...).
  * (b) Keyless fallback: fred.stlouisfed.org/graph/fredgraph.csv?id=SERIES —
- *     undocumented but LIVE-verified (2026-07-05/06). Single series only
+ *     an undocumented fallback. Single series only
  *     (`cosd` is ignored on multi-id requests). "." / empty rows skipped.
  *     `units` transforms are computed CLIENT-SIDE from the official ALFRED
  *     formulas when in CSV mode (FRED cannot apply them keyless); derived
@@ -74,8 +74,7 @@ export interface FredSeriesSpec {
 }
 
 /**
- * The 12-series core macro dashboard (all IDs
- * LIVE-verified 2026-07-05).
+ * P20: the twelve core macro series, addressed by their provider series identifiers.
  */
 export const CORE_SERIES: readonly FredSeriesSpec[] = [
   { id: "DGS10", label: "10-Year Treasury Constant Maturity", units: "lin" },
@@ -92,7 +91,9 @@ export const CORE_SERIES: readonly FredSeriesSpec[] = [
   { id: "VIXCLS", label: "CBOE Volatility Index (VIX)", units: "lin" },
 ];
 
-/** The 11 GICS sectors. */
+/**
+ * P14: fetch the routed GICS sector’s FRED series on demand in addition to CORE_SERIES.
+ */
 export type GicsSector =
   | "Energy"
   | "Materials"
@@ -108,7 +109,7 @@ export type GicsSector =
 
 /**
  * GICS sector → FRED series ids (all LIVE-verified
- * 2026-07-05). Fetched on demand for the routed sector, on top of CORE_SERIES.
+ * the provider contract). Fetched on demand for the routed sector, on top of CORE_SERIES.
  */
 export const SECTOR_SERIES: Record<GicsSector, readonly string[]> = {
   Energy: ["DCOILWTICO", "DHHNGSP", "DCOILBRENTEU", "GASREGW"],
@@ -188,8 +189,7 @@ const FRED_NATIVE_UNITS: Readonly<Record<string, string>> = {
  * dollars per barrel — is shown as a plain count or currency amount (the
  * served value × `scale`) with the conversion named in a section note. A
  * figure rendered in the native spelling ("thousands") could not be
- * registered at all, so every citation of it failed as unknown-source (live
- * haiku CAT run, 2026-09-02).
+ * registered at all, so every citation of it failed as unknown-source (P20).
  */
 export interface FredFigureUnit {
   /** Unit rendered on the figure and matched by the verification pass. */
@@ -206,10 +206,8 @@ const FRED_FIGURE_UNITS: Readonly<Record<string, FredFigureUnit>> = {
   pp: AS_SERVED("pp"),
   index: AS_SERVED("index"),
   thousands: { unit: "count", scale: 1e3, qualifier: "persons (FRED serves thousands; shown ×1,000)" },
-  // HOUST and TOTALSA are published at a seasonally adjusted ANNUAL rate; the
-  // rate basis is part of the unit, and a qualifier that dropped it let the
-  // model read a 1.42-million annualised starts figure as a month's count
-  // (audit 2026-09-06, F224).
+  // HOUST and TOTALSA are published at a seasonally adjusted ANNUAL rate; the rate basis is part of the unit, and
+  // a qualifier that dropped it let the model read a 1.42-million annualised starts figure as a month's count.
   "thousands of units": { unit: "count", scale: 1e3, qualifier: "units at a seasonally adjusted annual rate (FRED serves thousands; shown ×1,000)" },
   "millions of units": { unit: "count", scale: 1e6, qualifier: "units at a seasonally adjusted annual rate (FRED serves millions; shown ×1,000,000)" },
   "USD/bbl": { unit: "USD", scale: 1, qualifier: "USD per barrel" },
@@ -219,7 +217,7 @@ const FRED_FIGURE_UNITS: Readonly<Record<string, FredFigureUnit>> = {
   "USD/tonne": { unit: "USD", scale: 1, qualifier: "USD per tonne" },
   "USD millions": { unit: "USD", scale: 1e6, qualifier: "USD (FRED serves millions; shown ×1,000,000)" },
   "USD billions": { unit: "USD", scale: 1e9, qualifier: "USD (FRED serves billions; shown ×1,000,000,000)" },
-  // PCE, PCEND and PCEDG are "Billions of Dollars, Seasonally Adjusted Annual Rate" (AI-310).
+  // PCE, PCEND and PCEDG are "Billions of Dollars, Seasonally Adjusted Annual Rate" (P20).
   "USD billions SAAR": { unit: "USD", scale: 1e9, qualifier: "USD at a seasonally adjusted annual rate (FRED serves billions; shown ×1,000,000,000)" },
 };
 const PERCENT_TRANSFORMS: ReadonlySet<FredUnits> = new Set<FredUnits>(["pc1", "pch", "pca", "cch", "cca"]);
@@ -235,7 +233,7 @@ export function fredFigureUnit(seriesId: string, units: FredUnits): FredFigureUn
   const native = FRED_NATIVE_UNITS[seriesId.trim().toUpperCase()];
   const base = native === undefined ? AS_SERVED("") : FRED_FIGURE_UNITS[native] ?? AS_SERVED(native);
   // FRED's `chg` is "Change" from the prior observation: the figure is a
-  // difference, not the level the series' native unit describes (AI-310).
+  // difference, not the level the series' native unit describes (P20).
   if (units !== "chg") return base;
   const level = base.qualifier ?? base.unit;
   return { ...base, qualifier: `${level === "" ? "" : `${level}, `}as the change from the prior observation` };
@@ -460,10 +458,9 @@ interface HttpText {
 const MAINTENANCE_TITLE = /<title[^>]*>\s*Site Maintenance\s*\|\s*St\. Louis Fed\s*</i;
 
 /**
- * Audit 2026-10-22 B-1: neither the API (JSON) nor fredgraph.csv (CSV) ever
- * returns HTML as data, so an HTTP 200 whose body opens with '<' is an outage or
- * maintenance page. It is retried like a 503. The body decides, not the content
- * type: an edge that labels a good CSV text/html must not turn it into an outage.
+ * neither the API (JSON) nor fredgraph.csv (CSV) ever returns HTML as data, so an HTTP 200 whose body opens with
+ * '<' is an outage or maintenance page. It is retried like a 503. The body decides, not the content type: an edge
+ * that labels a good CSV text/html must not turn it into an outage (D-111).
  */
 function htmlPageServed(text: string): string | null {
   if (!text.trimStart().startsWith("<")) return null;
@@ -493,7 +490,7 @@ async function fredRequest(url: string, config: FredConfig): Promise<HttpText> {
       }, fetchImpl);
       // The body is still streaming here, so the per-attempt timeout, a caller
       // abort, a mid-body reset, or a decompression error all surface as a
-      // rejection from text(). Swallowing that into an empty string would
+      // rejection from text. Swallowing that into an empty string would
       // fabricate a successful empty response: it returns out of this retry
       // loop, and on the keyed path it strands the request before the keyless
       // fredgraph.csv fallback. Retry it like the sibling clients do.

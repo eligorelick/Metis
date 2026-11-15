@@ -9,7 +9,7 @@
  * Tickers are validated (alphanumeric + . / -) and normalized to UPPERCASE by
  * the data layer. All three verbs return the updated raw list so the client can
  * update optimistically; the enriched sidebar view is rebuilt by a
- * router.refresh() on the server component.
+ * router.refresh on the server component.
  *
  * Server-only route (nodejs runtime): imports @/db via the watchlist data layer.
  */

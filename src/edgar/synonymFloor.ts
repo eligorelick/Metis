@@ -1,9 +1,7 @@
 /**
- * Component floors for first-hit synonym chains (audit 2026-10-27 FIN-510,
- * FIN-510-V1, FIN-510-V2; docs/METHODOLOGY.md "D&A from separate lines (B-7)").
- *
- * A synonym that sits below a component the line item itself contains is a
- * subset line, not the filer's total, so the resolver skips it. Pure, no imports.
+ * Component floors for first-hit synonym chains "). * A synonym that sits below a component the line item itself
+ * contains is a subset line, not the filer's total, so the resolver skips it. Pure, no imports (D-150). (D-134).
+ * (D-103).
  */
 
 /**

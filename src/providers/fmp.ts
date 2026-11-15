@@ -221,7 +221,7 @@ export interface FmpStatementRow extends FmpRawRow {
   interestExpenseAgreement?: StatementFieldProvenance;
 }
 
-/** FIN-401: arithmetic/provenance classification, never inferred from the operating-income tag alone. */
+/** D-147: arithmetic/provenance classification, never inferred from the operating-income tag alone. */
 export interface EquityMethodIncomePlacement {
   placement: "in-operating-income" | "below-operating-income" | "undetermined" | "immaterial";
   income: number | null;
@@ -267,10 +267,10 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
    */
   pretaxIncomeBeforeEquityMethod?: FiledIncomeLine;
   /**
-   * D-300 (P8, P12; review round 1): the reconciled filed earnings family the row's own tax-rate operands
-   * agree with (provision and the pre-tax base the rate divides by), recorded when no value changes. Like
-   * `interestExpenseAgreement`, it is evidence that the operands were checked against a filing and is kept
-   * out of `fieldProvenance`; absent means unverified. D-307 retains the filed pair in `values` for effective-rate consumers.
+   * D-300 (P8, P12): the reconciled filed earnings family the row's own tax-rate operands agree with (provision
+   * and the pre-tax base the rate divides by), recorded when no value changes. Like `interestExpenseAgreement`, it
+   * is evidence that the operands were checked against a filing and is kept out of `fieldProvenance`; absent means
+   * unverified. D-307 retains the filed pair in `values` for effective-rate consumers.
    */
   taxOperandAgreement?: { incomeBeforeTax: StatementFieldProvenance; incomeTaxExpense: StatementFieldProvenance; values?: { pretax: number; tax: number } };
   equityMethodIncomePlacement?: EquityMethodIncomePlacement;
@@ -311,11 +311,9 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
   deferredRevenue?: number;
   capitalLeaseObligations?: number;
   /**
-   * WS6 review (BLOCKER 1): the OPERATING slice of `capitalLeaseObligations`.
-   * FMP publishes no such field, so this is present only on the EDGAR-built
-   * statements (`src/edgar/statements.ts`), where the lease chain resolves the
-   * operating and finance liabilities separately. Absent ⇒ the split is
-   * unknown and the EV bridge leaves enterprise value as reported.
+   * the OPERATING slice of `capitalLeaseObligations`. FMP publishes no such field, so this is present only on the
+   * EDGAR-built statements (`src/edgar/statements.ts`), where the lease chain resolves the operating and finance
+   * liabilities separately. Absent ⇒ the split is unknown and the EV bridge leaves enterprise value as reported.
    */
   operatingLeaseLiability?: number;
   financeLeaseLiability?: number;
@@ -342,9 +340,8 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
   totalDebt?: number;
   netDebt?: number;
   /**
-   * Review m8 (2026-10-29): the vendor's own netDebt, kept when the D-133
-   * completion recomposes netDebt from the filing. Only the vendor-convention
-   * diagnostic reads it; the house net debt never does.
+   * the vendor's own netDebt, kept when the D-133 completion recomposes netDebt from the filing. Only the
+   * vendor-convention diagnostic reads it; the house net debt never does.
    */
   vendorNetDebt?: number | null;
   /**
@@ -695,7 +692,7 @@ export interface FmpMarketCapRow extends FmpRawRow {
   symbol?: string;
   date?: string;
   marketCap?: number;
-  /** D-267 review: a derived row's share-count observation date (the count the close was multiplied by). */
+  /** D-267: a derived row's share-count observation date (the count the close was multiplied by). */
   sharesAsOf?: string;
 }
 
@@ -1049,13 +1046,9 @@ export function parseFmpLimitCap(bodyText: string): number | null {
  */
 const planLimitCaps = new Map<string, number>();
 /**
- * Largest `limit` the VENDOR has answered in full for a key — a lower bound on
- * its cap, never proof there is none. Before the 2026-09-06 audit (F223/F227)
- * a successful probe recorded an "uncapped" sentinel whatever limit it had
- * asked for, and whether the vendor or the cache had answered, so a within-cap
- * first request (or a cache hit) disabled the gate and the next wave paid one
- * refusal per call. Now a request is exempt from probing only up to the limit
- * already proven; a larger one still probes, serialized, until the cap is known.
+ * P24: cache the largest request limit the vendor itself answered fully as a lower bound on its cap. Only
+ * requests up to that proven limit bypass probing; serialize larger probes until the cap is known. A cache hit
+ * cannot prove a vendor limit.
  */
 const planLimitProven = new Map<string, number>();
 
@@ -1103,11 +1096,10 @@ export const FMP_EMPTY_ARRAY_REASON = "FMP returned an empty array (no data for 
 export type FmpParams = Record<string, string | number | boolean | undefined>;
 
 /**
- * Auth-carrying param names that must NEVER appear in a query string, cache key,
- * or provenance annotation. FMP uses header auth; no stable endpoint takes a
- * param by these names, so stripping them is purely defensive (audit
- * 2026-07-11 #8) — a future change that accidentally threads the key through
- * params cannot leak it into the persisted api_cache or the report appendix.
+ * Auth-carrying param names that must NEVER appear in a query string, cache key, or provenance annotation. FMP
+ * uses header auth; no stable endpoint takes a param by these names, so stripping them is purely defensive — a
+ * future change that accidentally threads the key through params cannot leak it into the persisted api_cache or
+ * the report appendix.
  */
 const FMP_AUTH_PARAM_NAMES: ReadonlySet<string> = new Set(["apikey", "api_key", "token"]);
 
@@ -1241,10 +1233,8 @@ export interface FmpClientConfig {
 }
 
 /**
- * Total time one valuation-critical request may spend waiting out FMP rate
- * limits before the run goes on without it (AMZN audit 2026-10-20, finding 2).
- * Long enough for one per-minute rate window plus slack; short enough that a
- * daily-quota refusal costs the report at most a minute and a half.
+ * D-98: bound each valuation-critical request to 90 seconds of total wall-clock time, permitting one
+ * per-minute rate window plus slack before continuing with a disclosed gap.
  */
 export const FMP_RATE_LIMIT_WAIT_BUDGET_MS = 90_000;
 /** When FMP names no pause, the client probes again after one rate window. */
@@ -1295,7 +1285,7 @@ interface CallSpec {
   allowObjectBody?: boolean;
   /** fixture basenames tried in order (before "default"); usually the symbol */
   fixtureKeys?: string[];
-  /** manifest field for gaps, e.g. "fmp.profile(AAPL)" */
+  /** manifest field for gaps, e.g. "fmp.profile" */
   gapField: string;
   /** Requested issuer(s) that every returned row must remain bound to. */
   entityScope?: FmpEntityScope;
@@ -1379,7 +1369,7 @@ function validateEntityBody(
 const DEFAULT_BASE_URL = "https://financialmodelingprep.com/stable";
 
 export class FmpClient {
-  /** Kept so `fixturesOnly()` can rebuild this client with its key dropped. */
+  /** Kept so `fixturesOnly` can rebuild this client with its key dropped. */
   private readonly config: FmpClientConfig;
   private readonly apiKey: string | undefined;
   private readonly baseUrl: string;
@@ -1392,7 +1382,7 @@ export class FmpClient {
   private readonly signal: AbortSignal | undefined;
   private readonly sleep: (ms: number) => Promise<void>;
   /**
-   * Set only on the client `fixturesOnly()` builds for a reserved-symbol run.
+   * Set only on the client `fixturesOnly` builds for a reserved-symbol run.
    * The `<method>/default.json` fixtures are synthetic values invented for the
    * fictional issuers; this flag is what lets a request that names no symbol
    * (treasury rates, the market risk premium) fall back to them.
@@ -1701,13 +1691,10 @@ export class FmpClient {
             `FMP provider schema drift in ${spec.method}: response array contains a non-object row`,
           );
         }
-        // An OBJECT body on an array endpoint is the same class of drift: a
-        // non-error envelope ({"message": "temporarily unavailable"}) used to
-        // pass the entity check on every optional-scope endpoint, normalize to
-        // zero rows, and — not being an empty ARRAY — overwrite the last-good
-        // statement row for the full TTL (audit 2026-09-06, F221). Rejected
-        // here so it is never admitted; the retrieval-side check below keeps
-        // reading legacy rows.
+        // An OBJECT body on an array endpoint is the same class of drift: a non-error envelope ({"message":
+        // "temporarily unavailable"}) used to pass the entity check on every optional-scope endpoint, normalize to
+        // zero rows, and — not being an empty ARRAY — overwrite the last-good statement row for the full TTL.
+        // Rejected here so it is never admitted; the retrieval-side check below keeps reading legacy rows.
         if (isRecord(body) && spec.allowObjectBody !== true) {
           throw new FmpSchemaError(
             `FMP provider schema drift in ${spec.method}: object body where an array was expected`,
@@ -2381,17 +2368,13 @@ export class FmpClient {
       priorResult?.ok === true &&
       priorResult.value.data.rows.length > 0;
 
-    // Accept only the contiguous run of row-bearing chunks ending at the
-    // effective-newest chunk (chunks are built oldest -> newest). A missing
-    // newest chunk normally refuses everything — a months-stale lastClose would
-    // silently corrupt every technical read — but a "no new bar yet" newest
-    // chunk steps the boundary back one chunk instead. A missing OLDER chunk
-    // merely truncates history: computeTechnicals already flags per-window
-    // insufficiency, so a shortened window degrades honestly instead of erasing
-    // the whole technicals section (2026-07 audit: 8-11 early reports lost ALL
-    // technicals to one rate-limited chunk). Successful chunks older than a
-    // boundary are dropped too — a hole in the middle of the series would
-    // corrupt drawdowns/RS.
+    // Accept only the contiguous run of row-bearing chunks ending at the effective-newest chunk (chunks are built
+    // oldest -> newest). A missing newest chunk normally refuses everything — a months-stale lastClose would
+    // silently corrupt every technical read — but a "no new bar yet" newest chunk steps the boundary back one
+    // chunk instead. A missing OLDER chunk merely truncates history: computeTechnicals already flags per-window
+    // insufficiency, so a shortened window degrades honestly instead of erasing the whole technicals section
+    // (runtime failure: 8-11 early reports lost ALL technicals to one rate-limited chunk). Successful chunks older
+    // than a boundary are dropped too — a hole in the middle of the series would corrupt drawdowns/RS.
     const effectiveNewestIdx = newestIsNoNewBar ? newestIdx - 1 : newestIdx;
     let suffixStart = effectiveNewestIdx + 1;
     while (suffixStart > 0 && results[suffixStart - 1]?.ok) suffixStart--;

@@ -39,8 +39,8 @@ const SPECIFIC: Readonly<Record<number, readonly [string, string]>> = {
   6282: ["Financial Services", "Asset Management"],
   6311: ["Financial Services", "Insurance - Life"],
   6321: ["Financial Services", "Insurance - Life"],
-  // Audit 2026-10-22 E-6: hospital and medical service plans are managed care,
-  // not life insurance; FMP files them under this healthcare industry.
+  // hospital and medical service plans are managed care, not life insurance; FMP files them under this healthcare
+  // industry.
   6324: ["Healthcare", "Medical - Healthcare Plans"],
   6331: ["Financial Services", "Insurance - Property & Casualty"],
   6351: ["Financial Services", "Insurance - Specialty"],
@@ -174,13 +174,11 @@ const SPECIFIC: Readonly<Record<number, readonly [string, string]>> = {
 };
 
 /**
- * SIC codes of rate-regulated electric, gas and water utilities and diversified
- * utilities: exactly the codes `SPECIFIC` sends to "Utilities - Regulated ..." or
- * "Utilities - Diversified" (4931). A filer here recovers pension and OPEB costs through rates
- * (ASC 980), which the DCF bridge assumes (audit 2026-10-27 FIN-305, D-135). 4922
- * (pipelines), 4953/4955/4959 (waste) and 4991 (cogeneration) are not rate-regulated this way,
- * and the group-49 fallback (4900, 4950, 4961) does not count.
- * `tests/edgar.sic.test.ts` ties this set to the map in both directions.
+ * SIC codes of rate-regulated electric, gas and water utilities and diversified utilities: exactly the codes
+ * `SPECIFIC` sends to "Utilities - Regulated..." or "Utilities - Diversified" (4931). A filer here recovers
+ * pension and OPEB costs through rates (ASC 980), which the DCF bridge assumes (D-135). 4922 (pipelines),
+ * 4953/4955/4959 (waste) and 4991 (cogeneration) are not rate-regulated this way, and the group-49 fallback (4900,
+ * 4950, 4961) does not count. `tests/edgar.sic.test.ts` ties this set to the map in both directions.
  */
 export const RATE_REGULATED_UTILITY_SIC: ReadonlySet<number> = new Set([4911, 4923, 4924, 4931, 4932, 4941]);
 

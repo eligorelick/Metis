@@ -1,31 +1,10 @@
 // src/edgar/successor.ts
 /**
- * Successor registrants.
- *
- * A holding-company reorganization creates a NEW SEC registrant that takes over
- * the listed ticker and files a Form 8-K12B ("registration of a successor
- * issuer"). ExxonMobil Holdings Corp did this in July 2026: CIK 2115436 now
- * carries the XOM ticker, and its `companyfacts` payload starts at the
- * reorganization — a hundred years of Exxon Mobil Corp's filings sit under CIK
- * 34088, and neither `submissions` nor `companyfacts` links the two.
- *
- * The consequence for a report was severe and silent: every long-window growth
- * rate, every multi-year average and every trend for such an issuer measured a
- * few months of history, or produced nothing at all, without saying why.
- *
- * The link is machine-readable, but NOT where this module first looked. The
- * 8-K12B says the registrant is a successor; it does not necessarily say whose.
- * ExxonMobil Holdings' own 8-K12B (0001193125-26-291990, filed 2026-07-01,
- * recorded under `fixtures/edgar/`) carries a single FILER block — itself. The
- * co-registration appears on the filings the two entities made JOINTLY after
- * the reorganization: the 10-Q of 2026-08-03 and the POSASR of 2026-07-01 each
- * name both CIKs. So the 8-K12B is the trigger, and the predecessor is resolved
- * by scanning a short, ranked list of the successor's filings for a submission
- * header that co-registers exactly one other party.
- *
- * This module is the pure half — rank the filings worth reading, pick the
- * predecessor out of the FILER blocks, and word the disclosure. Fetching is the
- * caller's job, and it is capped.
+ * P5, P20: a holding-company reorganization can move a listing to a new SEC registrant whose companyfacts
+ * lacks predecessor history. An 8-K12B triggers discovery but need not name the predecessor. Rank the
+ * successor’s filings and require a submission header co-registering exactly one other FILER party before
+ * linking history. This module purely ranks, resolves identity and words disclosure; the caller owns bounded
+ * fetching.
  */
 import type { ManifestEntry } from "@/types/core";
 import type { FilingFiler } from "@/providers/edgar";
@@ -169,8 +148,7 @@ export function hasOwnAnnualHistory(facts: CompanyFacts | null, mergedAccessions
     for (const rawPoints of Object.values(parsed.data.units)) {
       if (!Array.isArray(rawPoints)) continue;
       for (const p of filterToCoreForms(parseFactPoints(rawPoints))) {
-        // Audit 2026-10-22 B-23: a point merged from a newer filing's instance
-        // is not history companyfacts carried.
+        // a point merged from a newer filing's instance is not history companyfacts carried (D-112).
         if (p.start === undefined || mergedAccessions.has(p.accn)) continue;
         const days = (Date.parse(`${p.end}T00:00:00Z`) - Date.parse(`${p.start}T00:00:00Z`)) / DAY_MS;
         if (days >= ANNUAL_MIN_DAYS && days <= ANNUAL_MAX_DAYS) return true;
@@ -214,17 +192,14 @@ function tagDurationPoints(facts: CompanyFacts, tag: string): Map<string, number
 }
 
 /**
- * Whether the successor's own filings re-present the predecessor's periods
- * unchanged (audit 2026-10-22 B-36): a net income it reports for an interval
- * the predecessor also reported, with every such net income and per-share
- * comparative equal. That is the evidence of one continuing reporting entity
- * on one share basis — ExxonMobil Holdings' first 10-Q restates Exxon Mobil
- * Corp's Q2 2025 at 7,082M and 1.64 a share — so the predecessor's quarters
- * may share a trailing twelve months with the successor's. EPS is compared by
- * role, basic and diluted, so a combined basic-and-diluted tag on one side
- * meets separate tags on the other, and at least one per-share comparative
- * must match: matching earnings alone do not show one share basis. Returns the
- * matched intervals, or null when there is none or any comparative differs.
+ * Whether the successor's own filings re-present the predecessor's periods unchanged: a net income it reports for
+ * an interval the predecessor also reported, with every such net income and per-share comparative equal. That is
+ * the evidence of one continuing reporting entity on one share basis — ExxonMobil Holdings' first 10-Q restates
+ * Exxon Mobil Corp's Q2 2025 at 7,082M and 1.64 a share — so the predecessor's quarters may share a trailing
+ * twelve months with the successor's. EPS is compared by role, basic and diluted, so a combined basic-and-diluted
+ * tag on one side meets separate tags on the other, and at least one per-share comparative must match: matching
+ * earnings alone do not show one share basis. Returns the matched intervals, or null when there is none or any
+ * comparative differs.
  */
 export function successorContinuity(successor: CompanyFacts, predecessor: CompanyFacts): { periods: string[] } | null {
   const periods = new Set<string>();

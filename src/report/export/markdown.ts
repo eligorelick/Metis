@@ -181,7 +181,7 @@ import { formatScore } from "@/report/scoreText";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
 import { executiveTenureText, executiveCardClaims, executiveOfficeContext } from "@/report/executiveDecisions";
 
-/** AMZN audit 2026-10-20 finding 17: the evidence-scope line, when a pass ran on a plan allowance. */
+/** the evidence-scope line, when a pass ran on a plan allowance. */
 function evidenceRow(report: Report): string[][] {
   const scope = evidenceScopeSummary(report);
   return scope === null ? [] : [["Evidence", scope]];
@@ -273,11 +273,11 @@ interface GradeContext {
   completeness?: ReportCompletenessPresentation;
   /** A key number's reader label when its registry label would mislead (an unfinished session's "last close"). */
   labelFor?: (n: TracedNumber) => string | undefined;
-  /** D-282 review round 2: the report is AI-written, so its AI-authored tables and cards carry the block caption. */
+  /** D-282: the report is AI-written, so its AI-authored tables and cards carry the block caption. */
   aiAuthored?: boolean;
 }
 
-/** D-282 review round 2: the caption on an AI-authored table or card, as a whole. */
+/** D-282: the caption on an AI-authored table or card, as a whole. */
 function aiCaption(ai: boolean | undefined): string[] {
   return ai ? [`_${markdownProse(AI_BLOCK_CAPTION)}_`, ""] : [];
 }
@@ -404,7 +404,7 @@ function renderSupportBlock(report: Report): string {
   return [`### ${block.heading}`, "", ...block.rows.map(([label, text]) => `- **${label}:** ${markdownListItem(text)}`), "", `_${markdownProse(block.note)}_`].join("\n");
 }
 
-/** The page-1 key-data box (audit P1-12); rows without inputs are omitted. */
+/** The page-1 key-data box; rows without inputs are omitted. */
 function renderKeyData(report: Report): string {
   const rows = keyDataRows(report);
   if (rows.length === 0) return "";
@@ -473,7 +473,7 @@ function renderScores(scores: Scoring): string {
     // A sub-heading of the verdict, as on the print surface.
     "### Scorecard (deterministic)",
     "",
-    // F-19: no letter under the evidence floor; the qualifier inside 45–55.
+    // P20: no letter under the evidence floor; the qualifier inside 45–55.
     `**Composite: ${c.score === null ? DASH : formatScore(c.score)} / 100 (${c.band === null ? DASH : compositeDisplay(scores).label})**`,
     "",
     `_${markdownProse(compositeNote(scores))}_`,
@@ -623,7 +623,7 @@ function renderValuation(
       headline.perShare !== null && headline.valueText !== null
         ? `${headline.label}: **${markdownProse(headline.valueText)}**${asOfSuffix(headline.perShare.asOf)}${headline.comparison === null ? "" : ` — ${headline.comparison.label} ${headline.comparison.text}`}`
         : `${headline.label}: **${VALUATION_WITHHELD_TEXT}** — ${headline.withheldReason ?? ""}`,
-      // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
+      // substituted inputs, beside the value they moved (D-111).
       ...(headline.degradedCaveat !== null ? ["", `**${markdownProse(headline.degradedCaveat)}**`] : []),
       ...(headline.basisCaveat !== null ? [`_${markdownProse(headline.basisCaveat)}_`] : []),
       "",
@@ -735,7 +735,7 @@ function renderScenario(row: ScenarioRowView): string {
   if (assumptions.length > 0) {
     lines.push("", "Assumptions:", "", assumptions.map((assumption) => `- ${markdownListItem(assumption)}`).join("\n"));
   }
-  // D-273 review round 1: a repeated label is stated once; every condition still prints.
+  // D-273: a repeated label is stated once; every condition still prints.
   const shown = scenarioReaderLists(sc, assumptions);
   if (shown.conditions.length > 0) {
     lines.push("", "What would have to be true:", "", shown.conditions.map((condition) => `- ${item(condition)}`).join("\n"));
@@ -896,7 +896,7 @@ function renderCompetitive(c: Competitive, ctx: GradeContext = {}, report?: Repo
 function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: readonly ReportAuditTable[] = []): string {
   const lines: string[] = [sectionHeading("catalystsRisks"), ""];
   if (dataOnly) lines.push("Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.", "");
-  // D-282 review round 2: each AI-written table carries the caption; an empty table prints nothing.
+  // D-282: each AI-written table carries the caption; an empty table prints nothing.
   const captioned = (body: string): string => body.length === 0 ? "" : [...aiCaption(!dataOnly), body].join("\n");
   lines.push(...subsection("### Catalysts", captioned(bodyTable(
     ["Catalyst", "Expected", "Direction", "Significance", "Note"],
@@ -1121,7 +1121,7 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
   return hasComputedFigures(report) ? withComputedMarkLegend(markdown) : markdown;
 }
 
-/** F-23: a data-only report says what "computed" means under its first table with a Cited column. */
+/** P20: a data-only report says what "computed" means under its first table with a Cited column. */
 function withComputedMarkLegend(markdown: string): string {
   const lines = markdown.split("\n");
   const header = lines.findIndex((line) => line.startsWith("|") && line.endsWith(" | Cited |"));

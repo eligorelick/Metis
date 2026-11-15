@@ -133,10 +133,9 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
 }
 
 /**
- * Integration review of R2 + R3 (FIGR paid audit): the notes the quarterly-trend
- * builder adds about its own rows and columns (rejected or currency-cut rows,
- * derived cash flow, withheld operating amounts and the operating-expense
- * basis). They are read beside the trend, never under management guidance.
+ * P20: show quarterly-trend notes beside their own rows and columns, including rejected or currency-cut rows,
+ * derived cash flow, withheld operating amounts and operating-expense basis; never place them under management
+ * guidance.
  */
 export function isQuarterlyTrendNote(note: string): boolean {
   return note.startsWith("Vendor interim figures:") || /^Quarterly (?:(?:income|cash-flow) trend: |trend left out: |trend history stops before |cash-flow amounts for |operating cash flow for )/.test(note) ||
@@ -149,9 +148,8 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
   const builderNotes = d.notes.filter(isQuarterlyTrendNote);
   const showGrossMargin = !d.quarterlyGrossMarginNotApplicable;
-  // Final data-only FIGR run (2026-11-02): a quarter whose every shown value is
-  // withheld (FIGR's Q4 FY2024: refused revenue, then R2's withheld operating
-  // expenses) is named as a missing quarter, not printed as a row of dashes.
+  // P22: omit a quarterly-trend row only when every displayed value is withheld; do not render an empty
+  // quarter as observed evidence.
   const trendRows = d.quarterlyTrend.filter((r) => [r.revenue, r.revenueYoyPct, r.revenueQoqPct, ...(showGrossMargin ? [r.grossMarginPct] : []),
     r.operatingExpenses, r.operatingMarginPct, r.epsDiluted, r.nonGaapEpsDiluted, r.equitySecuritiesGains, r.operatingCashFlow, r.freeCashFlow].some((v) => v != null));
   if (trendRows.length === 0 && builderNotes.length > 0) {
@@ -169,8 +167,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       ...groupedWithheldNotes(readerTrendNotes([...new Set(trendRows.flatMap((r) => r.revenueGrowthNotes ?? [])), ...builderNotes])),
     ].filter((n) => n !== "");
     tables.push({
-      // FIGR extra-high audit B2-20: the caption counts the quarters shown
-      // (seven when two quarters inside the window are missing).
+      // the caption counts the quarters shown (seven when two quarters inside the window are missing).
       heading: `Quarterly trend (latest ${countWord(trendRows.length)} available ${trendRows.length === 1 ? "quarter" : "quarters"})`,
       headers: ["Quarter ended", "Fiscal", "Revenue", "YoY", "QoQ", ...(showGrossMargin ? ["Gross margin"] : []), "Operating expenses", "Operating margin", "Diluted EPS", "Non-GAAP diluted EPS", "Equity-securities gains", "Operating cash flow", "FCF (CFO \u2212 capex)"],
       rows: trendRows.map((r) => [
@@ -239,9 +236,10 @@ function countWord(n: number): string {
   return COUNT_WORDS[n] ?? String(n);
 }
 
-/* FIGR extra-high audit B2-18: one row's derivation per growth cell and per
- * derived cash-flow quarter made the trend note run to hundreds of words. The
- * reader gets one sentence for each kind; the audit export keeps every one. */
+/**
+ * one row's derivation per growth cell and per derived cash-flow quarter made the trend note run to hundreds of
+ * words. The reader gets one sentence for each kind; the audit export keeps every one.
+ */
 const GROWTH_DERIVATION = /^(?:YoY|QoQ) at \d{4}-\d{2}-\d{2} uses filed revenue [^;]+; no vendor operand enters the rate\.$/;
 const CASH_FLOW_DERIVATION = /^Quarterly operating cash flow for (\d{4}-\d{2}-\d{2}) is derived \([^)]*\) from cumulative filed operands across filings: ([\s\S]*?)\. The canonical filing-lineage rule admits this derivation; it is not a directly filed standalone quarter\.$/;
 
@@ -253,7 +251,7 @@ function dateList(dates: readonly string[]): string {
 function readerTrendNotes(notes: readonly string[]): string[] {
   const derived = notes.flatMap((note) => {
     const m = CASH_FLOW_DERIVATION.exec(note);
-    // N4b: each derived quarter keeps the filings it comes from (filing dates stay in the audit export).
+    // P20: each derived quarter keeps the filings it comes from (filing dates stay in the audit export).
     return m ? [{ quarter: m[1]!, filings: m[2]!.split(/;\s*/).map((f) => f.replace(/, filed \d{4}-\d{2}-\d{2}$/, "")).join(" and ") }] : [];
   });
   let growthSummarized = false;
@@ -277,11 +275,9 @@ function readerTrendNotes(notes: readonly string[]): string[] {
 const WITHHELD_NOTE = /^(.+?) for (\d{4}-\d{2}-\d{2}) withheld: (.+)$/s;
 
 /**
- * D-273 review round 1 (P22): notes that withhold the same item for several
- * quarters with the same cause are stated once, naming every quarter
- * ("Operating expenses for 2026-06-30, 2026-03-31 and 2025-12-31 withheld:
- * <cause>"). A quarter with a different cause keeps its own note; notes that do
- * not withhold a dated item are unchanged and keep their order.
+ * D-273: notes that withhold the same item for several quarters with the same cause are stated once, naming every
+ * quarter ("Operating expenses for 2026-06-30, 2026-03-31 and 2025-12-31 withheld: <cause>"). A quarter with a
+ * different cause keeps its own note; notes that do not withhold a dated item are unchanged and keep their order.
  */
 export function groupedWithheldNotes(notes: readonly string[]): string[] {
   const groups = new Map<string, { subject: string; cause: string; dates: string[] }>();
@@ -407,7 +403,7 @@ const MAX_READER_HIERARCHY_COMPONENTS = 5;
 function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
   const tables = d.segments.map((s) => {
     const latest = s.quarters[0]!;
-    // AI-406: growth only against the quarter the column names; no such quarter gives a dash.
+    // P20: growth only against the quarter the column names; no such quarter gives a dash.
     const quarterAgo = priorQuarterIndex(s.quarters, QOQ_WINDOW_DAYS) ?? -1;
     const yearAgo = priorQuarterIndex(s.quarters, YOY_WINDOW_DAYS) ?? -1;
     const growth = (values: (number | null)[], i: number): string => {
@@ -536,9 +532,8 @@ function companyStatementTables(d: FilingDisclosures): ReportAuditTable[] {
 }
 
 /**
- * Audit 2026-10-22 B-24: the notice that a results release reports a period
- * the statements do not reach. One wording for the report banner and the
- * data gap.
+ * the notice that a results release reports a period the statements do not reach. One wording for the report
+ * banner and the data gap (D-103).
  */
 export function newerResultsSentence(n: Pick<NonNullable<FilingDisclosures["newerResults"]>, "source" | "reportedPeriod" | "reportedPeriodEnd" | "statementsEnd">): string {
   const period = n.reportedPeriod !== null
@@ -554,8 +549,8 @@ export function newerResultsBanner(d: FilingDisclosures | undefined): string | n
 }
 
 /**
- * Audit 2026-10-22 B-23: the notice that a periodic report on file covers a
- * period the statements do not reach. One wording for the banner and the gap.
+ * the notice that a periodic report on file covers a period the statements do not reach. One wording for the
+ * banner and the gap (D-112).
  */
 export function newerFilingSentence(n: NonNullable<FilingDisclosures["newerFiling"]>): string {
   return `${n.source.form} ${n.source.accession} for the period ended ${n.periodEnd} was filed on ${n.source.filingDate}; ` +
@@ -582,8 +577,8 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
       // that table is not shown.
       const capitalShown = d.freeCashFlow.length > 0 || d.capitalReturn !== null;
       const guidanceNotes = d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && !isQuarterlyTrendNote(n) && !isLenderConvention(n) && !n.includes("(see Lender conventions)") && (!capitalShown || !isCapitalReturnNote(n)) && segmentNoteAxis(n) === null && /\b(?:guidance|outlook)\b/i.test(n));
-      // FIGR extra-high audit B2-18: the currency-reading convention and parser
-      // diagnostics are audit material (its diagnostics section lists them).
+      // the currency-reading convention and parser diagnostics are audit material (its diagnostics section lists
+      // them).
       const notes = guidanceNotes.filter((n) => !isParserDiagnostic(n)).flatMap(readerGuidanceNote);
       if (tables.length === 0 && [d.currencyBasis, ...guidanceNotes].flatMap(readerGuidanceNote).length > 0) tables.push({ heading: "Management guidance", headers: ["Status"], rows: [["A standardized guidance table is unavailable; separately sourced issuer statements may appear below."]] });
       if (notes.length > 0) tables.push({ heading: "Management guidance notes", headers: ["Note"], rows: notes.map(n => [n]) });
@@ -661,7 +656,7 @@ export function fiscalOutlookLabelContradicted(periods: readonly FiscalLabelledP
  const newest=[...periods].filter(p=>p.end<=cutoff && order(p.label)!==null).sort((a,b)=>b.end.localeCompare(a.end) || order(b.label)!-order(a.label)!)[0];
  return target!==null && newest!==undefined && target<=order(newest.label)!;
 }
-/** AI-512-V1: withhold disputed labels; never replace them with a guessed fiscal period. */
+/** P20: withhold disputed labels; never replace them with a guessed fiscal period. */
 export function withholdContradictedReleaseLabels<T extends FilingDisclosures>(d:T, periods: readonly FiscalLabelledPeriod[]):T {
  const removed: string[]=[];
  const completed=(label:string|null,end:string|null)=>label!==null && end!==null && fiscalLabelContradicted(periods,label,end);

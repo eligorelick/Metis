@@ -16,7 +16,7 @@ function Bar({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded-[2px] bg-raised ${className}`} />;
 }
 
-/** Static placeholder for the watchlist rail while getWatchlistView() resolves. */
+/** Static placeholder for the watchlist rail while getWatchlistView resolves. */
 export function SidebarSkeleton() {
   return (
     <div className="flex min-h-0 flex-col" aria-hidden>

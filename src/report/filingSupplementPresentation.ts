@@ -53,10 +53,9 @@ function sentences(text: string): string[] {
 }
 
 /**
- * Filing facts retain their distinct periods, qualifications and derivations.
- * FIGR extra-high audit B2-18 (2026-11-02): a qualification every row of a
- * table shares is stated once in the table note (the cash qualification had
- * printed four times), and XBRL tags stay in the audit export.
+ * Filing facts retain their distinct periods, qualifications and derivations. a qualification every row of a table
+ * shares is stated once in the table note (the cash qualification had printed four times), and XBRL tags stay in
+ * the audit export.
  */
 export function filingFactTables(d: FilingSupplements): ReportAuditTable[] {
   if (!d.filingFacts?.length) return [];

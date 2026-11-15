@@ -1,12 +1,8 @@
 /**
- * Which inputs a run took from a fallback source because its primary provider
- * failed (audit 2026-10-22 F-1 and F-13). Both the run-level header line and
- * the fair value's degraded-inputs reason are worded here, from the recorded
- * gaps, so the two cannot disagree about what was substituted.
- *
- * A substitution the run was configured for (`expected`: a keyless plan,
- * METIS_STATEMENT_SOURCE=edgar) is the run's design, not a fallback, and is
- * never named.
+ * Which inputs a run took from a fallback source because its primary provider failed. Both the run-level header
+ * line and the fair value's degraded-inputs reason are worded here, from the recorded gaps, so the two cannot
+ * disagree about what was substituted. * A substitution the run was configured for (`expected`: a keyless plan,
+ * METIS_STATEMENT_SOURCE=edgar) is the run's design, not a fallback, and is never named (D-111).
  */
 
 import { riskFreeSourceLabel } from "@/pipeline/riskFreeSeries";
@@ -91,9 +87,8 @@ function riskFreeFromGaps(gaps: readonly ManifestEntry[]): string | null {
 }
 
 /**
- * Audit 2026-10-22 F-1 (owner decision): one run-level header line naming the
- * providers that fell back this run and what replaced them. Null when every
- * input came from its primary provider, or the substitution was configured.
+ * one run-level header line naming the providers that fell back this run and what replaced them. Null when every
+ * input came from its primary provider, or the substitution was configured (D-111).
  */
 export function providerFallbackNotice(report: { appendix: { missingData: readonly ManifestEntry[] } }): string | null {
   const gaps = report.appendix.missingData;

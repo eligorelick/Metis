@@ -14,11 +14,11 @@
  *     company_tickers ~7d; companyfacts ~6h.
  *
  * Wiring: all HTTP flows through the injectable `EdgarTransport` interface.
- *  - createDefaultEdgarTransport(): shared http.ts "edgar" limiter (≤5 req/s)
+ *  - createDefaultEdgarTransport: shared http.ts "edgar" limiter (≤5 req/s)
  *    + retries via fetchWithPolicy + a small in-memory TTL cache. No DB.
- *  - createDbCachedEdgarTransport(): additionally routes 200s through the
+ *  - createDbCachedEdgarTransport: additionally routes 200s through the
  *    durable api_cache (cache/apiCache.cachedFetch, lazy-loaded) — use this
- *    in the report pipeline: createEdgarClient({ transport: createDbCachedEdgarTransport() }).
+ *    in the report pipeline: createEdgarClient({ transport: createDbCachedEdgarTransport }).
  */
 
 import "server-only";
@@ -358,10 +358,8 @@ export function parseIndexHtm(html: string): FilingIndex {
 }
 
 /**
- * Exhibit type match by PREFIX, never exact string ("EX-13", "EX-13.1",
- * WFC-style letter suffixes). NEVER select exhibits by filename or size —
- * WFC's EX-13 is named like a primary doc and its largest ex*-named file is a
- * compensation plan (F17).
+ * P9: match exhibit TYPE by prefix, including numeric or letter suffixes. Filename and size cannot prove
+ * exhibit identity.
  */
 export function isExhibitType(type: string, prefix: string): boolean {
   const t = type.trim().toUpperCase();
@@ -1404,9 +1402,8 @@ export class EdgarClient {
   // -- submissions -----------------------------------------------------------
 
   /**
-   * https://data.sec.gov/submissions/CIK{10-digit}.json — filings.recent is a
-   * struct of parallel arrays, newest first, ≥1 year or 1,000 filings
-   * (JPM: 25,280 rows). Older overflow pages are listed but not fetched.
+   * https://data.sec.gov/submissions/CIK{10-digit}.json — filings.recent is a struct of parallel arrays, newest
+   * first, ≥1 year or 1,000 filings (the bank: 25,280 rows). Older overflow pages are listed but not fetched.
    */
   async submissions(cik: number | string): Promise<FetchResult<EdgarSubmissions>> {
     const url = `${EDGAR_HOSTS.data}/submissions/CIK${padCik(cik)}.json`;

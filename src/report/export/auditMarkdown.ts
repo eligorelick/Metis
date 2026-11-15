@@ -87,8 +87,7 @@ function coverageCell(supported: number, total: number, rate: number | null): st
   return `${supported}/${total} (${rate === null ? "n/a — no items" : `${(rate * 100).toFixed(1)}%`})`;
 }
 
-// The coverage counts, grade-strip reasoning included, beside the displayed
-// rows above them (review of F-21).
+// The coverage counts, grade-strip reasoning included, beside the displayed rows above them (D-110).
 function provenanceCoverageTable(coverage: ProvenanceCoverage): string {
   return table(
     ["Evidence class", "Supported / total, grade-strip reasoning included"],
@@ -178,7 +177,7 @@ function renderVerification(report: Report): string {
         a.verificationLog.map((entry) =>
           VERIFICATION_LOG_FIELDS.map((field) => {
             if (field.key === "outcome") return verificationEntryOutcomeLabel(entry);
-            // F-22: a legacy metadata gap recorded as contradicted reads as
+            // P20: a legacy metadata gap recorded as contradicted reads as
             // unverified. Its support columns came from the same failure, and
             // the stored entry cannot show whether the value also conflicted.
             if (displayedValidationStatus(entry) !== entry.validationStatus) {
@@ -485,9 +484,8 @@ function renderOwnHistory(report: Report): string {
 }
 
 /** The full audit trail for one report, as Markdown. */
-/*
- * FIGR extra-high audit B2-18 (2026-11-02): the reader exports no longer print
- * the currency-reading convention, parser diagnostics, per-cell trend
+/**
+ * the reader exports no longer print the currency-reading convention, parser diagnostics, per-cell trend
  * derivations or grade-contract enums; this companion keeps all of them.
  */
 function renderFilingDiagnostics(report: Report): string {

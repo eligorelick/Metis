@@ -71,7 +71,7 @@ export function operatingBridgeProof(revenue: FiledIncomeLine, pretax: FiledInco
   const costsPick = pick(["CostsAndExpenses", "BenefitsLossesAndExpenses"]), costsConflict = conflicts([costsPick]);
   if (costsConflict) return costsConflict;
   if (!aggregate && !netInterest && !interest && !other && !interestIncome) return { status: "unavailable" };
-  // D-260 review: a restructuring tag can be a child of cost or SG&A.
+  // D-260: a restructuring tag can be a child of cost or SG&A.
   // Use the existing reporting-unit rule for both possible memberships.
   // Identical operating figures are one candidate; distinct matches remain ambiguous.
   if (!total && special) {

@@ -33,15 +33,12 @@ function peerCompanyValue(row: NonNullable<PeerCoverage["comparisons"]>[number],
 }
 
 /**
- * D-67: the peer screen in two lines for the report body. The screen rules,
- * per-metric notes and every exclusion (about 56 lines for NVDA) are in the
- * audit export ({@link peerCoverageAuditLines}).
+ * D-67: the report body summarizes the peer screen in two lines; keep screen rules, per-metric notes and every
+ * exclusion in peerCoverageAuditLines.
  */
 /**
- * AMZN audit 2026-10-20 finding 7: an exclusion that is the peer provider's
- * unavailability (a rate limit or quota, a refused request, the deadline, a
- * candidate never requested), not a screen rule. The body counted six such
- * AMZN candidates, and the subject itself, as "excluded at the screen".
+ * P22: provider unavailability is not a screen-rule exclusion. Rate limits, quota, refused or unrequested
+ * candidates and deadline failures count as provider gaps rather than evidence that a peer failed the screen.
  */
 const PROVIDER_STOPPED = /\b(?:candidate not requested|provider unavailable|deadline|cancellation|timed? ?out)\b/i;
 const providerUnavailable = (reason: string): boolean => PROVIDER_STOPPED.test(reason) || PEER_PROVIDER_TERMINAL.test(reason);

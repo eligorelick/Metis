@@ -56,7 +56,7 @@ export const TTL = {
    * statements, key-metrics, ratios, growth, scores, owner-earnings,
    * enterprise-values — 24 h. (A latest-financial-statements.dateAdded
    * invalidation channel was researched but is deliberately NOT wired — see
-   * invalidate() below; restatements ride the 24 h TTL.)
+   * invalidate below; restatements ride the 24 h TTL.)
    */
   FUNDAMENTALS: 86_400,
   /** analyst estimates, price targets, grades, ratings, earnings — 24 h. */
@@ -236,12 +236,10 @@ export function readCachedResponse<T>(
 }
 
 /**
- * Every cached body for one provider endpoint, whatever its params (audit
- * 2026-10-22 B-4). A FRED row's key carries the request's five-year window
- * start, so yesterday's DGS10 row is a different key from today's request and
- * the stale-serving path never finds it; the risk-free fallback reads the last
- * good observation across all of them instead. Read-only, never refreshes, and
- * a read or decode failure yields no rows rather than an error.
+ * Every cached body for one provider endpoint, whatever its params. A FRED row's key carries the request's
+ * five-year window start, so yesterday's DGS10 row is a different key from today's request and the stale-serving
+ * path never finds it; the risk-free fallback reads the last good observation across all of them instead.
+ * Read-only, never refreshes, and a read or decode failure yields no rows rather than an error (D-111).
  */
 export function listCachedBodies<T>(provider: string, endpoint: string): Array<{ params: string; data: T; fetchedAt: string }> {
   try {
@@ -321,10 +319,9 @@ const preservedEmptyRefreshes = new Set<string>();
 const inFlightRefreshes = new Map<string, Promise<void>>();
 
 /**
- * In-flight MISS fetches, deduped by cacheKey. A page load and a report job
- * for the same symbol starting within the same second on a cold cache used to
- * fetch every member twice and race to store the same row (audit 2026-09-06,
- * F231); the refresh path was single-flight, the miss path was not.
+ * In-flight MISS fetches, deduped by cacheKey. A page load and a report job for the same symbol starting within
+ * the same second on a cold cache used to fetch every member twice and race to store the same row; the refresh
+ * path was single-flight, the miss path was not.
  */
 const inFlightMisses = new Map<string, { promise: Promise<unknown>; signal?: AbortSignal }>();
 
@@ -515,19 +512,14 @@ export async function cachedFetch<T>(opts: CachedFetchOptions<T>): Promise<Sourc
 // ---------------------------------------------------------------------------
 
 /**
- * Deletes all cache rows for `provider` whose endpoint starts with
- * `endpointPrefix` (empty prefix = every row for the provider). Returns the
- * number of rows deleted.
- *
- * NOTE (audit 2026-07-11 #6): this is a maintenance utility with NO production
- * caller today — it is intentionally NOT wired to a
- * latest-financial-statements.dateAdded restatement trigger (an earlier design once
- * described that as a use case). FMP restatements are currently picked up by the
- * normal 24h fundamentals TTL (serve-stale + background refresh) plus the
- * EDGAR XBRL max(filed) dedup, which already prefers the latest restated value.
- * A dateAdded-triggered invalidate() would need an empty-body/last-good
- * safeguard (see M6) to avoid deleting good rows on a provider blip; until that
- * exists, do not treat this hook as live restatement protection.
+ * Deletes all cache rows for `provider` whose endpoint starts with `endpointPrefix` (empty prefix = every row for
+ * the provider). Returns the number of rows deleted. * NOTE: this is a maintenance utility with NO production
+ * caller today — it is intentionally NOT wired to a latest-financial-statements.dateAdded restatement trigger (an
+ * earlier design once described that as a use case). FMP restatements are currently picked up by the normal 24h
+ * fundamentals TTL (serve-stale + background refresh) plus the EDGAR XBRL max(filed) dedup, which already prefers
+ * the latest restated value. A dateAdded-triggered invalidate would need an empty-body/last-good safeguard (see
+ * M6) to avoid deleting good rows on a provider blip; until that exists, do not treat this hook as live
+ * restatement protection.
  */
 export function invalidate(provider: DataSource | string, endpointPrefix = ""): number {
   const db = getDb();

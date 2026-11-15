@@ -1,10 +1,11 @@
 import { millions } from "@/pipeline/stageB/netDebt";
 import type { StatementConflictCause } from "@/types/refusalCause";
 
-/** A noncurrent convertible carrying subtype is a lower bound on noncurrent
- * financing debt, never an automatic addition to an inclusive generic total.
- * `agrees` compares a vendor noncurrent figure with the filed subtype (A-11
- * display rounding); two filed figures are compared near-exactly. */
+/**
+ * A noncurrent convertible carrying subtype is a lower bound on noncurrent financing debt, never an automatic
+ * addition to an inclusive generic total. `agrees` compares a vendor noncurrent figure with the filed subtype
+ * (D-103 display rounding); two filed figures are compared near-exactly.
+ */
 export function omittedConvertibleCarryingReason(row: { longTermDebt?: unknown }, convertible: number | null,
   agrees: (noncurrent: number, convertible: number) => boolean = (a, b) => a >= b - Math.max(1, b * 1e-10)): string | null {
   if (convertible === null || convertible <= 0) return null;
@@ -14,14 +15,12 @@ export function omittedConvertibleCarryingReason(row: { longTermDebt?: unknown }
 }
 
 /**
- * How far a principal-type aggregate may exceed the carrying components and
- * still be read as unamortized discount and issuance cost (audit 2026-10-22
- * B-5, owner decision): 2% of the components or 50 million in the reporting
- * currency, whichever is larger. A tagged CARRYING total is held to 1% instead
- * (uncomposedDebtReason): it is on the components' own basis, so only rounding
- * can separate them. A discount is part of the notes it discounts, so the band
- * is measured on the financing components (leases excluded) and the floor
- * reaches at most 10% of them; with no financing debt only rounding is allowed.
+ * How far a principal-type aggregate may exceed the carrying components and still be read as unamortized discount
+ * and issuance cost: 2% of the components or 50 million in the reporting currency, whichever is larger. A tagged
+ * CARRYING total is held to 1% instead (uncomposedDebtReason): it is on the components' own basis, so only
+ * rounding can separate them. A discount is part of the notes it discounts, so the band is measured on the
+ * financing components (leases excluded) and the floor reaches at most 10% of them; with no financing debt only
+ * rounding is allowed.
  */
 export const PRINCIPAL_DISCOUNT_BAND = { share: 0.02, floor: 50_000_000, floorCapShare: 0.1 } as const;
 
@@ -46,9 +45,8 @@ export function incompleteDebtReason(row: {
 }
 
 /**
- * Same-period debt totals the filer tagged. Each covers no more than current
- * plus noncurrent financing debt and finance leases, so one that exceeds the
- * composed components shows a component is missing (audit 2026-10-22 B-14).
+ * Same-period debt totals the filer tagged. Each covers no more than current plus noncurrent financing debt and
+ * finance leases, so one that exceeds the composed components shows a component is missing (D-100).
  */
 export const DEBT_AGGREGATE_TAGS: readonly string[] = [
   "LongTermDebtNoncurrent", "LongTermNotesAndLoans", "LongTermDebt", "LongTermDebtAndCapitalLeaseObligations",
@@ -81,9 +79,8 @@ export function uncomposedDebtRefusal(row: {
 
 /**
  * Finance leases are debt in every frame, so a filer that tags one maturity of the finance lease liability and
- * neither the other nor a total leaves debt incomplete (audit 2026-10-19 FCX-1; D-202 rule 1: a disclosed but
- * incomplete family refuses an unsupported total). One sentence for the SEC statements builder and the
- * provider-row admission (D-250); `evidence`, when given, names what the filing does tag.
+ * neither the other nor a total leaves debt incomplete (D-202). One sentence for the SEC statements builder and
+ * the provider-row admission (D-250); `evidence`, when given, names what the filing does tag (D-97).
  */
 export function partialFinanceLeaseReason(evidence?: string): string {
   return "Finance lease liability incomplete: current and noncurrent portions are both required when no tagged total is available; complete debt is withheld" +
@@ -91,11 +88,9 @@ export function partialFinanceLeaseReason(evidence?: string): string {
 }
 
 /**
- * Commercial paper is conventionally a component of ShortTermBorrowings, so a
- * current-debt sum that has both tags counts the borrowings and leaves the
- * commercial paper out. One rule for the SEC statements builder
- * (`resolveDebtOverlaps`, case 3) and the provider-row completion (D-133,
- * review round 4).
+ * Commercial paper is conventionally a component of ShortTermBorrowings, so a current-debt sum that has both tags
+ * counts the borrowings and leaves the commercial paper out. One rule for the SEC statements builder
+ * (`resolveDebtOverlaps`, case 3) and the provider-row completion (D-133,).
  */
 export function commercialPaperInsideBorrowings(tags: readonly string[]): boolean {
   return tags.includes("ShortTermBorrowings") && tags.includes("CommercialPaper");
@@ -105,9 +100,8 @@ export function commercialPaperInsideBorrowings(tags: readonly string[]): boolea
 export const CURRENT_DEBT_TAGS: readonly string[] = ["DebtCurrent", "LongTermDebtCurrent", "ShortTermBorrowings", "CommercialPaper"];
 
 /**
- * A vendor short-term debt of 0 is not complete when the same-period filing
- * tags a positive current debt (audit 2026-10-29, AMZN #51 VAL-2): the vendor
- * row left the current debt out of its total.
+ * A vendor short-term debt of 0 is not complete when the same-period filing tags a positive current debt: the
+ * vendor row left the current debt out of its total.
  */
 export function zeroCurrentDebtReason(shortTermDebt: unknown, filed: readonly { tag: string; value: number | null }[]): string | null {
   if (shortTermDebt !== 0) return null;
@@ -121,15 +115,12 @@ export function zeroCurrentDebtReason(shortTermDebt: unknown, filed: readonly { 
 export interface FiledInstant { value: number; accn: string | undefined }
 
 /**
- * Review m4 (2026-10-29): a vendor short-term debt of 0 left nothing out when
- * the vendor folded the current maturities into its long-term debt. That is
- * the case only when the vendor long-term debt equals the same filing's
- * LongTermDebtNoncurrent + LongTermDebtCurrent (within max(1, |x|·1e-6)), and
- * the filing tags no other current debt: ShortTermBorrowings and
- * CommercialPaper absent or 0, and DebtCurrent absent or equal to
- * LongTermDebtCurrent within that tolerance. A DebtCurrent of 0 beside them
- * contradicts the filing; one above them may hold borrowings or current
- * finance leases the check cannot place. Either still withholds (fail-closed).
+ * a vendor short-term debt of 0 left nothing out when the vendor folded the current maturities into its long-term
+ * debt. That is the case only when the vendor long-term debt equals the same filing's LongTermDebtNoncurrent +
+ * LongTermDebtCurrent (within max(1, |x|·1e-6)), and the filing tags no other current debt: ShortTermBorrowings
+ * and CommercialPaper absent or 0, and DebtCurrent absent or equal to LongTermDebtCurrent within that tolerance. A
+ * DebtCurrent of 0 beside them contradicts the filing; one above them may hold borrowings or current finance
+ * leases the check cannot place. Either still withholds (fail-closed).
  */
 export function currentMaturitiesFoldedIn(vendorLongTermDebt: unknown, filed: Readonly<Record<string, FiledInstant | null>>): boolean {
   const noncurrent = filed.LongTermDebtNoncurrent ?? null, current = filed.LongTermDebtCurrent ?? null;
@@ -138,15 +129,15 @@ export function currentMaturitiesFoldedIn(vendorLongTermDebt: unknown, filed: Re
   const near = (a: number, b: number): boolean => Math.abs(a - b) <= Math.max(1, Math.abs(b) * 1e-6);
   if (!near(vendorLongTermDebt, noncurrent.value + current.value)) return false;
   const debtCurrent = filed.DebtCurrent ?? null;
-  // Fix round 2, I-2a: a DebtCurrent of 0 beside positive current maturities contradicts the filing.
+  // D-133: DebtCurrent of zero beside positive current maturities contradicts the filing and cannot establish
+  // complete current debt.
   if (debtCurrent !== null && !near(debtCurrent.value, current.value)) return false;
   return ["ShortTermBorrowings", "CommercialPaper"].every((tag) => (filed[tag]?.value ?? 0) === 0);
 }
 
 /**
- * A tagged remainder-of-fiscal-year bucket, zero included, shows the schedule
- * runs by fiscal year, so the next-twelve-months figure beside it can be the
- * next fiscal year's bucket rather than current debt (audit 2026-10-22 A-10).
+ * A tagged remainder-of-fiscal-year bucket, zero included, shows the schedule runs by fiscal year, so the
+ * next-twelve-months figure beside it can be the next fiscal year's bucket rather than current debt.
  */
 export function fiscalMaturityScopeReason(maturities: number | null, remainder: number | null): string | null {
   return maturities !== null && remainder !== null && remainder >= 0
@@ -161,19 +152,14 @@ export const IMPLAUSIBLE_DEBT_RATE = 0.25;
 const MATERIAL_INTEREST_TO_ASSETS = 0.0025;
 
 /**
- * A plausibility check on resolved financing debt, independent of any tag
- * (audit 2026-10-19, O-2): the completeness guards above key on single tags,
- * and a filer that tags none of them passed as complete with 94% of its debt
- * missing. A year's interest expense far above any plausible rate on the
- * average resolved debt of the year's balances, opening to closing (current +
- * noncurrent + finance leases), means debt is missing, so total and net debt
- * are withheld. The average, not the largest balance, is the basis (audit
- * 2026-10-22 B-16): one complete balance in the year let a closing balance
- * that had lost 90% of its debt pass.
- * Debt of zero is not judged: interest on tax positions, deposits or
- * deferred compensation can come without any borrowing.
- * Financial routes, whose interest expense funds deposits and float, are the
- * caller's to exclude.
+ * A plausibility check on resolved financing debt, independent of any tag: the completeness guards above key on
+ * single tags, and a filer that tags none of them passed as complete with 94% of its debt missing. A year's
+ * interest expense far above any plausible rate on the average resolved debt of the year's balances, opening to
+ * closing (current + noncurrent + finance leases), means debt is missing, so total and net debt are withheld. The
+ * average, not the largest balance, is the basis: one complete balance in the year let a closing balance that had
+ * lost 90% of its debt pass. Debt of zero is not judged: interest on tax positions, deposits or deferred
+ * compensation can come without any borrowing. Financial routes, whose interest expense funds deposits and float,
+ * are the caller's to exclude (D-100).
  */
 export function implausibleDebtReason(input: {
   annualInterestExpense: number | null; financingDebt: number | null; priorFinancingDebts: readonly number[]; totalAssets: number | null;
@@ -195,12 +181,10 @@ export function implausibleDebtReason(input: {
 export const DEBT_COLLAPSE_SHARE = 0.6;
 
 /**
- * A quarter-on-quarter debt collapse (audit 2026-10-22 B-16). Resolved debt
- * that fell by more than 60% from the previous balance, to a closing balance
- * on which the year's interest implies more than 25%, is withheld unless the
- * period's cash flow shows net debt repayment of at least half the fall: a
- * tag no chain read loses debt without any cash leaving. Debt of zero is not
- * judged, as above.
+ * A quarter-on-quarter debt collapse. Resolved debt that fell by more than 60% from the previous balance, to a
+ * closing balance on which the year's interest implies more than 25%, is withheld unless the period's cash flow
+ * shows net debt repayment of at least half the fall: a tag no chain read loses debt without any cash leaving.
+ * Debt of zero is not judged, as above (D-100).
  */
 export function collapsedDebtReason(input: {
   annualInterestExpense: number | null; financingDebt: number | null; previousFinancingDebt: number | null; previousDate: string;
@@ -231,19 +215,10 @@ export function collapsedDebtReason(input: {
 const MATERIAL_DEBT_TO_ASSETS = 0.05;
 
 /**
- * D-174. The tests above judge debt by its interest, so a filer that discloses
- * none passed them all: hours after AAPL's FY2026 10-K the provider's year-end
- * quarter carried long-term debt 0 and total debt 1.997B (the previous quarter's
- * commercial paper) against 84.31B a quarter earlier, while total liabilities rose
- * and the quarter's cash flow showed zero net debt issuance; the report published
- * net debt of -54.73B. When interest cannot judge the debt (none disclosed, or below
- * the materiality floor), material resolved debt (5% of total assets) that fell by
- * more than 60% is withheld unless something accounts for at least half the fall:
- * the span's net debt issuance (or its repayments when net issuance is not
- * disclosed), a matching fall in total liabilities (the debt left the balance
- * sheet), or a matching rise in equity (a conversion or exchange). A provider
- * writes undisclosed flows as 0, which is why the balance sheet is evidence too.
- * With none of the three available nothing is judged.
+ * D-174: when interest is absent or below the materiality floor, withhold debt of at least 5% of assets that
+ * fell more than 60% unless net issuance, repayments when issuance is undisclosed, falling liabilities or
+ * rising equity accounts for at least half the fall. Provider zeros may mean undisclosed flows, so the balance
+ * sheet is independent evidence. With none of these observations available, do not judge the fall.
  */
 export function uncashedDebtCollapseReason(input: {
   annualInterestExpense: number | null; financingDebt: number | null; previousFinancingDebt: number | null; previousDate: string;

@@ -1,18 +1,11 @@
 /**
- * Noncontrolling interest from a periodic filing's own equity statement
- * (audit 2026-10-22 C-15).
- *
- * Some filers tag NCI on the 10-K face (`MinorityInterest`) but in each 10-Q
- * only as a dimensional fact: the consolidated-equity concept on
- * `StatementEquityComponentsAxis = NoncontrollingInterestMember`. Companyfacts
- * carries no dimensional facts, so the quarterly balance had total equity
- * only. This reads, from the primary iXBRL document already fetched, each
- * instant's NCI column and the undimensioned consolidated total beside it.
- * A context with any other member (a co-registrant subsidiary on
- * `LegalEntityAxis`) is not the issuer's column and is skipped; an instant
- * whose facts disagree is dropped.
- *
- * Pure: no network, no clock.
+ * Noncontrolling interest from a periodic filing's own equity statement. * Some filers tag NCI on the 10-K face
+ * (`MinorityInterest`) but in each 10-Q only as a dimensional fact: the consolidated-equity concept on
+ * `StatementEquityComponentsAxis = NoncontrollingInterestMember`. Companyfacts carries no dimensional facts, so
+ * the quarterly balance had total equity only. This reads, from the primary iXBRL document already fetched, each
+ * instant's NCI column and the undimensioned consolidated total beside it. A context with any other member (a
+ * co-registrant subsidiary on `LegalEntityAxis`) is not the issuer's column and is skipped; an instant whose facts
+ * disagree is dropped. * Pure: no network, no clock.
  */
 import { decodeEntities, htmlToText } from "@/edgar/extract";
 

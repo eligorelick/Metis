@@ -83,10 +83,7 @@ export function isDataOnlyReport(report: Report): boolean {
   return report.appendix.missingData.some((m) => m.field === "analysis.llm");
 }
 
-/**
- * Audit 2026-10-22 B-24: a results release the statements do not reach yet;
- * B-23: a 10-Q or 10-K on file they do not reach.
- */
+/** a results release the statements do not reach yet; D-112: a 10-Q or 10-K on file they do not reach (D-103). */
 function NewerResultsBanner({ text, label = "newer results not reflected" }: { text: string; label?: string }) {
   return (
     <div className="border border-warn/50 bg-warn/10 px-3 py-2.5">
@@ -123,7 +120,7 @@ export function ReportView({
   selectedReportId?: number;
   selectedReportStatus?: string;
 }) {
-  // The shared preparation also indexes the verification marks the claim chips read (F-21).
+  // The shared preparation also indexes the verification marks the claim chips read (P20).
   const { report, lenderTables, scopeQualifications, completeness } = prepareReportForSurface(sourceReport, "web");
   const reportId = presentationReportId(report,{selectedReportId});
   // D-227: the recorded build identity is stored data, not display identity; so are the

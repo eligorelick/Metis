@@ -89,23 +89,15 @@ export function makeLimiter(
 // ---------------------------------------------------------------------------
 
 /**
- * Default client-side throttles, for the clients
- * that go through {@link fetchWithPolicy}: FMP, EDGAR and Yahoo.
- *  fmp:     ≤10 req/s sustained (well under Ultimate 3,000/min). Burst 40 =
- *           one cold /company/[symbol] volley (~38 concurrent calls) admitted
- *           without queuing behind the refill rate; worst-case minute is
- *           40 + 600 sustained ≪ 3,000. Burst 10 serialized every first visit
- *           ~3 s behind the bucket.
- *  edgar:   ≤5 req/s (official max 10/s; we stay at half)
- *
- * FRED, FINRA and Finnhub do NOT flow through this registry: their clients
- * call {@link fetchWithRedirectPolicy} directly and pace themselves (fred.ts
- * serializes at 500 ms per request, ≤2 req/s; finra.ts and finnhub.ts carry
- * their own retry loops). Registry rows for them — with a "burst 8 admits one
- * sector-overlay volley" rationale and a test pinning it — described pacing
- * no request ever received (audit 2026-09-06, F222/F230), so they are gone;
- * `getProviderLimiter("fred")` now returns the generic fallback and governs
- * nothing.
+ * Default client-side throttles, for the clients that go through {@link fetchWithPolicy}: FMP, EDGAR and Yahoo.
+ * fmp: ≤10 req/s sustained (well under Ultimate 3,000/min). Burst 40 = one cold /company/[symbol] volley (~38
+ * concurrent calls) admitted without queuing behind the refill rate; worst-case minute is 40 + 600 sustained ≪
+ * 3,000. Burst 10 serialized every first visit ~3 s behind the bucket. edgar: ≤5 req/s (official max 10/s; we stay
+ * at half) * FRED, FINRA and Finnhub do NOT flow through this registry: their clients call {@link
+ * fetchWithRedirectPolicy} directly and pace themselves (fred.ts serializes at 500 ms per request, ≤2 req/s;
+ * finra.ts and finnhub.ts carry their own retry loops). Registry rows for them — with a "burst 8 admits one
+ * sector-overlay volley" rationale and a test pinning it — described pacing no request ever received, so they are
+ * gone; `getProviderLimiter("fred")` now returns the generic fallback and governs nothing.
  */
 const DEFAULT_PROVIDER_RATES: Record<string, { ratePerSec: number; burst: number }> = {
   fmp: { ratePerSec: 10, burst: 40 },
@@ -177,7 +169,7 @@ function recordBandwidth(provider: string, bytes: number, url: string): void {
 /**
  * Exponential backoff with equal jitter:
  *   raw = baseMs * 2^attempt, capped at maxMs
- *   delay = raw/2 + random() * raw/2
+ *   delay = raw/2 + random * raw/2
  * `attempt` is 0-based (0 = first retry).
  */
 export function computeBackoffMs(
@@ -231,13 +223,11 @@ export interface FetchPolicy {
   /** Injectable sleep (tests). */
   sleepImpl?: (ms: number) => Promise<void>;
   /**
-   * Largest response body accepted, in bytes. Default {@link DEFAULT_MAX_BODY_BYTES}.
-   * A declared Content-Length above it is refused before a byte is read; an
-   * undeclared body is read in chunks and abandoned the moment the running
-   * total passes it. Not retried: a body that is too large will be too large
-   * again (audit 2026-09-06, F229 — `response.text()` used to materialise
-   * whatever a provider or a same-origin redirect target streamed, with only
-   * the 30 s timeout bounding it, and then retry the download).
+   * Largest response body accepted, in bytes. Default {@link DEFAULT_MAX_BODY_BYTES}. A declared Content-Length
+   * above it is refused before a byte is read; an undeclared body is read in chunks and abandoned the moment the
+   * running total passes it. Not retried: a body that is too large will be too large again ` used to materialise
+   * whatever a provider or a same-origin redirect target streamed, with only the 30 s timeout bounding it, and
+   * then retry the download).
    */
   maxBodyBytes?: number;
 }
@@ -639,7 +629,7 @@ function errorMessage(err: unknown): string {
   return String(err);
 }
 
-/** OD-4: explicit provider refusals and schema/identity failures never qualify. */
+/** P20: explicit provider refusals and schema/identity failures never qualify. */
 export function isTransientProviderError(error:unknown):boolean {
  if(error instanceof HttpBodyTooLargeError)return false;
  if(error instanceof HttpTransportError)return true;

@@ -3,26 +3,19 @@ import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 import type { Report } from "@/report/schema";
 
 /**
- * Display-time marking of a stored report whose statements were built from SEC
- * filings before this batch's report spec (audit 2026-10-27, B13, D-67). The
- * derived lines and growth cells it shows are as stored; the notes below say
- * which derivations changed since. No figure is rewritten. Two classes carry a
- * note: FULL (the income statements were served by EDGAR: a `keyless.incomeAnnual`
- * or `keyless.incomeQuarterly` entry whose reason starts "served by edgar") and
- * BACKFILL (only older periods came from SEC filings: a `statements.backfill.income*`
- * entry, an appended `edgar.predecessor` entry, or a scoped `keyless.income*.backfill.*`
- * or `.predecessor.*` entry), whose two notes are scoped to those older periods. FULL
- * wins when both are present. An appended `edgar.predecessor` entry covers all six statement
- * members, so a predecessor history without income periods also carries the BACKFILL notes, and a
- * member served wholly by predecessor rows carries the BACKFILL wording: both are conservative
- * over-inclusions. A report at or after the since-version, or in neither
- * class (an FMP-route report, whose `.shareBasis` entries describe vendor rows), is
- * returned as the identical object (Task 10b, R1 pre-flight I3).
- *
- * The since-version is frozen: it never compares against `REPORT_SPEC_VERSION`
- * itself, because later batches move that constant. Every note is a fixed
- * string: no provider, filing or model text reaches it, because those are
- * untrusted.
+ * Display-time marking of a stored report whose statements were built from SEC filings before this batch's report
+ * spec (D-67). The derived lines and growth cells it shows are as stored; the notes below say which derivations
+ * changed since. No figure is rewritten. Two classes carry a note: FULL (the income statements were served by
+ * EDGAR: a `keyless.incomeAnnual` or `keyless.incomeQuarterly` entry whose reason starts "served by edgar") and
+ * BACKFILL (only older periods came from SEC filings: a `statements.backfill.income*` entry, an appended
+ * `edgar.predecessor` entry, or a scoped `keyless.income*.backfill.*` or `.predecessor.*` entry), whose two notes
+ * are scoped to those older periods. FULL wins when both are present. An appended `edgar.predecessor` entry covers
+ * all six statement members, so a predecessor history without income periods also carries the BACKFILL notes, and
+ * a member served wholly by predecessor rows carries the BACKFILL wording: both are conservative over-inclusions.
+ * A report at or after the since-version, or in neither class (an FMP-route report, whose `.shareBasis` entries
+ * describe vendor rows), is returned as the identical object (Task 10b, R1 I3). * The since-version is
+ * frozen: it never compares against `REPORT_SPEC_VERSION` itself, because later batches move that constant. Every
+ * note is a fixed string: no provider, filing or model text reaches it, because those are untrusted.
  */
 export { EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION } from "@/report/versions";
 
@@ -59,7 +52,7 @@ const isStatementField = (field: string): boolean =>
 const namesRevenueRepresentation = (entry: { field: string; reason: string }): boolean =>
   isStatementField(entry.field) && entry.field.endsWith(".restatements") && (entry.reason.includes(" revenue ") || /; and \d+ more\b/.test(entry.reason));
 
-/** The `record()` entry of keyless.ts: the whole member was built from SEC filings. Wording unchanged since d6ed91a. */
+/** The `record` entry of keyless.ts: the whole member was built from SEC filings. Wording unchanged since d6ed91a. */
 const isFullEntry = (entry: { field: string; reason: string }): boolean =>
   STATEMENT_FIELDS.some((field) => entry.field === field) && entry.reason.startsWith("served by edgar");
 

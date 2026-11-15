@@ -1,38 +1,11 @@
 /**
- * A periodic filing's own facts, in companyfacts shape, from its XBRL
- * instance (audit 2026-10-22 B-23).
- *
- * SEC's companyfacts API can run a quarter or two behind the filed 10-Qs: on
- * 2026-10-22 it still ended at the first-quarter 10-Q for Visa, Duke, NextEra,
- * Coca-Cola and Prologis although each had filed its second-quarter 10-Q in
- * July or August. The statements, TTM and multiples then ended a quarter (or
- * two) early with nothing saying so. The newer 10-Q's instance is already
- * fetched for segment revenue (`collectQuarterlySegments`), so its
- * undimensioned facts are read here and merged into the companyfacts payload,
- * each point carrying that filing's accession, form, filing date and fiscal
- * focus exactly as companyfacts would. A filing companyfacts already carries
- * is never merged, so nothing is counted twice.
- *
- * D-236 (P2, P9, P10): "carries" is decided by evidence, not by mention, and
- * the fallback covers every core periodic form (`CORE_FACT_FORMS`), not only
- * Forms 10-K and 10-Q. On 2026-11-12 companyfacts held two facts of TSMC's
- * fiscal 2025 Form 20-F (0001628280-26-025362, filed 2026-04-16), the cover
- * page's share count (dei) and one srt element, and none of the statement
- * facts its instance states, so every figure that needs a filed fact of
- * fiscal 2025 went without one. `feedCoverage` is the one coverage test.
- *
- * D-268 additionally reads carrying investment subtotals: the sole
- * allowed dimension is the standard carrying-reported-amount measurement axis.
- * Instrument, hierarchy, entity, typed and scenario breakdowns stay excluded.
- * Covered filings can supply these omitted points without replacing feed facts.
- * Numeric, non-nil facts are read in
- * the us-gaap, srt, dei and ifrs-full taxonomies, on contexts with no segment
- * or scenario (the consolidated registrant; a combined filing's subsidiaries
- * sit on dei:LegalEntityAxis and are left out), for the filer's own CIK. A
- * fact the instance states twice with different values at the same precision
- * is dropped rather than guessed.
- *
- * Pure: no network, no clock.
+ * D-112, D-236: merge a periodic filing’s own XBRL facts when companyfacts lacks its statement evidence;
+ * mention of an accession alone does not prove coverage. feedCoverage is the single coverage test across core
+ * periodic forms. Preserve accession, form, filing date and fiscal focus. D-268 also admits omitted
+ * carrying-investment subtotals on the standard carrying-reported-amount axis without replacing feed facts.
+ * Otherwise require consolidated, numeric, non-nil facts for the filer CIK in supported taxonomies; exclude
+ * entity, instrument, hierarchy, typed and scenario breakdowns. Drop same-precision conflicting duplicates.
+ * Pure, with no clock or network.
  */
 
 import { tagsFor } from "@/edgar/tagSynonyms";

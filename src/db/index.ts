@@ -9,7 +9,7 @@
  *
  * The singleton is stashed on globalThis so Next.js dev hot-reloads reuse the
  * same connection instead of leaking file handles. Tests inject an in-memory
- * database via setDbForTests() (see tests/db.cache.test.ts).
+ * database via setDbForTests (see tests/db.cache.test.ts).
  */
 
 import "server-only";
@@ -245,7 +245,7 @@ function normalizeBootstrapTerminalSteps(
 /**
  * Runs the idempotent CREATE TABLE IF NOT EXISTS DDL plus column guards for
  * columns added after a table first shipped. Safe to call any number of
- * times; called automatically by createDatabase()/getDb().
+ * times; called automatically by createDatabase/getDb.
  */
 export function bootstrapSchema(sqlite: Database.Database): void {
   sqlite.transaction(() => {
@@ -431,7 +431,7 @@ export function createDatabase(file: string = defaultDbPath()): DatabaseHandle {
   }
   const sqlite = new Database(file);
   // A pragma or bootstrap failure (a corrupt file, a disk error) must not strand
-  // the connection: getDb() only memoizes `handle` on success, so every later
+  // the connection: getDb only memoizes `handle` on success, so every later
   // call would open — and leak — another handle, each holding a file lock.
   try {
     sqlite.pragma("journal_mode = WAL"); // no-op ("memory") for :memory: databases
@@ -484,7 +484,7 @@ function stash(): ThesisDbStash {
  * Lazily-initialized singleton Drizzle instance backed by the default local
  * app-data database path. First call creates the file, applies WAL mode, and
  * bootstraps the schema.
- * If a test database was injected via setDbForTests(), that one is returned
+ * If a test database was injected via setDbForTests, that one is returned
  * instead.
  */
 export function getDb(): ThesisDb {
@@ -509,7 +509,7 @@ export function getRawSqlite(): Database.Database {
 }
 
 /**
- * Test escape hatch: make getDb() return the given database (build one with
+ * Test escape hatch: make getDb return the given database (build one with
  * createDatabase(":memory:")). Pass null to restore normal behavior. Never
  * call from app code.
  */

@@ -5,9 +5,9 @@
  * volume histogram pane, and optional golden/death cross markers.
  *
  * lightweight-charts v5 (installed 5.2.0). v5 replaces the v4
- * `addCandlestickSeries()/addLineSeries()/addHistogramSeries()` methods with a
+ * `addCandlestickSeries/addLineSeries/addHistogramSeries` methods with a
  * single generic `chart.addSeries(SeriesDefinition, options, paneIndex?)`;
- * series markers moved from `series.setMarkers()` to the standalone
+ * series markers moved from `series.setMarkers` to the standalone
  * `createSeriesMarkers(series, markers)` plugin. Both are used below.
  *
  * Client component: the chart mounts into a ref'd container, sizes itself to

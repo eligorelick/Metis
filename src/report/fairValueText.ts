@@ -1,6 +1,6 @@
 import type { Dcf, FairValue } from "@/report/schema";
 
-/** Audit 2026-10-22 F-13: the reason an available fair value's inputs were substituted. */
+/** the reason an available fair value's inputs were substituted (D-111). */
 export const FAIR_VALUE_DEGRADED_FIELD = "valuation.fairValue.degradedInputs";
 
 /** The degraded-inputs sentence every surface prints beside an available headline value, or null. */
@@ -10,8 +10,8 @@ export function fairValueDegradedText(fairValue: FairValue | null | undefined): 
 }
 
 /**
- * The sentence every surface prints when no fair value is published. A DCF
- * outside its domain says so and names the failed test (audit 2026-10-22 B-29).
+ * The sentence every surface prints when no fair value is published. A DCF outside its domain says so and names
+ * the failed test (D-102).
  */
 export function fairValueWithheldText(fairValue: FairValue): string {
   const reference = fairValueReferenceText(fairValue);

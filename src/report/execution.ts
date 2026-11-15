@@ -405,7 +405,7 @@ export function annotateSharedModelFamily(
   );
 }
 
-/** DB-003: observed model identities, including API models. */
+/** P20: observed model identities, including API models. */
 export function executionModelSummary(entries: readonly ExecutionMetadataEntry[] | undefined): {models:string[];unrecordedSteps:string[]} {
  const models = new Set<string>(), unrecordedSteps = new Set<string>();
  for (const entry of entries ?? []) {

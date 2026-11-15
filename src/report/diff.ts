@@ -777,7 +777,7 @@ export function diffReports(
     const toScore =
       aspect === "composite" ? toScoring?.composite : toScoring?.aspects[aspect];
     if (!fromScore && !toScore) continue;
-    // F-19: a composite under the evidence floor shows no letter here either.
+    // P20: a composite under the evidence floor shows no letter here either.
     const shownBand = (scoring: RuntimeScoring, score: NonNullable<typeof fromScore>): Grade | null =>
       aspect === "composite" ? compositeDisplay(scoring).grade : score.band;
     const fromEndpoint = fromScore

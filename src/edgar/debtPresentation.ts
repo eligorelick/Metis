@@ -152,11 +152,10 @@ export interface FiledDebtLine { name: string; value: number }
 export const BALANCE_SHEET_DEBT_LINES_TAG = "filing:balance-sheet:debt-lines";
 
 /**
- * The debt lines and the payables to third-party loan owners that a
- * held-for-sale lender's balance sheet names (D-149 F1), first amount column,
- * stated in thousands. Narrow on purpose: any other caption or scale
- * establishes nothing. The caller binds the amounts to a period (D-234: by the
- * same filing's tagged totals), never from this text alone.
+ * The debt lines and the payables to third-party loan owners that a held-for-sale lender's balance sheet names
+ * (D-149), first amount column, stated in thousands. Narrow on purpose: any other caption or scale establishes
+ * nothing. The caller binds the amounts to a period (D-234: by the same filing's tagged totals), never from this
+ * text alone.
  */
 export function lenderDebtLines(statementsText: string | undefined): FiledDebtLine[] {
   const sheet = (statementsText ?? "").split(/\bBALANCE SHEETS?\b/i)[1]?.split(/\b(?:CONSOLIDATED )?STATEMENTS OF\b/i)[0] ?? "";

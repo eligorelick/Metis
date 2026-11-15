@@ -1,5 +1,5 @@
 /**
- * Watchlist sidebar : the app-wide left rail. Renders, per watched
+ * Watchlist sidebar: the app-wide left rail. Renders, per watched
  * symbol, a dense scannable row — ticker (mono, links to /company/SYMBOL),
  * price + colored change%, a compact grade chip strip (n/a when no report),
  * last-report date, and next-earnings date. An AddTicker control sits at the
@@ -7,7 +7,7 @@
  *
  * Two entry points:
  *   - {@link WatchlistSidebar} — an async SERVER component that calls
- *     getWatchlistView() itself. The integrator slots <WatchlistSidebar/> into
+ *     getWatchlistView itself. The integrator slots <WatchlistSidebar/> into
  *     AppShell's `sidebar` prop across pages.
  *   - {@link Sidebar} — the presentational body, given an already-computed
  *     WatchlistRowView[]. Server-friendly (no hooks); reuses it in tests /
@@ -113,11 +113,11 @@ function WatchRow({ row, active, selectedReportId }: { row: WatchlistRowView; ac
 
   return (
     <li className="watch-row group relative border-b border-edge last:border-b-0">
-      {/* The remove control is a SIBLING of the row link, not a child: HTML
-          forbids interactive content inside <a>, and a nested button folded
-          "remove AAPL" into the link's accessible name (audit 2026-09-06,
-          F218). It sits at the top-right, over the padding the price row
-          leaves for it. */}
+      {/**
+       * The remove control is a SIBLING of the row link, not a child: HTML forbids interactive content inside <a>,
+       * and a nested button folded "remove the issuer" into the link's accessible name. It sits at the top-right,
+       * over the padding the price row leaves for it.
+       */}
       <div className="watch-row-remove absolute right-3 top-2">
         <RemoveButton symbol={row.symbol} />
       </div>

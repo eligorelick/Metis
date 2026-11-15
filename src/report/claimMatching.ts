@@ -24,10 +24,9 @@ export function numericClaimPartition(v: FactualValidation): NumericClaimPartiti
 }
 
 /**
- * Audit 2026-10-22 F-22: a period, unit or currency the cited record does not
- * establish is a metadata gap, so the claim or figure is unverified, never
- * contradicted. Logs written before that rule recorded these reasons as
- * contradicted; a stored report reads them under the same rule as a new one.
+ * a period, unit or currency the cited record does not establish is a metadata gap, so the claim or figure is
+ * unverified, never contradicted. Logs written before that rule recorded these reasons as contradicted; a stored
+ * report reads them under the same rule as a new one (D-110).
  */
 const METADATA_GAP_REASONS: ReadonlySet<string> = new Set([
   "period-mismatch", "unit-mismatch", "currency-mismatch", "period-word-mismatch", "unit-word-mismatch",
@@ -45,13 +44,11 @@ export function isCountedClaimEntry(entry: VerificationLogEntry, kind: "factual-
 }
 
 /**
- * Audit 2026-10-22 F-21: the claims the report never prints. The grade strip
- * shows each section's grade and one-line why; its reasoning claims (often a
- * copy of the section's own) are verified and logged but appear on no surface,
- * so the counts a reader can match against marked bullets leave them out. A
- * removed entry is not a counted claim: an earnings-reference guard row was
- * never counted, and legacy entity safety takes a claim it withholds out of
- * the counts itself.
+ * the claims the report never prints. The grade strip shows each section's grade and one-line why; its reasoning
+ * claims (often a copy of the section's own) are verified and logged but appear on no surface, so the counts a
+ * reader can match against marked bullets leave them out. A removed entry is not a counted claim: an
+ * earnings-reference guard row was never counted, and legacy entity safety takes a claim it withholds out of the
+ * counts itself (D-110).
  */
 function unprintedClaimEntries(log: readonly VerificationLogEntry[] | undefined, kind: "factual-claim" | "judgment"): VerificationLogEntry[] {
   return (log ?? []).filter((entry) => isCountedClaimEntry(entry, kind) && entry.path?.startsWith("verdict.gradeStrip.") === true);
@@ -93,7 +90,7 @@ export function factualValidationWithout(
 
 /**
  * Recorded factual-claim statuses with legacy metadata gaps read as unverified
- * (F-22), counting only the claims the report prints (F-21).
+ * (P20), counting only the claims the report prints (P20).
  */
 export function displayedFactualValidation(
   v: FactualValidation,
@@ -126,7 +123,7 @@ export function claimCoverageWithout(
   };
 }
 
-/** Coverage with the factual and judgment claim counts limited to printed claims (F-21). */
+/** Coverage with the factual and judgment claim counts limited to printed claims (P20). */
 export function displayedClaimCoverage(coverage: ProvenanceCoverage, log: readonly VerificationLogEntry[] | undefined): ProvenanceCoverage {
   return claimCoverageWithout(coverage, unprintedClaimEntries(log, "factual-claim"), unprintedClaimEntries(log, "judgment"));
 }

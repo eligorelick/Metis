@@ -343,10 +343,9 @@ function ReturnsPanel({ computed }: { computed: ComputedMetrics }) {
   const roicAsOf = r.roic.latestRoicPct !== null
     ? r.roic.asOf
     : [...roicSeries].reverse().find((y) => y.roicPct !== null)?.date ?? r.roic.asOf;
-  // The spread is the module's figure or nothing: subtracting a years-old ROIC
-  // from today's WACC produced a green "+5.1 pp" above the module's own
-  // "spread unavailable" note (audit 2026-09-06, F220). The ROIC cell keeps
-  // its dated fallback because it stamps the year beneath the figure.
+  // The spread is the module's figure or nothing: subtracting a years-old ROIC from today's WACC produced a green
+  // "+5.1 pp" above the module's own "spread unavailable" note. The ROIC cell keeps its dated fallback because it
+  // stamps the year beneath the figure.
   const spreadDisplay = r.roicVsWacc.spreadPctPts;
 
   return (

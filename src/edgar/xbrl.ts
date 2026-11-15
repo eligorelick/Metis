@@ -1,25 +1,9 @@
 import { vendorAgreesWithFiled } from "./vendorAgreement";
 /**
- * SEC EDGAR XBRL companyfacts processing: concept tag-fallback chains, the
- * critical form-filtered dedup rule, period-scoped lookups, and the FMP
- * cross-check comparator.
- *
- * Research basis (all live-verified 2026-07-05):
- *   - the EDGAR extraction contract (companyfacts structure, dedup, revenue pitfall)
- *   - the EDGAR extraction contract (JPM bank chains, F14 DEF 14A trap)
- *   - the bank-filing extraction contract (BAC/WFC/C matrix,
- *     F22-F25, revised chains)
- *
- * THE CRITICAL DEDUP RULE (F14 + F24): filter facts to audited/core forms
- * 10-K / 10-Q / 10-K/A / 10-Q/A / 20-F / 20-F/A BEFORE deduping, then group
- * by period (start,end | end) and take max(filed). DEF 14A points can carry `frame`
- * plus a ROUNDED value (JPM FY2025 NetIncomeLoss: 57,048,000,000 in the 10-K
- * vs 57,000,000,000 in the DEF 14A filed later), 6-K points are not standardized,
- * and 8-K points exist (Citi).
- * `fy`/`fp` can be null — never assume ints.
- *
- * This module is pure (no network); the companyfacts JSON comes from
- * src/providers/edgar.ts.
+ * P1, P2: pure companyfacts processing resolves period-scoped tag chains and cross-checks vendor values.
+ * Filter to core periodic forms before deduplicating by start/end or instant and taking the newest filing.
+ * Proxy facts can be rounded, while 6-K and 8-K facts do not establish standardized periodic statements.
+ * Fiscal labels may be null. The provider supplies the JSON; this module makes no network calls.
  */
 
 import { z } from "zod";
@@ -110,37 +94,29 @@ export type ConceptName =
 const t = (tag: string, unit?: string): ChainStep => ({ kind: "tag", tag, unit });
 
 /**
- * Per-concept fallback chains. Resolution is PERIOD-SCOPED: the first step
- * that yields a fact for the requested period wins, so stale-but-present tags
- * (WFC `Revenues`, last point 2020-09-30) fall through naturally.
- *
- * Chain evidence: the bank-filing extraction contract and
- * fixtures/edgar/bank_xbrl_tag_matrix.json.
+ * P1: resolve the first chain step with a fact for the requested period; a tag present only in older periods
+ * must fall through. The bank tag matrix documents the chain evidence.
  */
 export const CONCEPT_CHAINS: Record<ConceptName, ChainStep[]> = {
   revenue: [
-    // `Revenues` is the taxonomy's TOTAL (goods, services, interest and other
-    // income "recognized as a component of revenue"); the ASC-606 elements are
-    // the performance-obligation subset. A filer that tags both for one period
-    // (a lessor's rental income, an oil major's "total revenues and other
-    // income") reports the total on its income statement — and that is the
-    // figure the vendor's `revenue` carries, so the cross-check compares like
-    // with like only when the total comes first. Resolution is period-scoped,
-    // so an issuer whose `Revenues` stops at FY2018 (AAPL) still falls through
-    // to the ASC-606 tag for every later period.
+    // `Revenues` is the taxonomy's TOTAL (goods, services, interest and other income "recognized as a component of
+    // revenue"); the ASC-606 elements are the performance-obligation subset. A filer that tags both for one period
+    // (a lessor's rental income, an oil major's "total revenues and other income") reports the total on its income
+    // statement — and that is the figure the vendor's `revenue` carries, so the cross-check compares like with
+    // like only when the total comes first. Resolution is period-scoped, so an issuer whose `Revenues` stops at
+    // FY2018  still falls through to the ASC-606 tag for every later period.
     ...BROAD_REVENUE_TOTAL_TAGS.map(tag => t(tag)),
     { kind: "sum", tags: [...REVENUE_COMPONENT_TAGS], label: "Goods+Services" },
-    // Post-ASC-606 industrials (AAPL).
+    // Post-ASC-606 industrials .
     t("RevenueFromContractWithCustomerExcludingAssessedTax"),
     t("RevenueFromContractWithCustomerIncludingAssessedTax"),
-    // Banks: JPM tags total net revenue under Revenues (annual only) AND RevenuesNetOfInterestExpense.
+    // P14: bank net revenue may use Revenues or RevenuesNetOfInterestExpense; resolve by the requested period.
     t("RevenuesNetOfInterestExpense"),
-    // Bank computed fallback — identity verified exactly at JPM/BAC/WFC/C.
+    // P13: derive bank net revenue from net interest income plus noninterest income.
     { kind: "sum", tags: ["InterestIncomeExpenseNet", "NoninterestIncome"], label: "NII+NonII" },
     // Deprecated pre-2018 tag, last resort for old filers.
     t("SalesRevenueNet"),
-    // NOTE: InterestAndDividendIncomeOperating is deliberately EXCLUDED — it is
-    // GROSS interest income at BAC/WFC/C and would overstate revenue (research §2.7).
+    // P13: gross operating interest income is not net revenue and would overstate it.
   ],
   netIncome: [t("NetIncomeLoss"), t("ProfitLoss")],
   assets: [t("Assets")],
@@ -150,10 +126,10 @@ export const CONCEPT_CHAINS: Record<ConceptName, ChainStep[]> = {
   ],
   deposits: [t("Deposits"), { kind: "sum", tags: ["DepositsDomestic", "DepositsForeign"], label: "Domestic+Foreign" }],
   provisionForCreditLosses: [
-    t("ProvisionForLoanLeaseAndOtherLosses"), // JPM, WFC current
+    t("ProvisionForLoanLeaseAndOtherLosses"), // the bank, a bank current
     t("ProvisionForLoanLossesExpensed"), // C current
-    t("ProvisionForCreditLossExpenseReversal"), // absent at all 4 majors; kept for regionals
-    // BAC F25: standard P&L provision tag is an extension tag; computed sum verified 5,595+80=5,675 $M FY2025.
+    t("ProvisionForCreditLossExpenseReversal"), // P7: if the aggregate loan-loss provision uses an extension tag, sum the disjoint financing-receivable
+    // and off-balance-sheet provisions.
     {
       kind: "sum",
       tags: [
@@ -596,13 +572,9 @@ export function crossCheck(fmpValue: number, xbrlValue: number, tolerancePct = 0
 }
 
 /**
- * Bank-tagging detection: RevenueFromContractWithCustomer* absent AND a bank
- * revenue/NII tag present. True at JPM, whose companyfacts carry no ASC-606
- * revenue element (fixtures/edgar/jpm_companyfacts_revenue_tags.json). It is
- * a tagging heuristic, not a bank test: a bank that tags its fee revenue under
- * an ASC-606 element as well is NOT detected here, which is why every caller
- * that routes revenue also consults the issuer's industry (validate.ts
- * `routesAsFinancial`, keyless.ts `bankStatementRouting`).
+ * P14: absent ASC-606 revenue plus a bank revenue or NII tag is a tagging heuristic, not a bank
+ * classification. Banks can also tag fee revenue under P20, so revenue routing must independently consult
+ * issuer industry.
  */
 export function looksLikeBankTagging(facts: CompanyFacts): boolean {
   const g = usGaap(facts);
@@ -631,7 +603,7 @@ export function checkBankRevenueIdentity(
   return { holds: match, revenue: rev.value.data.value, nii: nii.value.data.value, nonII: non.value.data.value, deltaPct };
 }
 
-/** Most recent fact period end across the given tags (freshness probe — Citi F23 lags months). */
+/** Most recent fact period end across the given tags (freshness probe — cross-reference-index P9 lags months). */
 /**
  * D-175: the newest core-form period end SEC facts carry for any of `tags`, read
  * in both the us-gaap and ifrs-full taxonomies (an IFRS 20-F filer has no us-gaap

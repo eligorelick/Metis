@@ -5,27 +5,12 @@ import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 import type { Report } from "@/report/schema";
 
 /**
- * Display-time marking of a stored report valued before this batch's report spec
- * (audit 2026-10-27 B4a: FIN-103, FIN-119, FIN-303, FIN-305, FIN-404, FIN-108,
- * FIN-311, FIN-109; D-67). The DCF, excess-return and REIT figures it shows are as
- * stored; the notes below say which bridge rules changed since. No figure is
- * rewritten. Each clause fires only where a stored byte shows the old method
- * touched that report, and where no stored byte can show it the clause is worded
- * as a condition. The claims, E-7 and lease clauses are for the FCFF DCF route
- * only: the excess-return route values common book equity, has no E-7 bridge and
- * no sales-to-capital, and only the divisor reaches it.
- *
- * FIN-109: a stored EV basis that says a total lease liability "is disclosed but
- * its operating slice is not" is shown with the corrected finance-lease sentence
- * when the stored lease amounts show the total is wholly a finance lease (the
- * same rule as Stage B's `financeLeaseOnlyTotal`), and the stored "the FMP route
- * publishes no split" entry is hidden.
- *
- * The since-version is frozen: it never compares against `REPORT_SPEC_VERSION`
- * itself, because later batches move that constant. Every note is a fixed string
- * plus amounts read from stored numbers: no provider, filing or model text reaches
- * it. Each clause compares the report's spec with its own part's cutoff
- * (`LEGACY_BRIDGE_CLAUSES`); there is no module-wide early return.
+ * D-67, D-135 (P21): mark stored valuations with fixed, clause-specific cutoffs and notes; never rewrite their
+ * figures. Apply a clause only where saved bytes prove it applies, otherwise state it conditionally.
+ * Senior-claim, debt-like and lease clauses concern FCFF; only the divisor reaches excess-return valuation.
+ * Where saved lease amounts prove a finance-only total, correct its operating-slice wording and hide the
+ * obsolete vendor-split entry. Notes use fixed text and stored amounts, never provider, filing or model text;
+ * compare each clause with its own frozen cutoff.
  */
 export { BRIDGE_METHOD_SINCE_SPEC_VERSION } from "@/report/versions";
 export { BRIDGE_READINGS_SINCE_SPEC_VERSION } from "@/report/versions";
@@ -154,7 +139,7 @@ function addReitNote(report: Report): Report {
   return { ...report, routeMetrics: { ...routeMetrics, notes: [...routeMetrics.notes, REIT_NOTE] } };
 }
 
-/** Only the completed B4b equity-method family is marked here; later B4b repairs add their own clauses. */
+/** Only the completed operating-basis correction equity-method family is marked here; later operating-basis correction repairs add their own clauses. */
 function addEquityMethodReadingNote(report: Report): Report {
   const prefix = `Valued before report spec ${BRIDGE_READINGS_SINCE_SPEC_VERSION} under the earlier equity-method reading`;
   const fairValue = report.fairValue;

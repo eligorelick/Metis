@@ -12,7 +12,7 @@ export function captureAiSelection(): AiSelection {
   // once a connection choice is saved, it is authoritative even after sign-out.
   const store = readAiStore();
   const selection: AiSelection = store && !store.selectionIsDefault ? store.selection : { provider: getConfig().hasAnthropicKey ? "anthropic" : "none" };
-  // SEC-205: legacy saved Fast must match the Standard speed shown in Settings.
+  // P20: legacy saved Fast must match the Standard speed shown in Settings.
   return selection.provider === "chatgpt" && selection.serviceTier === "fast" && !chatGptFastOffered(selection.model)
     ? { ...selection, serviceTier: "default" } : selection;
 }

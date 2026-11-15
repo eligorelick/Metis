@@ -104,7 +104,7 @@ export type SectorRoute =
   | "insurer"
   | "reit"
   | "reit-mortgage";
-/** "regulated-utility": audit 2026-10-22 B-13, a utility SIC with filed rate-regulation evidence. */
+/** D-104: the regulated-utility overlay requires a utility SIC and filed rate-regulation evidence. */
 export type SectorOverlay = "unprofitable" | "pre-revenue" | "recent-ipo" | "adr" | "regulated-utility";
 
 export interface CompanyRoute {

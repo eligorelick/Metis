@@ -106,9 +106,9 @@ function partialGrades(scores: Report["scores"] | undefined, named: readonly str
 }
 
 /**
- * D-309 review round 1 (P10, P12, P19): the manifest fields of valuation inputs and headline figures. Any such entry
- * that is not an expected omission means a valuation input or headline figure is withheld, unchecked or qualified, so
- * the report is not full support. Scores (`scores.*`) are excluded: grade evidence is judged by its share above.
+ * D-309: the manifest fields of valuation inputs and headline figures. Any such entry that is not an expected
+ * omission means a valuation input or headline figure is withheld, unchecked or qualified, so the report is not
+ * full support. Scores (`scores.*`) are excluded: grade evidence is judged by its share above.
  */
 const HEADLINE_GAP_FIELD = /^(?:valuation|returns\.wacc|capital\.fcf)(?:\.|$)|^capital\.(?:netDebtToEbitda|interestCoverage)$/;
 
@@ -194,13 +194,14 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
     const use = fv.currentUse;
     if (use?.reason === "route-policy") add("route-no-per-share-value", "no per-share fair value: this company's route does not apply the cash-flow valuation model");
     else if (fv.status === "dated-reference" || use?.status === "dated-reference") add("fair-value-dated", `the fair value is a dated reference${use?.valueDate ? ` (valued at ${use.valueDate})` : ""}, not updated to the current price`);
-    // Review round 1: a domain failure (non-positive equity value, negative explicit-period value) is a model limit, not missing evidence.
+    // a domain failure (non-positive equity value, negative explicit-period value) is a model limit, not missing
+    // evidence.
     else if (fv.status === "outside-domain") add("fair-value-withheld", "the per-share fair value is withheld because the cash-flow model's result falls outside the range it is valid for");
     else if (fv.status === "suppressed") add("fair-value-withheld", "the per-share fair value is withheld because an input could not be established");
   }
-  // P12: the qualifications the grades already carry (assessment.ts withAssessmentQualification).
-  // Review round 1 (D-300): every reason code limits support; a grade with no recorded
-  // qualification is not shown to be supported, so it cannot establish full support (P19).
+  // P12: the qualifications the grades already carry (assessment.ts withAssessmentQualification).: every reason
+  // code limits support; a grade with no recorded qualification is not shown to be supported, so it cannot
+  // establish full support (P19) (D-300).
   const qualification = report.scores === undefined ? undefined : report.scores.qualification;
   if (report.scores !== undefined && (qualification === undefined || qualification.composite.status === "unknown")) {
     add("grade-qualification-not-recorded", "this report does not record the evidence behind its grades");
@@ -238,9 +239,9 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
       `${listText(partial.map(item => evidencePercentText(item.share)))} of the evidence that applies on this company's route`);
   }
   const gaps: readonly ManifestEntry[] = report.appendix.missingData;
-  // Review round 1 (D-300): the cash-flow valuation's tax rate is a headline input. Its operands are
-  // checked against a filing unless the typed manifest entry says otherwise; a saved report written
-  // before that entry existed does not record which, so it is not shown to be checked (P19).
+  // the cash-flow valuation's tax rate is a headline input. Its operands are checked against a filing unless the
+  // typed manifest entry says otherwise; a saved report written before that entry existed does not record which,
+  // so it is not shown to be checked (P19) (D-300).
   const dcfHeadline = fv !== undefined && fv.method === "fcff-dcf" && (fv.status === "available" || fv.status === "dated-reference");
   if (gaps.some(gap => gap.field === DCF_TAX_OPERANDS_FIELD)) add("tax-operands-vendor", "the tax rate of the cash-flow valuation uses provider tax and pre-tax income figures not checked against a filing");
   else if (dcfHeadline && specVersionBefore(report.meta?.specVersion, TAX_OPERAND_EVIDENCE_SINCE_SPEC)) {
@@ -254,8 +255,8 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
   if (gaps.some(gap => gap.field === "capital.fcf.sbc" && gap.expected !== true)) {
     add("fcf-after-sbc-withheld", "stock-based compensation is not established for the latest fiscal year, so free cash flow after it is withheld");
   }
-  // D-309 review round 1: the literal definition. Every other unexpected entry on a valuation input or headline
-  // figure limits support, in one plain sentence per typed field, unless a limitation above already names it.
+  // D-309: the literal definition. Every other unexpected entry on a valuation input or headline figure limits
+  // support, in one plain sentence per typed field, unless a limitation above already names it.
   const has = (...codes: SupportLimitationCode[]) => out.some(item => codes.includes(item.code));
   for (const gap of gaps) {
     const field = gap.field;
@@ -293,9 +294,9 @@ function isTaggedStatement(node: unknown): node is SourcedClaim {
 }
 
 /**
- * One statement however often it is repeated: the presentation layer's own identity (P22), the one
- * shown-once uses (words, tag, whole citation, resolved date and verification mark). Review round 1:
- * a validated and a contradicted copy of the same words are two statements, counted apart.
+ * One statement however often it is repeated: the presentation layer's own identity (P22), the one shown-once uses
+ * (words, tag, whole citation, resolved date and verification mark).: a validated and a contradicted copy of the
+ * same words are two statements, counted apart.
  */
 const statementKey = claimEchoKey;
 
@@ -311,7 +312,7 @@ export function confirmedStatementShare(report: Report): ConfirmedShare {
     if (node === null || typeof node !== "object") return;
     if (Array.isArray(node)) { for (const child of node) visit(child, factsOnly); return; }
     if (isTaggedStatement(node)) {
-      // Review round 1: an officer with neither grade shows only FACTs (executiveCardClaims, executiveGroups).
+      // an officer with neither grade shows only FACTs (executiveCardClaims, executiveGroups).
       if (factsOnly && node.label !== "FACT") return;
       const key = statementKey(node);
       seen.set(key, seen.get(key) === true || claimStatusMark(node) === "validated");

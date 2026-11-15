@@ -415,10 +415,9 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
             // still returned invalid JSON on large reports, so the caller's parse and
             // schema validation (and their retries) remain the real guard.
             ...(args.outputSchema ? { text: { format: { type: "json_object" } } } : {}),
-            // Fast is the "priority" service tier on the wire: the Responses
-            // endpoint behind ChatGPT plan usage rejects "fast" with
-            // "Unsupported service_tier: fast" (live NVDA run 2026-10-26),
-            // as Codex itself sends "priority" for its Fast mode.
+            // Fast is the "priority" service tier on the wire: the Responses endpoint behind ChatGPT plan usage
+            // rejects "fast" with "Unsupported service_tier: fast", as Codex itself sends "priority" for its Fast
+            // mode.
             service_tier: chatGptWireServiceTier(options.serviceTier),
           }),
         }), search ? undefined : args.onPartialText, { maxActions: search?.maxActions ?? 0, abort: () => local.abort() });
