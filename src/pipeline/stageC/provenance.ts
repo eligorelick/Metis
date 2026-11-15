@@ -140,7 +140,7 @@ export interface ProvenanceCandidate {
   asOf: string;
   source: string;
   /**
-   * D-282 review: the figure itself stated its measurement window (it was not
+   * D-282: the figure itself stated its measurement window (it was not
    * adopted from the record). Only then may a value conflict outrank a date
    * mismatch; absent means not stated.
    */
@@ -300,7 +300,7 @@ export function canonicalizeTracedUnit(
     // An indicator name is never an ISO head: "RSI %" or "RSI P/E" fails
     // closed rather than reading as the currency "RSI" (D-44).
     const isoHead = /^[A-Z]{3}(\/share)?$/.test(head) && !INDICATOR_UNIT_SPELLINGS.has(head.toLowerCase());
-    // "count" and "shares" heads (review, 2026-10-13): the EXCERPT NUMBERS
+    // "count" and "shares" heads (D-45): the EXCERPT NUMBERS
     // prompt rule asks for "count daily active people", and without these the
     // unit failed to canonicalize, so no excerpt count could ever verify.
     if (

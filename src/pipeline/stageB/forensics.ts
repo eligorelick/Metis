@@ -409,7 +409,7 @@ export interface AltmanInputs {
    */
   marketCapHistoryCurrencyReason?: string | null;
   /**
-   * D-267 review: the current cap was converted to the statement currency at one dated rate. The converted cap counts
+   * D-267: the current cap was converted to the statement currency at one dated rate. The converted cap counts
    * as an observation at `marketCapAsOf` only when that date AND this rate's observation date both pair with the
    * balance date under the same rule; otherwise `marketCapHistoryCurrencyReason` applies.
    */
@@ -444,7 +444,7 @@ function marketValueAtBalanceDate(inputs: AltmanInputs, balanceDate: string): { 
   const cutoff = inputs.analysisCutoff ? inputs.analysisCutoff.slice(0, 10) : null;
   const rows: Array<{ date: string; marketCap: number; source: string | null }> = [];
   for (const row of inputs.marketCapHistory ?? []) {
-    // D-267 review (P1, P2): a reading derived from a close and a filed share count stands for its day only when the
+    // D-267 (P1, P2): a reading derived from a close and a filed share count stands for its day only when the
     // count was observed on or before that day; otherwise the reading does not qualify and the rule moves on.
     // Only a well-formed real day on or before the reading's own day proves it; blank, malformed or null does not.
     const shareMs = row.sharesAsOf === undefined ? null : strictUtcDayMs(row.sharesAsOf);
@@ -596,7 +596,7 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
     // either side leaves the ratio unproven, so it is withheld too.
     const x4Currency = comparePriceCurrency(inputs.reportedCurrency, inputs.quoteCurrency);
     const pairing = inputs.marketCapHistory !== undefined;
-    // D-267 review: a converted cap and its rate, both paired with the balance date, are one single-date observation.
+    // D-267: a converted cap and its rate, both paired with the balance date, are one single-date observation.
     const converted = pairing && inputs.marketCapConversion && b.date ? marketValueAtBalanceDate(inputs, b.date) : null;
     const convertedAdmitted = converted !== null && converted.source === "current market capitalization" &&
       latestOnOrBeforeWithin([{ date: inputs.marketCapConversion!.rateDate.slice(0, 10) }], b.date!.slice(0, 10), STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS) !== null &&

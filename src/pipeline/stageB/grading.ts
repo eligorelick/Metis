@@ -220,7 +220,7 @@ function scoreAspect(
         band: null,
         weightPct,
         dataCompleteness: 0,
-        // D-50 review: null when the route cannot score the aspect at all, so
+        // D-50: null when the route cannot score the aspect at all, so
         // the confidence ceiling does not read "not applicable" as "unscored".
         applicableCompleteness: notApplicableReason !== null || applicableWeight === 0 ? null : 0,
         drivers,

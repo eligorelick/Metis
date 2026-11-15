@@ -2060,7 +2060,7 @@ function insidersSection(bundle: DataBundle): PayloadSection {
   const filingDates = observed.filter(tr => tr.formType !== undefined).map(tr => isoDay(tr.filingDate))
     .filter((day): day is string => day !== null && isIsoDate(day) && day <= bundle.builtAt.slice(0, 10)).sort();
   const lastFiling = filingDates.at(-1) ?? null;
-  // Integration review (R6): one citable figure; the same words as a note too
+  // D-158: one citable figure; the same words as a note too
   // printed the statement twice in every payload.
   const coverage = `Last Form 4 filing date inspected: ${lastFiling ?? "unavailable"}. ` +
     `${observed.length} selected provider rows cover transaction dates ${transactionSpan(observed)}; ${trades.length} detailed rows shown cover only ${transactionSpan(trades)}. Neither span establishes coverage outside those dates or a complete aggregate-window code breakdown. ` +

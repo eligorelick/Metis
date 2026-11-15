@@ -380,7 +380,7 @@ export function sharePointOnOrBefore<P extends { asOf: string }>(points: readonl
 }
 
 /**
- * D-267 review: the date of the share observation a derived market-cap row multiplied its close by. A row written since
+ * D-267: the date of the share observation a derived market-cap row multiplied its close by. A row written since
  * D-267 carries it (`sharesAsOf`); an earlier stored row is resolved from the same filed share series by the same
  * selection, so the answer is the count that row actually used. Null when no share observation exists.
  */
@@ -391,7 +391,7 @@ export function derivedMarketCapShareDate(row: { date?: string; sharesAsOf?: str
   return sharePointOnOrBefore(sharesOutstandingSeries(facts).points, date)?.asOf ?? null;
 }
 
-/** D-267 review: whether a market-cap history row (or its whole series) was derived from closes and filed share counts. */
+/** D-267: whether a market-cap history row (or its whole series) was derived from closes and filed share counts. */
 export function isDerivedMarketCapRow(row: object, endpoint: string | null): boolean {
   return (row as { source?: unknown }).source === "computed" || (endpoint !== null && endpoint.startsWith("derived:market-cap("));
 }
@@ -1688,7 +1688,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         isFiniteNumber(row.grossProfit) && isFiniteNumber(row.operatingExpenses) &&
         vendorAgreesWithDerived(row.operatingIncome, row.grossProfit - row.operatingExpenses, [row.grossProfit, row.operatingExpenses]);
     };
-    // D-155 review: the standard derived quarter (fiscal year less nine months, or
+    // D-155: the standard derived quarter (fiscal year less nine months, or
     // a year-to-date difference) is a whole filed row on its canonical lineage:
     // each operand is the current period of its own filing and the earlier
     // year-to-date was filed no later than the total. A quarter derived from
@@ -2161,7 +2161,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         withheldReasons.add(onBasis.withheld);
         continue;
       }
-      // D-267 review: the share observation's own date travels with the row (value unchanged), so a consumer that pairs
+      // D-267: the share observation's own date travels with the row (value unchanged), so a consumer that pairs
       // the row with a date can tell a count observed after the price day (`sharePointOnOrBefore`'s earliest fallback).
       derived.push({ symbol: inputs.symbol, date, marketCap: bar.close * onBasis.value, sharesAsOf: point.asOf, ...extra });
     }

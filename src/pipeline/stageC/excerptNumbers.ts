@@ -156,7 +156,7 @@ export function excerptNumberMentions(body: string): ExcerptMention[] {
       // Only a comma-grouped whole number takes a table's scale. A decimal
       // cell ("$ 126.99" book value per share in an "(in millions, except per
       // share data" table) never does, and under an "except per share" header
-      // neither does any "$" cell (D-45 review: both read as millions before).
+      // neither does any "$" cell (D-45: both read as millions before).
       const header = tableScale(body, at);
       if (header !== null && !(dollar && header.exceptPerShare)) {
         scale = header.scale;
@@ -349,7 +349,7 @@ export function valueMentions(
     // A bare decimal with no scale word is no count: in a flattened table
     // only the first row prints its "%" or "$", so "Tier 1 capital 15.1" (a
     // percent) and "Tangible book value per share 113.35" read as counts and
-    // verified as "15.1 count" (review, 2026-10-13). A count is a whole
+    // would verify as "15.1 count" (D-45). A count is a whole
     // number or a scaled figure ("3.60 billion").
     if (want === "count" && mention.decimals && !mention.scaled) return false;
     const slack = 1e-9 * Math.max(1, Math.abs(mention.value));

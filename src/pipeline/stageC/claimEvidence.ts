@@ -340,7 +340,7 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
       let result = frame ? undefined : validate(isolated);
       let display = record.unit === "ratio" && record.unitScale === "fraction" && q.unit === "percent" ? record.value * 100 : record.value;
       if (!result || (result.status !== "validated" && !(result.status === "contradicted" && result.reason === "value-mismatch"))) {
-        // D-263 (second review): a rebuilt label may still find a value conflict, but it never confirms where the
+        // D-263: a rebuilt label may still find a value conflict, but it never confirms where the
         // clause held a declared definition or the record is a declared cash outflow (the rebuild drops the clause's
         // own words, including an opposed cash-use direction). Only the record that declares a found definition is
         // read under it; any other record stays unbound, so a definition cannot select a different metric.
@@ -374,11 +374,11 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
         // benefits" against total revenue) means a different quantity, so the figure stays unbound
         // (unverified), never a value conflict. Confirmation is unchanged.
         // A bounded figure ("more than 20%") is settled by its bound below, and a stated cash direction
-        // ("a source of cash of") is a direction conflict the D-263 review keeps, so neither is a qualifier;
+        // ("a source of cash of") is a direction conflict D-263 keeps, so neither is a qualifier;
         // a technical frame ("50-day average" -> SMA50) already proves the metric.
         if (result.status === "contradicted" && q.bound === null && !frame) {
           const recordWords = new Set(readings.flatMap(reading => [...reading.tokens, ...metricTokens(reading.label, options.ignoreWords, { loose: true })]));
-          // An incidental parenthetical ("gross margin (more or less)") is not a qualifier (D-263 review).
+          // An incidental parenthetical ("gross margin (more or less)") is not a qualifier (D-263).
           const described = metricTokens(own.own.replace(/\([^()]*\)/g, " ").replace(/\b(?:an?\s+)?(?:sources?|uses?)\s+of\s+cash\b|\b(?:cash\s+)?(?:inflows?|outflows?)\b/gi, " "),
             options.ignoreWords, { loose: true }).filter(w => !w.startsWith("window"));
           if (described.some(word => ![...recordWords].some(other => namesMetric([word], [other])))) { qualifiedConflict = true; continue; }
@@ -854,7 +854,7 @@ function ownDescriptionTokens(text: string, ignore: readonly string[]): string[]
     .replace(/\b(?:first|second|third|fourth)[\s\u2010-\u2014-]+(?:fiscal[\s\u2010-\u2014-]+)?(?:quarter|half)\b/gi, " ")
     .replace(/\b(?:prior|previous|preceding|same)\s+(?:quarter|year|period)\b/gi, " ")
     // A prior fiscal year-end is compared as a period, as the claim's is (D-128), but only when no comparison cue or
-    // start precedes it: after one it is a base or a start, and the figure must not be described by it (final re-review).
+    // start precedes it: after one it is a base or a start, and the figure must not be described by it (D-128).
     .replace(PRIOR_YEAR_END, (match: string, offset: number, whole: string) => OWN_PERIOD_CUE.test(whole.slice(0, offset)) ? match : " ")
     // A spelled-out basis is a comparison base too ("a year-over-year increase of $66.1 billion in purchases"), and D-63 never required it.
     .replace(/\b(?:year|quarter)[\s\u2010-\u2014-]+over[\s\u2010-\u2014-]+(?:year|quarter)\b|\b(?:yoy|qoq)\b/gi, " ");
@@ -1084,7 +1084,7 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (record.unit === "score" && /^computed\.scores\.[a-z]+$/.test(record.origin) &&
       record.id.startsWith("computed.deterministic-aspect-scores.") && /^[a-z]+ score$/.test(label)) forms.add(`quantitative ${label}`);
     if (record.origin === "computed.valuation.multiples.peTtm" && record.unit === "ratio" && label === "peTtm (current)") {
-      // D-274 review FC4: the producer has two different denominators. A generic
+      // D-274: the producer has two different denominators. A generic
       // P/E label proves neither one; absent a declared formula, neither alias binds.
       if (DILUTED_PE_DEFINITIONS.has(peBasis ?? "")) forms.add("price to trailing diluted EPS multiple");
       forms.add("P/E TTM (current)");
@@ -1463,7 +1463,7 @@ function perShareInWords(quantity: Quantity, label: string): boolean {
 }
 /**
  * A table row label that names a per-share basis: "per share", "per basic share", "per diluted share", "per common share", "per
- * ordinary share" (up to two of those qualifiers, "per diluted common share") or "EPS" (Codex fixes re-review, Y1).
+ * ordinary share" (up to two of those qualifiers, "per diluted common share") or "EPS" (D-131).
  */
 const PER_SHARE_ROW = /\bper[\s-]+(?:(?:basic|diluted|common|ordinary)[\s-]+){0,2}share\b|\beps\b/i;
 /**

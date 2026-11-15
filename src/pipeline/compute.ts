@@ -1093,7 +1093,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   // cap converted at the quote-date rate cannot be converted at the balance date with that rate.
   const forensicClassScopeRebuilt = forensicEquityScope.status === "resolved" &&
     (forensicEquityScope.multiClass === true || forensicEquityScope.weightedClasses === true);
-  // D-267 review: a derived reading carries the date of the share count it multiplied (see `derivedMarketCapShareDate`).
+  // D-267: a derived reading carries the date of the share count it multiplied (see `derivedMarketCapShareDate`).
   const marketCapHistoryEndpoint = bundle.marketCapHistory?.ok ? bundle.marketCapHistory.value.endpoint : null;
   const shareFacts = bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.data : null;
   const forensicMarketCapHistory = foreignBasis || forensicClassScopeRebuilt ? [] : rowsOf(bundle.marketCapHistory).flatMap((r) => {
@@ -1133,7 +1133,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
       ? "no admitted history: the provider market-cap series is not on the issuer's economic class basis"
       : bundle.marketCapHistory.ok ? bundle.marketCapHistory.value.endpoint : null,
     marketCapHistoryCurrencyReason: foreignCapRefusal,
-    // D-267 review: the converted cap is the quote's observation at the rate's own date; forensics admits it only when
+    // D-267: the converted cap is the quote's observation at the rate's own date; forensics admits it only when
     // both dates pair with the balance date.
     marketCapConversion: foreignBasis ? { rateDate: foreignBasis.fx.observation.date, source: `FRED ${foreignBasis.fx.series}` } : null,
     analysisCutoff: isoDay(bundle.builtAt),
@@ -1157,7 +1157,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   }
 
   if (foreignBasis) {
-    // D-267 review: the note states what Altman actually did with the converted capitalization on this run.
+    // D-267: the note states what Altman actually did with the converted capitalization on this run.
     const altmanRun = forensics.altman;
     const convertedSource = altmanRun?.variant === "original" ? altmanRun.asOf.marketCapSource ?? null : null;
     const refusal = altmanRun?.gaps.some((g) => g.field === "forensics.altman.currency") === true ? foreignCapRefusal : null;

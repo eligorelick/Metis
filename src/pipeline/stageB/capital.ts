@@ -628,7 +628,7 @@ export function computeCapital(
           rowNotes.push("FCF derived as operatingCashFlow + capitalExpenditure");
         }
       }
-      // D-306 review: preserve a filed negative credit's sign; a vendor
+      // D-306: preserve a filed negative credit's sign; a vendor
       // negative without exact-period proof cannot establish such a credit.
       // Its cause is not inferred from the sign alone.
       const sbcExpense =

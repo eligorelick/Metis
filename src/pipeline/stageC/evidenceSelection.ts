@@ -188,7 +188,7 @@ const GOVERNMENT_CASE = new RegExp([
 const ALLEGED_ANTITRUST = /\balleg(?:e|es|ed|ing|ations?)\b[^.]{0,200}?\b(?:monopoli[sz](?:ation|e|ed|ing)|antitrust|abuse of (?:a )?dominan(?:ce|t position)|anticompetitive)\b/i;
 const MATERIAL_RELIEF = /\bseek(?:s|ing)?\b[^.]{0,80}?\b(?:billions? of dollars|structural relief|divestitures?)\b/i;
 const SCHEDULED_TRIAL = /\btrials?\b[^.]{0,60}?\b(?:scheduled|set)\s+(?:to\s+(?:begin|start|commence)\s+)?(?:for|in|on)\b/i;
-// Independent review of these fixes: relief and a trial date count only
+// D-99 (evidence families): relief and a trial date count only
 // beside a legal proceeding, a trial never when it is clinical or commercial,
 // and an antitrust allegation never when it is only a risk the issuer may face.
 const LEGAL_CONTEXT = /\b(?:court|jury|judge|plaintiffs?|complaints?|lawsuits?|suits?|litigation|proceedings?|cases?|antitrust|Attorneys? General|Commission|regulators?)\b/i;

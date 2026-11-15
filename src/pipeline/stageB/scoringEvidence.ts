@@ -325,7 +325,7 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
           operand("growth search-range end the price lies beyond", outside.boundPct, "computed.valuation.reverseDcf.growthOutsideRange.boundPct", quoteDate);
           operand("DCF per share at that range end", outside.perShareAtBound, "computed.valuation.reverseDcf.growthOutsideRange.perShareAtBound", quoteDate);
           const gap = (outside.boundPct - base).toFixed(2);
-          // Independent review of these fixes: an implied gap is stated only
+          // D-99 (reverse DCF beyond the range): an implied gap is stated only
           // when value rises with growth; otherwise only the range-end score.
           result.fallbackReason = `No implied growth was solved: ${outside.basis}. ` + (outside.rising === false
             ? outside.side === "above"

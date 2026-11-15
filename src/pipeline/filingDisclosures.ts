@@ -612,7 +612,7 @@ function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow
 
 /** `checked` is set when a shown quarter carries the builder's `revenuePresentation`, i.e. `oneBasisGrowth` could run (D-134). */
 function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, notes: string[], flags: { presentationChecked: boolean }): FilingDisclosures["quarterlyTrend"] {
-  // Integration review (R2): the trend notes only the quarterly rows it shows
+  // D-159: the trend notes only the quarterly rows it shows
   // (an annual row on the same date is not one of them), once per row.
   const withheldOperating = new Map<string, string[]>();
   {

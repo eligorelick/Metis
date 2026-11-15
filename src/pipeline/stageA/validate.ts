@@ -466,7 +466,7 @@ function routesAsFinancial(bundle: ValidatableBundle): boolean {
     // Any other KNOWN industry (brokers, payment networks, asset managers,
     // exchanges, credit services…) is not a deposit-funded balance sheet —
     // the bank revenue chain must not engage merely because the SECTOR is
-    // Financial Services (fix-review). Mislabeled/missing-profile banks are
+    // Financial Services. Mislabeled/missing-profile banks are
     // still caught by the looksLikeBankTagging OR at the caller.
     return false;
   }
