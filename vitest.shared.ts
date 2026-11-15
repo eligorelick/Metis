@@ -174,6 +174,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/legacyRetiredFields.ts",
   "src/report/storedReportRead.ts",
   "src/report/storedReportView.ts",
+  "src/report/retiredReaderWording.ts",
   "src/report/readerPreparation.ts",
   "src/report/evidenceContract.ts",
   "src/report/codeIdentity.ts",
