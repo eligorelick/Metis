@@ -84,7 +84,12 @@ describe("raw base-unit amounts in reader text (D-308, check 3)", () => {
       contributionPoints: 0, family: "valuation", asOf: null, period: null, startDate: null, endDate: null, windowYears: null, operands: [],
       fallbackReason: "P/E not ranked: pre-tax income 104926000000 (TTM) includes non-operating income of 41214000000, 39.28% of pre-tax income." };
     report.scores!.aspects.valuation = { ...report.scores!.aspects.valuation, signals: [signal] } as never;
+    (signal as { period: string | null }).period = "(equity − goodwill) 108230000000 / (total assets − goodwill) 2341373000000 × 100";
+    report.scores = { ...report.scores!, qualification: { aspects: {}, composite: { status: "provisional", reasons: [{ code: "financial-evidence-blocked",
+      aspect: "valuation", field: "valuation.excessReturn.preferredCapital", detail: "zero par with 14572200 preferred shares and USD 102000000 preferred-dividend evidence" }] } } } as unknown as Report["scores"];
     const view = withReaderConventions(report);
+    expect(view.scores!.aspects.valuation.signals![0]!.period).toBe("(equity − goodwill) 108,230,000,000 / (total assets − goodwill) 2,341,373,000,000 × 100");
+    expect(view.scores!.qualification!.composite.reasons[0]!.detail).toBe("zero par with 14,572,200 preferred shares and USD 102,000,000 preferred-dividend evidence");
     expect(view.fairValue!.basis[0]).toBe("Observed trigger: unprofitable overlay applied: net income -1,973,000,000 (ttm), operating cash flow -1,629,000,000 (ttm).");
     expect(view.scores!.aspects.valuation.signals![0]!.fallbackReason).toBe("P/E not ranked: pre-tax income 104,926,000,000 (TTM) includes non-operating income of 41,214,000,000, 39.28% of pre-tax income.");
 

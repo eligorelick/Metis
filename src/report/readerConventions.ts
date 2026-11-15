@@ -69,9 +69,10 @@ export function withReaderConventions(report: Report): Report {
   function visit(value: unknown, path: string): unknown {
     if (typeof value === "string") {
       const text = readerConventionText(value, path);
-      // D-308 sweep: basis lists (fair value, scenario targets), the scenario interpretation and a signal's fallback
-      // reason carry the same producer amounts as the fields already listed.
-      return /\.(?:note|basis|reason|oneLineWhy|definition|enterpriseValueNote|multiplesBasis|interpretation|fallbackReason|ownHistoryBasis|earningsCaveat)$|\.(?:notes|assumptions|basis)\.\d+$/.test(path) ? readerBaseUnits(text) : text;
+      // D-308 sweep: basis lists (fair value, scenario targets), the scenario interpretation, a signal's fallback
+      // reason and period cell, and a grade qualification's detail carry the same producer amounts as the fields
+      // already listed. Traced figures are returned unchanged above, so their periods and identities are untouched.
+      return /\.(?:note|basis|reason|oneLineWhy|definition|enterpriseValueNote|multiplesBasis|interpretation|fallbackReason|ownHistoryBasis|earningsCaveat|detail|period)$|\.(?:notes|assumptions|basis)\.\d+$/.test(path) ? readerBaseUnits(text) : text;
     }
     if (Array.isArray(value)) return value.map((v, i) => visit(v, `${path}.${i}`));
     if (!value || typeof value !== "object") return value;
