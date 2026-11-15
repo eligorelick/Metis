@@ -332,7 +332,12 @@ export interface MultiplesFrameworkInputs {
   includeLeasesInEv?: boolean;
 }
 
-/* D-19, D-228, D-296: State the configured lease basis consistently wherever enterprise value is presented. */
+/**
+ * The operator setting the EV bridge basis names (D-19), exactly as the
+ * basis spells it, so the report states the lease convention with the
+ * environment variable that changes it (D-99). D-228 froze this reader
+ * text; D-296 renamed it to the current METIS_ setting.
+ */
 export const EV_LEASE_SETTING_TEXT = {
   excluded: " (house default; set METIS_EV_INCLUDE_LEASES=1 to keep it)",
   included: " (METIS_EV_INCLUDE_LEASES=1)",

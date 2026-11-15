@@ -206,7 +206,7 @@ export interface SbcConcentration {
   quarterEnd: string; quarterSbc: number; otherQuarterMedianSbc: number;
   runRateAfterSbc: number; runRateBeforeSbc: number; runRateSbc: number; basis: string;
 }
-/** N1: qualify, never replace, the house trailing after-SBC figure. */
+/** qualify, never replace, the house trailing after-SBC figure. */
 export function concentratedSbcQuarter(quarters: readonly CapitalCashFlowRow[], currency: string | null): SbcConcentration | null {
   if (quarters.length !== 4) return null;
   const sbc = quarters.map(q => admittedSbc(q));

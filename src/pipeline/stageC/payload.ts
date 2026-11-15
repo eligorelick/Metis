@@ -812,7 +812,7 @@ function computedSections(
       ...(cap.interestCoverage.unverifiedOperands ? { operandsUnestablished: cap.interestCoverage.unverifiedOperands } : {}) },
     { label: "SBC, cash-flow add-back / revenue", value: cap.sbc.pctOfRevenue, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
     { label: "SBC, cash-flow add-back / FCF", value: cap.sbc.pctOfFcf, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
-    // N3: the dilution overhang had no consumer in the payload, the data-only
+    // the dilution overhang had no consumer in the payload, the data-only
     // report or the schema — only its note, and only when it was non-null.
     { label: "weighted-average diluted/basic share gap", value: cap.dilution.overhangPct, unit: "%", source: "computed.capital.dilution", asOf: cap.dilution.asOf },
     { label: `weighted-average diluted common-share change (${shareCountSpanLabel(cap.shareCount.actualYears)}y total)`, value: cap.shareCount.trendPct, unit: "%", source: "computed.capital.shareCount", asOf: cap.shareCount.endDate },
@@ -1952,7 +1952,7 @@ function peersSection(bundle: DataBundle): PayloadSection {
 
 const INSIDER_WINDOW_WORDS = ["", "one", "two", "three", "four"] as const;
 
-/** Q1: the window and the number of people the per-person trade lines cover. */
+/** the window and the number of people the per-person trade lines cover. */
 const PERSON_TRADE_WINDOW_DAYS = 183;
 const PERSON_TRADE_PEOPLE = 8;
 const SENIOR_ROLE = /chief executive|\bceo\b|chief financial|\bcfo\b|\bchair|(?<!vice[ -])president/i;

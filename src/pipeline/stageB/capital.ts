@@ -996,7 +996,7 @@ export function computeCapital(
             `for the fiscal period ending ${latestInc?.date ?? "?"} — a ${fmt(overhangPct)}% gap. This period-average EPS denominator difference is not an outstanding award pool or a measure of current economic dilution. ` +
             "Antidilutive options, RSUs and convertibles are excluded from diluted EPS by the filer."),
     };
-    // N3: the note reaches the notes channel in BOTH states. It used to be
+    // the note reaches the notes channel in BOTH states. It used to be
     // pushed only when an overhang existed, so "unavailable" was visible in the
     // manifest but nowhere a reader or the Stage C prompt would see it.
     notes.push(dilution.note);
@@ -1060,7 +1060,7 @@ export function computeCapital(
         actualYears: years,
         note: trendNotes.join("; "),
       };
-      // N3: weighted common denominators spanning an IPO/preferred conversion
+      // weighted common denominators spanning an IPO/preferred conversion
       // do not establish economic dilution. Preserve observations, remove the
       // signal (and therefore its score/projection weight), and name the filing.
       if (trendPct > 0 && options.companyFacts && options.asOf && Number.isFinite(Date.parse(options.asOf))) {

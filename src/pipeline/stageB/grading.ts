@@ -123,7 +123,7 @@ interface Signal {
    * weight.
    */
   evidenceFraction?: number;
-  /** D-137: share supported by route design; missing supported data still counts. */
+  /** D-150: share supported by route design; missing supported data still counts. */
   applicableFraction?: number;
 }
 
@@ -801,7 +801,7 @@ export function computeScores(inputs: ScoringInputs, gaps: ManifestEntry[] = [])
   const { route, policy: routePolicy, growth, roic, rote, roicVsWacc, capital, forensics, technicals, valuation } = inputs;
   const undeterminedReit = route.base === "reit" && route.reitSubmap === "undetermined";
   const reitGradeReason = "REIT type undetermined: mortgage and property maps disagree on these grading signals; withheld until filed evidence establishes the type.";
-  // D-137: grading-only exclusions. Do not erase otherwise reported raw
+  // D-150: grading-only exclusions. Do not erase otherwise reported raw
   // figures or substitute a financial return model on an unproved type.
   const policy = undeterminedReit ? { ...routePolicy, suppress: [...routePolicy.suppress,
     "roicVsWacc", "fcfGrowth", "operatingMargin", "grossMargin", "altmanZ", "beneishM", "accrualsRatio"] } : routePolicy;

@@ -82,7 +82,7 @@ const AJAX_RELEASE =
 const ATAI_RELEASE =
   "https://investor.lilly.com/news-releases/news-release-details/lilly-acquire-ataibeckley-advance-therapies-treatment-resistant";
 
-/** Primary-source-backed records needed by the observed LLY report conflicts. */
+/** Primary-source-backed records for entity relationships and their validation conflicts (P19). */
 export const LLY_ENTITY_REGISTRY: EntityRegistry = {
   symbol: "LLY",
   records: [
@@ -236,7 +236,7 @@ function splitSentences(text: string): string[] {
     // semicolon joins clauses and is NOT a boundary. Requiring whitespace after
     // the period already excludes decimals ("3.5"). The lookbehind excludes a
     // SINGLE-letter token — "U.S." — without blocking a name that merely ends
-    // in a capital ("LLY.") or a trial code ending in a digit ("ATTAIN-1."),
+    // in a capital ("ABC.") or a trial code ending in a digit ("ATTAIN-1."),
     // both of which are real sentence ends. "vs.", "e.g.", "i.e." and the
     // corporate suffixes are abbreviations, not ends: "orforglipron vs.
     // Wegovy" split before a capitalised drug name and the fragment raised a

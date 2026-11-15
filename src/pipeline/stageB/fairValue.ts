@@ -75,7 +75,7 @@ export function dcfWithheldWarnGap(gaps: readonly ManifestEntry[]): ManifestEntr
 }
 
 /**
- * G4: the critical invested-capital gap for missing balance fields, which quotes the net-debt refusal
+ * The rule: the critical invested-capital gap for missing balance fields, which quotes the net-debt refusal
  * behind it. P11 (D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
  */
 export function quotesUpstreamNetDebt(critical: ManifestEntry): boolean {

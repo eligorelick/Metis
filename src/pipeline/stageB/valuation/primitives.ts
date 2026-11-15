@@ -177,7 +177,25 @@ const gapEntry = (
   cause?: GapCause,
 ): ManifestEntry => (cause === undefined ? { field, reason, severity } : { field, reason, severity, cause });
 
-/* D-104, D-25: Establish sales-to-capital from compatible filed history before using it in valuation. */
+/**
+ * D-104: the issuer's own sales-to-capital is the median of the newest five
+ * fiscal years with revenue and positive invested capital filed at the same
+ * date; fewer than three years establish no ratio. Capital uses the DCF's
+ * current-balance definition: debt, excluding operating leases when the
+ * current balance does, plus temporary equity and consolidated equity,
+ * less cash/short-term investments and long-term investments. Redeemable
+ * preferred and redeemable NCI are financing capital (D-135). A holding
+ * that meets or exceeds capital counts at the house cap; a year with
+ * refused temporary equity is skipped with a note, never zero-filled.
+ *
+ * D-25/D-135: one median uses the current balance's lease basis. The partial
+ * operating-lease mode subtracts each row's disclosed operating lease and
+ * skips a row without one. With the lease-inclusive switch or unproved
+ * current lease scope, all years keep reported debt. Otherwise each year
+ * subtracts operatingLeaseOutOfDebt; a row whose operating lease cannot be
+ * proved inside total debt is omitted with a note, never mixed into the
+ * lease-excluded history.
+ */
 export function establishedSalesToCapital(
   incomeHistory: DcfIncomeRow[],
   capitalHistory: DcfBalanceRow[] | null,
@@ -310,7 +328,12 @@ export const STATUTORY_MARGINAL_TAX_PCT: Readonly<Record<string, { pct: number; 
   US: { pct: 21, source: "US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded" },
 };
 
-/* D-58, D-99: Apply the domicile marginal tax floor without treating a loss-year effective rate as a stable tax assumption. */
+/**
+ * D-58: the domicile's sourced statutory marginal rate, never below the
+ * global minimum; use the global minimum alone when no statutory rate is
+ * sourced. The DCF terminal tax and loss-year ROIC NOPAT share this floor
+ * (D-99).
+ */
 export function marginalTaxFloor(domicileCountry: string | null | undefined): { pct: number; basis: string } {
   const domicile = (domicileCountry ?? "").trim().toUpperCase();
   const statutory = STATUTORY_MARGINAL_TAX_PCT[domicile] ?? null;

@@ -1103,7 +1103,7 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
       forms.add("payables to third-party loan owners");
     if (record.origin === "computed.valuation.peerCoverage.market-cap-ttm-common-earnings.count" && label === "Market cap / TTM common earnings eligible peer count after filtering")
       forms.add("eligible peer count for market capitalization to trailing common earnings after filtering");
-    // R9 renamed these labels to name the cash-flow add-back basis; the same readings hold.
+    // These labels name the cash-flow add-back basis; the same readings hold (P19).
     if (record.origin === "computed.capital.sbc" && (label === "SBC % revenue" || label === "SBC, cash-flow add-back / revenue"))
       forms.add("stock based compensation as a share of revenue");
     if (record.origin === "computed.capital.current.cashBridge.stockBasedCompensation" && label === "SBC, cash-flow add-back")

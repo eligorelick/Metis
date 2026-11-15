@@ -1563,7 +1563,7 @@ export async function runJob<TPayload = unknown>(
     if (!validatedSupport.supported) {
       // A positive empty response is different from a transport failure. Neither
       // admits a company report, a model resolution, or a paid request lease.
-      // P5 (P11, D-242): by the typed causes; entries without one by their sentences.
+      // P11 (D-242): by the typed causes; entries without one by their sentences.
       const confirmedMiss = isConfirmedUnknownProfile(bundle);
       if (validatedSupport.kind === "unknown" && confirmedMiss) {
         return finishUnsupported(state, { ...validatedSupport,

@@ -1393,7 +1393,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     });
     if (older.length === 0) return;
     const olderDates = older.map((row) => isoDay(row["date"]) as string).sort();
-    // N9: the merged payload keeps the VENDOR's envelope (its `asOf` is still
+    // the merged payload keeps the VENDOR's envelope (its `asOf` is still
     // the newest datum, because only OLDER periods were appended), so each
     // backfilled row carries the fetch that actually produced it rather than
     // inheriting a fetched-at it was never part of.
@@ -1548,7 +1548,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
             ...row,
             source: "edgar",
             sourceEndpoint: endpoint,
-            // N9: appended into another payload's envelope, so each row names
+            // appended into another payload's envelope, so each row names
             // the fetch that actually produced it.
             sourceFetchedAt: predecessor.fetchedAt,
             predecessor: true,
@@ -1656,7 +1656,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     }
   }
 
-  // N3: a conflict is resolved only by an entire canonical SEC row, including
+  // a conflict is resolved only by an entire canonical SEC row, including
   // its per-share fields. The original vendor response remains in data.raw.
   if (inputs.statementSource === "auto" && built !== null && inputs.edgar.companyFacts.ok) {
     const facts = inputs.edgar.companyFacts.value.data;

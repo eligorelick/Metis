@@ -284,7 +284,7 @@ function splitEmbeddedJudgments(value: unknown): unknown {
 }
 
 /* ------------------------------------------------------------------------ *
- * Q1: recent developments and management actions. A paid section request is
+ * recent developments and management actions. A paid section request is
  * not discarded for a shape a careful reader would accept: these repairs keep
  * every sourced claim and never invent one.
  * ------------------------------------------------------------------------ */

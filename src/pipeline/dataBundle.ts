@@ -693,7 +693,7 @@ function rowKey(row: FmpRawRow, field: string): string {
  * count on every report. Transport/plan errors keep their original gap.
  */
 export function markSegmentationGapExpected<T>(result: FetchResult<T>): FetchResult<T> {
-  // P3 (P11, D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
+  // P11 (D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
   if (result.ok || !gapCauseMatches(result.gap, "fmpEmptyArrayStated")) return result;
   return {
     ok: false,
@@ -1220,7 +1220,7 @@ const UNLINKED_PREDECESSOR = " — its predecessor's annual reports live under a
  * gap says why its 10-K is not read in the registrant's place.
  */
 export function withResolvedPredecessor<T>(result: FetchResult<T>, predecessor: { cik10: string; name: string | null } | null): FetchResult<T> {
-  // P4 (P11, D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
+  // P11 (D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
   if (result.ok || predecessor === null || !gapCauseMatches(result.gap, "secUnlinkedPredecessor")) return result;
   const named = `; its predecessor, ${predecessor.name ?? "the co-registrant"} (CIK ${predecessor.cik10}), was resolved for the XBRL history, but annual-report sections are read only from this registrant's own filings, so they return with its first annual report`;
   // D-229: the predecessor is now linked, so the unlinked-predecessor code is not kept on the new sentence.
@@ -2694,7 +2694,8 @@ export async function buildDataBundle(
   // The analysis cutoff is the end of acquisition, not the start of the build.
   // A live fetch is stamped when it completes, so a cutoff taken before the
   // first request refused the very SEC facts this build fetched, and a cache
-  // miss valued the same filings differently from a cache hit (D-97). Provider clients keep their own clocks, so a stamp a
+  // miss valued the same filings differently from a cache hit (D-97).
+  // Provider clients keep their own clocks, so a stamp a
   // little past this clock still belongs to this build; a stamp further ahead
   // is not trusted to move the analysis date.
   const startedAt = nowDate.getTime();

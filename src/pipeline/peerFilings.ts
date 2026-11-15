@@ -1,7 +1,7 @@
 import { bankStatementRouting } from "@/pipeline/keyless";
 /**
  * Peer fundamentals from SEC filings for a candidate FMP refuses by symbol
- * (for example HTTP 402; D-65). Statements come from companyfacts, the
+ * (for example HTTP 402; P20). Statements come from companyfacts, the
  * price from Yahoo, market capitalization from that price times the filed
  * share count on the quote's split basis, and industry from an SEC SIC code
  * equal to the subject's. Never throws; a missing piece is a reason.

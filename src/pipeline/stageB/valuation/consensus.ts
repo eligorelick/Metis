@@ -156,7 +156,12 @@ function seasonalFiscalYearShare(fyBegin: number, fyEnd: number, from: number, t
   return total;
 }
 
-/* D-136, D-58, D-65: Calendarize consensus and guidance over the issuer fiscal windows using the established seasonal shape. */
+/**
+ * D-58/D-65: the calendarized window and its fiscal-year estimates. A fiscal
+ * year overlapping the window contributes consensus less revenue already
+ * reported in that year, spread over its unreported days. Consensus at or
+ * below revenue already reported is stale and leaves the window uncovered.
+ */
 export function calendarizeConsensusWindow(
   rows: AnalystEstimateRow[] | null,
   window: { startDate: string; endDate: string },

@@ -121,7 +121,7 @@ interface ProfileSpec {
   /** Passages that are always kept first, within the budget (in source order). */
   priority?: (passage: string) => boolean;
   /**
-   * R1: the priority passages' tiers, lower first (source order within a
+   * the priority passages' tiers, lower first (source order within a
    * tier); null is not a priority passage. Overrides `priority` when present.
    */
   priorityTier?: (passage: string) => number | null;
@@ -143,15 +143,15 @@ interface ProfileSpec {
  * (each a “Trigger Event”)" and "guaranties (collectively, the “Agreements”)" —
  * defined terms that are not parties — are not kept for that alone.
  */
-// R1: some filings print the defined term with spaces inside its quotes ("(the “ Company ”)").
+// some filings print the defined term with spaces inside its quotes ("(the “ Company ”)").
 const DEFINES_PARTY = /[A-Z][A-Za-z0-9.&'’-]*\.?,?\s*\((?:[^()“”"]{0,60},\s*)?(?:the\s+)?[“"]\s?[A-Z][^“”"]{0,40}[”"]\)/;
 /**
  * An item's dated operative sentence ("(c) On July 1, 2026, the Company appointed …").
- * R1: a short title-case sub-heading may sit between the item title and the
+ * a short title-case sub-heading may sit between the item title and the
  * date ("Item 1.01 (…): Merger Agreement On June 10, 2026, …").
  */
 const DATED_LEAD = /^\s*(?:Item \d\.\d{2} \([^)]*\):\s*)?(?:(?:[A-Z][A-Za-z&'’-]*|and|of|the|for|to)\s+){0,5}?(?:\([a-z]\)\s*)?On (?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}\b/;
-/** R1: a dollar amount with a scale word, or one written out in digits to the millions ("$532,426,000"). */
+/** a dollar amount with a scale word, or one written out in digits to the millions ("$532,426,000"). */
 const EVENT_AMOUNT = /(?:US)?\$\s?(?:\d[\d,.]*\s*(?:billion|million|trillion)\b|\d{1,3}(?:,\d{3}){2,}(?:\.\d+)?(?![\d,]))/;
 /**
  * D-156: the event profile's priority tiers. The dated lead says who did what
@@ -323,7 +323,7 @@ function eventReferent(all: readonly Passage[], index: number): Passage | undefi
 }
 const TABLE_TOKEN = /^(?:[$(]?[\d,.]+\)?%?|\$|%|\(|\)|—|–|-)$/;
 
-// R8: a number is evidence only together with the definition, scope and later
+// a number is evidence only together with the definition, scope and later
 // status that qualify it. These are source relationships, not issuer rules.
 const FOOTNOTE = /^\s*\(([A-Z]|\d{1,2})\)\s+/;
 const DEFINITION = /\b(?:we define|is (?:defined|derived|calculated)|definition of|added\b[^.]{0,180}\bdefinition|retrospectively)\b/i;
@@ -480,7 +480,7 @@ function strategyKind(passage: Passage): StrategyKind | null {
   return null;
 }
 
-/** R6: voting economics are independent of dividend/liquidation economics.
+/** voting economics are independent of dividend/liquidation economics.
  * Keep the filed words, including adjacent definitions and elected/available
  * exemption qualifiers. Never derive present ownership from an IPO event.
  */
@@ -760,7 +760,7 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
         used += before - remaining;
       }
     }
-    // R8: rotate through qualifying contexts before numeric density can fill
+    // rotate through qualifying contexts before numeric density can fill
     // the budget. Related tables are eligible here even in a prose profile.
     // Bound these contexts to three quarters before the remaining families run.
     if (contextual && profile !== "event") {
@@ -823,7 +823,7 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   return renderSelection(text, budget, profile, all, selected, superseding, superseded);
 }
 
-/** R8: missing financing status uses the existing shared 8-K pool, displacing
+/** missing financing status uses the existing shared 8-K pool, displacing
  * lower-value event text. Every supplemental excerpt still has the ordinary
  * event cap; the primary transaction excerpt keeps its dated lead and price. */
 export function selectEventLifecycleEvidence(text: string, maxChars: number, retained: readonly EvidenceSpan[]): SelectedEvidence | null {

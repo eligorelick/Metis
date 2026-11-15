@@ -600,7 +600,7 @@ export function computeReturns(
     }
   }
 
-  // L9: the evidenced non-bank lender has neither an applicable FCFF DCF
+  // the evidenced non-bank lender has neither an applicable FCFF DCF
   // nor an excess-return model. A refused, unconsumed rate is disclosure.
   if (route.base === "general" && route.cashFlowApplicability?.status === "not-applicable") {
     for (const gap of wacc.gaps) if (gap.severity === "critical") {
@@ -682,7 +682,7 @@ export function computeReturns(
   if (equityScope.approximation) waccInputs.summary += ` ${conversionRightsNote(equityScope.approximation)}`;
   notes.push(waccInputs.summary);
   notes.push(...waccHistory.notes);
-  // N8: the CURRENT WACC's risk-free rate is FRED DGS10 when available (D-60)
+  // the CURRENT WACC's risk-free rate is FRED DGS10 when available (D-60)
   // and the vendor's treasury endpoint only as the fallback, while every per-year
   // WACC is recomputed from DGS10. When the two differ, the newest fiscal year's
   // own WACC can differ from the current one by SOURCE rather than by time, and
@@ -699,7 +699,7 @@ export function computeReturns(
         "from the current one because the two rates come from different series, not because the rate moved over time.",
     );
   }
-  // N1: the per-year-WACC shortfall reaches the missing-data manifest. It used
+  // the per-year-WACC shortfall reaches the missing-data manifest. It used
   // to be deliberately withheld here on the grounds that the DCF assumption
   // block discloses it, but that block only raises its own gap when NO year
   // carried its own WACC — a partial shortfall was disclosed nowhere.

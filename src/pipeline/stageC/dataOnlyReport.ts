@@ -522,7 +522,7 @@ function balanceSheetSection(
       ),
     );
   }
-  // N3: dilution from outstanding awards is SHOWN, or its unavailability is
+  // dilution from outstanding awards is SHOWN, or its unavailability is
   // stated — criterion (d). It reached no reader surface before.
   // An unavailable overhang is a data-gap statement; a computed one states figures.
   allocation.push(

@@ -233,7 +233,7 @@ function withMarketableEquity(rows: FmpBalanceSheetRow[], facts: CompanyFacts | 
   });
 }
 
-/** N2: classify a proved fair-value servicing financial asset, never infer an absent intangible. */
+/** classify a proved fair-value servicing financial asset, never infer an absent intangible. */
 function withTangibleBookClassification(row: FmpBalanceSheetRow, bundle: DataBundle, facts: CompanyFacts | null): FmpBalanceSheetRow {
   const date = isoDay(row.date), currency = str(row.reportedCurrency), vendor = num(row.intangibleAssets);
   const registrant = bundle.edgar.registrant;
@@ -556,7 +556,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     ttmGaps,
     bundle.statements.incomeQuarterly,
   );
-  // L2: a vendor quarter can omit a filed common numerator while retaining
+  // a vendor quarter can omit a filed common numerator while retaining
   // otherwise usable income. Reuse the SEC normalizer's additive-flow rules;
   // never infer a common allocation from total income or rebuild IPO EPS.
   let commonEarningsSupplemented = false;

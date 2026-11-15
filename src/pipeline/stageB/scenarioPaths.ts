@@ -88,7 +88,8 @@ export function buildScenarioPaths(a: DcfAssumptions, opts: DcfRunOptions, dispe
       marginCapBinding: Math.abs((effectiveMargin[0] ?? 0) - marginDeltaPp) > 1e-9, result: runDcf(shocked, opts) };
   };
   // D-99 (scenario margins): a negative growth/margin correlation would give
-  // the +growth bull a margin cut and the bear a margin gain. Each scenario takes the growth shift that raises (bull) or
+  // the +growth bull a margin cut and the bear a margin gain. Each scenario
+  // takes the growth shift that raises (bull) or
   // lowers (bear) value with the margin at base, and the margin shift history
   // pairs with that growth shift only when it moves the same way: never a cut
   // for the bull, never a gain for the bear. Otherwise the margin stays at base.

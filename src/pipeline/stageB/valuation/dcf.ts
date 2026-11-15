@@ -63,7 +63,14 @@ export interface TemporaryEquityDisclosure {
   basis: string;
 }
 
-/* D-135, D-65, D-98: Deduct established senior claims once on the same basis as the enterprise value. */
+/**
+ * D-65: a non-operating asset added by the equity bridge at filed carrying
+ * or fair value. An investment-tax line is negative: the tax on selling the
+ * other holdings (D-98). A debt-like-obligation line is also negative: a
+ * filed retirement, environmental, pension/OPEB, loss-contingency or
+ * contingent-consideration liability, after tax at the D-98 marginal rate
+ * (filed amount times one minus that rate; D-104/D-135).
+ */
 export interface NonOperatingAssetComponent {
   kind: "marketable-equity-securities" | "long-term-investments" | "investment-tax" | "debt-like-obligation";
   label: string;

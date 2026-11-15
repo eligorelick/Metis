@@ -34,7 +34,12 @@ export interface AnalystEstimateRow {
   revenueHigh?: number | null;
 }
 
-/* D-60, D-65: Anchor the projection to the established revenue window and disclose the evidence used. */
+/**
+ * D-65: revenue already reported in the fiscal year containing the start of
+ * the first forecast window. That year contributes consensus less this
+ * revenue, spread over its unreported days, rather than an even share of
+ * the whole year's consensus.
+ */
 export interface FiscalYearToDate {
   /** End of the previous fiscal year (the day before this fiscal year starts). */
   priorFiscalYearEnd: string;
@@ -662,7 +667,13 @@ export interface DcfAssumptions {
    * (capital already non-positive) takes the issuer's own history for the ratio.
    */
   nonOperatingInvestments?: { value: number; balanceDate: string; basis?: string };
-  /* D-98, D-58: Use the evidenced margin regime and disclose the improving-margin fade assumption. */
+  /**
+   * D-98: the rate at which the bridge taxes non-operating investments it adds:
+   * the D-58 marginal-rate floor toward which terminal tax converges. Apply it
+   * to the whole carrying value as though the tax basis were zero. A sale
+   * delivers the stake's value to shareholders and its gain is taxed; the
+   * filed carrying value is before that tax.
+   */
   investmentTax?: { ratePct: number; basis: string };
   asOf: { statements: string | null; estimates: string | null };
   notes: string[];
@@ -1358,7 +1369,6 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   };
 
   // --- D-58: year one (and two) from evidence, then a convergent fade ------
-  // --- D-58: year one (and two) from evidence, then a convergent fade ------
   // TTM x (1 + clamped g) could put year-one revenue below the issuer's own latest quarter x 4, and a
   // linear fade from a very high consensus year one would keep growth far above the terminal rate for
   // years. The anchored years now come from guidance, consensus or the run-rate; every later year
@@ -1372,7 +1382,6 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   ];
   const guide = nextQuarterGuidance(inputs.guidance, ttm?.date ?? null);
 
-  // --- EBIT margin path -----------------------------------------------------
   // --- EBIT margin path -----------------------------------------------------
   // D-98: a one-off inside operating income (an insurance gain, an impairment) would set the margin
   // for every year, so the seed leaves tagged one-offs out, gains and charges alike.
@@ -1785,9 +1794,6 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       "so this DCF is withheld instead of mixing dates", "warn", "dcf-balance-date-mismatch"));
     return { assumptions: null, notes, gaps };
   }
-  // D-60: long-term investments (strategic and non-marketable stakes, long
-  // marketable securities) are non-operating: their income is below the EBIT
-  // this DCF projects, so they are not capital the operating path earns on.
   // D-60: long-term investments (strategic and non-marketable stakes, long marketable securities) are
   // non-operating: their income is below the EBIT this DCF projects, so they are not capital the
   // operating path earns on. When removing them would leave no operating capital (D-135), the

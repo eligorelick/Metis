@@ -623,7 +623,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
                 beforeSbc: ctx.capital.fcf.latestFcfBeforeSbc,
                 afterSbc: ctx.capital.fcf.latestFcf,
                 sbc: ctx.capital.fcf.latestSbc,
-                // N2: the FCF row's OWN fiscal year end, not the capital block's
+                // the FCF row's OWN fiscal year end, not the capital block's
                 // as-of (which falls back to the income or balance statement). The
                 // assumption block printed a date that was not the year the figure
                 // came from whenever those statements ended on different days.
@@ -792,7 +792,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     isoDay(row?.date) ?? "", ctx.modelCurrency ?? "USD",
     bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : bundle.builtAt,
     { permanentPreferred: num(row?.preferredStock), totalDebt: num(row?.totalDebt) });
-  // F2: market and historical EV use the same dated, overlap-aware preferred claim.
+  // market and historical EV use the same dated, overlap-aware preferred claim.
   const preferredForEv = (row: FmpBalanceSheetRow | null | undefined) => {
     const read = readConvertibles(row);
     return foldConvertiblePreferred(num(row?.preferredStock), read.convertiblePreferredClaim, read.preferredSeriesDistinct).preferred;
@@ -1432,7 +1432,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
  * fallback for the house convention.
  */
 /**
- * G2 (P11, D-242): whether a suppressed valuation is the unprofitable-overlay suppression. The writer
+ * P11 (D-242): whether a suppressed valuation is the unprofitable-overlay suppression. The writer
  * (`valueCompany`) records the cause on the result's own `valuation.dcf` gap beside the same sentence it
  * gives `suppressionReason`; a rewrite that replaces that sentence drops the code (`withoutGapCause`).
  * A result whose `valuation.dcf` gap carries no code (an older writer) is read by `suppressionReason`'s
@@ -1440,7 +1440,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
  */
 export const isUnprofitableOverlayGap = (g: ManifestEntry): boolean => g.field === "valuation.dcf" && gapCauseMatches(g, "dcfUnprofitableOverlay");
 
-/** G1 (P11, D-242): the result's unprofitable-overlay suppression gap, which the FIN-OTHER retained suppression rewrites. */
+/** P11 (D-242): the result's unprofitable-overlay suppression gap, which the FIN-OTHER retained suppression rewrites. */
 export function isUnprofitableOverlaySuppression(result: { suppressionReason?: string; gaps: readonly ManifestEntry[] }): boolean {
   const coded = result.gaps.find(g => g.field === "valuation.dcf" && g.cause !== undefined);
   return coded !== undefined ? gapCauseMatches(coded, "dcfUnprofitableOverlay")

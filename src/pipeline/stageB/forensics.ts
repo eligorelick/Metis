@@ -1558,7 +1558,7 @@ export interface PiotroskiOptions {
 }
 
 export interface PiotroskiResult {
-  /** D-137: tests excluded by route design, independently of missing supported data. Absent on legacy results. */
+  /** D-150: tests excluded by route design, independently of missing supported data. Absent on legacy results. */
   routeWithheld?: number;
   score: number | null;
   /** Number of evaluable signals (9 with 3 fiscal years, 7 with 2, 3 on a financial route). */

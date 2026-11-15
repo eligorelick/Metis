@@ -78,7 +78,8 @@ export function peerDiscoveryScreen(i: {
   if (peer !== null) {
     if (peer !== subject) return { kind: "not-compared", reason: `size not compared: listed in ${peer}, the subject in ${subject ?? "an unestablished currency"}; no currency conversion` };
   } else if (listingSuffix(i.peerSymbol) !== listingSuffix(i.subjectSymbol)) {
-    // Say only what was compared: a suffix is a symbology heuristic, not proof of an exchange (a dotted class such as "ABC.B").
+    // Say only what was compared: a suffix is a symbology heuristic, not proof
+    // of an exchange (a dotted class such as "ABC.B").
     const shown = (s: string | null) => (s === null ? "none" : `.${s}`);
     return { kind: "not-compared", reason: `size not compared: the provider row states no currency and its exchange suffix (${shown(listingSuffix(i.peerSymbol))}) differs from the subject's (${shown(listingSuffix(i.subjectSymbol))})` };
   }
