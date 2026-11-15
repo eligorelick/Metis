@@ -17,7 +17,7 @@ import type { Report, SourcedClaim } from "@/report/schema";
 import type { ManifestEntry } from "@/types/core";
 import { claimStatusMark } from "@/report/verificationMarks";
 import { TAX_OPERAND_EVIDENCE_SINCE_SPEC, specVersionBefore } from "@/report/versions";
-import { DCF_TAX_OPERANDS_FIELD } from "@/report/assessment";
+import { DCF_TAX_OPERANDS_FIELD, evidencePercentText } from "@/report/assessment";
 import { claimEchoKey } from "@/report/presentation";
 
 export { DCF_TAX_OPERANDS_FIELD };
@@ -51,6 +51,7 @@ export type SupportLimitationCode =
   | "headline-input-withheld" | "operating-scope-unverified" | "cash-only-liquidity"
   | "foreign-interim-vendor" | "ads-eps-derived" | "predecessor-history" | "filing-not-retrieved"
   | "tax-operands-vendor" | "tax-evidence-not-recorded" | "grade-evidence-missing" | "grade-evidence-limited"
+  | "grade-evidence-partial" | "fcf-after-sbc-withheld" | "headline-input-qualified"
   | "current-valuation-unavailable" | "grade-qualification-not-recorded";
 
 export interface SupportLimitation { code: SupportLimitationCode; text: string }
@@ -85,6 +86,78 @@ const GRADE_NAME: Readonly<Record<string, string>> = {
 function gradeList(aspects: readonly string[]): string {
   const names = aspects.map(aspect => GRADE_NAME[aspect] ?? "one");
   return names.length === 1 ? `${names[0]} grade` : `${names.slice(0, -1).join(", ")} and ${names.at(-1)} grades`;
+}
+
+/** "a", "a and b", "a, b and c". */
+function listText(items: readonly string[]): string {
+  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
+/** Scored, weighted grades with a recorded route-applicable share below 100% (D-309), in grade order. */
+function partialGrades(scores: Report["scores"] | undefined, named: readonly string[]): Array<{ aspect: string; share: number }> {
+  if (!scores?.aspects) return [];
+  return Object.keys(GRADE_NAME).flatMap(aspect => {
+    const score = scores.aspects[aspect as keyof typeof scores.aspects];
+    const share = score?.applicableCompleteness;
+    if (!score || score.score === null || score.band === null || (scores.composite?.weights?.[aspect as keyof typeof scores.aspects] ?? 0) <= 0 ||
+      typeof share !== "number" || !Number.isFinite(share) || share >= 1 || named.includes(aspect)) return [];
+    return [{ aspect, share }];
+  });
+}
+
+/**
+ * D-309 review round 1 (P10, P12, P19): the manifest fields of valuation inputs and headline figures. Any such entry
+ * that is not an expected omission means a valuation input or headline figure is withheld, unchecked or qualified, so
+ * the report is not full support. Scores (`scores.*`) are excluded: grade evidence is judged by its share above.
+ */
+const HEADLINE_GAP_FIELD = /^(?:valuation|returns\.wacc|capital\.fcf)(?:\.|$)|^capital\.(?:netDebtToEbitda|interestCoverage)$/;
+
+/** One plain sentence per typed field (first match wins); the entry's reason wording is never read (P11). */
+const HEADLINE_GAP_TEXT: ReadonlyArray<readonly [RegExp, string]> = [
+  [/^valuation\.dcf\.fairValueFinancialAssets$/, "a separate add-back for financial assets is not included in the cash-flow value because their placement on the balance sheet is unresolved"],
+  [/^valuation\.analystEstimates\.currency$/, "the currency of the provider's analyst estimates is not stated on the estimates or does not match the model, so the consensus growth case rests on a currency inferred from the filings or is not used"],
+  [/^valuation\.currencyTranslation$/, "valuation inputs in the reporting currency are translated at one dated spot exchange rate"],
+  [/^valuation\.dcf\.(?:analystGrowth|growthAnchor)$/, "a growth-anchor method of the cash-flow valuation is unavailable, so the anchor uses the methods that could be computed"],
+  [/^valuation\.dcf\.marginCeiling$/, "the cash-flow valuation's margin uplift is withheld because a supported gross-profit ceiling is unavailable"],
+  [/^valuation\.dcf\.regulatedUtility$/, "the cash-flow model does not capture regulated rate-base funding"],
+  [/^valuation\.dcf\.valuationDate$/, "the cash-flow value is not rolled forward to the quote date"],
+  [/^valuation\.dcf\.salesToCapital$/, "the sales-to-capital input of the cash-flow valuation is not established"],
+  [/^valuation\.dcf$/, "the cash-flow valuation could not be established"],
+  [/^valuation\.reverseDcf\.growthBracket$/, "the reverse cash-flow valuation could not solve for an implied growth rate within its search range"],
+  [/^valuation\.reverseDcf\.currentUse$/, "the reverse cash-flow valuation is a dated reference, not updated to the current price"],
+  [/^valuation\.reverseDcf$/, "the reverse cash-flow valuation is withheld"],
+  [/^valuation\.evEbitda$/, "EV/EBITDA is withheld"],
+  [/^valuation\.netIncomeDcf$/, "the net-income cash-flow valuation is withheld"],
+  [/^valuation\.excessReturn\.openingBook$/, "the opening book value of the excess-return valuation is not established"],
+  [/^valuation\.excessReturn/, "an excess-return valuation input is not established"],
+  [/^valuation\.multiples\.ownHistory/, "the own-history multiple ranks rest on incomplete history or on partial, excluded or differently based historical windows"],
+  [/^valuation\.multiples\.peers\.[^.]+\.comparabilityCaveat$/, "peer multiples are compared without independently sourced evidence that the peers' business models and metric definitions are comparable"],
+  [/^valuation\.multiples\.peers$/, "too few comparable peers pass the screen, so peer medians are withheld"],
+  [/^valuation\.multiples\.priceToFcf\.cashOwnership$/, "price to free cash flow is withheld because the free cash flow attributable to common holders is unresolved"],
+  [/^valuation\.multiples\.priceToFcf\.historicalCashOwnership$/, "some historical price-to-free-cash-flow windows have unresolved attribution to common holders"],
+  [/^valuation\.multiples\.enterpriseValue\.leases$/, "lease coverage in the enterprise value is not verified"],
+  [/^valuation\.(?:multiples|reit)\.enterpriseValue$/, "the enterprise value is withheld, so the multiples built on it are not shown"],
+  [/^valuation\.multiples\.marketCap/, "the market capitalization is withheld, so the multiples built on it are not shown"],
+  [/^valuation\.(?:multiples\.)?netDebt$/, "net debt is withheld, so the equity bridge and multiples built on it are not computed"],
+  [/^valuation\.multiples\.(?:preferredCapital|priceToBook\.commonEquity)$/, "preferred capital is unresolved, so the book-value multiples on common equity are withheld"],
+  [/^valuation\.perShare\.economicClassBasis$/, "the per-share value is withheld because the economic basis of the diluted share count is unresolved"],
+  [/^valuation\.perShare\.convertibleShares$/, "the diluted share count may include convertible-note shares the filings do not establish"],
+  [/^valuation\.temporaryEquity/, "temporary equity is not established for the latest balance sheet"],
+  [/^valuation\.reit\./, "an equity-REIT measure (FFO, AFFO or the implied cap rate) is approximate or unavailable"],
+  [/^returns\.wacc\.beta$/, "the discount rate's beta is not established from the issuer's own price history"],
+  [/^returns\.wacc\.economicClassBasis$/, "the equity weight of the discount rate rests on an unresolved economic share scope"],
+  [/^returns\.wacc\.effectiveTaxRate/, "the discount rate's tax rate is not an observed effective rate"],
+  [/^returns\.wacc\.history$/, "the ROIC-versus-WACC history uses the current discount rate for years without their own"],
+  [/^capital\.netDebtToEbitda$/, "net debt to EBITDA is withheld"],
+  [/^capital\.interestCoverage$/, "interest coverage is withheld"],
+  [/^capital\.fcf/, "a free-cash-flow figure is withheld or qualified"],
+];
+
+/** A field the route itself makes inapplicable; the route limitation already says so ("limited by the route"). */
+const ROUTE_COVERED_GAP = /^valuation(?:\.(?:dcf|reverseDcf|evEbitda|netIncomeDcf|dcf\.regulatedUtility))?$/;
+
+function headlineGapText(field: string): string {
+  return HEADLINE_GAP_TEXT.find(([pattern]) => pattern.test(field))?.[1] ?? `${headlineInputLabel(field)} is withheld or qualified`;
 }
 
 function headlineInputLabel(field: string): string {
@@ -133,9 +206,11 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
     add("grade-qualification-not-recorded", "this report does not record the evidence behind its grades");
   }
   const missingGrades: string[] = [], limitedGrades: string[] = [];
+  const namedFields = new Set<string>();
   for (const reason of qualification?.composite.reasons ?? []) {
     // The withheld fair value is already listed; a generic valuation field would only repeat it.
     if (reason.code === "financial-evidence-blocked") {
+      if (reason.field) namedFields.add(reason.field);
       if (reason.field && !(reason.field === "valuation.dcf" && out.some(item => item.code === "fair-value-withheld"))) {
         add("headline-input-withheld", `${headlineInputLabel(reason.field)} could not be established from the filings, so figures built on it are withheld`);
       }
@@ -153,6 +228,15 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
   }
   if (missingGrades.length > 0) add("grade-evidence-missing", `the ${gradeList(missingGrades)} ${missingGrades.length === 1 ? "has" : "have"} no evidence that applies on this company's route`);
   if (limitedGrades.length > 0) add("grade-evidence-limited", `the ${gradeList(limitedGrades)} ${limitedGrades.length === 1 ? "rests" : "rest"} on limited evidence`);
+  // D-309 (P12, P19; revises D-300): "every grade rests on complete recorded evidence" holds only at 100%. A scored
+  // grade below all of the evidence that applies on its route (`applicableCompleteness`; signals and aspects the
+  // route does not apply are outside that denominator, P14) limits support, named with its share. No grade, score or
+  // letter floor changes. A saved aspect without the share already reads as unrecorded (its qualification is unknown).
+  const partial = partialGrades(report.scores, [...missingGrades, ...limitedGrades]);
+  if (partial.length > 0) {
+    add("grade-evidence-partial", `the ${gradeList(partial.map(item => item.aspect))} ${partial.length === 1 ? "rests" : "rest"} on ` +
+      `${listText(partial.map(item => evidencePercentText(item.share)))} of the evidence that applies on this company's route`);
+  }
   const gaps: readonly ManifestEntry[] = report.appendix.missingData;
   // Review round 1 (D-300): the cash-flow valuation's tax rate is a headline input. Its operands are
   // checked against a filing unless the typed manifest entry says otherwise; a saved report written
@@ -165,6 +249,23 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
   // statementEvidenceEntries (assessment.ts) writes these two typed fields.
   if (gaps.some(gap => gap.field === "statements.foreignInterim")) add("foreign-interim-vendor", "interim figures from Form 6-K are vendor data not checked against a filing");
   if (gaps.some(gap => gap.field === "statements.adsEps")) add("ads-eps-derived", "earnings per ADS are derived from ordinary-share EPS, not a filed per-ADS amount");
+  // D-309: the house free-cash-flow figure is after stock-based compensation; Stage B's typed `capital.fcf.sbc`
+  // entry records that it is withheld (the latest fiscal year's compensation is not established).
+  if (gaps.some(gap => gap.field === "capital.fcf.sbc" && gap.expected !== true)) {
+    add("fcf-after-sbc-withheld", "stock-based compensation is not established for the latest fiscal year, so free cash flow after it is withheld");
+  }
+  // D-309 review round 1: the literal definition. Every other unexpected entry on a valuation input or headline
+  // figure limits support, in one plain sentence per typed field, unless a limitation above already names it.
+  const has = (...codes: SupportLimitationCode[]) => out.some(item => codes.includes(item.code));
+  for (const gap of gaps) {
+    const field = gap.field;
+    if (gap.expected === true || !HEADLINE_GAP_FIELD.test(field) || namedFields.has(field)) continue;
+    if (field === DCF_TAX_OPERANDS_FIELD || field === "capital.fcf.sbc") continue;
+    if (ROUTE_COVERED_GAP.test(field) && has("financial-route", "route-no-per-share-value")) continue;
+    if (field === "valuation.dcf" && has("fair-value-withheld", "fair-value-dated")) continue;
+    if (/^valuation\.(?:reverseDcf\.currentUse|dcf\.valuationDate)$/.test(field) && has("fair-value-dated")) continue;
+    add("headline-input-qualified", headlineGapText(field));
+  }
   if (gaps.some(gap => gap.field === "edgar.predecessor")) add("predecessor-history", "successor issuer: history before the reorganization comes from the predecessor's filings or is not included");
   const filings = [...new Set(gaps.filter(gap => gap.severity === "critical" && gap.expected !== true && gap.field.startsWith("edgar.")).map(gap => filingLabel(gap.field)))];
   if (filings.length > 0) add("filing-not-retrieved", `not retrieved from the filings: ${filings.length === 1 ? filings[0] : `${filings.slice(0, -1).join(", ")} and ${filings.at(-1)}`}; statements that need ${filings.length === 1 ? "it" : "them"} are not covered`);

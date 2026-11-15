@@ -9,7 +9,7 @@
  * Deterministic text: no locale and no digit grouping.
  */
 import { formatFinancialValue, formatPct } from "@/report/format";
-import { claimCitation, displayClaimText, displayProse, repeatedClaimsNote, withoutRepeatedClaims } from "@/report/presentation";
+import { claimCitation, displayClaimText, displayProse, isModelWrittenClaim, repeatedClaimsNote, withoutRepeatedClaims } from "@/report/presentation";
 import type { SourcedClaim, TracedNumber } from "@/report/schema";
 import { claimStatusMarkText, claimTag } from "@/report/verificationMarks";
 
@@ -65,7 +65,7 @@ export interface ClaimReasoningMarkup {
  * claim as "[label] text (citation)" joined by spaces, with each claim's status mark.
  */
 export function claimReasoning(reasoning: SourcedClaim | SourcedClaim[], markup: ClaimReasoningMarkup): string {
-  if (!Array.isArray(reasoning)) return markup.text(`${displayProse(reasoning.text, reasoning.source)}${statusMarkSuffix(reasoning)}`);
+  if (!Array.isArray(reasoning)) return markup.text(`${displayProse(reasoning.text, reasoning.source, { modelWritten: isModelWrittenClaim(reasoning) })}${statusMarkSuffix(reasoning)}`);
   // D-273: a statement shown in full elsewhere is referenced, not repeated.
   const { shown, homes } = withoutRepeatedClaims(reasoning);
   const note = repeatedClaimsNote(homes);

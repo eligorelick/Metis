@@ -10,7 +10,7 @@ import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTimin
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 import { LENDER_DEBT_PERIMETER_LABEL } from "@/pipeline/stageB/lenderCashFlow";
 import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
-import { readerBaseUnits, readerConventionText, unavailableCashFlowModel } from "@/report/readerConventions";
+import { IDENTIFIER_CONTEXT, readerBaseUnits, readerConventionText, unavailableCashFlowModel } from "@/report/readerConventions";
 
 /** Only a recorded check may annotate a field; saved reports are never rechecked at display time. */
 export function withPlainFigureNotes(report: Report): Report {
@@ -91,6 +91,38 @@ export function withModelProseMarks(report: Report): Report {
   // assembly copies them from the judge output); code flags exist only in data-only reports.
   for (const flag of [...(next.quality?.flags ?? []), ...(next.technicals?.flags ?? [])]) flag.text = mark(flag.text) as string;
   return next;
+}
+
+/**
+ * D-308 review round 1 (P18, P22): the statements of a report the AI wrote, recorded once when a surface prepares the
+ * report (like the verification-mark index), so display code can show the AI's words as written. A data-only
+ * report's statements are written by code and are not recorded.
+ */
+const modelWrittenClaims = new WeakSet<object>();
+
+export function indexModelWrittenClaims(report: Report): void {
+  if (!isModelWrittenReport(report)) return;
+  const visit = (node: unknown): void => {
+    if (node === null || typeof node !== "object") return;
+    if (Array.isArray(node)) { for (const child of node) visit(child); return; }
+    const claim = node as Partial<SourcedClaim>;
+    if (typeof claim.text === "string" && typeof claim.source === "string" && typeof claim.label === "string") { modelWrittenClaims.add(node); return; }
+    for (const [key, value] of Object.entries(node)) if (key !== "appendix" && key !== "meta") visit(value);
+  };
+  visit(report);
+  // Review round 2: report assembly writes two method statements into every report (`applyFinancialDiagnostics`):
+  // the capital grading basis and the debt-bridge note. They are code-written, identified by their typed fields
+  // (JUDGMENT, source `computed.capital.current`) on their own commentary paths, never by wording (P11).
+  for (const claim of [...report.balanceSheet.coverage.commentary, ...report.balanceSheet.debtProfile.commentary]) {
+    if (claim.label === "JUDGMENT" && claim.source === CODE_METHOD_STATEMENT_SOURCE) modelWrittenClaims.delete(claim);
+  }
+}
+
+/** The typed source of the code-written capital method statements (`applyFinancialDiagnostics`). */
+const CODE_METHOD_STATEMENT_SOURCE = "computed.capital.current";
+
+export function isModelWrittenClaim(claim: SourcedClaim): boolean {
+  return modelWrittenClaims.has(claim);
 }
 
 /** One reminder per checked report; absence of a field note never asserts verification. */
@@ -618,7 +650,8 @@ export function figureValueText(n: Pick<TracedNumber, "value" | "unit" | "curren
 }
 
 export function figureRow(n: TracedNumber, label?: string): FigureRow {
-  const period = tracedPeriodLabel(n.period, n.periodContext).replace(/^not supplied; /, "");
+  // D-308: a route metric's period cell can state its formula operands in base units; group them (P22).
+  const period = readerBaseUnits(tracedPeriodLabel(n.period, n.periodContext).replace(/^not supplied; /, ""));
   return {
     label: label ?? metricLabel(n.source,n.unit),
     value: figureValueText(n),
@@ -1718,7 +1751,7 @@ export function consensusTables(report: Report): BodyTable[] {
   if (md.resultsHistory?.length) tables.push({
     heading: "Reported results versus provider consensus (last four reports)",
     headers: ["Report date", "Fiscal window", "Revenue actual", "Revenue estimate", "Difference", "Provider EPS actual (accounting basis unverified)", "Provider EPS estimate (accounting basis unverified)", "EPS difference (accounting basis unverified)", "Source / as-of"],
-    rows: md.resultsHistory.map(r => [r.date, r.periodStart && r.periodEnd ? `${r.periodStart} to ${r.periodEnd}` : r.fiscalLabel ? `${r.fiscalLabel}${r.periodEnd ? `; ended ${r.periodEnd}` : ""} (start unestablished)` : "Unestablished", ...Object.entries(r.values).map(([key,v]) => v === null ? "Unavailable: input or currency not established" : r.currency ? money(v,r.currency,key.startsWith("eps")) : `${v} (currency unestablished)`), `fmp:earnings / ${r.asOf ?? "unavailable"}`]),
+    rows: md.resultsHistory.map(r => [r.date, r.periodStart && r.periodEnd ? `${r.periodStart} to ${r.periodEnd}` : r.fiscalLabel ? `${r.fiscalLabel}${r.periodEnd ? `; ended ${r.periodEnd}` : ""} (start unestablished)` : "Unestablished", ...Object.entries(r.values).map(([key,v]) => v === null ? "Unavailable: input or currency not established" : r.currency ? money(v,r.currency,key.startsWith("eps")) : `${key.startsWith("eps") ? formatNumber(v, 2) : formatLargeNumber(v)} (currency unestablished)`), `fmp:earnings / ${r.asOf ?? "unavailable"}`]),
     note: "Differences are provider actual minus provider estimate. Report dates are not fiscal period boundaries. Provider EPS accounting basis unverified; never compare with GAAP EPS. Missing operands remain gaps.",
   });
 
@@ -2088,6 +2121,8 @@ export function readerPrecision(text: string, source?: string): string {
   return out.replace(
     /(?<![\w.:/-])(-?)(\d+)\.(\d+)(?!\.?\d)(\s?(?:x|×)(?![A-Za-z0-9])|%| percentage points?\b| pp\b| (?:trillion|billion|million|thousand)\b| per share\b)?/g,
     (match, sign: string, whole: string, fraction: string, unit: string | undefined, offset: number, whole_text: string) => {
+      // D-308 review round 1: a version, id or CIK number is an identifier, not a figure to round.
+      if (IDENTIFIER_CONTEXT.test(whole_text.slice(Math.max(0, offset - 40), offset))) return match;
       const decimals = fraction.length;
       const value = Number(`${sign}${whole}.${fraction}`);
       const tail = unit ?? "";
@@ -2117,8 +2152,11 @@ export function withoutDecisionNumbers(text: string): string {
     .replace(/\s*\(D-\d+(?:\s+disclosure)?\)/g, "");
 }
 
-export function displayProse(text: string, source?: string): string {
-  const readable = readerBaseUnits(readerConventionText(withoutDecisionNumbers(text), source))
+export function displayProse(text: string, source?: string, options: { modelWritten?: boolean } = {}): string {
+  // D-308 review round 1: code-written prose has its base-unit amounts grouped; model-written prose (a paragraph
+  // carrying the "not confirmed" mark, or a claim of a report the AI wrote) is shown as written.
+  const conventions = readerConventionText(withoutDecisionNumbers(text), source);
+  const readable = (options.modelWritten === true || text.trimEnd().endsWith(MODEL_PROSE_MARK) ? conventions : readerBaseUnits(conventions))
     .replace(/(\bevidence completeness (?:was|is) )((?:0(?:\.\d+)?|1(?:\.0+)?))(?![\d%]|\.\d)/gi, (_, lead: string, value: string) => `${lead}${ratioPercentText(Number(value))}`)
     .replace(/(Self-assessed case strength[^:]*: bull )(\d)(, bear )(\d)(?!\s*(?:\/|of))/g, "$1$2 of 5$3$4 of 5");
   return readerPrecision(humanizeInlineCitations(readable), source);
@@ -2130,7 +2168,7 @@ export function displayProse(text: string, source?: string): string {
  * stays raw and retains the report's existing verification disclosures.
  */
 export function displayClaimText(claim: SourcedClaim, numbers: readonly TracedNumber[] = []): string {
-  let text = displayProse(claim.text, claim.source);
+  let text = displayProse(claim.text, claim.source, { modelWritten: isModelWrittenClaim(claim) });
   // D-294 review: name a proved quoted-share unit beside its uniquely cited count, without validating the claim.
   const shares = numbers.filter(n => n.source === claim.source && n.asOf === claim.asOf &&
     (claim.sourceId === undefined || n.sourceId === claim.sourceId) && n.definition === "ADS-equivalent shares");

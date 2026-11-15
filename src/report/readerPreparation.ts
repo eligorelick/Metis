@@ -17,7 +17,7 @@ import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { deriveReportCompletenessPresentation, withClassifiedDataOnlyGapCount, type ReportCompletenessPresentation } from "@/report/completeness";
 import { legacyScopeQualifications } from "@/report/legacyScopeQualifications";
-import { indexRepeatedClaims, withModelProseMarks, withPlainFigureNotes } from "@/report/presentation";
+import { indexModelWrittenClaims, indexRepeatedClaims, withModelProseMarks, withPlainFigureNotes } from "@/report/presentation";
 import { lenderConventionTables, withReaderConventions } from "@/report/readerConventions";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { Report } from "@/report/schema";
@@ -140,6 +140,7 @@ export function prepareReportForSurface(input: Report, surface: ReportSurface): 
   }
   const scopeQualifications = legacyScopeQualifications(report);
   indexVerificationMarks(report);
+  indexModelWrittenClaims(report);
   // D-273: after the marks, which are part of a statement's identity; the audit export lists every claim.
   if (surface !== "audit") indexRepeatedClaims(report);
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);

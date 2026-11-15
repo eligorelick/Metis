@@ -13,6 +13,163 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 
 
+## D-309 - "Full support" only when its definition is true (2026-11-15)
+
+P12, P19 and P22; release check 5 (VERIFY-2 F3); revises D-300. Owner: `src/report/supportLevel.ts`; README "Support
+levels" and `docs/METHODOLOGY.md` updated.
+
+**Problem.** The full-support definition printed under every support block (and in README) says "every grade rests on
+complete recorded evidence, and no headline figure or valuation input ... is withheld", but the code limited support
+only for a grade below half its evidence or resting on one partial signal (`MIN_HEADLINE_EVIDENCE`). DIS showed Full
+support beside a valuation grade on 70.0% and a moat grade on 75.0% of their evidence; WMT showed Full support beside a
+balance-sheet grade on 82.4% while free cash flow after stock-based compensation was withheld.
+
+**Decision (lead): keep the definition and enforce it.** Read time only, from typed fields (P11, no wording read):
+- `grade-evidence-partial`: every scored, weighted grade whose `applicableCompleteness` is below 1 and that the grade
+  qualification has not already named (missing or limited) is listed with its share, in grade order: "the valuation
+  and moat grades rest on 70.0% and 75.0% of the evidence that applies on this company's route". The share is the one
+  the grade-reliability table prints ("Applicable evidence"): signals and aspects the route does not apply are outside
+  its denominator (P14), so a route-scoped aspect at 100% applicable evidence does not limit support. Display precision
+  never shows a partial share as complete (`evidencePercentText`, "<100.0%").
+- `fcf-after-sbc-withheld`: the typed Stage B entry `capital.fcf.sbc` (not expected), "stock-based compensation is not
+  established for the latest fiscal year, so free cash flow after it is withheld".
+
+A saved aspect without `applicableCompleteness` already reads as unrecorded (its qualification is unknown, D-300), so
+no new legacy rule is needed. No grade, score, band, weight or the 50% letter floor changes; the definition text in
+`SUPPORT_LEVELS` and README is unchanged.
+
+**Review round 1 (GPT-6.1 Sol, P1; lead decision: the definition is literal).** AMZN and NVDA were still Full while the
+typed entry `valuation.dcf.fairValueFinancialAssets` said a separate financial-asset add-back could not be placed on the
+balance sheet. Fixed as a class, not a field: any manifest entry that is not an expected omission on a valuation input
+or headline figure (`valuation.*`, `returns.wacc.*`, `capital.fcf.*`, `capital.netDebtToEbitda`,
+`capital.interestCoverage`; `scores.*` stays with the grade-evidence share) limits support as
+`headline-input-qualified`, with one plain sentence chosen by its typed field from a fixed table (for example "a separate
+add-back for financial assets is not included in the cash-flow value because their placement on the balance sheet is
+unresolved"; an unlisted valuation field reads "a valuation input is withheld or qualified"). It is not repeated when
+another limitation already names it: a field a blocked-headline-input reason names, the tax-operand and SBC entries, the
+cash-flow model, reverse DCF, EV/EBITDA and net-income DCF on a route that does not apply them, the cash-flow valuation
+when the fair value is withheld or dated, and the dated reverse DCF or roll-forward when the fair value is dated. No
+valuation, grade or score changes. The demo fixture carries one synthetic `valuation.cet1Ratio` gap, which now limits
+support by itself (a new test pins that); the existing D-300 tests that mean "no other limitation" remove only that
+entry, and two wording controls on `valuation.dcf.note` and `capital.fcf.note` now assert the exact limitation list
+(the decoy wording is still not read as the tax-operand or SBC entry; a non-headline field stays full). The exact-export digest in
+`tests/stageC.multiClaimReasoning.test.ts` asserts that phrase once on Markdown and print and pins new Markdown and print
+digests that include it in place (review round 2); with the phrase removed the old digests are reproduced exactly, so it
+is the only change. The UI and audit digests are unchanged.
+
+**Panel (same-report check, main `33f0acb1` (after D-307), 33 cases).** Before (main): Full support for AMZN (both), DIS, NVDA (both)
+and WMT. After: **no case has full support**; all 33 are Limited. Lines added to each case (all earlier reasons
+unchanged):
+- Partial grade evidence: DIS valuation, quality, moat 70.0%, 97.6%, 75.0%; WMT, XOM balance sheet 82.4%; BAC, JPM,
+  JPM #64 balance sheet 85.0%; CAT valuation, quality, balance sheet 70.0%, 62.6%, 82.4%; DUK fundamentals 85.0%; FIGR
+  fundamentals 76.5%; LLY, LLY #65, NVO, TSM, TSM #66 valuation 70.0%; LLY #63 quality, balance sheet, moat 65.0%,
+  64.7%, 55.0%; META (both) quality and balance sheet 65.0%, 76.5%; MU (both) quality 97.6%; O fundamentals and quality
+  62.5%, 62.6%; PLD quality 62.6%; QCOM quality and moat 65.0%, 55.0%; RIVN fundamentals 65.0%; UNH moat 75.0%; UNP
+  quality and balance sheet 62.6%, 82.4%. KO, MET, PGR and VKTX have no partial grade beyond those already named.
+- Free cash flow after SBC withheld: DUK, NVO, UNP, WMT, XOM.
+- Valuation-input and headline gaps (typed field): financial-asset add-back not placed (AMZN, NVDA, CAT, DUK, KO, UNH,
+  VKTX); analyst-estimate currency inferred (every case except MU); own-history ranks on partial windows (every case
+  except VKTX); too few comparable peers (AMZN, DIS, FIGR, META, MU, NVDA, NVO, O, PLD, RIVN, TSM, TSM #66, UNP, XOM);
+  peer comparability not independently sourced (BAC, CAT, DIS, DUK, JPM, JPM #64, KO, LLY, LLY #63, LLY #65, MET, PGR,
+  QCOM, RIVN, UNH, UNP, WMT); price to free cash flow withheld or its history qualified for unresolved common
+  attribution (most general-route and financial cases); unverified enterprise-value lease coverage; net debt to EBITDA
+  withheld (CAT, DUK, LLY #63, META, O, PLD, QCOM, RIVN, UNP); the reverse cash-flow valuation without a growth
+  solution (CAT, DIS, NVO); the economic share scope of the discount rate, market cap and per-share value (FIGR, META,
+  RIVN); temporary equity not established (O, UNH, WMT); spot-rate translation (NVO, TSM, TSM #66); and the
+  route-specific entries of MET (opening book, preferred capital on book multiples), O and PLD (REIT measures), MU
+  (growth-anchor method), DIS (margin ceiling), DUK, VKTX and RIVN.
+
+Confirmed-statement counts, fair values (`golden:value-check`: 33 cases, 0 moves) and accuracy (535 figures: 331 match,
+13 mismatch, 121 gap, 70 not established after D-307, all as expected) are unchanged.
+
+**Tests.** `tests/release.w9b.test.ts`: full only at 100% on every grade; two partial grades named with shares and one
+alone; "<100.0%" never reads complete; controls: route-inapplicable signals (60% of all weight, 100% applicable), an
+inapplicable aspect, an unweighted aspect and a grade already named limited; the typed SBC entry with controls (wording
+on another free-cash-flow field reads as its own typed line, on a non-headline field or as an expected entry it changes
+nothing); the partial-grade line on all three surfaces. Review round 1: the unplaced financial-asset add-back; a
+discount-rate input, a peer screen repeated twice and an unlisted valuation field, each once; controls (an expected
+entry, `scores.*`, `capital.buybackPriceAnalysis` and decoy wording on a non-headline field stay full); no repeat for a
+named blocked input, a bank route's inapplicable models, a withheld fair value, the tax-operand and SBC entries.
+
+## D-308 - Raw base-unit amounts in reader text use the shared exact-amount format (2026-11-15)
+
+P22 (P21 for saved reports); release check 3 (VERIFY-2 F2, the R29 class). Owner: the read-time reader view
+`readerBaseUnits` / `withReaderConventions` (`src/report/readerConventions.ts`), used by app, Markdown and print, and
+the shared row builders in `src/report/presentation.ts`.
+
+**Problem.** Raw unformatted amounts reached reader text on all three surfaces: the unadjusted reported free cash flow
+after D-306 (an amount with cents), the bank and insurer residual-income continuing value and opening book, scenario
+fixed inputs (starting revenue with cents; minority interest and other bridge claims), the ADS share-basis check (a
+fractional share count) and the SBC amount at the end of the reported-FCF sentence. The cause was one rule: the
+read-time grouping matched only whole numbers followed by a space or a semicolon, so an amount with cents, an amount
+ending a sentence ("... of N.") and one ending a clause ("N, ...") stayed raw, and the compact pass
+(`compactLongIntegers`) then shortened only some of them, so one sentence mixed a grouped exact amount with a compact
+one.
+
+**Fix (text only; no arithmetic or stored number changes).** `readerBaseUnits` now also groups an amount with cents
+(at most two decimals, the exact-amount format the with-SBC sentence already shows) and an amount followed by a
+sentence or clause stop; a digit run with a leading zero is an identifier and is left as written, as are dates,
+accessions, URLs and hash, seed and CIK values (existing guard). Saved reports keep their bytes and get the same text
+when read, because the rule lives in the existing read-time view (P21). Producers were not changed, so Stage B, the
+payload and the audit export (the raw record) keep their bytes.
+
+**Sweep (class: a base-unit amount inside a reader-visible sentence that no presentation rule formats).** Found by
+scanning the 33-case Markdown, print and app text for raw runs of seven or more digits. Fixed here: the view now also
+formats basis lists (`fairValue.basis[]`, `scenarioTargets.basis[]`: the unprofitable-overlay trigger), the scenario
+interpretation, a signal's `fallbackReason` (the P/E-not-ranked operands) and `period` (a route metric's formula
+operands), and grade-qualification `detail` (the preferred-capital note); `figureRow` groups a key number's period cell
+(bank TCE, charge-off and loan-to-deposit formulas); the provider-consensus table prints an amount whose currency is
+unestablished with the shared compact format ("21.90B (currency unestablished)"; EPS at two decimals). Left as they
+are, by design: the app's "Number provenance" details (recorded value and period of a traced figure) and the evidence
+rail's "Recorded gaps" list, which show the stored record verbatim (the F5 evidence-rail limitation), and the audit
+export. Raw-amount hits on the reader surfaces fell from 3,891 to 2,629 across the 33 cases; every remaining hit is in
+those exact-record panels or a guarded identifier (a judge seed).
+
+**Approved report changes (same-report check, main `33f0acb1` (after D-307), 33 cases, 231 files).** Every differing line is the
+same text with its amounts grouped (values equal at display precision; 11 Markdown table cells are cut one word
+earlier because grouped digits are longer), the support line (D-309) or the stamp. By case: AMZN, DIS, KO, LLY, NVDA,
+UNH and WMT the net-debt lease note, the SBC row and the scenario bridge; CAT, LLY #65, MU, QCOM, UNP and XOM the SBC
+row and the scenario bridge; BAC, JPM and JPM #64 the excess-return continuing value and opening book and the bank
+key-number formulas; TSM, TSM #66 and NVO the unadjusted reported free cash flow, the ADS share-basis check, scenario
+inputs and the consensus rows with an unestablished currency; RIVN and MET the valuation-availability basis; MET, DUK,
+PLD, FIGR, O, PGR, META, CAT, KO, UNH, UNP and LLY the data-gap reasons. `report.json` changes only `meta.specVersion`; `stageB.json` and `payload.txt` do not change; the audit export
+changes only its spec line.
+
+**Tests.** `tests/release.w9b.test.ts`: amounts with cents, at a sentence end, before a comma and a fractional share
+count; controls (dates, accessions, CIK, a leading-zero file number, a seed, a URL path, small decimals, already grouped
+and compact amounts, a version-like string, a 17-digit run, a 6-digit count); the bank excess-return wording from its
+one producer, the DCF SBC basis and a scenario line on all three surfaces with the stored text unchanged; the sweep
+paths, a route-metric formula with a plain-period control and the consensus cell with a known-currency control.
+
+**Review round 1 (GPT-6.1 Sol, P2).** The grouping could not tell amounts from identifiers ("version 1234567.123456",
+"CIK number 1234567.", the basic date "20261115"), and it ran through `displayProse`, so AI-written prose changed.
+Fixed: (1) identifier guards in `readerBaseUnits`: a number after a version, id or identifier word, a CIK (also "CIK
+number"/"CIK no."), a file, account, registration, form, document, reference, filing, case, order, invoice, CUSIP or
+ISIN number, "no." or "#", and an 8-digit basic date (19xx or 20xx with a real month and day) is left as written; the
+D-67 precision pass applies the same identifier context, so a version is not rounded either. (2) Code-written text only.
+How AI-written prose is protected, at each step:
+- Reader view (`withReaderConventions`, before model marking): it groups only listed code-written fields, and never a
+  grade block's `oneLineWhy` or `interpretation` (a section's `graded`, the moat block, the grade strip), which the
+  analyst can write (review round 2). Statements are returned unchanged, as before.
+- Display (`displayProse`): a paragraph that carries the D-282 model-prose mark is shown as written; in a data-only
+  report the same grade text has no mark and is grouped, as on main.
+- Statements (`displayClaimText`, claim reasoning): every statement of an AI-written report is recorded when a surface
+  prepares the report (like the verification-mark index) and shown as written, except the two method statements report
+  assembly writes into every report (`applyFinancialDiagnostics`: the capital grading basis and the debt-bridge note).
+  Those are identified by their typed fields, never by wording: label JUDGMENT, source `computed.capital.current`, on
+  `balanceSheet.coverage.commentary` or `balanceSheet.debtProfile.commentary`. They are grouped at read time, so a
+  saved AI-written report shows them as main did. Stored bytes do not change: the round-1 producer change is reverted.
+Main grouped AI-written statements and paragraphs; they now show as written (no panel case has an AI-written amount
+of seven or more digits). Tests: every reproduced case, a "number of" amount, an invalid 8-digit day and a year-led
+amount with cents as controls; a marked paragraph and an AI-report statement stay as written while code prose and a
+data-only statement are grouped; an AI-written grade interpretation through preparation and all three exports, with a
+data-only control; both saved method statements grouped on all three surfaces with the saved report's bytes unchanged,
+and two controls (an AI FACT citing the same record on the same list, an AI JUDGMENT with the same source elsewhere)
+shown as written.
+
+**Version.** Report 1.101.0 for D-308 and D-309 (renumbered above D-307's 1.100.0 at merge) (read-time meaning on every surface); payload, Stage B, pipeline and
+score bands unchanged. Sample rebuilt; the frozen audit fixture re-recorded (spec stamp and digest only).
+
 ## D-307 - Filed amounts own every established effective tax rate (2026-11-15)
 
 P8 (filed beats vendor), P13 (one definition), P20/P21/P27. Release W9a, VERIFY-2 F1 / R19. Revises D-300's tax-operand amount selection; its admission evidence, tolerance and qualification policy stay in force.
@@ -268,6 +425,9 @@ label on two statement shapes, the exhibit merge and a different-filing control,
 key-data caveat numbers.
 
 ## D-300 - Support level and confirmed share near the top of every report (2026-11-15)
+
+**Revised by D-309** (full support requires every scored grade to have all of its route-applicable evidence and free
+cash flow after stock-based compensation not to be withheld; the definition text is unchanged).
 
 Tax-operand amount selection revised by D-307; the proof and support policy remain.
 

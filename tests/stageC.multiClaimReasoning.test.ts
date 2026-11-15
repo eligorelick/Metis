@@ -84,6 +84,9 @@ describe("catalyst and risk reasoning compatibility", () => {
         outputs[key] = outputs[key].replace(marked, key === "markdown" ? text : esc(text));
       }
     }
+    // D-309 review round 1: the fixture's synthetic `valuation.cet1Ratio` data gap is a valuation-input gap, so the
+    // support line names it once on each export, in place; the digests below pin it.
+    for (const key of ["markdown", "print"] as const) expect(outputs[key].split("; a valuation input is withheld or qualified").length - 1).toBe(1);
     expect(Object.fromEntries(Object.entries(outputs).map(([key, value]) => [key, createHash("sha256").update(value).digest("hex")]))).toMatchSnapshot();
   });
 

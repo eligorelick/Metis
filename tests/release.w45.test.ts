@@ -49,8 +49,18 @@ const fairValue = (patch: Partial<FairValue>): FairValue => ({
  */
 function recorded(report: Report): Report {
   report.meta.specVersion = REPORT_SPEC_VERSION;
+  withoutSyntheticValuationGap(report);
   const aspects = Object.fromEntries(["fundamentals", "valuation", "quality", "balanceSheet", "moat", "leadership", "technicals"].map(key => [key, { status: "supported", reasons: [] }]));
   report.scores = { ...report.scores, qualification: { aspects, composite: { status: "supported", reasons: [] } } } as unknown as Report["scores"];
+  return report;
+}
+
+/**
+ * D-309 review round 1: the demo fixture carries one synthetic `valuation.cet1Ratio` data-gap entry, a valuation
+ * input gap that now limits support by itself. Tests that mean "no other limitation" remove only that entry.
+ */
+function withoutSyntheticValuationGap<T extends Pick<Report, "appendix">>(report: T): T {
+  report.appendix.missingData = report.appendix.missingData.filter(gap => gap.field !== "valuation.cet1Ratio");
   return report;
 }
 
@@ -92,7 +102,7 @@ describe("support level (D-300, R40)", () => {
   });
 
   it("reads P12 qualifications and critical filing gaps by code and field, never by wording (P11)", () => {
-    const report = loadTask28Fixture();
+    const report = withoutSyntheticValuationGap(loadTask28Fixture());
     report.fairValue = fairValue({ status: "suppressed", method: null, perShare: null, upsidePct: null,
       currentUse: { status: "unestablished", statementDate: null, valueDate: null, quoteDate: null, reason: "model-unavailable" } });
     report.appendix.missingData.push(
@@ -118,10 +128,14 @@ describe("support level (D-300, R40)", () => {
     vendorTax.appendix.missingData.push({ field: DCF_TAX_OPERANDS_FIELD, reason: "any wording", severity: "info" });
     expect(supportLevel(vendorTax)).toMatchObject({ level: "limited", limitations: [{ code: "tax-operands-vendor",
       text: "the tax rate of the cash-flow valuation uses provider tax and pre-tax income figures not checked against a filing" }] });
-    // Control: the same wording on another field changes nothing.
+    // Control: the same wording on another field is not read as the tax-operand entry. D-309 review round 1: a
+    // valuation-input field limits support by its own typed line, and a non-headline field not at all.
     const control = recorded(ReportSchema.parse({ ...loadTask28Fixture(), fairValue: fairValue({}) }));
     control.appendix.missingData.push({ field: "valuation.dcf.note", reason: "Tax rate operands: vendor data, not checked against a filing", severity: "info" });
-    expect(supportLevel(control).level).toBe("full");
+    expect(supportLevel(control).limitations.map(item => item.code)).toEqual(["headline-input-qualified"]);
+    const otherField = recorded(ReportSchema.parse({ ...loadTask28Fixture(), fairValue: fairValue({}) }));
+    otherField.appendix.missingData.push({ field: "business.note", reason: "Tax rate operands: vendor data, not checked against a filing", severity: "info" });
+    expect(supportLevel(otherField).level).toBe("full");
     // A saved report from before the entry existed does not record which; a cash-flow fair value is then not full support.
     const saved = recorded(ReportSchema.parse({ ...loadTask28Fixture(), fairValue: fairValue({}) }));
     saved.meta.specVersion = "1.97.0";
@@ -132,7 +146,7 @@ describe("support level (D-300, R40)", () => {
     savedBank.meta.specVersion = "1.97.0";
     expect(supportLevel(savedBank).limitations.map(item => item.code)).toEqual(["financial-route"]);
     // A grade with no recorded qualification, or one marked unknown, is not shown to be supported.
-    const legacy = ReportSchema.parse({ ...loadTask28Fixture(), fairValue: fairValue({}) });
+    const legacy = withoutSyntheticValuationGap(ReportSchema.parse({ ...loadTask28Fixture(), fairValue: fairValue({}) }));
     legacy.meta.specVersion = REPORT_SPEC_VERSION;
     expect(legacy.scores?.qualification).toBeUndefined();
     expect(supportLevel(legacy).limitations.map(item => item.code)).toEqual(["grade-qualification-not-recorded"]);
