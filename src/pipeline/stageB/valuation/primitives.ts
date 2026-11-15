@@ -26,9 +26,13 @@ export const DCF_HORIZON_YEARS = 10;
 // with no analyst estimates — corrected back to spec.)
 export const NEAR_TERM_GROWTH_CLAMP_PP: readonly [number, number] = [-10, 25];
 export const S2C_CLAMP: readonly [number, number] = [0.5, 5.0];
-/* D-104: Establish sales-to-capital from compatible filed history before using it in valuation. */
+/** D-104: fiscal years of filed revenue and invested capital that establish an issuer's own sales-to-capital. */
 export const S2C_HISTORY_MIN_YEARS = 3;
-/* D-104: Establish sales-to-capital from compatible filed history before using it in valuation. */
+/**
+ * D-104: the lowest history median read as the issuer's own ratio. Capital-heavy filers sit near
+ * 0.15–0.25 (water and electric utilities, pipelines); a median below this is read as a scale
+ * error, which would repeat in every year, and the house floor stands.
+ */
 export const S2C_HISTORY_MIN_RATIO = 0.1;
 /**
  * D-65: the clause of the long-term-investments provenance that says what the sales-to-capital
@@ -39,10 +43,33 @@ export const S2C_HISTORY_MIN_RATIO = 0.1;
 export const LONG_TERM_INVESTMENTS_REMOVED_CLAUSE = "the amount the sales-to-capital denominator removes as non-operating";
 export const TERMINAL_G_CAP_PCT = 2.5;
 
-/* D-102: Use the evidenced starting return and converge payout to the terminal return and growth assumptions. */
+/**
+ * Terminal excess-return house rule (D-19).
+ *
+ * The default terminal ROIC equals WACC: growth adds nothing after the explicit horizon. That is
+ * McKinsey's recommendation for most firms, but applied to every issuer it valued evidenced
+ * compounders as if their returns collapsed to the cost of capital in year 11, and graded most large
+ * caps D or F on valuation. McKinsey (Valuation, "Estimating continuing value") sets RONIC above
+ * WACC only for firms with sustainable advantages, and its ROIC-persistence data show a
+ * top-quintile spread over WACC roughly halving over 10-15 years rather than closing; Damodaran
+ * allows perpetual excess returns only when they are modest.
+ *
+ * So: when ROIC exceeded WACC in every one of the last TERMINAL_EXCESS_RETURN_MIN_YEARS+ fiscal
+ * years on record, half the median spread is carried in perpetuity, capped at
+ * TERMINAL_EXCESS_RETURN_CAP_PP. Anything short of that evidence keeps the default, and the reason
+ * is written into the assumption notes.
+ *
+ * The excess-return equity model (banks, insurers) applies the rule as "at least 4 of the last 5
+ * fiscal years", and a below-hurdle year with material business-combination evidence does not
+ * count against it (owner decision, D-102); the FCFF DCF keeps the every-year rule.
+ */
 export const TERMINAL_EXCESS_RETURN_CAP_PP = 5;
 export const TERMINAL_EXCESS_RETURN_MIN_YEARS = 4;
-/* D-102: Use the evidenced starting return and converge payout to the terminal return and growth assumptions. */
+/**
+ * HOUSE CONVENTION (owner decision, D-102): the excess-return model's fiscal-year start is shown
+ * beside the headline when it differs from the trailing start by more than this many percentage
+ * points.
+ */
 export const EXCESS_RETURN_START_GAP_PP = 5;
 export const TERMINAL_EXCESS_RETURN_CARRY = 0.5;
 /** Below this carried spread the evidence is noise; the default applies. */
@@ -60,11 +87,18 @@ export const MARGIN_WARN_BAND_PP: readonly [number, number] = [0, 35];
 export const MARGIN_FADE_YEARS = 5;
 /** Dated margin slope needed to classify a clear improving/declining regime. */
 export const MARGIN_TREND_THRESHOLD_PP_PER_YEAR = 0.5;
-/* D-98: Use the evidenced margin regime and disclose the improving-margin fade assumption. */
+/**
+ * D-98 (improving margins): the share of an improving regime's dated slope the fade carries over
+ * the fade years. Half the trend, and never past the scenario margin ceiling (docs/METHODOLOGY.md
+ * "Fade and horizon").
+ */
 export const IMPROVING_MARGIN_TREND_SHARE = 0.5;
 /** Terminal-growth axis of the sensitivity grid (pp around the base terminal growth). */
 export const SENSITIVITY_STEPS_PP: readonly number[] = [-1, -0.5, 0, 0.5, 1];
-/* D-60: Vary WACC by the established sensitivity steps around the base assumption. */
+/**
+ * D-60: WACC axis of the sensitivity grid, ±200bp in 100bp steps. A ±100bp axis spanned less than
+ * the uncertainty in a single regression beta.
+ */
 export const SENSITIVITY_WACC_STEPS_PP: readonly number[] = [-2, -1, 0, 1, 2];
 export const REVERSE_GROWTH_RANGE_PCT: readonly [number, number] = [-20, 60];
 export const REVERSE_MARGIN_RANGE_PCT: readonly [number, number] = [0, 60];
@@ -116,7 +150,12 @@ const fmtNum = (v: number): string => String(Math.round(v * 100) / 100);
 /** An exact amount for reader text, digits grouped ("42,783,000,000"), at fmtNum's two-decimal precision. */
 const fmtGrouped = (v: number): string => (Math.round(v * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
-/* D-135: Admit a finance-only lease total only when the filed finance amount establishes the total and no operating slice is known. */
+/**
+ * D-135: the lease total when it is wholly a filed finance-lease liability. No operating slice is
+ * tagged, and the finance-lease liability reconciles to the total within `leaseDebtConflict`'s
+ * tolerance, so there is nothing to remove and nothing unknown in the mix. Text only: the figures
+ * are those of a total with no operating slice.
+ */
 export function financeLeaseOnlyTotal(total: number | null, operating: number | null | undefined, finance: number | null | undefined, conflict: string | null): number | null {
   if (total === null || total <= 0 || conflict !== null || isNum(operating) || !isNum(finance) || finance <= 0) return null;
   return Math.abs(finance - total) <= Math.max(1, Math.abs(total) * 1e-6) ? total : null;

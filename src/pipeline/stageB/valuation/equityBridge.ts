@@ -59,16 +59,16 @@ export function unsplitCellsNote(unsplit: number): string {
   return `${UNSPLIT_CELLS_LEAD}: the filed temporary-equity total of ${millions(unsplit)} is not split between redeemable preferred and redeemable noncontrolling interests, so it could be counted twice.`;
 }
 
-/**
- * D-135: why the per share is withheld when an unsplit temporary-equity total meets the earnings
- * key earnings key.
- */
+/** D-135: why the per share is withheld when an unsplit temporary-equity total meets the NCI earnings key (D-102). */
 function unsplitEarningsKeyReason(unsplit: number): string {
   return `The filed temporary equity of ${millions(unsplit)} has no parent/NCI split, and the noncontrolling interest is sized on its share of earnings, so the unsplit amount may be noncontrolling interest that the earnings key already counts. ` +
     "The per-share value is withheld rather than deduct it twice (FIN-119).";
 }
 
-/* D-102: Apply the established noncontrolling earnings key consistently in the common-equity bridge. */
+/**
+ * HOUSE CONVENTION (owner decision, D-102): NCI's share of trailing consolidated profit must exceed
+ * this before it can replace the book deduction.
+ */
 export const NCI_EARNINGS_KEY_MATERIALITY_PCT = 10;
 
 /**
@@ -84,7 +84,7 @@ function noncontrollingDeduction(consolidatedEquity: number, book: number, share
   return { deducted: book, basis: "book" };
 }
 
-/* D-102: Apply the established noncontrolling earnings key consistently in the common-equity bridge. */
+/** D-102: "35.8% share of trailing consolidated profit to 2026-06-30", the NCI earnings key as surfaces state it. */
 export function noncontrollingProfitShareText(bridge: Pick<DcfBridge, "noncontrollingEarningsShare" | "noncontrollingEarningsAsOf" | "noncontrollingEarningsBasis">): string {
   const share = bridge.noncontrollingEarningsShare ?? 0;
   const period = bridge.noncontrollingEarningsBasis === "annual" ? "fiscal-year" : "trailing";
@@ -96,7 +96,7 @@ export function noncontrollingBookReason(share: number): string {
   return share * 100 > NCI_EARNINGS_KEY_MATERIALITY_PCT ? "would deduct no more than book" : `is not above the ${NCI_EARNINGS_KEY_MATERIALITY_PCT}% house threshold`;
 }
 
-/** The income-statement fields the earnings key key reads, from a TTM window or an annual row. */
+/** The income-statement fields the NCI earnings key (D-102) reads, from a TTM window or an annual row. */
 export interface NoncontrollingEarningsRow {
   date?: string | null;
   netIncome?: number | null;

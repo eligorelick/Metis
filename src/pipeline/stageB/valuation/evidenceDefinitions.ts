@@ -24,7 +24,7 @@ export function revenueDefinition(tags: readonly string[]): string | null {
 export const INVESTMENT_DEFINITION_FAMILIES = [["us-gaap/LongTermInvestmentsAndReceivablesNet"], ["us-gaap/EquityMethodInvestments"]] as const;
 export const REVENUE_DEFINITION_FAMILIES = [["us-gaap/SalesAndOtherOperatingRevenue"]] as const;
 
-/* D-293: D-293: disclose an unmatched provider line beside the exact same-filing annual total. */
+/** D-293: disclose an unmatched provider line beside the exact same-filing annual total. */
 export function annualRevenueDefinition(row: { date?: string; revenue?: number; fiscalYear?: unknown; reportedCurrency?: string | null; filingDate?: string; fieldProvenance?: Record<string, { tags: string[] }> }, facts: CompanyFacts | null, cutoff: string): string | null {
   if (!facts || !row.date || !row.reportedCurrency || !row.filingDate || typeof row.revenue !== "number") return null;
   const parsed = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.Revenues);

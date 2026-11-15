@@ -116,7 +116,11 @@ export function revenueRunRate(
     latestQuarterWeeks, lengthNote: lengthNotes.length > 0 ? lengthNotes.join("; ") : null };
 }
 
-/* D-136: Calendarize consensus and guidance over the issuer fiscal windows using the established seasonal shape. */
+/**
+ * D-99 (seasonal consensus): each fiscal quarter's share of the last complete fiscal year's revenue,
+ * first quarter first, or null unless the four reported quarters are consecutive 13/14-week quarters
+ * ending on that year's end, each with positive revenue.
+ */
 export function seasonalQuarterShares(seasonality: RevenueSeasonality | null | undefined): number[] | null {
   const quarters = seasonality?.quarters;
   if (!seasonality || !quarters || quarters.length !== 4 || quarters[3].date !== seasonality.fiscalYearEnd) return null;
@@ -136,7 +140,11 @@ function addMonthsUtc(start: number, months: number): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, Math.min(d.getUTCDate(), lastDay));
 }
 
-/* D-136: Calendarize consensus and guidance over the issuer fiscal windows using the established seasonal shape. */
+/**
+ * D-99 (seasonal consensus): the share of a fiscal year's revenue that falls in [from, to) when its
+ * twelve months take the quarterly shape, each quarter's share spread evenly over its three months
+ * and each month's over its days.
+ */
 function seasonalFiscalYearShare(fyBegin: number, fyEnd: number, from: number, to: number, shares: number[]): number {
   let total = 0;
   for (let m = 0; m < 12; m++) {
@@ -157,7 +165,8 @@ export function calendarizeConsensusWindow(
   calendar?: FiscalYearRule | null,
 ): { value: number | null; fiscalYears: ConsensusPathRow["fiscalYears"]; staleAgainstReported: boolean; partialSpread: "seasonal" | "even" | null } {
   const empty = { value: null, fiscalYears: [], staleAgainstReported: false, partialSpread: null };
-  /* D-136: Calendarize consensus and guidance over the issuer fiscal windows using the established seasonal shape. */
+  // D-99 (seasonal consensus): the quarterly shape applies to estimates for fiscal years ending on an
+  // anniversary (within 10 days) of the year it was measured in; any other year keeps the even spread.
   const shares = seasonalQuarterShares(seasonality);
   const sharesFor = (date: string): number[] | null => {
     const days = shares === null ? null : daysBetween((seasonality as RevenueSeasonality).fiscalYearEnd, date);
