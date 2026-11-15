@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Model-value move check and the LLY trace (P16, P17, P27, D-281, D-291) (2026-11-14)
+
+- New `npm run golden:value-check BEFORE AFTER`: prints every golden case's model value before and after with its percentage move, and fails when a value moves more than 10% either way (the owner's limit), appears, disappears or changes unit, unless an approval names a decision entry that names the company (D-291, R43). Documented beside golden:diff in docs/OPERATIONS.md.
+- D-281 records the exact bridge of the Eli Lilly model value from 518.37 (#63) to 739.34 (#65): +143.71 from the D-260/D-267 date-consistency correction, +77.11 from the four-year terminal-return rule after D-268 admitted FY2025's return, +0.15 from the September short-term investments; zero residual, no remaining error (R42). The terminal-return switch is a disclosed house convention.
+- Tooling and documents only: no report, figure, stamp or accuracy expectation changes.
+
 ## Unreleased - Release panel (P27, R52) (2026-11-14)
 
 Expanded offline regression coverage to 25 companies and 33 cases, including recent JPM, LLY and TSM fixed-analyst replays. Added filed accuracy references for the twelve additional companies and documented the coverage and PowerShell check-database commands. Report calculations and version stamps are unchanged.
