@@ -130,7 +130,8 @@ row and the scenario bridge; BAC, JPM and JPM #64 the excess-return continuing v
 key-number formulas; TSM, TSM #66 and NVO the unadjusted reported free cash flow, the ADS share-basis check, scenario
 inputs and the consensus rows with an unestablished currency; RIVN and MET the valuation-availability basis; MET, DUK,
 PLD, FIGR, O, PGR, META, CAT, KO, UNH, UNP and LLY the data-gap reasons. `report.json` changes `meta.specVersion` and, after review round 1, the two code-written method statements
-below; `stageB.json` and `payload.txt` do not change; the audit export changes only its spec line.
+below; `stageB.json` and `payload.txt` do not change; the audit export changes its spec line and, in the five
+analyst cases (AMZN, LLY #63, LLY #65, MU, NVDA), the stored capital-grading statement it lists (amounts grouped).
 
 **Tests.** `tests/release.w9b.test.ts`: amounts with cents, at a sentence end, before a comma and a fractional share
 count; controls (dates, accessions, CIK, a leading-zero file number, a seed, a URL path, small decimals, already grouped
