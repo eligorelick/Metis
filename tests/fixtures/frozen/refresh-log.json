@@ -3664,5 +3664,23 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-279",
+    "reason": "D-279 report stamp 1.91.0 after D-277 took 1.89.0 and D-278 took 1.90.0; only the report version and its projection digests change, no figure.",
+    "scope": [
+      "$.projection.report.meta.specVersion",
+      "$.projectionSha256",
+      "$.fixtureIdentity.reportSha256"
+    ],
+    "beforeSha256": "dfd2b3ebf0dde0ea9fe51137761f59ee8ec5765646495cee30be58eeaf71a81e",
+    "afterSha256": "f6436ffbbd1b0c89923393ee61f68622e21787cddbfcc627252688f0e28fc18a",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

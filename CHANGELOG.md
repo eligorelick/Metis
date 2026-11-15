@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.90.0** and
+Current source declares application **0.1.0**, report spec **1.91.0** and
 payload **1.105.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -17,6 +17,12 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Vendor EV currency and filing identifiers (P4, P22, D-279) (2026-11-14)
+
+- A vendor enterprise value is shown only when its same-date balance is established in the listing currency it is printed in; a foreign filer's value in its reporting currency (TSM: "$72.77T", really TWD) is withheld with its cause, never relabelled.
+- Long-integer compaction no longer rewrites anything inside a URL or any zero-padded identifier such as an SEC accession (dashed or not) or a padded CIK; ordinary long integers still compact. Read time only.
+- Report 1.91.0 (after D-277 took 1.89.0 and D-278 1.90.0); payload, Stage B and score bands unchanged. Only the TSM same-report case changes; accuracy is unchanged.
 
 ## Unreleased - Conflict notes name the same metric (P19, D-278) (2026-11-14)
 

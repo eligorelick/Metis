@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.90.0 / payload 1.105.0, Stage B `STAGE_B_2026_11_DIVIDEND_DISCLOSURES_78` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.91.0 / payload 1.105.0, Stage B `STAGE_B_2026_11_DIVIDEND_DISCLOSURES_78` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -2433,7 +2433,11 @@ $42.78B of equity stakes as cash and reconciled to $5.17T). The DCF bridge's
 the operating business; it excludes the non-operating assets the bridge adds
 back. The **Provider enterprise value (vendor definition, period end)** is the
 vendor's own figure at its period end (that date's market cap + debt − cash and
-equivalents) and is shown only as provider data.
+equivalents) and is shown only as provider data. The vendor row states no
+currency, so it is shown only when that date's balance is established in the
+listing currency it is printed in; a foreign filer whose balance is in its
+reporting currency, or a date with no established balance, gets the withheld
+note with its cause instead of a relabelled figure (D-279, P4).
 
 **Long-term investments (D-65; FIN-401 / FIN-401-V1).** Sales-to-capital removes
 the non-operating portion of the balance sheet's long-term investments from

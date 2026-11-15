@@ -239,7 +239,8 @@
 // 1.88.0 (D-274, P18/P19): independently verify excerpt figures and explicit metric units.
 // 1.89.0 (D-277, P18): assembly admits filed quarterly segment member labels as heading names.
 // 1.90.0 (D-278, P19): a "Differs from the record" note needs the figure to name only the record's metric.
-export const REPORT_SPEC_VERSION = "1.90.0" as const;
+// 1.91.0 (D-279, P4): a vendor enterprise value is shown only when its same-date balance establishes the listing currency; otherwise it is withheld with its cause.
+export const REPORT_SPEC_VERSION = "1.91.0" as const;
 
 /**
  * Current payload format version.
