@@ -20,8 +20,8 @@ export const UNSOURCED_COMPARABILITY_CAVEAT = "comparability caveat: business-mo
  * contradicts the subject's excludes the peer. Evidence nobody supplied is not
  * a contradiction: the peer stays eligible and the gap is returned as a caveat
  * to disclose beside the median (no production source supplies this evidence,
- * so treating its absence as incompatibility withheld every median for every
- * issuer — NVDA report 34).
+ * so treating its absence as incompatibility would withhold every median for
+ * every issuer).
  */
 export function comparablePeers<T extends Peer>(subject: PeerEconomicEvidence | undefined, peers: T[], metric: string, asOf: string | null): { eligible: T[]; excluded: { symbol: string; reasons: string[] }[]; caveats: string[] } {
   const eligible: T[] = [], excluded: { symbol: string; reasons: string[] }[] = [], unsourced: string[] = [];

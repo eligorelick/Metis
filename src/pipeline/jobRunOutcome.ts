@@ -202,7 +202,7 @@ export function persistReport(
         runSnapshot = persistRunInputSnapshot(state.jobId, state.runGeneration, source, sourceRef.capturedAt, db);
       }
     }
-    // R1: the same reader as every other ledger join, inside this authority
+    // The same reader as every other ledger join, inside this authority
     // transaction, so a row reconciled here keeps its settled token counts.
     const ledger = readCostLedger(state.jobId, db);
     const authoritativeCostUsd = ledger.reduce((total, entry) => total + entry.costUsd, 0);

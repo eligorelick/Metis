@@ -1,7 +1,7 @@
 /**
- * Audit 2026-10-22 E-7, extended by audit 2026-10-27 FIN-305 (decisions spec 4.3, B4): obligations
- * the DCF equity bridge deducts beside net debt. Asset-retirement obligations and environmental
- * remediation accruals (FCX: $3.84B and $2.02B at 2025-12-31), recognised pension and OPEB
+ * D-104 (retirement and environmental obligations), extended by D-135: obligations the DCF equity
+ * bridge deducts beside net debt. Asset-retirement obligations and environmental remediation
+ * accruals (material for miners and utilities), recognised pension and OPEB
  * deficits, loss-contingency accruals and business-combination contingent consideration are claims
  * on the enterprise whose settlement the FCFF path does not project, so equity value is what is
  * left after them. The bridge deducts each after tax at the D-98 marginal rate
@@ -9,9 +9,9 @@
  *
  * Only the issuer's own XBRL facts count (`debtLikeObligationsAt`), except for a successor registrant
  * with no annual report of its own yet: `successorObligationsAt` reads a family it does not tag from its
- * predecessor when B-36 continuity holds (FIN-403). The filed total, else noncurrent plus current, at the
- * bridge's balance date, else at the latest date in the year before it (many filers, FCX among
- * them, tag these in the 10-K only), with that date disclosed. A current portion alone is not the
+ * predecessor when D-112 continuity holds (D-135). The filed total, else noncurrent plus current, at the
+ * bridge's balance date, else at the latest date in the year before it (many filers tag these in
+ * the 10-K only), with that date disclosed. A current portion alone is not the
  * obligation for the retirement, environmental and pension readings; a loss-contingency accrual or
  * contingent-consideration liability filed as a current portion alone counts as the whole
  * (`currentAloneIsWhole`: litigation and earn-out balances are commonly all current, and a current
@@ -43,11 +43,11 @@ export interface DebtLikeObligations {
   environmental: FiledObligation | null;
   /** Assets legally restricted to settling the retirement obligations; an offset, never added on its own. */
   settlementAssets: FiledObligation | null;
-  /** FIN-305: the recognised pension and OPEB deficit, from the broadest filed family; overfunded plans are not credited. */
+  /** D-135: the recognised pension and OPEB deficit, from the broadest filed family; overfunded plans are not credited. */
   pension?: FiledObligation | null;
-  /** FIN-305: the loss-contingency accrual above any same-date environmental accrual. */
+  /** D-135: the loss-contingency accrual above any same-date environmental accrual. */
   lossContingencies?: FiledObligation | null;
-  /** FIN-305: business-combination contingent consideration. */
+  /** D-135: business-combination contingent consideration. */
   contingentConsideration?: FiledObligation | null;
 }
 
@@ -78,7 +78,7 @@ const CONTINGENT_CONSIDERATION: TagChoice = {
   currentAloneIsWhole: true,
 };
 /**
- * The pension and OPEB liability families, broadest first (FIN-305, OD-4): (a) pension plus other postretirement plus
+ * The pension and OPEB liability families, broadest first (D-135): (a) pension plus other postretirement plus
  * postemployment, (b) pension plus other postretirement defined-benefit plans, (c) the pension plans and the other
  * postretirement plans each on their own, summed. Postemployment benefits (ASC 712) count only inside (a). A family is
  * one list of choices whose readings are summed; the first family filed at a date is the reading, never a sum across families.
@@ -170,7 +170,7 @@ function readLatest(facts: CompanyFacts, choice: TagChoice, unit: string, date: 
 
 /**
  * The first pension family with a positive reading at `date`, its choices' readings summed. A family filed as zero
- * never blocks a positive family at the same date (as E-7's own reader and family (c)'s parts); a filed zero ends the
+ * never blocks a positive family at the same date (as the D-104 reader and family (c)'s parts); a filed zero ends the
  * look-back only when no family is positive there.
  */
 function readPensionAt(facts: CompanyFacts, unit: string, date: string, observedDay: string): DateReading {
@@ -220,7 +220,7 @@ interface FamilyStates {
 }
 
 /**
- * FIN-305: the loss-contingency accrual above an environmental accrual of the same date, which may sit inside it and is
+ * D-135: the loss-contingency accrual above an environmental accrual of the same date, which may sit inside it and is
  * deducted on its own line. Tagged by the filer, so a zero or a netted-to-zero accrual is its statement, not an omission.
  */
 function netOfEnvironmental(loss: Latest, inside: FiledObligation | null, insidePrefix = ""): FamilyState {
@@ -273,7 +273,7 @@ export function debtLikeObligationsAt(facts: CompanyFacts | null | undefined, da
   return Object.values(reading).every((o) => o === null) ? null : reading;
 }
 
-/** A successor registrant's predecessor (`bundle.edgar.predecessor`), with whether B-36 continuity was established. */
+/** A successor registrant's predecessor (`bundle.edgar.predecessor`), with whether D-112 continuity was established. */
 export interface SuccessorPredecessor {
   facts: CompanyFacts;
   cik10: string;
@@ -281,9 +281,9 @@ export interface SuccessorPredecessor {
 }
 
 /**
- * FIN-403: the predecessor's facts, when they may stand in for a successor's own. Only while the successor has no
+ * D-135: the predecessor's facts, when they may stand in for a successor's own. Only while the successor has no
  * annual report of its own (a 10-K, 20-F or 40-F `Assets` balance dated on or before `date`, filed by the run), and only
- * when its filings re-present the predecessor's periods unchanged (`successorContinuity`, B-36), so the two are one
+ * when its filings re-present the predecessor's periods unchanged (`successorContinuity`, D-112), so the two are one
  * reporting entity. Otherwise null, and nothing is read from the predecessor.
  */
 export function predecessorFactsFor(own: CompanyFacts | null | undefined, predecessor: SuccessorPredecessor | null, date: string | null, unit: string | null, observedAt: string): CompanyFacts | null {
@@ -294,16 +294,16 @@ export function predecessorFactsFor(own: CompanyFacts | null | undefined, predec
 }
 
 /**
- * FIN-403: a successor registrant's first periodic reports are 10-Qs, so its companyfacts hold no retirement obligation
+ * D-135: a successor registrant's first periodic reports are 10-Qs, so its companyfacts hold no retirement obligation
  * and the bridge deducted nothing for it. Per family (asset retirement, environmental, pension, loss contingencies,
  * contingent consideration), the successor's own reading wins when it has one; a family it does not tag is read from the
  * predecessor (`predecessorFactsFor`), its basis prefixed with the predecessor's CIK. A family is never summed across the
  * two registrants. The settlement assets follow the retirement obligation they offset, from the same facts.
  *
  * The environmental accrual that sits inside a loss-contingency total is netted out of the total by the same-date rule
- * (`netOfEnvironmental`) even when the two families come from different registrants (PR #76 Codex review): the loss total is
+ * (`netOfEnvironmental`) even when the two families come from different registrants: the loss total is
  * reduced by the environmental accrual the other registrant files for the loss total's own date. A date mismatch keeps the
- * existing reading (D-135 OD-4).
+ * existing reading (D-135).
  */
 export function successorObligationsAt(own: CompanyFacts | null | undefined, predecessor: SuccessorPredecessor | null, date: string | null, unit: string | null, observedAt: string): DebtLikeObligations | null {
   const mine = familyStatesAt(own, date, unit, observedAt);

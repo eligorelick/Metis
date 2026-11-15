@@ -46,7 +46,12 @@ export interface ExcessReturnInputs {
   currentRoeBasis?: "ttm" | "fiscal-year-dupont" | "fiscal-year-rote" | "fiscal-year-common-roe" | "ttm-rote" | "ttm-common-roe";
   /** Fiscal-year end for any annual return basis; the window's end for a trailing one. */
   currentRoeAsOf?: string | null;
-  /* D-102: Use the evidenced starting return and converge payout to the terminal return and growth assumptions. */
+  /**
+   * D-102 (the trailing excess-return start): the fiscal-year start the model did not use, when it
+   * starts from the trailing four quarters. It is valued with the same fade, terminal target and
+   * payout from its own fiscal-year book value, and shown beside the headline when the two starts
+   * differ by more than EXCESS_RETURN_START_GAP_PP.
+   */
   startAlternative?: {
     roePct: number;
     basis: "fiscal-year-rote" | "fiscal-year-common-roe";
@@ -64,7 +69,10 @@ export interface ExcessReturnInputs {
    * Production supplies history rather than an analyst override (compute.ts).
    */
   analystImpliedRoePct?: number | null;
-  /* D-104: A missing cost of equity is a gap rather than an undisclosed default. */
+  /**
+   * Cost of equity, percent. Null (e.g. risk-free-rate fetch failed upstream) SUPPRESSES the model
+   * with a critical gap — a discount rate is never defaulted (P10; mirrors the DCF's WACC guard).
+   */
   costOfEquityPct: number | null;
   /** Explicit horizon; default 10. */
   years?: number;
@@ -84,7 +92,7 @@ export interface ExcessReturnInputs {
   tangibleCommonEquity?: number | null;
   /** Balance date of the tangible equity used in the P/TBV pairing. */
   tangibleCommonEquityAsOf?: string | null;
-  /* D-16: return on tangible common equity, percent — the return P/TBV is read against. */
+  /** D-17: return on tangible common equity, percent — the return P/TBV is read against. */
   rotePct?: number | null;
   roteAsOf?: string | null;
   roteSource?: "computed.returns.commonReturnTtm" | "computed.returns.rote";
@@ -109,7 +117,7 @@ export interface ExcessReturnInputs {
   roeHistory?: DcfRoicYear[] | null;
 }
 
-/* D-16: the multiple a financial's price is actually read on, beside the return that justifies it. */
+/** D-17: the multiple a financial's price is actually read on, beside the return that justifies it. */
 export interface PriceToTangibleBookVsRote {
   /** Optional for callers and legacy results predating explicit pairing dates. */
   asOf?: string | null;
@@ -141,7 +149,7 @@ function withholdPriceToTangibleBook(p: PriceToTangibleBookVsRote, reason: strin
     withheldReason: `${reason} — P/TBV sets the quote-currency market cap against statement-currency tangible equity, so it and its premium are withheld; justified P/TBV uses statement figures only` };
 }
 
-/* D-102: Use the evidenced starting return and converge payout to the terminal return and growth assumptions. */
+/** D-102: the excess-return value from the start the model did not use. */
 export interface ExcessReturnStartAlternative {
   basis: "fiscal-year-rote" | "fiscal-year-common-roe";
   asOf: string | null;
@@ -157,7 +165,10 @@ export interface ExcessReturnStartAlternative {
   label: string;
 }
 
-/* D-102: Use the evidenced starting return and converge payout to the terminal return and growth assumptions. */
+/**
+ * D-102 (the excess-return grid): per-share value for three starting returns against the cost of
+ * equity ±1pp. Each row carries the book value it starts from; the centre cell is the headline.
+ */
 export interface ExcessReturnGrid {
   rows: { label: string; startReturnPct: number; bookValue: number }[];
   costOfEquityPcts: number[];
@@ -193,15 +204,15 @@ export interface ExcessReturnResult {
   impliedPToBv: number | null;
   roePathPct: Assumption<number[]>;
   payoutRatioPct: Assumption<number | null>;
-  /* D-16: the explicit horizon the excess returns are summed over. */
+  /** D-17: the explicit horizon the excess returns are summed over. */
   horizonYears: Assumption<number>;
-  /* D-16: the discount rate — the cost of EQUITY, never a WACC. */
+  /** D-17: the discount rate — the cost of EQUITY, never a WACC. */
   costOfEquityPct: Assumption<number | null>;
-  /* D-16: opening book equity the model builds on. */
+  /** D-17: opening book equity the model builds on. */
   openingBookValue: Assumption<number | null>;
-  /* D-16: P/TBV against ROTE — the pairing a financial is actually judged on. */
+  /** D-17: P/TBV against ROTE — the pairing a financial is actually judged on. */
   priceToTangibleBookVsRote: PriceToTangibleBookVsRote;
-  /** BV_0.. BV_N under retention compounding. */
+  /** BV_0 .. BV_N under retention compounding. */
   bookValuePath: number[];
   /**
    * Year-N economic profit in currency: (ROE_N − CoE) · BV_{N-1}. Zero when ROE
@@ -213,16 +224,21 @@ export interface ExcessReturnResult {
   /** Additive: legacy objects may not retain these forward parameters. */
   financialAssumptions?: FinancialValuationAssumptions;
   reverseSolve: { impliedCurrentRoePct: number | null; notes: string[]; basis?: "price-per-diluted-share" | "market-cap" };
-  /* D-102: Use the evidenced starting return and converge payout to the terminal return and growth assumptions. */
+  /** D-102: present when the model started from the trailing four quarters and a fiscal-year start exists. */
   startAlternative?: ExcessReturnStartAlternative;
-  /* D-102: Use the evidenced starting return and converge payout to the terminal return and growth assumptions. */
+  /** D-102: start-return × cost-of-equity sensitivity; absent without a per-share denominator. */
   startCoeGrid?: ExcessReturnGrid;
   asOf: string | null;
   notes: string[];
   gaps: ManifestEntry[];
 }
 
-/* D-102: Use the evidenced starting return and converge payout to the terminal return and growth assumptions. */
+/**
+ * D-102 (owner decision): the payout the continuing value assumes. Residual income growing at g
+ * needs book growing at g, a retention of g / ROE_T, so the steady-state payout is 1 − g / ROE_T
+ * (Damodaran's stable-growth consistency), clamped to 0-100%. A terminal return at or below zero
+ * funds no payout.
+ */
 export function steadyStatePayoutPct(terminalRoePct: number, gPct: number): number {
   if (terminalRoePct <= 0) return 0;
   return Math.min(100, Math.max(0, (1 - gPct / terminalRoePct) * 100));
@@ -457,7 +473,8 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     "horizonYears" | "costOfEquityPct" | "openingBookValue" | "priceToTangibleBookVsRote"
   >;
 
-  /* D-104: Use the discount rate applicable to the valuation route and disclose missing inputs. */
+  // A null cost of equity is never silently defaulted upstream; the model is suppressed instead,
+  // because the discount rate is load-bearing, exactly like the DCF path's WACC guard (P10).
   if (!isNum(inputs.costOfEquityPct)) {
     gaps.push(
       gapEntry(
@@ -840,7 +857,8 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
         ? `excess-return model: equity-only (CoE, never WACC); ${retLabel} fades to CoE + ${fmtNum(carriedPp)}pp evidenced excess, whose continuing value past year ${years} is ${fmtNum(continuingValuePv)} (currency, present value)`
         : "excess-return model: equity-only (CoE, never WACC); ROE fades to CoE so terminal excess returns = 0",
   );
-  /* D-16: the P/TBV-against-ROTE pairing, now that the payout (and hence the retention rate inside g) is known. */
+  // D-17: the P/TBV-against-ROTE pairing, now that the payout (and hence the retention rate inside g)
+  // is known.
   const financialAssumptions: FinancialValuationAssumptions = {
     version: "financial-valuation-assumptions-v1", modelKind: "excess-return", horizonYears: years,
     costOfEquityPct: coe, initialCommonBook: bv0, roePathBasis: roeBasis, terminalRoePct: endRoe,

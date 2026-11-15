@@ -18,7 +18,7 @@ export function admitMarketBars<T extends MarketBar>(rows:readonly T[]|null|unde
   const cutoff=analysisAt===undefined?undefined:day(analysisAt.slice(0,10));
   if(analysisAt!==undefined&&(cutoff===null||!Number.isFinite(Date.parse(analysisAt))))return {rows:[],notes:[`${label}: analysis cutoff invalid; observed prices withheld.`]};
   let invalid=0,future=0,unavailableVolume=0,duplicates=0,forming=0;
-  // FIGR extra-high run (2026-11-02, 11:04 New York): a bar for a session still
+  // D-163: a bar for a session still
   // open is a running trade, not a close; observed history ends at the last
   // settled session. The live quote is reported separately as intraday.
   const formingDate=analysisAt===undefined?null:inProgressUsSessionDate(analysisAt);

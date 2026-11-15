@@ -230,8 +230,8 @@ export const DEFAULT_MODEL_STAGE_DEADLINE_MS = MODEL_STAGE_DEADLINE_MS;
 /**
  * Subscription (plan) connections produce each response in parts to stay
  * under the provider's 15-minute response limit, and back off when the
- * provider reports overload. A max-effort run measured ~35 minutes for the
- * analysts alone (2026-10-13), so the general 90/45-minute bounds would
+ * provider reports overload. A max-effort run can take ~35 minutes for the
+ * analysts alone, so the general 90/45-minute bounds would
  * truncate legitimate work that costs nothing per request. Hangs stay bounded.
  */
 export const SUBSCRIPTION_JOB_DEADLINE_MS = 180 * 60 * 1000;
@@ -400,12 +400,12 @@ export function isSymbolJobActive(symbol: string): boolean {
 }
 
 /* ------------------------------------------------------------------------ *
- * Analyst-pass snapshots (stage-level resume — 2026-07 audit item 1)
+ * Analyst-pass snapshots (stage-level resume; P23: paid work is not bought twice)
  * ------------------------------------------------------------------------ */
 
 /**
  * Persisted analyst snapshots plus the fingerprint they were built on.
- * PER-SIDE nullable (2026-07-10): a run where one analyst pass succeeded and
+ * PER-SIDE nullable (P23): a run where one analyst pass succeeded and
  * the other failed persists the successful side alone, so its paid output is
  * never discarded — resume reuses it and re-bills only the missing side.
  */
@@ -1001,8 +1001,8 @@ export interface RunJobOptions<TPayload = unknown> {
   /** Options forwarded to buildDataBundle (injectable clients/clock in tests). */
   bundleOptions?: BuildDataBundleOptions;
   /**
-   * The plan-connection runtime claim made before the data fetch (audit
-   * 2026-10-22 F-12). Defaults to `claimAiRuntimeForRun`; tests inject it.
+   * The plan-connection runtime claim made before the data fetch (D-111).
+   * Defaults to `claimAiRuntimeForRun`; tests inject it.
    */
   claimAiRuntime?: () => Promise<void>;
   /**
@@ -1034,7 +1034,7 @@ export interface RunJobOptions<TPayload = unknown> {
   /** Deadline for each external model stage. Default 45 minutes. */
   modelStageDeadlineMs?: number;
   /**
-   * Resume from persisted bull/bear snapshots (2026-07 audit item 1): skip the
+   * Resume from persisted bull/bear snapshots (P23): skip the
    * analyst passes entirely — they are the expensive part — and re-run only
    * synthesize/verify/assemble. Compatible frozen inputs rebuild the judge
    * payload; legacy or version-incompatible inputs are fetched again. A payload-fingerprint mismatch
@@ -1135,7 +1135,7 @@ function settleQueuedResumeWithoutExecution(
           .where(eq(reports.id, row.reportId))
           .get();
     // A data-only fallback is not a finished run: it falls through to the
-    // `error` mutation below and stays linked (the admission rule, DB-001).
+    // `error` mutation below and stays linked (the admission rule, D-132).
     // Mirrors linkedReportBlocksResume (jobStore), read inline on this test-seam path.
     if (linkedReport !== undefined && !reportJsonIsDataOnly(linkedReport.reportJson)) {
       const stepsJson = normalizeLinkedReportRecoverySteps(
@@ -1290,7 +1290,7 @@ export async function runJob<TPayload = unknown>(
     ) ?? undefined;
     if (schedulerClaim === undefined) {
       // Only reports a row another path already made terminal: a data-only
-      // fallback is never closed as done before dispatch (DB-001), so it is claimed above.
+      // fallback is never closed as done before dispatch (D-132), so it is claimed above.
       const afterClaim = getJobSnapshot(jobId);
       const linkedReportExists = afterClaim?.reportId !== null && afterClaim?.reportId !== undefined &&
         getDb().select({ id: reports.id }).from(reports)
@@ -1480,7 +1480,7 @@ export async function runJob<TPayload = unknown>(
       return finishUnsupported(state, { supported: false, kind: "unknown",
         reason: "Malformed ticker symbol; company analysis is unsupported. No data or AI request was admitted." });
     }
-    // Audit 2026-10-22 F-12: a plan connection owned by another Metis server
+    // D-111: a plan connection owned by another Metis server
     // ends the job here, in one attempt, before any data is fetched. Any other
     // store problem is left to the pass, which reports its own reason. A
     // signed-out connection runs no pass, so it claims nothing.
@@ -1563,7 +1563,7 @@ export async function runJob<TPayload = unknown>(
     if (!validatedSupport.supported) {
       // A positive empty response is different from a transport failure. Neither
       // admits a company report, a model resolution, or a paid request lease.
-      // P5 (P11, D-242): by the typed causes; entries without one by their sentences.
+      // P11 (D-242): by the typed causes; entries without one by their sentences.
       const confirmedMiss = isConfirmedUnknownProfile(bundle);
       if (validatedSupport.kind === "unknown" && confirmedMiss) {
         return finishUnsupported(state, { ...validatedSupport,
@@ -1723,7 +1723,7 @@ export async function runJob<TPayload = unknown>(
       } } : {}),
       effort: analysisEffort,
       payload,
-      jobSeed: jobId, // WS7 (D-20): seeds the judge's case order
+      jobSeed: jobId, // D-20: seeds the judge's case order
       runGeneration: state.runGeneration,
       passAttemptFor: (pass) => {
         const attemptId = passAttemptIds.get(pass);
@@ -1874,7 +1874,7 @@ export async function runJob<TPayload = unknown>(
       let judgeAttemptsInTransit = 0;
       let lastJudgeInTransit = false;
       let judgeAttemptsSeen = 0;
-      // AI-112: the issue key of the previous attempt's assembly failure. The same
+      // D-123: the issue key of the previous attempt's assembly failure. The same
       // failure twice means the judge cannot repair it, so it is not bought again.
       let previousAssemblyIssueKey: string | null = null;
       let judgeProviderAttempted = false;
@@ -2194,7 +2194,7 @@ export async function runJob<TPayload = unknown>(
               verificationRate,
               verificationLog: verifyLog,
               costBreakdown,
-              payload, // WS7 (D-20): recovers the judge order/length protocol
+              payload, // D-20: recovers the judge order/length protocol
             });
         } catch (err) {
           // A reused durable synthesize artifact has no analyst outputs to
@@ -2553,7 +2553,7 @@ export async function runJob<TPayload = unknown>(
         const snapshot = resumeSnapshots[side];
         if (snapshot === null) continue;
         startStep(state, side);
-        // The step's own totals (JOB-204): a repaired or presumed-bearing side states its whole cost.
+        // The step's own totals (D-123): a repaired or presumed-bearing side states its whole cost.
         const totals = stepSettledTotals(state.jobId, side);
         finishStep(
           state,
@@ -2570,7 +2570,7 @@ export async function runJob<TPayload = unknown>(
       const refused = refuseUnaffordableRun({ analysts: resumeMissingSides, synthesize: true, verify: true });
       if (refused !== null) return refused;
       // Re-run ONLY the missing side(s) — the sibling's paid output is reused
-      // (2026-07-10: one-sided analyst failures no longer discard the pair).
+      // (P23: a one-sided analyst failure never discards the pair).
       let resumedBull = resumeSnapshots.bull;
       let resumedBear = resumeSnapshots.bear;
       for (const side of resumeMissingSides) {
@@ -2758,9 +2758,9 @@ export async function runJob<TPayload = unknown>(
       throwFirstSettlementRejection(fallbackSettlements);
 
       // One repair attempt per side whose output was RECEIVED but rejected by
-      // the schema — the judge has had this loop all along; the analysts had
-      // none, so a haiku bull pass writing "2026-Q1" for `asOf` (2026-09-02)
-      // lost both paid passes and the whole analysis. The sibling's paid
+      // the schema — the judge has had this loop all along; without one for the
+      // analysts, a bull pass writing "2026-Q1" for `asOf` would lose both paid
+      // passes and the whole analysis (P23). The sibling's paid
       // output is kept. A dropped zero-cost subscription stream is retried the
       // same way (the facade marks it retryable), and a side that never
       // launched because that sibling failed first runs fresh. A paid transport
@@ -2804,8 +2804,8 @@ export async function runJob<TPayload = unknown>(
       }
       // Disclose the per-pass failures in the report's missing-data manifest —
       // the report page has no access to step details, so without these the
-      // data-only report could not say WHY analysis is absent (2026-07-10:
-      // transport failures were only visible on the transient pipeline view).
+      // data-only report could not say WHY analysis is absent (P24: transport
+      // failures must not be visible only on the transient pipeline view).
       // A side that DID succeed is persisted (with the fingerprint) so its
       // paid output survives for a partial resume instead of being discarded.
       closeQueuedRepairs("not repaired: the other pass failed in a way a repair cannot fix");
@@ -3044,8 +3044,8 @@ export function buildDataOnlyReport(input: DataOnlyInput): Report {
   const bundle = balanceIntegrityView(withPrimaryCapitalBasis(input.bundle));
   const asOfMap = input.sterileManifest ? {} : { ...bundle.asOf };
   // The letter beside this claim is the deterministic score band when Stage B
-  // ran and a schema placeholder when it did not; "ungraded" (before the
-  // 2026-09-06 audit, F170) contradicted the band shown next to it.
+  // ran and a schema placeholder when it did not; "ungraded" would contradict
+  // the band shown next to it (P22).
   const flagClaim = {
     text: `No completed analysis is available — ${dataOnlyReasonClause(input.reason)}. This section is data-only: no analyst grade exists; any displayed score band comes from deterministic calculations.`,
     label: "JUDGMENT" as const,

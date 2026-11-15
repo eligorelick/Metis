@@ -49,7 +49,7 @@ export interface CapitalIncomeRow extends FiscalDatedRow {
   ebit?: number | null;
   /** FMP-computed = ebit + D&A; used only as fallback when cash-flow D&A is missing. */
   ebitda?: number | null;
-  /** FMP zero-for-undisclosed applies (AAPL artifact) — 0 treated as null here. */
+  /** FMP zero-for-undisclosed applies — 0 treated as null here (P10). */
   interestExpense?: number | null;
   netIncome?: number | null;
   /** D-238 (P5): the entity scope of `netIncome`, and the row's other profit lines, for `resolveConsolidatedProfit`. */
@@ -161,7 +161,7 @@ export interface CapitalOptions {
    */
   repurchaseExecutions?: ReadonlyArray<Pick<RepurchaseExecution, "periodEnd" | "shares" | "value" | "sharesTag" | "valueTag" | "primaryEvidence">>;
   /**
-   * AMZN audit 2026-10-20, finding 20 (b): the enterprise value's lease basis
+   * D-99 (leverage basis): the enterprise value's lease basis
    * (METIS_EV_INCLUDE_LEASES). False takes the operating-lease liability out
    * of the net debt/EBITDA numerator wherever enterprise value takes it out,
    * since EBITDA is already after operating-lease cost. Omitted or true: net
@@ -177,7 +177,7 @@ export interface CapitalOptions {
 export interface FcfYearRow {
   date: string;
   /**
-   * Free cash flow AFTER stock-based compensation (WS6 house default, D-19).
+   * Free cash flow AFTER stock-based compensation (house default, D-19).
    * SBC is a real cost of employing people that happens to be settled in
    * shares, so adding it back overstates the cash a shareholder can claim.
    * Equal to `fcfBeforeSbc` when SBC was not disclosed for the year.
@@ -195,7 +195,7 @@ export interface FcfYearRow {
   /** FCF (after SBC) / net income (fraction). Null when NI ≤ 0 (denominator guard). */
   fcfConversion: number | null;
   /**
-   * FCF BEFORE SBC / net income (fraction). WS6 review (SHOULD-FIX 2): this is
+   * FCF BEFORE SBC / net income (fraction). D-19: this is
    * the ratio the grading band was calibrated on, and the one the balance-sheet
    * aspect scores — the SBC charge is carried exactly once, by `sbcPctOfFcf`.
    * Null when NI ≤ 0 (same denominator guard).
@@ -205,7 +205,7 @@ export interface FcfYearRow {
 }
 
 /**
- * WS6 (D-19): dilution from outstanding awards — the gap between the diluted
+ * D-19: dilution from outstanding awards — the gap between the diluted
  * and basic weighted-average share counts of the latest fiscal year. Null
  * members mean the statement did not disclose one of the counts, which is
  * disclosed rather than assumed to be zero.
@@ -284,8 +284,8 @@ export interface CapitalResult {
     latestConversion: number | null;
     /**
      * FCF BEFORE SBC / net income — the ratio the grading band was calibrated
-     * on and the one `balanceSheet.fcfConversionBeforeSbc` scores (WS6 review,
-     * SHOULD-FIX 2). Both are reported; neither stands in for the other.
+     * on and the one `balanceSheet.fcfConversionBeforeSbc` scores (D-19). Both
+     * are reported; neither stands in for the other.
      */
     latestConversionBeforeSbc: number | null;
     /** The convention, stated: what was subtracted and from what. */
@@ -301,7 +301,7 @@ export interface CapitalResult {
   maintenanceVsGrowthCapex: {
     capexToDALatest: number | null;
     capexToDA5yAvg: number | null;
-    /** AI-410: how many annual capex/D&A values the average covers (null when none); the average is a "5y" mean only at five. */
+    /** D-124: how many annual capex/D&A values the average covers (null when none); the average is a "5y" mean only at five. */
     capexToDAAvgYears: number | null;
     /** min(|capex|, D&A) — the heuristic maintenance share. */
     impliedMaintenanceCapex: number | null;
@@ -339,7 +339,7 @@ export interface CapitalResult {
     note?: string;
   };
   shareCount: ShareCountTrend;
-  /** WS6 (D-19): diluted-vs-basic share overhang from outstanding awards. */
+  /** D-19: diluted-vs-basic share overhang from outstanding awards. */
   dilution: DilutionOverhang;
   buybackPriceAnalysis: {
     /** Total buyback dollars across analyzed years (positive). */
@@ -365,7 +365,7 @@ export interface CapitalResult {
     /** D-61: share of repurchase cash-flow dollars in years whose execution price is known. */
     timingCoveragePct?: number | null;
     /**
-     * AMZN audit 2026-10-20 finding 15: present only when timing is not graded
+     * D-99 (buyback timing): present only when timing is not graded
      * for staleness: every priced year (or, with timing unmeasured, every
      * repurchase) is older than the issuer's last BUYBACK_TIMING_RECENT_YEARS
      * fiscal years. `recentRepurchase` says whether those years hold any
@@ -394,7 +394,7 @@ const MS_PER_YEAR = 365.25 * 24 * 3600 * 1000;
 const DAY_MS = 86_400_000;
 
 /**
- * WS6 (D-19) house default: SBC is subtracted from free cash flow.
+ * D-19 house default: SBC is subtracted from free cash flow.
  *
  * The cash-flow statement adds SBC back to operating cash flow because no cash
  * left the building that period, but the expense is real: it is paid in newly
@@ -434,15 +434,15 @@ export const BUYBACK_TIMING_MIN_COVERAGE_PCT = 50;
 /** Allow the first trading day after a holiday without pricing a partial fiscal year. */
 export const BUYBACK_WINDOW_START_TOLERANCE_DAYS = 7;
 /**
- * AMZN audit 2026-10-20 finding 15: timing is graded only when a priced year
- * is one of the issuer's last this-many fiscal years. Amazon's signal, 30% of
- * the leadership weight, rested on one FY2022 buyback four years old. An
- * unbacktested house convention.
+ * D-99 (buyback timing): timing is graded only when a priced year is one of
+ * the issuer's last this-many fiscal years, so a large share of the leadership
+ * weight never rests on one buyback several years old. An unbacktested house
+ * convention.
  */
 export const BUYBACK_TIMING_RECENT_YEARS = 3;
 
 /**
- * AMZN audit 2026-10-20 finding 8: SBC / FCF is undefined when free cash flow
+ * D-99 (SBC beyond all FCF): SBC / FCF is undefined when free cash flow
  * before SBC is zero or negative, yet positive SBC then exceeds all of that
  * free cash flow. True only in that case; unknown or credited SBC, or unknown
  * FCF, is not evidence of anything.
@@ -628,7 +628,7 @@ export function computeCapital(
           rowNotes.push("FCF derived as operatingCashFlow + capitalExpenditure");
         }
       }
-      // D-306 review: preserve a filed negative credit's sign; a vendor
+      // D-306: preserve a filed negative credit's sign; a vendor
       // negative without exact-period proof cannot establish such a credit.
       // Its cause is not inferred from the sign alone.
       const sbcExpense =
@@ -663,7 +663,7 @@ export function computeCapital(
           rowNotes.push("net income ≤ 0 — FCF conversion not meaningful");
         } else {
           conversion = fcf !== null ? fcf / ni : null;
-          // WS6 review (SHOULD-FIX 2): the before-SBC ratio is kept beside it.
+          // D-19: the before-SBC ratio is kept beside it.
           // It is the definition the grading band was calibrated on, and grading
           // the after-SBC ratio against that band charged the same expense twice
           // (sbcPctOfFcf already carries it).
@@ -774,14 +774,14 @@ export function computeCapital(
       fieldConflicts: latestBal?.fieldConflicts,
       fieldProvenance: latestBal?.fieldProvenance,
     });
-    // Audit 2026-10-19 FCX-1: with only an operating-lease maturity missing
+    // D-97: with only an operating-lease maturity missing
     // and the financing components proven, net debt is stated excluding
     // operating leases (EBITDA is already after their cost) rather than withheld.
     const inclusiveRefusal = leaseDebtScopeRefusal(latestBal, true);
-    // AMZN audit 2026-10-20, finding 20 (b): the ratio used lease-inclusive net
-    // debt (AMZN $119.33B, 0.7x) while enterprise value and the DCF bridge took
-    // the operating lease out ($23.01B). On the EV's lease-excluded basis the
-    // ratio takes the same refusal and removes the same liability.
+    // D-99 (leverage basis): the ratio must not use lease-inclusive net debt
+    // while enterprise value and the DCF bridge take the operating lease out.
+    // On the EV's lease-excluded basis the ratio takes the same refusal and
+    // removes the same liability.
     const evBasis = options.evIncludeLeases === false;
     const debtScopeRefusal = evBasis || inclusiveRefusal !== null ? leaseDebtScopeRefusal(latestBal, false) : null;
     const operatingLease = latestBal?.operatingLeaseLiability;
@@ -840,7 +840,7 @@ export function computeCapital(
         value = netDebt / ebitda;
       }
     } else if (bal.length > 0 || inc.length > 0) {
-      // KNW-04 (audit 2026-10-29, AMZN #51): a net debt refused is named with its refusal, never as a missing input.
+      // D-133: a net debt refused is named with its refusal, never as a missing input.
       const refusal = netDebt !== null ? null : debtScopeRefusal ?? (resolution.conflict === true || latestBal?.fieldConflicts?.totalDebt?.usable === false ? resolution.reason : null);
       gaps.push({
         field: "capital.netDebtToEbitda",
@@ -920,7 +920,7 @@ export function computeCapital(
         sbcNotes.push("revenue missing or ≤ 0 — SBC % of revenue unavailable");
       }
       let pctOfFcf: number | null = null;
-      // WS6: the RATIO stays measured against FCF BEFORE the deduction —
+      // D-19: the RATIO stays measured against FCF BEFORE the deduction —
       // dividing SBC by an FCF it has already been subtracted from would
       // double-count it and inflate the ratio.
       const latestFcf = latestFcfRow?.fcfBeforeSbc ?? null;
@@ -941,7 +941,7 @@ export function computeCapital(
     }
   }
 
-  // --- WS6 (D-19): dilution from outstanding awards -----------------------------------------
+  // --- D-19: dilution from outstanding awards -----------------------------------------
   // The diluted/basic gap is withheld as an award attribution when the
   // fiscal year spans filed conversion or participating-preferred IPO evidence. Missing counts are
   // disclosed, never assumed to be zero.
@@ -996,7 +996,7 @@ export function computeCapital(
             `for the fiscal period ending ${latestInc?.date ?? "?"} — a ${fmt(overhangPct)}% gap. This period-average EPS denominator difference is not an outstanding award pool or a measure of current economic dilution. ` +
             "Antidilutive options, RSUs and convertibles are excluded from diluted EPS by the filer."),
     };
-    // N3: the note reaches the notes channel in BOTH states. It used to be
+    // the note reaches the notes channel in BOTH states. It used to be
     // pushed only when an overhang existed, so "unavailable" was visible in the
     // manifest but nowhere a reader or the Stage C prompt would see it.
     notes.push(dilution.note);
@@ -1033,7 +1033,7 @@ export function computeCapital(
         );
         years = dateSpan;
       }
-      // Audit 2026-10-27 B3 (AI-306): "only Ny available" is said only when the measured span really fell short;
+      // D-124: "only Ny available" is said only when the measured span really fell short;
       // an irregular date span that reaches the window (within the label's 0.05y rounding) is not a shortfall.
       if (startIdx < SHARE_TREND_WINDOW_YEARS && years < SHARE_TREND_WINDOW_YEARS - 0.05) {
         trendNotes.push(
@@ -1060,7 +1060,7 @@ export function computeCapital(
         actualYears: years,
         note: trendNotes.join("; "),
       };
-      // N3: weighted common denominators spanning an IPO/preferred conversion
+      // weighted common denominators spanning an IPO/preferred conversion
       // do not establish economic dilution. Preserve observations, remove the
       // signal (and therefore its score/projection weight), and name the filing.
       if (trendPct > 0 && options.companyFacts && options.asOf && Number.isFinite(Date.parse(options.asOf))) {
@@ -1073,7 +1073,7 @@ export function computeCapital(
           gaps.push({ field: "capital.shareCountTrend.conversion", reason, severity: "info", attemptedSources: ["edgar:companyfacts"] });
         }
       }
-      // Audit 2026-10-27 B3 (AI-306): a short or irregular window reaches the
+      // D-124: a short or irregular window reaches the
       // notes channel, so the payload's span label has its reason beside it.
       if (trendNotes.length > 1) {
         notes.push(`Diluted share-count change: ${trendNotes.slice(1).join("; ")} (${start.date} to ${end.date}).`);
@@ -1186,7 +1186,7 @@ export function computeCapital(
       if (execution !== undefined) executionYears += 1;
       if (execution !== undefined && avgPriceProxy === null) {
         // The filer tagged what it paid; the market side of the comparison is
-        // what is missing (NVDA's final live run: every market-cap day withheld).
+        // what is missing (every market-cap day can be withheld).
         unpricedExecutionYears.push(r.date);
         for (const why of rowNotes) unpricedReasons.add(why);
       }
@@ -1253,10 +1253,10 @@ export function computeCapital(
           : "no tagged repurchase share count and cost on a known share basis matches the fiscal years";
     notes.push(`buyback timing not measured: ${why}; the price actually paid against the year's average price is unknown, so timing is not graded`);
   }
-  // AMZN audit 2026-10-20 finding 15: a timing read whose priced years are all
+  // D-99 (buyback timing): a timing read whose priced years are all
   // older than the last BUYBACK_TIMING_RECENT_YEARS fiscal years says little
   // about current stewardship; it is measured and shown, not graded.
-  // Codex review of PR #42: the window is fiscal years elapsed from the
+  // The window is fiscal years elapsed from the
   // latest annual row, so a missing year cannot stretch it.
   const latestYear = cf[0]?.date;
   const windowStart = latestYear === undefined ? undefined
@@ -1305,7 +1305,7 @@ export function computeCapital(
     );
   }
 
-  // WS6 (D-19): state the convention and show the adjustment's size, so the
+  // D-19: state the convention and show the adjustment's size, so the
   // report never prints a free-cash-flow figure whose definition is implicit.
   if (latestFcfRow !== null) {
     notes.push(FCF_SBC_BASIS);

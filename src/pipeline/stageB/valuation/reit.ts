@@ -47,17 +47,20 @@ export interface ReitInputs {
   /** NOI approx = operatingIncome + D&A, when derivable. */
   noiApprox?: number | null;
   asOf?: string | null;
-  /* D-16: how FFO was actually built, printed instead of the fixed disclaimer. */
+  /** D-17: how FFO was actually built, printed instead of the fixed disclaimer. */
   ffoBasis?: string | null;
-  /* D-16: how AFFO was actually built. */
+  /** D-17: how AFFO was actually built. */
   affoBasis?: string | null;
   /** True when FFO components or the ownership / affiliated-entity basis remain unreconciled. */
   ffoApproximate?: boolean;
   /** True when AFFO inherits approximate FFO or lacks recurring capex / straight-line rent. */
   affoApproximate?: boolean;
-  /* D-16: the REIT sub-map. "undetermined" withholds every FFO-based figure, because publishing them would assert an equity REIT on no evidence. */
+  /**
+   * D-16: the REIT sub-map. "undetermined" withholds every FFO-based figure, because publishing them
+   * would assert an equity REIT on no evidence.
+   */
   submap?: "equity" | "mortgage" | "undetermined" | null;
-  /* D-16: the routing reason for an undetermined sub-map, repeated on each withheld figure. */
+  /** D-16: the routing reason for an undetermined sub-map, repeated on each withheld figure. */
   submapReason?: string | null;
 }
 
@@ -70,7 +73,7 @@ export interface ReitValuationResult {
   impliedCapRatePct: number | null;
   enterpriseValue: number | null;
   asOf: string | null;
-  /* D-16: non-null when every FFO-based figure was withheld, with the reason. */
+  /** D-16: non-null when every FFO-based figure was withheld, with the reason. */
   withheldReason: string | null;
   notes: string[];
   gaps: ManifestEntry[];

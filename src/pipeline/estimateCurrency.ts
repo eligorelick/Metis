@@ -2,7 +2,7 @@
  * The currency of an analyst estimate, a price target or a compensation total.
  * (A stock-peers market cap does NOT inherit: peers are not necessarily listed
  * where the subject is, so a peer cap takes only a currency its own row or its
- * own profile states, AI-301; see peerListingCurrency in stageC/payload.ts.)
+ * own profile states, D-124; see peerListingCurrency in stageC/payload.ts.)
  *
  * FMP's /stable/analyst-estimates, /stable/price-target-consensus and
  * /stable/governance-executive-compensation rows carry
@@ -38,7 +38,7 @@ function iso(value: unknown): string | null {
 
 /**
  * The row's own ISO currency only, never a provider convention. A stock-peers
- * row reads its currency this way (AI-301): a convention set for estimates must
+ * row reads its currency this way (D-124): a convention set for estimates must
  * not turn a peer cap into money.
  */
 export function ownRowCurrency(row: object | null | undefined): string | null {

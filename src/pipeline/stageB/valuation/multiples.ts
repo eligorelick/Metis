@@ -89,11 +89,11 @@ export interface MultiplesIncomeTtm extends CommonIncomeInputs {
    * when absent (legacy callers).
    */
   basis?: "ttm" | "annual";
-  /* D-112: Label a multiple with the period and statement basis of its operands. */
+  /** D-112 (multiple labels by period): the annual row's own fiscal year, which names an annual-basis multiple. */
   fiscalYear?: string | null;
   revenue: number | null;
   operatingIncome: number | null;
-  /* D-98: Retain pretax income to measure the non-operating share of earnings. */
+  /** D-98 (gain-inflated earnings): pre-tax income, to measure how much of it is non-operating. */
   incomeBeforeTax?: number | null;
   depreciationAndAmortization?: number | null;
   netIncome: number | null;
@@ -107,7 +107,7 @@ export interface MultiplesIncomeTtm extends CommonIncomeInputs {
   noncontrollingIncome?: number | null;
   netIncomeOwnershipBasis?: "parent" | "consolidated";
   epsSecurityBasis?: "ordinary" | "quoted";
-  /* D-103: Disclose composed depreciation and amortization as a lower bound when the combined line is unproven. */
+  /** D-103: the caveat when this slice's D&A was composed from separate lines (a lower bound). */
   dAndALowerBound?: string | null;
 }
 
@@ -130,10 +130,14 @@ export interface MultiplesBalance extends PreferredCapitalInputs {
   reportedCurrency?: string | null;
   leaseEvidenceContext?: LeaseEvidenceContext;
   fieldProvenance?: Record<string, LeaseFieldEvidence>;
-  /** The admission's refusals, so a refused total debt is named (KNW-04). */
+  /** The admission's refusals, so a refused total debt is named (D-133). */
   fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
   date: string;
-  /* D-112: Label a multiple with the period and statement basis of its operands. */
+  /**
+   * Which statement period the row came from: "quarter" (latest quarterly balance sheet — the
+   * preferred point-in-time anchor, P1) or "annual" (whole-row fallback). Drives honest basis labels;
+   * absent on legacy callers ⇒ generic "latest" label.
+   */
   basis?: "quarter" | "annual";
   totalDebt: number | null;
   cashAndCashEquivalents?: number | null;
@@ -328,7 +332,12 @@ export interface MultiplesFrameworkInputs {
   includeLeasesInEv?: boolean;
 }
 
-/* D-19, D-228, D-296: State the configured lease basis consistently wherever enterprise value is presented. */
+/**
+ * The operator setting the EV bridge basis names (D-19), exactly as the
+ * basis spells it, so the report states the lease convention with the
+ * environment variable that changes it (D-99). D-228 froze this reader
+ * text; D-296 renamed it to the current METIS_ setting.
+ */
 export const EV_LEASE_SETTING_TEXT = {
   excluded: " (house default; set METIS_EV_INCLUDE_LEASES=1 to keep it)",
   included: " (METIS_EV_INCLUDE_LEASES=1)",
@@ -418,11 +427,23 @@ export interface MultipleStat {
   historyScope?: string;
   ownHistory: OwnHistoryBand | null;
   peers: PeerStats | null;
-  /* D-98: Flag gain-inflated earnings and withhold their historical ranking. */
+  /**
+   * D-98 (gain-inflated earnings): set on the P/E when non-operating income is more than
+   * GAIN_INFLATED_NON_OPERATING_SHARE of pre-tax income. The grade then ranks the next own-history
+   * multiple and the report caveats the P/E.
+   */
   gainInflatedEarnings?: { nonOperatingSharePct: number; basis: string };
-  /* D-103: Disclose composed depreciation and amortization as a lower bound when the combined line is unproven. */
+  /**
+   * D-103 (D&A from separate lines): set on EV/EBITDA when the EBITDA's D&A was composed from separate
+   * lines, a lower bound; the report caveats the row. Unlike the P/E caveat, the own-history rank
+   * stays: the history is built the same way.
+   */
   ebitdaLowerBound?: { basis: string };
-  /* D-112: Label a multiple with the period and statement basis of its operands. */
+  /**
+   * D-112 (multiple labels by period): the statement period an income-derived multiple's denominator
+   * covers: "TTM to <date>" for four summed quarters, or "FY<year>" when TTM was suppressed and the
+   * latest annual row stands in. Labels are derived from it.
+   */
   period?: string;
 }
 
@@ -438,7 +459,7 @@ export function nonOperatingShareOfPretax(pretax: unknown, operating: unknown): 
 export interface MultiplesResult {
   multiples: MultipleStat[];
   peerCoverage?: import("@/pipeline/peers").PeerCoverage;
-  /* D-19: the enterprise-value bridge, both ways. */
+  /** D-19: the enterprise-value bridge, both ways. */
   enterpriseValue: EnterpriseValueBridge;
   sectorAppropriate: MultipleKey[];
   asOf: { quote: string | null; statements: string | null };
@@ -506,7 +527,13 @@ const DERIVED_HISTORY_KEYS: readonly MultipleKey[] = [
 // A consolidated/parent difference proves outside ownership, never its market value. The test is the P5 owner's
 // (`noncontrollingOwnershipUnresolved`, src/pipeline/stageB/ownership.ts; D-248); compute.ts reads the same one.
 
-/* D-97: Treat NCI as immaterial only below the established share of consolidated equity with compatible earnings evidence. */
+/**
+ * D-97 (zero NCI): known NCI at or below this share of consolidated equity cannot move a
+ * parent-common cash multiple; without the floor a few million of NCI against billions of equity
+ * withheld P/FCF and its whole history. The NCI share of earnings must be as small, and known: a
+ * stake bought out before the balance date leaves a zero balance but still earned its share of the
+ * cash flow, so an ending balance alone cannot bound it.
+ */
 const IMMATERIAL_NCI_SHARE_OF_EQUITY = 0.01;
 
 function immaterialNoncontrollingInterest(row: { totalEquity?: number | null; minorityInterest?: number | null } | null, noncontrollingIncome?: number | null): boolean {
@@ -545,7 +572,7 @@ function temporaryEquityBlocksCashOwnership(row: Parameters<typeof temporaryEqui
   if (claims === null) return false;
   if (claims.refusal !== null || claims.redeemablePreferred !== 0 || claims.unsplit !== 0) return true;
   if (claims.redeemableNoncontrolling === 0) return false;
-  /* D-135: With no book-NCI claim, apply the materiality floor to redeemable NCI alone. */
+  // A null book NCI is no claim at main; the floor then applies to the redeemable NCI alone (D-135).
   const book = isNum(row?.minorityInterest) ? Math.abs(row.minorityInterest) : 0;
   return !immaterialNoncontrollingInterest(
     { totalEquity: row?.totalEquity, minorityInterest: book + Math.abs(claims.redeemableNoncontrolling) },
@@ -578,7 +605,10 @@ function deriveOwnHistory(
   quarters: QuarterlyFundamentalsRow[] | undefined,
   evRows: EnterpriseValuesRow[] | undefined,
   derivedKeys: readonly MultipleKey[] = DERIVED_HISTORY_KEYS,
-  /* D-19: true when the CURRENT enterprise value removed the operating-lease liability, so every historical window must remove its own. */
+  /**
+   * D-19: true when the CURRENT enterprise value removed the operating-lease liability, so every
+   * historical window must remove its own.
+   */
   removeOperatingLease = false,
   currentCommonAllocation: { preferred: boolean; nci: boolean } = { preferred: false, nci: false },
   peConstruction: "price-eps" | "capitalization-common-income" = "capitalization-common-income",
@@ -875,7 +905,7 @@ export function multiplesFramework(
       ),
     );
   } else if (mcap === null) {
-    // Fix round 2, M4: a cap withheld on share scope is named as withheld, with the scope's reason; "missing" only when absent.
+    // P20: a cap withheld on share scope is named as withheld, with the scope's reason; "missing" only when absent.
     gaps.push(gapEntry("valuation.multiples.marketCap", !marketCapSecurityKnown
       ? `market cap withheld — most multiples not computable: ${equityScope.basis.replace(/\.$/, "")}`
       : "market cap missing — most multiples not computable", "warn"));
@@ -883,7 +913,8 @@ export function multiplesFramework(
 
   // --- Raw building blocks (zero-for-undisclosed handled where implausible) --
   const revenue = posOrNull(zeroAsNull(inc?.revenue));
-  /* D-103: Disclose composed depreciation and amortization as a lower bound when the combined line is unproven. */
+  // D-112 (multiple labels by period): the cash-flow statement's D&A stands in only on the income
+  // statement's own period; on another, EBITDA would add two periods' figures under one period's label.
   const period = (row: { date: string; basis?: "ttm" | "annual"; fiscalYear?: string | null }): string =>
     row.basis === "annual"
       ? (/^\d{4}$/.test(row.fiscalYear ?? "") ? `FY${row.fiscalYear}` : row.date === "" ? "an undated fiscal year" : `FY ended ${row.date}`)
@@ -980,7 +1011,7 @@ export function multiplesFramework(
     isNum(bal?.capitalLeaseObligations) && bal.capitalLeaseObligations >= 0
       ? bal.capitalLeaseObligations
       : null;
-  /* D-97: Remove operating leases only when filed evidence establishes their inclusion and scope. */
+  // D-97: removed only when totalDebt is shown to hold it.
   const evLeaseScope = operatingLeaseScopeUnproven(bal ?? {});
   const leaseLiability =
     evLeaseScope === null && isNum(bal?.operatingLeaseLiability) && bal.operatingLeaseLiability >= 0
@@ -1007,7 +1038,8 @@ export function multiplesFramework(
         ? rawEvIncludingLeases
         : rawEvIncludingLeases - leaseLiability;
   const ev = includeLeases ? evIncludingLeases : evExcludingLeases;
-  /* D-135: State the actual refusal that withholds enterprise value. */
+  // D-133: a withheld EV states the actual refusal; it is never described as reported as-is or as
+  // missing components.
   const evWithheldReason = financialsRoute || ev !== null ? null
     : !bal ? "no balance sheet is available"
       : netDebt.value === null ? netDebt.reason
@@ -1065,7 +1097,7 @@ export function multiplesFramework(
   if (!financialsRoute && ev === null) {
     gaps.push(gapEntry("valuation.multiples.enterpriseValue", `EV withheld: ${evWithheldReason} — EV multiples n/m`, "info"));
   } else if (!financialsRoute && leaseLiability === null && financeOnlyTotal !== null) {
-    // FIN-109: a finance-lease-only total has no unknown mix; the basis states it, and no leases gap is raised.
+    // D-135: a finance-lease-only total has no unknown mix; the basis states it, and no leases gap is raised.
   } else if (!financialsRoute && leaseLiability === null) {
     gaps.push(
       gapEntry(
@@ -1091,7 +1123,7 @@ export function multiplesFramework(
   // --- Current multiples from raw fields ------------------------------------
   let eps = posOrNull(inc?.epsDiluted);
   let epsBasis = "price / diluted EPS";
-  /* D-112: Explain why diluted EPS did not establish the multiple. */
+  // D-112: why price / diluted EPS did not produce the P/E, named in its basis.
   let epsUnused = isNum(inc?.epsDiluted)
     ? "diluted EPS for the period is not positive"
     : inc?.basis === "annual" ? "the fiscal year's diluted EPS is not reported" : "diluted EPS is not available for every quarter of the period";
@@ -1110,7 +1142,10 @@ export function multiplesFramework(
       epsBasis = `price per ADS / (ordinary diluted EPS x ${security.ordinarySharesPerQuotedUnit} ordinary shares per ADS) (verified basis ${security.sourceIds.join(", ")}, effective ${security.effectiveFrom})`;
     } else epsBasis = "price per ADS / diluted EPS already per quoted ADS (no second ratio adjustment)";
   }
-  /* D-103: Require established class scope and economic weights before computing issuer-common values. */
+  // D-103 (class-tagged market cap): when the classes carry different economic weights, a filed
+  // diluted EPS is per share of one class whose identity the filing facts do not establish (a filer
+  // may report per equivalent share of one class), so P/E uses the issuer-economic capitalization
+  // over common income instead.
   if (eps !== null && equityScope.status === "resolved" && equityScope.weightedClasses === true) {
     eps = null;
     epsUnused = "share classes carry different economic weights and the diluted EPS class basis is not established";
@@ -1375,7 +1410,8 @@ export function multiplesFramework(
       "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
     );
   }
-  /* D-112: Label a multiple with the period and statement basis of its operands. */
+  // Honest balance-period label (P1): say WHICH balance row anchors the point-in-time multiples
+  // instead of a vague "(latest)".
   const balanceBasisLabel =
     bal?.basis === "quarter"
       ? `latest quarterly balance sheet ${bal.date}`
@@ -1457,7 +1493,9 @@ export function multiplesFramework(
       peers: peerStats(comparison.eligible.map((p) => p.multiples[key]), notes, key),
     };
   });
-  /* D-98: Flag P/E dominated by non-operating gains and omit its historical rank. */
+  // D-98 (gain-inflated earnings): GAAP earnings can be carried by gains below operating income, so a
+  // P/E on them can read far below the P/E on operating earnings. The P/E is still shown, flagged,
+  // and is not ranked.
   const pretaxTtm = inc?.incomeBeforeTax ?? null;
   const operatingTtm = inc?.operatingIncome ?? null;
   const share = nonOperatingShareOfPretax(pretaxTtm, operatingTtm);

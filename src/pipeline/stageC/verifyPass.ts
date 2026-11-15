@@ -38,7 +38,7 @@ export interface VerifyResult<T = JudgeOutput> {
   verificationRate: number | null;
   coverage: ProvenanceCoverage;
   /**
-   * WS7 (D-20): what the deterministic checks CHECKED, kept separate from what
+   * D-20: what the deterministic checks CHECKED, kept separate from what
    * they could cite. `coverage` says a figure resolved to a record; `checks`
    * says the sentence around it agreed with that record.
    */
@@ -65,14 +65,14 @@ interface TracedNumberRef {
   /**
    * The label of the metric row the number sits in ({label, values[]}), the
    * only description a TracedNumber has besides its unit. Read by the
-   * excerpt-text match (D-45) and registry description conflict check (AI-407).
+   * excerpt-text match (D-45) and registry description conflict check (D-144).
    */
   rowLabel?: string;
   rowKind?: "metric-row" | "named-row";
   cellPeriod?: string;
 }
 
-/** OD-3: null means the spelling/window is outside this cell check. */
+/** D-144: null means the spelling/window is outside this cell check. */
 function recordPeriodAgreement(label: string, record: NumericProvenanceRecord): boolean | null {
   if (/\b(?:ttm|12m|ending|ended|to)\b/i.test(label)) return null;
   const date = label.match(/\b\d{4}-\d{2}-\d{2}\b/)?.[0];
@@ -114,7 +114,7 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
     const ownRowLabel = typeof obj.label === "string" && Array.isArray(obj.values) ? obj.label : undefined;
     // A named row (a segment {name, revenue}, a peer {name, metrics[]}, a
     // macro series {name, latest}) is rendered under its name, so its numbers
-    // are described by it too (review, 2026-10-13): without it a segment's
+    // are described by it too (P19): without it a segment's
     // revenue verified on the unit text alone, against another segment's
     // figure, while the report printed it under this segment's name.
     const ownName = ownRowLabel === undefined && typeof obj.name === "string" ? obj.name : undefined;
@@ -225,15 +225,15 @@ function claimSourceMatch(
     // that states no number. Registering those printed tags is what lets
     // "EBIT interest coverage is not meaningful for this bank" verify; without
     // this guard "Net debt/EBITDA is 1.2x" citing the same n/a row verified too
-    // (simulated 2026-10-13). Every record the claim could mean is read, so a
+    // (D-43). Every record the claim could mean is read, so a
     // judgment citing an id with a gap row at any date is held to it.
     if (numericMatches.length === 0) {
       const cited = claim.label === "JUDGMENT"
         ? textMatches
         : textMatches.filter((record) => record.asOf === asOf);
       const stated = proseNumbers(claim.text);
-      // A number written in words is a number too (review, 2026-10-13: "Net
-      // debt/EBITDA is two times" citing the n/a row verified).
+      // A number written in words is a number too (D-43: "Net debt/EBITDA is
+      // two times" citing the n/a row must not verify).
       if (
         (stated.length > 0 || statesNumberWord(claim.text)) &&
         cited.some((record) => record.kind !== "payload-text")
@@ -243,7 +243,7 @@ function claimSourceMatch(
       // A text row that shows numbers ("25/50/25") supports exactly that
       // sequence: the numbers in the row's order, all of them. Membership
       // alone let "the bull case carries a 50% weight" verify against
-      // bull/base/bear 25/50/25 (review, 2026-10-13); prose that states the
+      // bull/base/bear 25/50/25 (P19); prose that states the
       // numbers some other way fails closed.
       const allowed = cited.flatMap((record) => record.allowedNumbers ?? []);
       // A full officer filing may share a tag with a restricted transition
@@ -266,7 +266,7 @@ function claimSourceMatch(
         return { supported: false, reason: "value-mismatch" };
       }
       // A row whose content is a date (the next-earnings note) supports that
-      // date only, and no other number (review, 2026-10-13).
+      // date only, and no other number (D-43).
       if (
         cited.some((record) => record.allowedDates !== undefined) &&
         !statesOnlyAllowedDates(claim.text, cited.flatMap((record) => record.allowedDates ?? []))
@@ -297,7 +297,7 @@ function resolveOmittedIdentity(
 }
 
 /**
- * WS7 (D-20): the people the report itself names in its executive cards. The
+ * D-20: the people the report itself names in its executive cards. The
  * best evidence for "which names in this document are people" is the document's
  * own `leadership.executives[].name` list, which the judge filled from the
  * payload — no name guessing required for those.
@@ -394,7 +394,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const numbers = collectTracedNumberRefs(verifiedReport);
   const claims = collectSourcedClaimRefs(verifiedReport);
 
-  // WS7 (D-20): the deterministic no-model checks. Run before the coverage loop
+  // D-20: the deterministic no-model checks. Run before the coverage loop
   // because the named-individual restriction can reject a claim the citation
   // check would otherwise have counted as supported.
   // D-43: the payload's person rows, which a claim citing one is read
@@ -560,7 +560,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         // drops one, adopt the record's value — the registry id already pins the
         // exact record (and hence its period/currency). A SUPPLIED-but-wrong
         // period or currency still mismatches, so a genuine error is not masked.
-        // AI-408 / OD-3: retain decidable conflicts before erasing the
+        // D-144: retain decidable conflicts before erasing the
         // period-less as-of decoration used by the historical haiku output.
         const periodStated = number.period != null && number.period.trim() !== "";
         const suppliedPeriodConflict = record.period === null && number.period != null &&
@@ -685,7 +685,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         evidenceKind: "number",
         source: sourceId ?? number.source,
         reason,
-        // F-22: only a value conflict contradicts; a period, unit or currency
+        // D-110: only a value conflict contradicts; a period, unit or currency
         // the record does not establish leaves the figure unverified.
         validationStatus: reason === "value-mismatch" ? "contradicted" : "unchecked",
         ...(numberSourceSpans.length === 0 ? {} : { sourceSpans: numberSourceSpans }),
@@ -705,7 +705,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     const sourceId = citationSourceId(claim);
     if (sourceId !== null) claim.sourceId = sourceId;
     const match = claimSourceMatch(claim, registry, citationRegistry, fetchedUrls);
-    // WS7 (D-20): a claim about a named person that rests on a web-search result
+    // D-20: a claim about a named person that rests on a web-search result
     // is REJECTED, and rejected means it does not count as supported either. If
     // the URL still carried it, the coverage number would say the opposite of
     // the finding sitting next to it in the same appendix.
@@ -739,7 +739,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     const semanticFailures = supported ? consistency.findings.filter((finding) => finding.path === path &&
       (finding.check === "direction" || finding.check === "period" || finding.check === "unit")) : [];
     const semanticFailure = semanticFailures.find((finding) => finding.check === "direction") ?? semanticFailures[0];
-    // F-22: a direction word against the sign of its cited change is a value
+    // D-110: a direction word against the sign of its cited change is a value
     // conflict, and it outranks a period or unit finding on the same claim.
     // A period or unit word the check could not establish against the cited
     // record is a metadata gap: the claim is unverified, never validated, and
@@ -803,7 +803,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     });
   }
 
-  // WS7 (D-20): one log entry per deterministic-check FAILURE, each naming the
+  // D-20: one log entry per deterministic-check FAILURE, each naming the
   // sentence, the figure it cited and why it failed. These are distinct from the
   // citation-coverage entries above (they carry `check`), so a reader can tell
   // "this number has no source" from "this sentence contradicts its source".

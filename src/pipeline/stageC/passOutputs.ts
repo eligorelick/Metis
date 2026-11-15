@@ -125,9 +125,8 @@ function normalizeKnownEnumCasing(raw: unknown): unknown {
 /**
  * A blank or null `sourceId` is no citation: drop it so the claim or number cites its
  * `source`, as one without the field does (citationSourceId). The request
- * schema marks the field required, and Claude filled it with "" whenever it
- * had no registry id; in NVDA reports #48 and #49 (2026-10-26) that failed
- * the parse and cost a repair on all four analyst first attempts.
+ * schema marks the field required, and the model fills it with "" whenever it
+ * has no registry id; failing the parse on that would cost a repair (D-114).
  */
 /** A valid ISO year ("2026") or year-month ("2026-01") without a day. */
 function isPartialIsoDate(value: string): boolean {
@@ -146,7 +145,7 @@ function normalizeCitationFields(raw: unknown): unknown {
     if (key === "sourceId" && (value === null || (typeof value === "string" && value.trim().length === 0))) continue;
     next[key] = normalizeCitationFields(value);
   }
-  // D-295 review (P18): a figure definition is written only by deterministic code.
+  // D-295 (P18): a figure definition is written only by deterministic code.
   if (typeof next.value === "number" && typeof next.unit === "string") delete next.definition;
   // FIG / Sonnet 5.5: a canonical sourceId with source:"" is already a
   // citation, but the required legacy field rejected the whole paid answer.
@@ -154,12 +153,11 @@ function normalizeCitationFields(raw: unknown): unknown {
   // still require verification. Preserve any nonblank legacy source verbatim.
   const carrier = (typeof next.text === "string" && typeof next.label === "string") ||
     (typeof next.value === "number" && typeof next.unit === "string");
-  // FIGR paid run (2026-11-02): a claim or number's `asOf` is nullable and
-  // null is its "no date"; a blank string rejected a whole $0.37 bear case.
-  // D-182 (META paid run, 2026-11-03): a valid month or year alone ("2026-01",
-  // "2026") is a coarser date, not a wrong one, and cost a repair round; it is
-  // read as no date too (the claim's text keeps the period, and no day is
-  // invented). Any other malformed date still fails.
+  // D-156: a claim or number's `asOf` is nullable and null is its "no date";
+  // a blank string is read the same way, so it never rejects a whole case.
+  // D-182: a valid month or year alone ("2026-01", "2026") is a coarser date,
+  // not a wrong one, and must not cost a repair round; it is read as no date too (the claim's text keeps the
+  // period, and no day is invented). Any other malformed date still fails.
   if (carrier && typeof next.asOf === "string" && (next.asOf.trim() === "" || isPartialIsoDate(next.asOf.trim()))) next.asOf = null;
   if (carrier && (next.source == null || (typeof next.source === "string" && next.source.trim() === "")) &&
       typeof next.sourceId === "string") {
@@ -203,9 +201,9 @@ function normalizeAnalystCase(raw: unknown): unknown {
 
 /**
  * Why one section of a schema-valid analyst case is too thin to stand, or
- * null. NVDA report #48's bull (2026-10-26) was one thesis claim, no drivers,
- * risks or catalysts and a price target of 0 with no horizon; the schema
- * accepted it, so every debate card read "Not addressed by the bull case".
+ * null (D-113). A case of one thesis claim, no drivers, risks or catalysts and
+ * a price target of 0 with no horizon passes the schema, and every debate card
+ * would read "Not addressed by the bull case".
  * Catalysts and evidence may be empty: the framing asks for catalysts only
  * where they exist.
  */
@@ -262,7 +260,7 @@ function isClaimCarrier(value: unknown): value is Record<string, unknown> & { te
 }
 
 /**
- * FIGR paid audit (2026-11-02, AUDIT-B B-17): a FACT holds only its sourced
+ * D-157: a FACT holds only its sourced
  * statement. In a list of claims, a FACT's sentences from the first one that
  * opens as an interpretation ("In our judgment …") on become a JUDGMENT claim
  * with the same citation, and a FACT that opens that way is a JUDGMENT. A claim
@@ -286,7 +284,7 @@ function splitEmbeddedJudgments(value: unknown): unknown {
 }
 
 /* ------------------------------------------------------------------------ *
- * Q1: recent developments and management actions. A paid section request is
+ * recent developments and management actions. A paid section request is
  * not discarded for a shape a careful reader would accept: these repairs keep
  * every sourced claim and never invent one.
  * ------------------------------------------------------------------------ */
@@ -449,8 +447,7 @@ export function normalizeJudgeOutput(raw: unknown): unknown {
         // Scenario price targets are DETERMINISTIC (Stage B computeScenarioTargets),
         // injected by assembleReport — the judge/LLM does not author them. Null any
         // number the model emitted anyway so it never reaches the verify pass's
-        // citation-coverage count nor the report (2026-07-11 scenario-credibility
-        // checkpoint). assembleReport then overwrites this with the computed target
+        // citation-coverage count nor the report (P18). assembleReport then overwrites this with the computed target
         // or leaves it null when suppressed.
         next.priceTarget = null;
         // The only displayed weights come from the computed projection prior.
@@ -463,8 +460,7 @@ export function normalizeJudgeOutput(raw: unknown): unknown {
     // DCF perShare + upsidePct + assumptions table + sensitivityGrid are ALL
     // DETERMINISTIC (Stage B computeFairValue / computeDcfDisplay), injected by
     // assembleReport — discard any the judge emitted so they never reach the verify
-    // pass count nor the report (2026-07-11 DCF-credibility + valuation-consistency
-    // checkpoints). assembleReport injects the computed values (or empties off the
+    // pass count nor the report (P18). assembleReport injects the computed values (or empties off the
     // DCF route). The judge keeps only the reverse-DCF narrative + interpretation.
     if (valuation.dcf !== null && typeof valuation.dcf === "object" && !Array.isArray(valuation.dcf)) {
       valuation.dcf = {
@@ -493,12 +489,12 @@ const BUSINESS_STORY_CLAIM_FIELDS = [["business", "marketStructure"], ["business
  * heading replaces it; the claims are kept and verified as usual. Runs after
  * embedded judgments are split, so only sourced statements can name the line.
  */
-/** D-271 review round 1 (lead decision a): a heading longer than this is a sentence, not a name. */
+/** D-271: a heading longer than this is a sentence, not a name. */
 export const PRODUCT_LINE_HEADING_MAX_WORDS = 8;
 export const PRODUCT_LINE_HEADING_MAX_CHARS = 60;
 
 /**
- * D-271 review round 1 (lead decision a): a heading is a name, never a claim.
+ * D-271: a heading is a name, never a claim.
  * It may carry no digit, percent sign, currency symbol (Unicode Sc) or number
  * word (the verifier's own `statesNumberWord` list), and at most
  * {@link PRODUCT_LINE_HEADING_MAX_WORDS} words and
@@ -560,7 +556,7 @@ function invalidJudgeGenerationSections(sections: Record<string, unknown>): stri
   return invalid;
 }
 
-/** Sections carried from a cut-off response, split by whether they can be kept (audit 2026-10-22 D-3). */
+/** Sections carried from a cut-off response, split by whether they can be kept (D-111). */
 export interface CarriedSectionCheck {
   /** The sections that validate on their own, exactly as written. */
   kept: Record<string, unknown>;
@@ -584,7 +580,7 @@ function splitCarriedSections(
 }
 
 /**
- * Audit 2026-10-22 D-3: a carried section overrides whatever the retry writes
+ * D-111: a carried section overrides whatever the retry writes
  * for it, so a parseable but schema-invalid one failed the merged output
  * whatever the retry returned. Each section is normalized as the full parse
  * normalizes it and checked alone; the ones that fail are dropped, so the

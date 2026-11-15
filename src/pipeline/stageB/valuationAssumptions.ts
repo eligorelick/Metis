@@ -14,7 +14,7 @@ export interface FinancialValuationAssumptions {
   continuingValueSharePct: number | null;
   continuingValueBasis: string;
   /**
-   * Audit 2026-10-22 C-10 follow-through (D-102): the payout path, year 1 to
+   * D-102: the payout path, year 1 to
    * year N, fading from the three-year average to the steady state the
    * continuing value assumes. Absent on legacy objects.
    */

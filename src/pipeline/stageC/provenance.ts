@@ -93,7 +93,7 @@ export interface NumericProvenanceRecord {
 /**
  * Exact non-numeric payload citation shown to the model.
  *
- * `kind` says what a claim citing the tag can rest on (D-43, 2026-10-13):
+ * `kind` says what a claim citing the tag can rest on (D-43):
  *  - `payload-text`: text the payload shows (a filing excerpt, a string row).
  *  - `payload-gap`: a disclosed absence — an n/a row, a missing-data manifest
  *    entry. It supports a statement that the figure is absent, never a number.
@@ -102,9 +102,8 @@ export interface NumericProvenanceRecord {
  *    compensation total, an analyst target). Prose may cite the row, but no
  *    number in that prose can verify against it.
  * Before D-43 only `payload-text` existed and the other two printed a tag the
- * model was told to cite while the verifier knew nothing of it: in reports
- * 25/26 (2026-10-13) every claim citing a compensation, peer, price-target or
- * n/a row failed as unknown-source.
+ * model was told to cite while the verifier knew nothing of it, so every claim
+ * citing a compensation, peer, price-target or n/a row failed as unknown-source.
  */
 export interface CitationProvenanceRecord {
   id: string;
@@ -126,8 +125,8 @@ export interface CitationProvenanceRecord {
   /**
    * The only dates prose citing this text row may state, as ISO days: set on
    * the next-earnings note, whose whole content is one date. Without it a
-   * sentence giving any other date verified on the row's tag (review,
-   * 2026-10-13). Prose citing such a row may state no other number.
+   * sentence giving any other date verified on the row's tag (D-43). Prose
+   * citing such a row may state no other number.
    */
   allowedDates?: string[];
 }
@@ -141,7 +140,7 @@ export interface ProvenanceCandidate {
   asOf: string;
   source: string;
   /**
-   * D-282 review: the figure itself stated its measurement window (it was not
+   * D-282: the figure itself stated its measurement window (it was not
    * adopted from the record). Only then may a value conflict outrank a date
    * mismatch; absent means not stated.
    */
@@ -188,8 +187,8 @@ const CANONICAL_UNITS = new Set<CanonicalUnit>([
 /**
  * Dimensionless indicator spellings read as the `index` bucket. Grading emits
  * rank/pctile/z/m/rsi on scores.aspects[*].drivers; "RSI" and "RSI index"
- * are what the judge wrote for the payload's technicals rows
- * in reports 25/26 (2026-10-13). They are tested BEFORE the bare-ISO-code
+ * are what the judge writes for the payload's technicals rows (D-44). They
+ * are tested BEFORE the bare-ISO-code
  * branch: "RSI" is three capitals and used to be read as a currency code,
  * failing every RSI key number as unit-mismatch while id, value and as-of
  * matched (D-44).
@@ -212,8 +211,8 @@ const NAMED_INDICATOR_UNITS = new Map([
  * record. The report shows the model's unit string verbatim beside a verified
  * number, so "-4.8154 RSI" citing the MACD histogram would render a verified
  * figure under the wrong indicator's name; id, value and as-of all match, so
- * nothing else catches it (D-44, found by simulation on 2026-10-13 — the
- * lowercase "rsi" driver spelling already had this hole). Units that name no
+ * nothing else catches it (D-44; the lowercase "rsi" driver spelling is
+ * covered too). Units that name no
  * indicator ("index", "%") are unaffected.
  */
 export function namedUnitMatchesRecord(displayUnit: string, recordId: string): boolean {
@@ -228,9 +227,9 @@ export function canonicalizeTracedUnit(
   explicitCurrency: string | null | undefined,
 ): CanonicalizedTracedUnit | null {
   // A trailing parenthetical is a qualifier, not a unit: the payload renders
-  // aspect scores as "0-100 (grade B, completeness 0.9)" and a live haiku run
-  // (2026-09-02) echoed RSI as "index (0-100)" and scores as "0-100 score",
-  // failing every grade-strip key number as unit-mismatch while id, value and
+  // aspect scores as "0-100 (grade B, completeness 0.9)", and a model can echo
+  // RSI as "index (0-100)" and scores as "0-100 score", failing every
+  // grade-strip key number as unit-mismatch while id, value and
   // as-of matched exactly. A qualifier that names a scale ("USD (millions)")
   // is still caught, by the value match.
   const raw = displayUnit.trim().replace(/\s*\(.*\)$/, "");
@@ -245,7 +244,7 @@ export function canonicalizeTracedUnit(
   // record; a spelling that names one indicator is additionally bound to that
   // indicator's record (namedUnitMatchesRecord). "pctile" is the retired
   // spelling, kept so persisted reports still trace; "rank" is what grading
-  // emits now (WS6 review, SHOULD-FIX 3).
+  // emits now (D-19).
   if (INDICATOR_UNIT_SPELLINGS.has(normalized)) return { unit: "index", currency: null };
   // A MACD histogram is a difference of price-scale EMAs, not an index.
   // Keep its named alias source-bound, and never supply a default currency.
@@ -254,7 +253,7 @@ export function canonicalizeTracedUnit(
   // A bare ISO code in the unit ("EUR", "EUR/share") names the currency
   // itself; when the number ALSO declares a currency, the two must agree — a
   // figure labelled EUR with currency USD is a conflict, not a USD figure, and
-  // fails closed like any other unreadable unit (audit 2026-09-06, F181).
+  // fails closed like any other unreadable unit (P4, P19).
   const currencyPerShare = /^([A-Z]{3})\/share$/.exec(raw);
   if (currencyPerShare) {
     if (declaredCurrency !== null && declaredCurrency !== currencyPerShare[1]) return null;
@@ -292,7 +291,7 @@ export function canonicalizeTracedUnit(
   // stockholders equity", "% Standardized CET1"): the model sometimes writes the
   // figure label into the unit slot. The first token still has to be a canonical
   // unit, and id, value, currency, period and as-of are all matched separately,
-  // so canonicalization reads only the unit. AI-407 separately checks the
+  // so canonicalization reads only the unit. D-144 separately checks the
   // printed description for conflicts with the matched record in the verifier. "% points" is excluded:
   // it would silently turn percentage points into a percent.
   const tail = /^(\S+)\s+(.+)$/.exec(raw);
@@ -301,7 +300,7 @@ export function canonicalizeTracedUnit(
     // An indicator name is never an ISO head: "RSI %" or "RSI P/E" fails
     // closed rather than reading as the currency "RSI" (D-44).
     const isoHead = /^[A-Z]{3}(\/share)?$/.test(head) && !INDICATOR_UNIT_SPELLINGS.has(head.toLowerCase());
-    // "count" and "shares" heads (review, 2026-10-13): the EXCERPT NUMBERS
+    // "count" and "shares" heads (D-45): the EXCERPT NUMBERS
     // prompt rule asks for "count daily active people", and without these the
     // unit failed to canonicalize, so no excerpt count could ever verify.
     if (
@@ -566,12 +565,12 @@ export function matchProvenanceRecord(
   // Half a unit of the last displayed decimal — the largest error a faithful
   // rounding can carry. A tie (a fifth decimal of exactly 5 against a 4-dp
   // rendering) sits ON the bound, and binary float noise in the subtraction
-  // used to push it a few ulps over (audit 2026-09-06, F180/F196); the slack
+  // can push it a few ulps over (P19); the slack
   // is relative and ~1e-9, far below any display precision the registry uses.
   const tolerance = 0.5 * 10 ** -record.displayPrecision;
   const slack = 1e-9 * Math.max(1, Math.abs(record.value), Math.abs(candidate.value));
   const differs = Math.abs(record.value - candidate.value) > tolerance + slack;
-  // D-282 (P19, A1; review round 1): a wrong cited date no longer hides a value
+  // D-282 (P19): a wrong cited date no longer hides a value
   // conflict, but only when the same measurement window is established on both
   // sides: the record names its window and the figure stated that window itself
   // (checked above). Then a figure that differs from the record even at its own

@@ -13,7 +13,7 @@
  * matching FIRST, case-insensitive, trimmed; SIC fallback; XBRL tag evidence
  * from EDGAR companyfacts confirms, contradicts or — when neither industry nor
  * SIC decides — supplies the base route, and alone decides the equity-vs-
- * mortgage REIT sub-map (WS5, D-16); overlays compose), the route table with
+ * mortgage REIT sub-map (D-16); overlays compose), the route table with
  * its hard suppressions ("Financial-company routes" there) and the
  * unprofitable / pre-revenue house rules below.
  *
@@ -129,7 +129,7 @@ export interface RouteOptions {
   /** ISO date used for IPO-recency math — passed in for determinism. */
   today: string;
   /**
-   * XBRL routing evidence read from EDGAR companyfacts (WS5, D-16). Optional:
+   * XBRL routing evidence read from EDGAR companyfacts (D-16). Optional:
    * without it the route rests on industry/SIC alone and, for a REIT, the
    * sub-map is `undetermined` unless the vendor industry names one.
    */
@@ -147,7 +147,7 @@ export type ReitSubmap = "equity" | "mortgage" | "undetermined";
 export interface CompanyRouteResult extends CompanyRoute {
   /**
    * REIT sub-map when the base is `reit` or `reit-mortgage`; null otherwise
-   * (WS5, D-16). `routeCompany` always sets it; the field is optional only so a
+   * (D-16). `routeCompany` always sets it; the field is optional only so a
    * hand-built route fixture predating it still satisfies the type.
    */
   reitSubmap?: ReitSubmap | null;
@@ -216,7 +216,7 @@ export function normalizeReportedCurrency(value: unknown): string | null {
   return currency !== null && /^[A-Z]{3}$/.test(currency) ? currency : null;
 }
 
-/** Hospital and medical service plans (audit 2026-10-22 E-6). */
+/** Hospital and medical service plans (D-105). */
 const MANAGED_CARE_SIC = 6324;
 
 /** Parse a leading 4-digit SIC code out of "6021" or "6021 NATIONAL COMMERCIAL BANKS". */
@@ -252,7 +252,7 @@ export function routeCompany(
   // ---- base route: industry-prefix matching FIRST, case-insensitive, trimmed
   let base: SectorRoute = "general";
   let baseMatched = false;
-  // Audit 2026-10-22 E-6: a health plan (SIC 6324) is managed care. Its
+  // D-105: a health plan (SIC 6324) is managed care. Its
   // premium and claim-reserve tags are the insurer evidence rule's signals,
   // but its earnings and free cash flow measure it and its debt finances the
   // business rather than float, so it takes the general map whatever the
@@ -363,7 +363,7 @@ export function routeCompany(
     }
   }
 
-  // ---- XBRL routing evidence (WS5, D-16): confirms, contradicts, or decides.
+  // ---- XBRL routing evidence (D-16): confirms, contradicts, or decides.
   const evidence = opts.evidence ?? null;
   const sicNum = parseSic(sicRaw);
   // 6000–6499 and 6700–6799: major groups 65 (real-estate operators and
@@ -570,7 +570,7 @@ export function routeCompany(
     });
   }
 
-  // ---- REIT sub-map (WS5, D-16): SIC 6798 alone never decides mortgage vs equity.
+  // ---- REIT sub-map (D-16): SIC 6798 alone never decides mortgage vs equity.
   let reitSubmap: ReitSubmap | null = null;
   if (base === "reit" || base === "reit-mortgage") {
     const industryIsReit = industryLc !== null && industryLc.startsWith("reit");
@@ -581,7 +581,7 @@ export function routeCompany(
     const industrySicDerived =
       industryIsReit && sicLabel !== null && sicLabel.toLowerCase() === industryLc;
     const industryExplicitEquity = industryIsReit && !industryExplicitMortgage && !industrySicDerived;
-    // FIN-308 revision: PP&E can decide mortgage versus equity only now that
+    // D-150: PP&E can decide mortgage versus equity only now that
     // the REIT base route is established; it cannot establish REIT status.
     const reitComparison = evidence?.reitAssetComparison;
     const evidenceSubmap = evidence?.available === true
@@ -715,9 +715,9 @@ export function routeCompany(
   }
 
   // On a deposit- or float-funded balance sheet, operating cash flow is
-  // dominated by loan, deposit, trading-asset and reserve flows — JPMorgan
-  // reported negative OCF in record-profit years — so it says nothing about
-  // profitability. Those routes evaluate the overlay on net income alone;
+  // dominated by loan, deposit, trading-asset and reserve flows — a bank can
+  // report negative OCF in record-profit years — so it says nothing about
+  // profitability (D-137). Those routes evaluate the overlay on net income alone;
   // otherwise a profitable bank was labelled unprofitable, its headline metrics
   // replaced by cash runway and burn, and the analyst passes briefed on a
   // loss-maker. FIN-OTHER general-map financials also carry trading-asset,
@@ -800,9 +800,8 @@ export function routeCompany(
   // recency window (house rule). Sparse quarterly history is NOT evidence of a
   // recent IPO — a mature issuer with incomplete data coverage is "insufficient
   // historical coverage", disclosed as a gap, and NEVER routed as a recent IPO
-  // (audit 2026-07-11 finding #4). Treating missing history as a listing event
-  // mis-framed old companies (e.g. AAPL with < 8 fixture quarters) as IPOs and
-  // suppressed the wrong metrics. History depth still drives the honest
+  // (P14). Treating missing history as a listing event would mis-frame old
+  // companies with few fixture quarters as IPOs and suppress the wrong metrics. History depth still drives the honest
   // degradation of long-window CAGRs/technicals via their own insufficiency
   // flags — it just no longer asserts an IPO that did not occur.
   const ipoRaw = normStr(profile.ipoDate);
@@ -893,7 +892,7 @@ export function routeCompany(
     }
   }
 
-  // regulated-utility (audit 2026-10-22 B-13): a utility SIC alone also covers
+  // regulated-utility (D-104): a utility SIC alone also covers
   // merchant generators and marketers, so filed evidence of rate regulation
   // must accompany it. The general base retains its multiples; FCFF valuation,
   // balance-sheet scoring and Altman follow the regulated-business overlay.
@@ -1050,7 +1049,7 @@ const BASE_POLICIES: Readonly<Record<SectorRoute, { suppress: readonly string[];
       "debtToEquity",
       "fcfDcf",
       // The FCFF reverse DCF is the same model read backwards, so it inherits
-      // the reason its forward twin is suppressed (WS5, V-10). `valueCompany`
+      // the reason its forward twin is suppressed (D-16, D-17). `valueCompany`
       // structurally never builds one on this route; the id makes the refusal a
       // stated policy the report and the manifest can name, rather than an
       // absence the reader has to infer. Display/disclosure id — no scoring
@@ -1118,7 +1117,7 @@ const BASE_POLICIES: Readonly<Record<SectorRoute, { suppress: readonly string[];
   },
 };
 
-/** SEC SIC codes of electric, gas, combination and water utilities (audit 2026-10-22 B-13). */
+/** SEC SIC codes of electric, gas, combination and water utilities (D-104). */
 export const REGULATED_UTILITY_SICS: readonly number[] = [4911, 4922, 4923, 4924, 4931, 4932, 4941];
 
 const OVERLAY_POLICIES: Readonly<Record<SectorOverlay, { suppress: readonly string[]; lead: readonly string[] }>> = {
@@ -1143,7 +1142,7 @@ const OVERLAY_POLICIES: Readonly<Record<SectorOverlay, { suppress: readonly stri
     suppress: [],
     lead: ["adrRatio", "withholdingGrossYield"],
   },
-  // B-13 / A-3: the Z models were estimated on manufacturers; a utility's
+  // D-104: the Z models were estimated on manufacturers; a utility's
   // rate base and regulatory assets are not the balance sheet they describe.
   "regulated-utility": {
     suppress: ["altmanZ", "fcfDcf", "reverseDcf"],
@@ -1153,7 +1152,7 @@ const OVERLAY_POLICIES: Readonly<Record<SectorOverlay, { suppress: readonly stri
 
 /**
  * Metrics withheld when a REIT's equity-vs-mortgage sub-map is undetermined
- * (WS5, D-16). SIC 6798 covers both types, and the two maps disagree about
+ * (D-16). SIC 6798 covers both types, and the two maps disagree about
  * which figures mean anything: FFO/AFFO and P/FFO are the equity-REIT metrics,
  * while book value per share, the net interest spread and assets/equity
  * leverage are the mortgage-REIT ones. Publishing either set without knowing
@@ -1177,7 +1176,7 @@ export const REIT_SUBMAP_UNDETERMINED_SUPPRESSED = [
  * display EV/EBITDA (hard product rule; suppress wins over lead).
  *
  * A `CompanyRouteResult` additionally carries `reitSubmap`; when it is
- * "undetermined" both REIT metric families are withheld (WS5, D-16).
+ * "undetermined" both REIT metric families are withheld (D-16).
  */
 export function metricPolicy(
   route: SectorRoute | CompanyRoute | (CompanyRoute & { reitSubmap?: ReitSubmap | null }),
@@ -1381,7 +1380,7 @@ export function degradationPlan(
   }
 
   // ---- financial-route model withholdings shared by bank / insurer / mREIT
-  // (WS5, V-10). The FCFF DCF item above names the forward model; these two name
+  // (D-16, D-17). The FCFF DCF item above names the forward model; these two name
   // the other FCFF-derived outputs, which are withheld for the same reason and
   // were previously absent from the plan even though nothing computed them.
   if (route === "bank" || route === "insurer" || route === "reit-mortgage") {
@@ -1407,7 +1406,7 @@ export function degradationPlan(
     );
   }
 
-  // ---- REIT sub-map undetermined (WS5, D-16)
+  // ---- REIT sub-map undetermined (D-16)
   if (route === "reit" && reitSubmap === "undetermined") {
     items.push({
       target: "valuation.reit",

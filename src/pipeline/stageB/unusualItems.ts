@@ -2,7 +2,7 @@ import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts, type FactPoint } f
 import type { ExtractedSection } from "@/pipeline/types";
 
 /**
- * Audit item 15 (FCX-9) with AMZN audit 2026-10-20 finding 5: tagged items
+ * D-98: tagged items
  * inside operating income that do not recur, removed from the operating
  * income that seeds the DCF margin in both directions. Gains are reported
  * positive by their tags; charges are reported positive and lower operating
@@ -16,8 +16,8 @@ export interface UnusualOperatingItems {
   value: number;
   components: { tag: string; value: number }[];
   /**
-   * Tags with an amount the filings don't place inside the window (Codex
-   * review of PR #41): a fiscal-year amount with no filed prior year to date,
+   * Tags with an amount the filings don't place inside the window (D-98): a
+   * fiscal-year amount with no filed prior year to date,
    * or the reverse. None of such a tag is removed.
    */
   withheld: { tag: string; reason: string }[];

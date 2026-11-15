@@ -1,11 +1,10 @@
 /**
- * Keep what a cut-off structured response already wrote.
+ * Keep what a cut-off structured response already wrote (D-111).
  *
- * The ChatGPT plan endpoint closes any single response at 15 minutes. Every
- * long judge failure on record ended at exactly 15.0 minutes (META, JPM and
- * MSFT twice, 2026-10-12), and the retry asked for the whole report again, so
- * it could run into the same wall: fifteen minutes of streamed output were
- * discarded each time.
+ * The ChatGPT plan endpoint closes any single response at 15 minutes. A long
+ * judge response cut at that limit, retried by asking for the whole report
+ * again, could run into the same wall and discard fifteen minutes of streamed
+ * output each time.
  *
  * A JSON object streams in key order, so a cut-off response usually holds a
  * run of complete top-level sections followed by one unfinished one. The

@@ -13,7 +13,7 @@ import { statementEquityOwnershipBasis } from "./stageBAdapters";
 import { isoDay, num } from "./bundleRows";
 
 /**
- * Payout ratio for the excess-return model (2026-07-09 audit L4):
+ * Payout ratio for the excess-return model (P10: never a house payout):
  * (common dividends + net buybacks) / net income per fiscal year, averaged over
  * the latest 3 annual cash-flow rows with POSITIVE net income, clamped to
  * [0, 100]. FMP signs: commonDividendsPaid / commonStockRepurchased are
@@ -74,7 +74,7 @@ export function noncontrollingOwnershipUnresolvedAt(row: FmpBalanceSheetRow | nu
  * Why the DCF bridge cannot be built on this row (the refusal test, the gate's ownership test, or a lease or
  * temporary-equity refusal the DCF raises on the row it reads); null when it can. The DCF reads the bridge row for the
  * sales-to-capital lease scope, the bridge's lease integrity and scope, and the temporary-equity operands, so the row
- * choice must refuse the same rows (B4a final review I-2): a refused candidate or anchor keeps main's row, never cured
+ * choice must refuse the same rows (D-135): a refused candidate or anchor keeps main's row, never cured
  * by another date.
  */
 function balanceRowBlockReason(row: object, includeLeases = false): string | null {
@@ -107,14 +107,13 @@ export interface BalanceAnchor<TRow> {
 
 /**
  * The valuation's point-in-time balance row: the NEWER of the latest quarterly
- * and annual whole rows (audit H2/M3/M4 — fields are never mixed across
- * periods), unless that newer row lacks one of the fields the anchors read
- * while the older row carries all three. Caterpillar's 10-Q balance sheet
- * tags no us-gaap debt line at all (its 10-K carries the debt through the
- * maturity schedule), so the newest row had equity and cash but no
- * totalDebt, invested capital was undefined and the DCF, net debt and EV
- * multiples were suppressed while a complete fiscal-year row sat one period
- * back. A stale-but-whole row is the disclosed compromise: the fallback is a
+ * and annual whole rows (P1, P2 — fields are never mixed across periods),
+ * unless that newer row lacks one of the fields the anchors read while the
+ * older row carries all three. A 10-Q balance sheet can tag no us-gaap debt
+ * line at all (the 10-K carrying the debt through the maturity schedule), so
+ * the newest row would have equity and cash but no totalDebt, invested capital
+ * undefined and the DCF, net debt and EV multiples suppressed while a complete
+ * fiscal-year row sits one period back. A stale-but-whole row is the disclosed compromise: the fallback is a
  * valuation note and an info gap. When no row is whole the newest stands.
  */
 export function pickBalanceAnchor<TRow extends { date?: unknown } & Partial<Record<(typeof BALANCE_ANCHOR_FIELDS)[number], unknown>>>(
@@ -151,7 +150,7 @@ export function pickBalanceAnchor<TRow extends { date?: unknown } & Partial<Reco
 export type BridgeRowCause = "statement-row" | "none-filed" | "incomplete" | "statement-row-refused" | "anchor-refused";
 
 /**
- * FIN-103: the balance row the DCF equity bridge reads. D-65 promises "the
+ * D-135: the balance row the DCF equity bridge reads. D-65 promises "the
  * equity bridge stays at the statement-date balance", but the market EV's
  * anchor (`pickBalanceAnchor`: the newest row, or the newest whole one when the
  * newest lacks an operand) ignores the DCF's income basis, so a DCF that fell

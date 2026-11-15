@@ -24,7 +24,11 @@ export interface DcfRunOptions {
   minorityInterest?: number | null;
   /** Preferred equity — same treatment as minority interest above. */
   preferred?: number | null;
-  /* D-102: Apply the established noncontrolling earnings key consistently in the common-equity bridge. */
+  /**
+   * D-102 (NCI on the earnings key): NCI's share of trailing consolidated profit (a fraction). Above
+   * NCI_EARNINGS_KEY_MATERIALITY_PCT, the bridge deducts NCI at this share of consolidated equity
+   * value whenever that exceeds the book `minorityInterest`. Omit/null ⇒ the book deduction.
+   */
   noncontrollingEarningsShare?: number | null;
   /** D-102: the end of the period the share was measured over, for the disclosure. */
   noncontrollingEarningsAsOf?: string | null;
@@ -59,7 +63,14 @@ export interface TemporaryEquityDisclosure {
   basis: string;
 }
 
-/* D-135, D-65, D-98: Deduct established senior claims once on the same basis as the enterprise value. */
+/**
+ * D-65: a non-operating asset added by the equity bridge at filed carrying
+ * or fair value. An investment-tax line is negative: the tax on selling the
+ * other holdings (D-98). A debt-like-obligation line is also negative: a
+ * filed retirement, environmental, pension/OPEB, loss-contingency or
+ * contingent-consideration liability, after tax at the D-98 marginal rate
+ * (filed amount times one minus that rate; D-104/D-135).
+ */
 export interface NonOperatingAssetComponent {
   kind: "marketable-equity-securities" | "long-term-investments" | "investment-tax" | "debt-like-obligation";
   label: string;
@@ -175,19 +186,25 @@ export interface DcfResult {
   yearRows: DcfYearRow[];
   notes: string[];
   gaps: ManifestEntry[];
-  /* D-102: Withhold per-share outputs and reruns when the DCF fails its domain tests. */
+  /**
+   * D-102 (DCF domain tests): set only when the base DCF failed a domain test. `perShare` is then
+   * null; the model's own figure is kept here for the record.
+   */
   domain?: DcfDomainFailure;
-  /* D-102: Apply the established noncontrolling earnings key consistently in the common-equity bridge. */
+  /**
+   * D-102 (NCI on the earnings key): set only when the per-share value was withheld because NCI's
+   * earnings key is unestablished (no other gate had withheld it).
+   */
   noncontrollingKeyWithheld?: string;
   /**
    * D-135: set only when the per-share value was withheld because a temporary-equity claim is
-   * refused, or an unsplit total meets the earnings key earnings key (no earlier gate had withheld
+   * refused, or an unsplit total meets the NCI earnings key (D-102; no earlier gate had withheld
    * it).
    */
   temporaryEquityWithheld?: string;
 }
 
-/* D-102: Withhold per-share outputs and reruns when the DCF fails its domain tests. */
+/** A domain test the base DCF failed (D-102). */
 export interface DcfDomainTest {
   test: "equity-value-non-positive" | "terminal-share-above-100pct";
   detail: string;
@@ -201,7 +218,14 @@ export interface DcfDomainFailure {
   reason: string;
 }
 
-/* D-102: Withhold per-share outputs and reruns when the DCF fails its domain tests. */
+/**
+ * D-102 (DCF domain tests): an FCFF DCF is outside its domain when its equity value is at or below
+ * zero (enterprise value at or below net debt and the senior claims), or when its terminal value is
+ * more than all of enterprise value (explicit-period present value below zero, so the explicit
+ * forecast destroys value and the terminal year alone carries it). Either way the per-share figure
+ * describes the balance sheet or the Gordon year, not the operating business. Returns null when the
+ * DCF is inside the domain.
+ */
 export function dcfDomainFailure(dcf: DcfResult): DcfDomainFailure | null {
   const failures: DcfDomainTest[] = [];
   if (isNum(dcf.equityValue) && dcf.equityValue <= 0) {
@@ -297,7 +321,7 @@ function dcfCore(
     // which is standard DCF practice; no jurisdictional cap is modelled.
     let nopat: number;
     // Report the rate actually applied, so ebit/taxRatePct/nopat stay
-    /* D-58: Do not create a tax benefit on negative EBIT; apply the evidenced tax path to positive operating profit. */
+    // internally consistent for a reader checking the year rows.
     let effectiveTaxPct: number;
     if (ebit <= 0) {
       nopat = ebit;

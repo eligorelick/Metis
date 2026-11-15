@@ -35,7 +35,7 @@ export function extractText(message: PassMessage): string {
  * Parse pass output as JSON, salvaging the first balanced top-level JSON
  * value when the raw text doesn't parse whole. `output_config.format` should
  * guarantee pure JSON, but with web-search tools in the turn some models
- * (observed live on haiku-4-5, 2026-07-08) append prose or a second copy
+ * append prose or a second copy
  * after the JSON — discarding the whole multi-dollar pass over trailing text
  * is worse than salvaging the value and letting Zod validate it as usual.
  * Throws (JSON.parse's error) when no parseable JSON value is found.
@@ -56,9 +56,9 @@ export function parseJsonSalvaging(text: string): unknown {
  * The first top-level object plus the top-level fields written AFTER it, for
  * an output whose root was closed too early — `{"verdict":{…}}, "business":
  * {…}, …}` — or split into a second `{"business":…}` object. Salvaging only
- * the first object there throws away every later section (observed live on a
- * ChatGPT plan model, 2026-10-12: a 44 KB judge output parsed to `verdict`
- * alone and the retry was told twelve sections were missing). Fragments are
+ * the first object there throws away every later section (a long judge output
+ * would parse to `verdict` alone and the retry be told every other section
+ * was missing; P23). Fragments are
  * merged only when each is a plain object whose keys are all new, so a
  * duplicated second copy or trailing prose yields null. Callers use this only
  * as a fallback after the first object FAILED validation, so it can rescue an

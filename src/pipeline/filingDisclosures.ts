@@ -11,8 +11,7 @@ import { dividendFrequencyFromFacts, dividendFrequencyEvidenceFromFacts } from "
 /**
  * The bundle's 8-K, segment-XBRL and quarterly-statement evidence assembled
  * into the report's deterministic `filingDisclosures` block and the
- * payload's issuer-filing sections (NVDA report #34 audit, P1-1, P1-2, P1-3,
- * P0-11, P1-11).
+ * payload's issuer-filing sections (D-63).
  *
  * Currency rule: a "$" printed in an 8-K exhibit is the issuer's own
  * statement currency established for that filing's reporting period; "US$"
@@ -135,7 +134,7 @@ function releaseReportingCurrency(bundle: DataBundle, release: EarningsReleaseRe
     .filter((f) => f.months === 3).map((f) => f.periodEnd).sort().at(-1) ?? null;
   const covered = end !== null && [...rowsOf(bundle.statements?.incomeQuarterly), ...rowsOf(bundle.statements?.incomeAnnual)].some((row) => day(row.date) === end);
   if (end === null || !covered) {
-    // Audit 2026-10-22 B-27: a release whose quarter no statement row covers
+    // D-112: a release whose quarter no statement row covers
     // yet (its 10-Q is not filed or not in the statements), or that states no
     // quarter end, reports in the statements' currency when every income row
     // since before its period is established in that one currency.
@@ -186,7 +185,7 @@ function newestStatementRow(bundle: DataBundle): FmpIncomeStatementRow | undefin
 const PERIODIC_FORMS: ReadonlySet<string> = new Set(["10-Q", "10-K", "20-F", "40-F"]);
 
 /**
- * Audit 2026-10-22 B-23: the newest periodic report on file whose period ends
+ * D-112: the newest periodic report on file whose period ends
  * a quarter or more after every statement row. Where its XBRL instance was
  * read, its facts were merged into companyfacts and the statements already
  * reach it, so this is null; otherwise the statements, TTM and multiples end
@@ -207,7 +206,7 @@ export function newerPeriodicFiling(bundle: DataBundle): { filing: EdgarFiling; 
 }
 
 /**
- * Audit 2026-10-22 B-24: the newest results release reporting a period later
+ * D-112: the newest results release reporting a period later
  * than the newest statement period. Statements come from XBRL filings, so a
  * quarter whose results 8-K is out before its 10-Q is in no statement, TTM or
  * multiple. The period is the release's stated quarter end, else its fiscal
@@ -405,7 +404,7 @@ function forwardGuidance(item: GuidanceItem, releases: readonly EarningsReleaseR
 }
 
 /**
- * Audit 2026-10-22 B-25: a revenue outlook lies within 0.2-5x the revenue of the
+ * D-100 (guidance ranges): a revenue outlook lies within 0.2-5x the revenue of the
  * latest quarter its release could see (a full-year outlook within 0.2-5x four
  * such quarters). Outside that band the release reader lost or misread a scale
  * ("$73" for "$73-76 billion"), so the guide is left out of the DCF anchor, the
@@ -438,7 +437,7 @@ function guidanceRows(items: readonly GuidanceItem[], currency: string | null, s
     if (item.unit !== "%" && item.unit !== "percentage-points") {
       const itemCurrency = symbolCurrency(item.symbol, sourceCurrency);
       if (itemCurrency === null || itemCurrency !== currency) {
-        // Audit 2026-10-22 B-27: an unestablished currency is not a mismatch.
+        // D-112: an unestablished currency is not a mismatch.
         notes.push(`Guidance for ${item.period.label} ${item.metric} printed in "${item.symbol ?? "no symbol"}" was left out: ${itemCurrency === null
           ? `its currency is not established${currency === null ? "" : ` (the statements report in ${currency})`}`
           : `that currency (${itemCurrency}) is not the statements' (${currency ?? "unestablished"})`}.`);
@@ -563,14 +562,14 @@ function revenueBasis(row: FmpIncomeStatementRow | undefined): { restated: Reven
 }
 
 /**
- * FIN-511-V1 (OD-6): a growth cell divides two quarters on one filed
+ * D-134: a growth cell divides two quarters on one filed
  * presentation. Where the comparison quarter was re-presented after the printed
  * quarter's own supplying filing, the cell divides by its first-reported copy
  * when that copy is on the printed quarter's basis; where the printed quarter
  * was re-presented after the comparison's supplying filing, and nothing
  * re-presents the comparison, there is no rate; where the printed quarter's
  * filing re-presented earlier periods and the comparison's earlier filing did
- * not (Task 7's rule (b)), there is no rate either. Rows without provenance or
+ * not, there is no rate either. Rows without provenance or
  * flags (the FMP route) take plain arithmetic.
  */
 function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow | undefined, label: "YoY" | "QoQ", currency: string, defaultSource = "fmp"): { pct: number | null; note: string | null } {
@@ -599,7 +598,7 @@ function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow
     const re = a.restated.restatedFiling;
     return { pct: null, note: `${label} not shown: ${aEnd} was re-presented in ${re.form} ${re.filed} and no filing re-presents ${bEnd}, so the two quarters are on different presentations.` };
   }
-  // Task 7's rule (b) applied to the pair: the printed quarter's filing re-presented earlier periods of the concept
+  // D-134 applied to the pair: the printed quarter's filing re-presented earlier periods of the concept
   // and the earlier filing that supplies the comparison did not, so the two quarters sit on different presentations.
   // Equal dates, both re-presenting, or neither leave the cell alone. A row without the marker keeps plain arithmetic.
   if (a.presentation !== null && b.presentation !== null && b.presentation.filed < a.presentation.filed && a.presentation.represented && !b.presentation.represented) {
@@ -611,9 +610,9 @@ function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow
   return plain;
 }
 
-/** `checked` is set when a shown quarter carries the builder's `revenuePresentation`, i.e. `oneBasisGrowth` could run (Task 9b). */
+/** `checked` is set when a shown quarter carries the builder's `revenuePresentation`, i.e. `oneBasisGrowth` could run (D-134). */
 function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, notes: string[], flags: { presentationChecked: boolean }): FilingDisclosures["quarterlyTrend"] {
-  // Integration review (R2): the trend notes only the quarterly rows it shows
+  // D-159: the trend notes only the quarterly rows it shows
   // (an annual row on the same date is not one of them), once per row.
   const withheldOperating = new Map<string, string[]>();
   {
@@ -745,10 +744,9 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
       }),
     };
   });
-  // Integration review (R2): one column, one stated basis. A provider subtotal
-  // beside rows built from SEC filings mixes two bases (FIGR: three provider
-  // cells among SEC-built quarters with none); state the provider basis when
-  // it is the only one shown.
+  // D-159: one column, one stated basis. A provider subtotal beside rows built
+  // from SEC filings mixes two bases (a few provider cells among SEC-built
+  // quarters); state the provider basis when it is the only one shown.
   const providerDates = trend.filter(t => t.operatingExpenses !== null && income.get(t.periodEnd)?.fieldProvenance?.operatingExpenses === undefined)
     .map(t => t.periodEnd);
   if (providerDates.length > 0 && shown.some(d => income.get(d)?.source === "edgar")) {
@@ -874,11 +872,11 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
   const indicatedFrequency=capital?.dividendPerShare?.frequency ?? frequencyEvidence?.frequency ?? null;
   // Reuse the strict issuer / primary-document / filing-date admission used
   // for quarterly segment facts. A retained dated MD&A balance is evidence
-  // even when the earnings release did not repeat it. AMZN audit 2026-10-20
-  // finding 20: the notes are read too, and "we have $X remaining under" is
-  // the issuer's sentence as much as "$X remained under". Amazon states its
-  // authorization only in the equity note, so the report showed the $6.1B
-  // from the notes and also said no authorization was read from the filings.
+  // even when the earnings release did not repeat it. D-99 (report wording):
+  // the notes are read too, and "we have $X remaining under" is the issuer's
+  // sentence as much as "$X remained under". An issuer that states its
+  // authorization only in the equity note must not be reported as having no
+  // authorization read from the filings.
   const authorizationSections = [segmentPrimarySection(bundle), segmentPrimarySection(bundle, "notes"), segmentPrimarySection(bundle, "annual-mdna"), segmentPrimarySection(bundle, "annual-notes")].filter((s): s is NonNullable<typeof s> => s !== null);
   // Group each filing separately; a newer dated authorization supersedes an
   // earlier one without mixing sentences or reporting periods across filings.
@@ -973,11 +971,11 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
     if (axis.residualCells > 0) notes.push(residualNote(axis.axisLabel, axis.residualCells));
   }
   if (reports) {
-    // R1 (FIGR paid audit): an outlook statement the parser could not read as
-    // structured guidance is still the issuer's guidance. Each retained
-    // release's statements reach the passes with their filing and period,
-    // outside the diagnostic-note cap: the May release's "Q2 2026 Guidance ...
-    // $3.8 - $4.1" was the seventh note and the first six were kept.
+    // D-156: an outlook statement the parser could not read as structured
+    // guidance is still the issuer's guidance. Each retained release's
+    // statements reach the passes with their filing and period, outside the
+    // diagnostic-note cap, so a guidance line ("Q2 2026 Guidance ... $3.8 -
+    // $4.1") is never cut because earlier notes filled the cap.
     for (const release of releases) {
       const period = release.reported.fiscal?.label ?? (release.reported.periodEnd !== null ? `the period ended ${release.reported.periodEnd}` : null);
       for (const sentence of release.guidance?.unparsed ?? []) {

@@ -178,7 +178,7 @@ export interface PassDeps<TPayload = unknown> {
   effort?: EffortLevel;
   payload: TPayload;
   /**
-   * WS7 (D-20): per-job seed for the judge's bull/bear presentation order. The
+   * D-20: per-job seed for the judge's bull/bear presentation order. The
    * runner passes the job id, so the order is random across reports and exactly
    * reproducible within one — a resume, a judge retry and the pre-launch request
    * validation all draw the same order. Optional so mocks may omit it; Stage C
@@ -295,7 +295,7 @@ export interface PipelinePasses<TPayload = unknown> {
   ): Promise<PassResultLike<AnalystCase>>;
 
   /**
-   * Audit 2026-10-22 D-3: split the sections kept from a cut-off response
+   * D-111: split the sections kept from a cut-off response
    * into those that validate on their own and those the retry must write
    * again (a kept section overrides the retry's copy, so a bad one would fail
    * the merged output by construction). Optional: without it every kept
@@ -366,7 +366,7 @@ export interface AssembleReportInput {
   verificationLog?: unknown;
   costBreakdown: { step: string; model: string; costUsd: number }[];
   /**
-   * WS7 (D-20): the payload object identity the passes keyed their per-job
+   * D-20: the payload object identity the passes keyed their per-job
    * records on, so the unverified-fallback assembly can still recover the judge
    * order/length protocol the judge pass recorded. Opaque to the runner.
    */

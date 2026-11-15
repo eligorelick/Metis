@@ -127,7 +127,7 @@ export interface KeylessInputs {
   /** No FMP key configured → the substitution gaps are `expected`. */
   fmpKeyless: boolean;
   /**
-   * WS4 (D-12) statement-history policy, from `METIS_STATEMENT_SOURCE`:
+   * D-12 statement-history policy, from `METIS_STATEMENT_SOURCE`:
    *  - `auto`: FMP first, then EDGAR companyfacts for periods older than the
    *    oldest FMP row (a plan that caps `limit` truncates history);
    *  - `fmp`: never backfill;
@@ -156,12 +156,12 @@ export interface KeylessInputs {
     registrant: EdgarRegistrant | null;
     companyFacts: FetchResult<CompanyFacts>;
     /**
-     * WS4 (D-14): a successor registrant's predecessor and its facts, when the
+     * D-14: a successor registrant's predecessor and its facts, when the
      * bundle resolved one. Optional so a caller that never looks for one (and
      * every existing test) keeps working unchanged.
      */
     predecessor?: PredecessorFacts | null;
-    /** Audit 2026-10-22 B-23: the newer filings merged into `companyFacts` from their instances. */
+    /** D-112: the newer filings merged into `companyFacts` from their instances. */
     companyFactsInstances?: CompanyFactsInstances;
   };
   yahoo: YahooClient;
@@ -380,7 +380,7 @@ export function sharePointOnOrBefore<P extends { asOf: string }>(points: readonl
 }
 
 /**
- * D-267 review: the date of the share observation a derived market-cap row multiplied its close by. A row written since
+ * D-267: the date of the share observation a derived market-cap row multiplied its close by. A row written since
  * D-267 carries it (`sharesAsOf`); an earlier stored row is resolved from the same filed share series by the same
  * selection, so the answer is the count that row actually used. Null when no share observation exists.
  */
@@ -391,7 +391,7 @@ export function derivedMarketCapShareDate(row: { date?: string; sharesAsOf?: str
   return sharePointOnOrBefore(sharesOutstandingSeries(facts).points, date)?.asOf ?? null;
 }
 
-/** D-267 review: whether a market-cap history row (or its whole series) was derived from closes and filed share counts. */
+/** D-267: whether a market-cap history row (or its whole series) was derived from closes and filed share counts. */
 export function isDerivedMarketCapRow(row: object, endpoint: string | null): boolean {
   return (row as { source?: unknown }).source === "computed" || (endpoint !== null && endpoint.startsWith("derived:market-cap("));
 }
@@ -472,9 +472,9 @@ function vendorSharePeriodStart(row: FmpStatementRow, context: PrimaryShareRecon
 }
 
 /** What the registrant's SEC ticker list says about the vendor's share unit
- * (review M-1). One listed symbol: the vendor's ordinary-share unit is the
- * filer's. Several symbols (a second class such as BRK.A beside BRK.B, FIGR's
- * FGRS, or preferred series): the unit must first be shown by the data. An
+ * (D-234). One listed symbol: the vendor's ordinary-share unit is the
+ * filer's. Several symbols (a second class beside the first, another listed
+ * class, or preferred series): the unit must first be shown by the data. An
  * ADR, an unknown listing or a blank symbol: not established. */
 function registrantShareUnit(context: PrimaryShareReconciliation | undefined): "listed" | "to-establish" | null {
   if (!context) return null;
@@ -556,8 +556,8 @@ function splitOpen(splits: StockSplits, basisDay: string, date: string) {
 /**
  * True when some comparable no-split period of `rows` shows the vendor's
  * weighted-average count (basic or diluted) in the filer's unit, within
- * `VENDOR_SHARES_TOLERANCE` (review M-1). A class-unit difference such as
- * Berkshire's 1,500-to-1 never agrees, so such an issuer is not compared.
+ * `VENDOR_SHARES_TOLERANCE` (D-234). A class-unit difference such as
+ * 1,500-to-1 between classes never agrees, so such an issuer is not compared.
  */
 function vendorShareUnitShown(rows: readonly FmpRawRow[], splits: StockSplits, basisDay: string,
   reconciliation: PrimaryShareReconciliation | undefined): boolean {
@@ -577,8 +577,8 @@ function vendorShareUnitShown(rows: readonly FmpRawRow[], splits: StockSplits, b
 /**
  * With several listed symbols, the vendor's share unit is its convention for
  * the listing, not for one period type: a series that shows it governs the
- * other too (review M-1; FIGR's FY2025 vendor counts are twice the 10-K's,
- * while its 2026 quarters match the 10-Qs). One rule for the producer and for
+ * other too (D-234: a vendor's annual counts can be a multiple of the 10-K's
+ * while its quarters match the 10-Qs). One rule for the producer and for
  * the calculation view's filed admission (`withFiledShareValues`, D-234): a
  * view that asked each series alone left the annual row uncompared. False for
  * a registrant with one listed symbol, an ADR or an unknown listing, whose
@@ -814,7 +814,7 @@ function coverSharePoints(facts: CompanyFacts): SharePoint[] {
  * (`BuiltStatements.shares` exposes only the latest point), oldest first.
  *
  * The dei cover-page concept comes first, and `us-gaap:CommonStockSharesOutstanding`
- * is the fallback: a per-class reporter (GOOGL, BRK.B, FOXA) files its cover
+ * is the fallback: a per-class reporter (several listed share classes) files its cover
  * counts DIMENSIONED by share class, companyfacts carries no dimensional facts,
  * so the dei concept is absent for them entirely while the non-dimensional
  * balance-sheet total — all classes combined — is present. Without the fallback
@@ -932,7 +932,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     member !== "spy" && member !== "sectorEtf";
 
   /**
-   * WS4 (D-12): `METIS_STATEMENT_SOURCE=edgar` rebuilds the six statement
+   * D-12: `METIS_STATEMENT_SOURCE=edgar` rebuilds the six statement
    * members from companyfacts even when FMP served rows, so a reader who
    * distrusts the vendor's normalisation can run on filed facts alone. It never
    * lifts the issuer gate.
@@ -974,7 +974,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       // A configured source choice is structural on any plan; an FMP shortfall
       // is structural only on a keyless plan, or when FMP itself marked the
       // refusal expected (a subscription that never serves this endpoint or
-      // symbol, audit 2026-10-22 F-1/F-13).
+      // symbol, D-111).
       expected: overridden > 0 || inputs.fmpKeyless || subscriptionRefused(inputs.fmp[member] as AnyMemberResult),
     });
   };
@@ -1393,7 +1393,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     });
     if (older.length === 0) return;
     const olderDates = older.map((row) => isoDay(row["date"]) as string).sort();
-    // N9: the merged payload keeps the VENDOR's envelope (its `asOf` is still
+    // the merged payload keeps the VENDOR's envelope (its `asOf` is still
     // the newest datum, because only OLDER periods were appended), so each
     // backfilled row carries the fetch that actually produced it rather than
     // inheriting a fetched-at it was never part of.
@@ -1469,8 +1469,8 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   // reader that every multi-year figure measures only the successor's own
   // filing history while that history was in fact present and complete.
   // Judged on the facts companyfacts itself carried, as `resolvePredecessor`
-  // judged them: a newer filing merged from its instance (audit 2026-10-22
-  // B-23) is one period, not the history the second hop looked for.
+  // judged them: a newer filing merged from its instance (D-112) is one
+  // period, not the history the second hop looked for.
   const successorCarriesOwnHistory = inputs.edgar.companyFacts.ok && hasOwnAnnualHistory(
     inputs.edgar.companyFacts.value.data,
     new Set((inputs.edgar.companyFactsInstances?.merged ?? []).filter(filing => filing.carryingOnly !== true).map((filing) => filing.accession)),
@@ -1513,7 +1513,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   }
   if (predecessor !== null && inputs.edgarConfirmedIssuer && inputs.statementSource !== "fmp") {
     const predecessorBuilt = buildStatementsFromCompanyFacts(predecessor.facts, { ...buildOptions(predecessor.cik10), factsObservedAt: predecessor.fetchedAt });
-    // Audit 2026-10-22 B-36: when the successor's own filing re-presents the
+    // D-112: when the successor's own filing re-presents the
     // predecessor's periods unchanged, the two are one reporting entity, and
     // each predecessor row names the successor as its economic issuer so a
     // trailing twelve months may span the reorganization.
@@ -1548,7 +1548,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
             ...row,
             source: "edgar",
             sourceEndpoint: endpoint,
-            // N9: appended into another payload's envelope, so each row names
+            // appended into another payload's envelope, so each row names
             // the fetch that actually produced it.
             sourceFetchedAt: predecessor.fetchedAt,
             predecessor: true,
@@ -1656,7 +1656,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     }
   }
 
-  // N3: a conflict is resolved only by an entire canonical SEC row, including
+  // a conflict is resolved only by an entire canonical SEC row, including
   // its per-share fields. The original vendor response remains in data.raw.
   if (inputs.statementSource === "auto" && built !== null && inputs.edgar.companyFacts.ok) {
     const facts = inputs.edgar.companyFacts.value.data;
@@ -1688,7 +1688,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         isFiniteNumber(row.grossProfit) && isFiniteNumber(row.operatingExpenses) &&
         vendorAgreesWithDerived(row.operatingIncome, row.grossProfit - row.operatingExpenses, [row.grossProfit, row.operatingExpenses]);
     };
-    // D-155 review: the standard derived quarter (fiscal year less nine months, or
+    // D-155: the standard derived quarter (fiscal year less nine months, or
     // a year-to-date difference) is a whole filed row on its canonical lineage:
     // each operand is the current period of its own filing and the earlier
     // year-to-date was filed no later than the total. A quarter derived from
@@ -1889,7 +1889,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     ? built!.filesTwentyF
     : registrant?.forms.some((form) => form.trim().startsWith("20-F") || form.trim().startsWith("40-F")) ?? false;
   // A 20-F filer's quote may be a depositary share while its cover count is of
-  // ordinary shares (TSM: 1 ADS = 5 shares), and no filed fact read here
+  // ordinary shares (one ADS can be several shares), and no filed fact read here
   // states the ratio. Price × count is then not a market capitalization, for
   // the latest count and for every derived history day alike. A 40-F filer is
   // a Canadian MJDS issuer whose quoted security is its common share.
@@ -2161,7 +2161,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         withheldReasons.add(onBasis.withheld);
         continue;
       }
-      // D-267 review: the share observation's own date travels with the row (value unchanged), so a consumer that pairs
+      // D-267: the share observation's own date travels with the row (value unchanged), so a consumer that pairs
       // the row with a date can tell a count observed after the price day (`sharePointOnOrBefore`'s earliest fallback).
       derived.push({ symbol: inputs.symbol, date, marketCap: bar.close * onBasis.value, sharesAsOf: point.asOf, ...extra });
     }
@@ -2456,10 +2456,10 @@ export function bankStatementRouting(registrant: Pick<EdgarRegistrant, "sic"> | 
 /**
  * Why a companyfacts payload that parsed still built no statement rows. Two
  * situations account for it among listed issuers and neither is a data
- * outage: a foreign private issuer reporting under IFRS (TSMC's 20-F facts
- * sit in the ifrs-full namespace; the builder reads us-gaap only) and a
- * successor registrant (ExxonMobil Holdings Corp, July 2026) whose
- * predecessor's history sits under a CIK EDGAR does not link. Appended to the
+ * outage: a foreign private issuer reporting under IFRS (its 20-F facts sit in
+ * the ifrs-full namespace; the builder reads us-gaap only) and a successor
+ * registrant (a new holding company, D-14) whose predecessor's history sits
+ * under a CIK EDGAR does not link. Appended to the
  * "no rows" reason so the manifest names the cause rather than the symptom.
  */
 function describeEmptyStatements(facts: CompanyFacts | null, registrant: EdgarRegistrant | null): string {

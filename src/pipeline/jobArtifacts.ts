@@ -116,8 +116,8 @@ export interface SerializedPassFailure {
   rejectedText?: string;
   /**
    * How a rejected response ended: stop reason, content-block counts, text size
-   * and output tokens. Both paid FIGR runs' first bull answer was a near-empty
-   * case after tens of thousands of output tokens, and nothing durable said why.
+   * and output tokens, so a near-empty case after tens of thousands of output
+   * tokens leaves a durable record of why (P24).
    */
   responseShape?: string;
 }
@@ -158,7 +158,7 @@ export interface PersistPassSettlementInput<T> extends PassArtifactIdentity {
   settledAt?: string;
   /**
    * The instant a presumed cost row is dated at: its lease's acquisition, the
-   * day Anthropic's reported total can hold the charge (JOB-203). Actual rows
+   * day Anthropic's reported total can hold the charge (D-119). Actual rows
    * keep `settledAt`.
    */
   presumedDatedAt?: string;
@@ -549,7 +549,7 @@ function singleSuccessfulArtifact(
   if (successes.length !== 1) return null;
   const success = successes[0]!;
   const fingerprint = success.envelope.payloadFingerprint;
-  // Verify is a schema-valid final report, so Task 20's explicit null legacy
+  // Verify is a schema-valid final report, so the explicit null legacy
   // compatibility remains safe. Every artifact that can feed paid downstream
   // work must instead carry a known, nonblank payload provenance cohort.
   if (pass === "verify") {
