@@ -55,7 +55,7 @@ P19/P22; release R6. The numeric verifier already compares the named registry re
 
 Filed example: JPM fiscal 2025 loans / deposits comes from `us-gaap/FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss` and `us-gaap/Deposits`, 2025-12-31, 10-K accession 0001628280-26-008131. The full ratio is 55.049974211900036%; its direct one-decimal rendering is 55.0%. The submitted 55.05% renders as 55.1% and loses its checkmark. The number is retained and visibly unconfirmed; the full-precision filed calculation remains available. Regression cases cover positive/negative values on both sides of the boundary and exact/ordinary matching controls.
 
-Stamps for D-304-D-306: report 1.98.0, payload 1.111.0, pipeline stage-c-1.6.52 and Stage B READER_PRECISION_84. Score bands and valuation methods remain unchanged. The synthetic sample and both frozen current records are refreshed with explicit scopes.
+Stamps for D-304-D-306: report 1.99.0, payload 1.112.0, pipeline stage-c-1.6.53 and Stage B RELEASE_LEFTOVERS_85 (renumbered above D-300 at merge). Score bands and valuation methods remain unchanged. The synthetic sample and both frozen current records are refreshed with explicit scopes.
 
 
 Replay approval against main `555f7d6f466eec10e635ee5857e5b51ee3539669`: all 33 cases completed, 231 report files compared; 264 artifact/fingerprint differences. The complete JSON comparison has 119 Stage B leaves and 260 report leaves. Every changed leaf belongs to one of these classes (the corresponding payload, Markdown, audit, print and app changes are their serialization):
@@ -71,7 +71,7 @@ Replay approval against main `555f7d6f466eec10e635ee5857e5b51ee3539669`: all 33 
 | D-305 `competitive.moatGraded.keyNumbers[*].definition`, `verdict.gradeStrip.moat.keyNumbers[*].definition`, `scores.aspects.moat.drivers[*].definition` | FIGR/JPM/BAC: both level and floor gain the existing definition. PGR/MET: level gains it. JPM fixed analyst: both score drivers gain it. Every return is unchanged. |
 | D-304 `balanceSheet.graded.keyNumbers[3].verified`, added verification note, `appendix.verificationLog[70]` outcome/note/reason/traceKind/validationStatus | JPM fixed analyst only: verified/supported/computed-derived/validated → unverified/value-mismatch/untraced/contradicted; printed figure retained, check removed. This is the complete claim-status change list; no prose status changes. |
 | D-304 numeric coverage supported/rate and verificationRate in `meta` and `appendix` | JPM fixed analyst only: 153/156 → 152/156 (98.0769% → 97.4359%). All other coverage figures unchanged. |
-| Version stamps and resulting hashes | All 33 reports: spec 1.97.0 → 1.98.0, pipeline 1.6.51 → 1.6.52; all payload versions/fingerprints advance. |
+| Version stamps and resulting hashes | All 33 reports: spec 1.98.0 → 1.99.0, pipeline 1.6.52 → 1.6.53; all payload versions/fingerprints advance. |
 
 The 19 DCF cases are AMZN, MU, NVDA, QCOM, TSM, LLY, WMT, XOM, CAT, KO, UNH, DIS, UNP, NVO data-only plus AMZN, MU, NVDA, LLY #65 and TSM #66 fixed analyst. The 26 P/FCF cases are every panel case except FIGR, JPM, PGR, VKTX, BAC, MET data-only and JPM fixed analyst. Case names in this table refer to the fixed 33-case panel; LLY #63/#65 fixed analyst are separately retained.
 
