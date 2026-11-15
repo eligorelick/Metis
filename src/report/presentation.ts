@@ -93,6 +93,29 @@ export function withModelProseMarks(report: Report): Report {
   return next;
 }
 
+/**
+ * D-308 review round 1 (P18, P22): the statements of a report the AI wrote, recorded once when a surface prepares the
+ * report (like the verification-mark index), so display code can show the AI's words as written. A data-only
+ * report's statements are written by code and are not recorded.
+ */
+const modelWrittenClaims = new WeakSet<object>();
+
+export function indexModelWrittenClaims(report: Report): void {
+  if (!isModelWrittenReport(report)) return;
+  const visit = (node: unknown): void => {
+    if (node === null || typeof node !== "object") return;
+    if (Array.isArray(node)) { for (const child of node) visit(child); return; }
+    const claim = node as Partial<SourcedClaim>;
+    if (typeof claim.text === "string" && typeof claim.source === "string" && typeof claim.label === "string") { modelWrittenClaims.add(node); return; }
+    for (const [key, value] of Object.entries(node)) if (key !== "appendix" && key !== "meta") visit(value);
+  };
+  visit(report);
+}
+
+export function isModelWrittenClaim(claim: SourcedClaim): boolean {
+  return modelWrittenClaims.has(claim);
+}
+
 /** One reminder per checked report; absence of a field note never asserts verification. */
 export function plainFigureReaderNote(report: Report): string | null {
   return report.appendix.verificationLog?.some(entry => entry.check === "plain-figure")
@@ -2120,10 +2143,11 @@ export function withoutDecisionNumbers(text: string): string {
     .replace(/\s*\(D-\d+(?:\s+disclosure)?\)/g, "");
 }
 
-export function displayProse(text: string, source?: string): string {
-  // D-308 review round 1: no amount grouping here. displayProse renders model-written prose and claims too, which are
-  // shown as written; code-written fields are grouped by the reader view (withReaderConventions) or at their row.
-  const readable = readerConventionText(withoutDecisionNumbers(text), source)
+export function displayProse(text: string, source?: string, options: { modelWritten?: boolean } = {}): string {
+  // D-308 review round 1: code-written prose has its base-unit amounts grouped; model-written prose (a paragraph
+  // carrying the "not confirmed" mark, or a claim of a report the AI wrote) is shown as written.
+  const conventions = readerConventionText(withoutDecisionNumbers(text), source);
+  const readable = (options.modelWritten === true || text.trimEnd().endsWith(MODEL_PROSE_MARK) ? conventions : readerBaseUnits(conventions))
     .replace(/(\bevidence completeness (?:was|is) )((?:0(?:\.\d+)?|1(?:\.0+)?))(?![\d%]|\.\d)/gi, (_, lead: string, value: string) => `${lead}${ratioPercentText(Number(value))}`)
     .replace(/(Self-assessed case strength[^:]*: bull )(\d)(, bear )(\d)(?!\s*(?:\/|of))/g, "$1$2 of 5$3$4 of 5");
   return readerPrecision(humanizeInlineCitations(readable), source);
@@ -2135,7 +2159,7 @@ export function displayProse(text: string, source?: string): string {
  * stays raw and retains the report's existing verification disclosures.
  */
 export function displayClaimText(claim: SourcedClaim, numbers: readonly TracedNumber[] = []): string {
-  let text = displayProse(claim.text, claim.source);
+  let text = displayProse(claim.text, claim.source, { modelWritten: isModelWrittenClaim(claim) });
   // D-294 review: name a proved quoted-share unit beside its uniquely cited count, without validating the claim.
   const shares = numbers.filter(n => n.source === claim.source && n.asOf === claim.asOf &&
     (claim.sourceId === undefined || n.sourceId === claim.sourceId) && n.definition === "ADS-equivalent shares");

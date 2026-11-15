@@ -8,7 +8,7 @@ import { readerBaseUnits, withReaderConventions } from "@/report/readerConventio
 import { SUPPORT_LEVELS, supportLevel, supportLevelText } from "@/report/supportLevel";
 import { REPORT_SPEC_VERSION } from "@/report/versions";
 import { ReportSchema, type FairValue, type Report, type TracedNumber } from "@/report/schema";
-import { consensusTables, displayClaimText, displayProse, figureRow } from "@/report/presentation";
+import { MODEL_PROSE_MARK, consensusTables, displayClaimText, displayProse, figureRow, indexModelWrittenClaims } from "@/report/presentation";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { loadTask28Fixture } from "./helpers/task28Report";
 import { readableHtml } from "./helpers/uiParityContract";
@@ -47,17 +47,33 @@ describe("raw base-unit amounts in reader text (D-308, check 3)", () => {
     expect(readerBaseUnits("cash 20261115.5")).toBe("cash 20,261,115.5");
   });
 
-  it("review round 1: model-written prose and claims are shown as written; code-written fields are still grouped", () => {
-    const text = "Revenue reached 12345678901 in FY2025, per version 1234567.123456 of the deck.";
-    expect(displayProse(text)).toBe(text);
-    expect(displayClaimText({ text, label: "FACT", source: "edgar:10-K item7", asOf: "2026-02-20" })).toBe(text);
-    // A model-written grade line keeps its digits; a code-written basis on the same report is grouped (control).
+  it("review round 1: model-written prose and claims are shown as written; code-written text is still grouped", () => {
+    const text = "Revenue reached 12345678901 in FY2025.";
+    // Code-written prose (control) is grouped; a paragraph carrying the model-prose mark is shown as written.
+    expect(displayProse(text)).toBe("Revenue reached 12,345,678,901 in FY2025.");
+    expect(displayProse(`${text} ${MODEL_PROSE_MARK}`)).toBe(`${text} ${MODEL_PROSE_MARK}`);
+    // A statement of a report the AI wrote keeps its digits; the same statement in a data-only report is code-written.
+    const modelReport = ReportSchema.parse(loadTask28Fixture());
+    modelReport.appendix.missingData = modelReport.appendix.missingData.filter(gap => gap.field !== "analysis.llm");
+    const claim = { text, label: "FACT" as const, source: "edgar:10-K item7", asOf: "2026-02-20" };
+    modelReport.business.whatTheySell = [claim];
+    indexModelWrittenClaims(modelReport);
+    expect(displayClaimText(claim)).toBe(text);
+    const dataOnly = ReportSchema.parse(loadTask28Fixture());
+    dataOnly.appendix.missingData.push({ field: "analysis.llm", reason: "no AI connection", severity: "critical" });
+    const codeClaim = { ...claim };
+    dataOnly.business.whatTheySell = [codeClaim];
+    indexModelWrittenClaims(dataOnly);
+    expect(displayClaimText(codeClaim)).toBe("Revenue reached 12,345,678,901 in FY2025.");
+    // A model-written grade line keeps its digits in the reader view; a code-written basis on the same report is grouped.
     const report = ReportSchema.parse(loadTask28Fixture());
     report.valuation.graded = { ...report.valuation.graded, oneLineWhy: "Analyst view: backlog of 12345678901 supports the case." };
     report.valuation.dcf.assumptions = [{ name: "start revenue", value: "12.35B", basis: "TTM revenue 12345678901 as of 2025-12-31" }];
     const view = withReaderConventions(report);
     expect(view.valuation.graded.oneLineWhy).toBe("Analyst view: backlog of 12345678901 supports the case.");
     expect(view.valuation.dcf.assumptions[0]!.basis).toBe("TTM revenue 12,345,678,901 as of 2025-12-31");
+    // The D-67 precision pass does not round a version number either.
+    expect(displayProse("Model deck version 1234567.123456 states the figures.")).toBe("Model deck version 1234567.123456 states the figures.");
   });
 
   it("leaves dates, accessions, identifiers, small and already-grouped numbers alone (controls)", () => {
