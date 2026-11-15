@@ -2668,7 +2668,10 @@ export function withPlainReaderFields(report: Report): Report {
     if (!node || typeof node !== "object") return;
     if (Array.isArray(node)) { node.forEach(visit); return; }
     const row = node as Record<string, unknown>;
-    if (typeof row.text === "string" && ["FACT", "ESTIMATE", "JUDGMENT"].includes(String(row.label)) && typeof row.source === "string") return;
+    // Source-linked prose (including legacy computed flags) is interpreted
+    // by stored-report readers before displayProse formats it. Preserve its
+    // recorded text for those readers, as well as for verification indexing.
+    if (typeof row.text === "string" && typeof row.source === "string") return;
     for (const [key, value] of Object.entries(row)) {
       if (["verificationLog", "meta", "sources"].includes(key)) continue;
       if (["text", "reason", "basis", "period", "note", "notes", "detail", "explanation", "withheldReason", "notApplicableReason", "verificationNote"].includes(key)) {
