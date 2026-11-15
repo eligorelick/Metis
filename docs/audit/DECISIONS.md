@@ -29,7 +29,9 @@ the report shows it only as a dated reference value. It fails when any case's va
 or when a case did not run, unless the approvals file (`--approved`, its `valueMoves` list) names that case with a
 decision id that has its own entry in this file and whose entry names the company by ticker or case id. An approval
 that matches no move also fails, so the list stays exact. 10% is the owner's number, defined once with the owner's
-reason; a move of exactly 10% passes. Nothing is recomputed: the check only reads stored values.
+reason; a move of exactly 10% passes (the move is compared after rounding to 1e-9 percentage points, so binary
+floating-point noise such as 89.60 -> 98.56 computing as 10.000000000000009% does not count). A case present in only
+one run is a move too, even when neither side shows a value. Nothing is recomputed: the check only reads stored values.
 
 **Limits.** It checks only the headline model value, not scenarios, the reverse DCF or other figures (golden:diff
 still holds every byte, and `accuracy:check` holds the filed inputs). The company match is a whole-word search of the

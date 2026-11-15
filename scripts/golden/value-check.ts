@@ -118,8 +118,10 @@ export function entryNamesCompany(entry: string, symbol: string | null, caseId: 
 }
 
 function describeMove(before: CaseSide | null, after: CaseSide | null): { movePct: number | null; move: string } {
-  const a = before?.value ?? null;
-  const b = after?.value ?? null;
+  // A case only one run has is a move even when neither side shows a value: an omitted case was not checked.
+  if (before === null || after === null) return { movePct: null, move: `case only in the ${before === null ? "after" : "before"} run` };
+  const a = before.value;
+  const b = after.value;
   if (a === null && b === null) return { movePct: null, move: "" };
   if (a === null) return { movePct: null, move: "model value appeared" };
   if (b === null) return { movePct: null, move: "model value disappeared" };
@@ -130,7 +132,10 @@ function describeMove(before: CaseSide | null, after: CaseSide | null): { movePc
   }
   if (a.value === b.value) return { movePct: 0, move: "" };
   const movePct = a.value === 0 ? (b.value > 0 ? Infinity : -Infinity) : ((b.value - a.value) / Math.abs(a.value)) * 100;
-  return { movePct, move: Math.abs(movePct) > MODEL_VALUE_MOVE_LIMIT_PCT ? `moved more than ${MODEL_VALUE_MOVE_LIMIT_PCT}%` : "" };
+  // Binary floating point turns an exact decimal 10% (89.60 -> 98.56) into 10.000000000000009; the comparison is made
+  // on the move rounded to 1e-9 percentage points, far below any stored precision, so exactly 10% passes as D-291 says.
+  const compared = Number.isFinite(movePct) ? Math.round(movePct * 1e9) / 1e9 : movePct;
+  return { movePct, move: Math.abs(compared) > MODEL_VALUE_MOVE_LIMIT_PCT ? `moved more than ${MODEL_VALUE_MOVE_LIMIT_PCT}%` : "" };
 }
 
 /**

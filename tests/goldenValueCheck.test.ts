@@ -103,6 +103,22 @@ describe("golden:value-check", () => {
     expect(status).toBe(0);
   });
 
+  it("passes a move of exactly 10% on decimal per-share values despite floating-point noise", () => {
+    expect(((98.56 - 89.6) / 89.6) * 100).toBeGreaterThan(10); // the noise the comparison must not count
+    const up = runCheck({ "acme-data-only": { symbol: "ACME", fairValue: current(89.6) } },
+      { "acme-data-only": { symbol: "ACME", fairValue: current(98.56) } });
+    expect(up.stdout).toContain("| acme-data-only | ACME | 89.6 USD/share | 98.56 USD/share | +10.00% | ok |");
+    expect(up.status).toBe(0);
+    const down = runCheck({ "acme-data-only": { symbol: "ACME", fairValue: current(518.37) } },
+      { "acme-data-only": { symbol: "ACME", fairValue: current(466.533) } });
+    expect(down.stdout).toContain("-10.00% | ok |");
+    expect(down.status).toBe(0);
+    const over = runCheck({ "acme-data-only": { symbol: "ACME", fairValue: current(89.6) } },
+      { "acme-data-only": { symbol: "ACME", fairValue: current(98.57) } });
+    expect(over.stdout).toContain("+10.01% | FAIL");
+    expect(over.status).toBe(1);
+  });
+
   it("fails a 10.1% move in either direction without an approval", () => {
     const up = runCheck({ "acme-data-only": { symbol: "ACME", fairValue: current(100) }, ...control },
       { "acme-data-only": { symbol: "ACME", fairValue: current(110.1) }, ...control });
@@ -173,8 +189,12 @@ describe("golden:value-check", () => {
     expect(error.stdout).toContain("FAIL: did not run in the after folder");
     expect(error.status).toBe(1);
     const added = runCheck({}, { "acme-data-only": { symbol: "ACME", fairValue: current(100) } });
-    expect(added.stdout).toContain("| acme-data-only | ACME | not in run | 100 USD/share | — | FAIL: model value appeared");
+    expect(added.stdout).toContain("| acme-data-only | ACME | not in run | 100 USD/share | — | FAIL: case only in the after run");
     expect(added.status).toBe(1);
+    // A withheld case omitted from one run is not mistaken for a case withheld in both.
+    const omitted = runCheck({ "reit-data-only": { symbol: "REIT", fairValue: suppressed }, ...control }, { ...control });
+    expect(omitted.stdout).toContain("| reit-data-only | REIT | none (suppressed) | not in run | — | FAIL: case only in the before run");
+    expect(omitted.status).toBe(1);
   });
 
   it("fails an approval that matches no move, so the list stays exact", () => {
