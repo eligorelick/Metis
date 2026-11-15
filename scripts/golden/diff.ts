@@ -100,7 +100,7 @@ function main(argv: string[]): void {
   const args = parseArgs(argv);
   const a = readManifest(args.before);
   const b = readManifest(args.after);
-  const approvals: Approval[] = args.approved ? (JSON.parse(fs.readFileSync(args.approved, "utf8")) as { approvals: Approval[] }).approvals : [];
+  const approvals: Approval[] = args.approved ? ((JSON.parse(fs.readFileSync(args.approved, "utf8")) as { approvals?: Approval[] }).approvals ?? []) : [];
   for (const approval of approvals) {
     if (!approval.case || !approval.file || !approval.before || !approval.after || !approval.reason?.trim()) {
       throw new Error(`malformed approval ${JSON.stringify(approval)}: case, file, before, after and a reason are required`);

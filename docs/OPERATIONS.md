@@ -576,36 +576,39 @@ Core coverage holds every Stage B and report-schema file to 85/75/85/85 (stateme
 
 ## Same-report check before a refactor
 
-`npm run golden:run` and `npm run golden:diff` show whether a code change leaves reports identical. They rebuild seventeen stored cases offline and compare two commits' output byte for byte: thirteen companies with saved run inputs. Each company gets a data-only report, and AMZN, META, MU and NVDA also get a report from their stored analyst output. For every case the harness pins the Stage B output, the Stage C payload and its fingerprint, the report JSON, the Markdown, print and audit Markdown exports, and the web page (the dossier layout) rendered from the saved-report reader. `scripts/golden/cases.json` lists the inputs by SHA-256 only.
+`npm run golden:run` and `npm run golden:diff` show whether a code change leaves reports identical. They rebuild thirty-three stored cases offline and compare two commits' output byte for byte: twenty-five companies with saved run inputs (the release panel). Each company gets a data-only report, and AMZN, META, MU, NVDA, JPM, LLY and TSM also get reports from their stored analyst output (two LLY replays: #63 and #65; JPM #64 and TSM #66). For every case the harness pins the Stage B output, the Stage C payload and its fingerprint, the report JSON, the Markdown, print and audit Markdown exports, and the web page (the dossier layout) rendered from the saved-report reader. `scripts/golden/cases.json` lists the inputs by SHA-256 only.
 
 ```powershell
-npm run golden:run -- --ref main --out tmp/golden/before
-npm run golden:run -- --out tmp/golden/after
+npm run golden:run -- --db "$env:USERPROFILE\metis-check\check.db" --ref main --out tmp/golden/before
+npm run golden:run -- --db "$env:USERPROFILE\metis-check\check.db" --out tmp/golden/after
 npm run golden:diff -- tmp/golden/before tmp/golden/after
+npm run golden:value-check -- tmp/golden/before tmp/golden/after
 ```
 
 - `--ref REF` extracts that commit with `git archive` into `tmp/golden/trees/` and runs its code. Without `--ref`, the run uses the working tree and records a hash of any uncommitted changes. Both use the installed `node_modules`; the diff notes when the two commits' `package-lock.json` differ.
-- The first run reads the inputs from a database in read-only mode (`--db FILE` or `METIS_DB_PATH` chooses it) and caches them under `tmp/golden/inputs`. They contain vendor data, so they stay local and are never committed. Pass the check database (below) with `--db "%USERPROFILE%\metis-check\check.db"`.
+- The first run reads the inputs from a database in read-only mode (`--db FILE` or `METIS_DB_PATH` chooses it) and caches them under `tmp/golden/inputs`. They contain vendor data, so they stay local and are never committed. Pass the check database (below) with `--db "$env:USERPROFILE\metis-check\check.db"`.
 - Each case runs in its own Node process. Fetch, sockets, TLS and DNS are blocked. Provider keys and `METIS_*`/`THESIS_*` settings are removed from its environment. The clock is fixed to the inputs' build time, and the time zone is UTC. A scratch database and data directory sit inside the output folder. No model is called and nothing is spent.
 - `golden:diff` exits 0 only when every case, field and file matches. Otherwise it lists each changed file, with JSON leaf paths or the start of a text diff. An intended change passes only when listed in `--approved FILE`, with its before and after hash and a reason; a file that only one run produced uses `missing` as the hash on the other side. Comparing a run from before D-246 with a later one lists each `web-classic.html` as present only on the old side (the classic layout was removed); approve those entries with `after: "missing"`.
+- `npm run golden:value-check -- tmp/golden/before tmp/golden/after` checks the one number a reader acts on. It prints every case's model value (the per-share value the report headlines, or its dated reference value) before and after, with the percentage move, and fails when any case's value moves by more than 10% either way, appears, disappears or changes unit, unless `--approved FILE` lists the case under `valueMoves` with a decision that has its own entry in `docs/audit/DECISIONS.md` naming the company by ticker or case id: `{ "valueMoves": [{ "case": "lly-data-only", "decision": "D-281", "reason": "why" }] }`. The same file can hold golden:diff's `approvals`. An approval that matches no move also fails. 10% is the owner's limit (D-291); run it after `golden:diff` whenever a model value changes, and paste its table into the pull request.
 - A run takes about 1–2 minutes on four processes (`--jobs N` changes the count; `--only id,id` picks cases). Run it twice on one commit to confirm the output repeats exactly.
-- Limits: the analyst-output cases cover only the general route. The verify step uses no fetched URLs, and the cost table is empty.
+- Limits: the analyst-output cases cover the general and bank routes, including a foreign filer with the ADR overlay. The verify step uses no fetched URLs, and the cost table is empty.
 
 Which company covers which kind of report (the route and overlays are the ones `golden:run` writes to `manifest.json`):
 
 | Case | Kind | Route and overlays |
 | --- | --- | --- |
 | AMZN, META, MU, NVDA, QCOM | Ordinary US companies | general |
+| LLY, WMT, XOM, CAT, KO, UNH, DIS, UNP | Ordinary US companies across industries (pharma, retail, energy, industrials, staples, managed care, media, rail) | general |
 | FIGR | Recent IPO | general + recent-ipo |
-| JPM | Bank | bank |
-| PGR | Insurer | insurer |
-| O | Equity REIT | reit |
+| JPM, BAC | Bank | bank |
+| PGR, MET | Insurer (property and casualty; life) | insurer |
+| O, PLD | Equity REIT (net lease; industrial) | reit |
 | DUK | Regulated utility | general + regulated-utility |
-| TSM | Foreign filer (Form 20-F, ADR) | general + adr |
+| TSM, NVO | Foreign filer (Form 20-F, ADR; TSM in TWD, NVO in DKK, both IFRS) | general + adr |
 | RIVN | Loss-making company with revenue | general + unprofitable |
 | VKTX | Pre-revenue company (no revenue in any period) | general + unprofitable + pre-revenue |
 
-**The check database.** The seven newer cases (JPM to VKTX) were captured on 2026-11-12 into the check database (TSM was captured again on 2026-11-14 so its evidence includes the 2025 Form 20-F, D-275) at `%USERPROFILE%\metis-check\check.db`. It is a copy of a backup of the app database, kept only for this check. Captures never open or write the app's real database (under `%LOCALAPPDATA%`). Without `--db`, `golden:run` reads that real database (read-only) for any input not yet cached, so pass `--db` to use the check database instead. The older ten cases' inputs are in it too, so `--db "%USERPROFILE%\metis-check\check.db"` exports all seventeen.
+**The check database.** The seven newer cases (JPM to VKTX) were captured on 2026-11-12 into the check database (TSM was captured again on 2026-11-14 so its evidence includes the 2025 Form 20-F, D-275) at `%USERPROFILE%\metis-check\check.db`. It is a copy of a backup of the app database, kept only for this check. Captures never open or write the app's real database (under `%LOCALAPPDATA%`). Without `--db`, `golden:run` reads that real database (read-only) for any input not yet cached, so pass `--db` to use the check database instead. The older ten cases' inputs are in it too, so `--db "$env:USERPROFILE\metis-check\check.db"` exports them all. The twelve release-panel cases (LLY to NVO) were captured on 2026-11-14 the same way, data-only at zero cost, after a backup of the check database (`check.db.pre-release.bak`). The four recent fixed-analyst replay inputs were copied into the check database on 2026-11-14; all 33 cases can be exported from it into a fresh local cache. XOM's filings moved to a successor registrant (CIK 2115436, Form 8-K12B filed 2026-07-01); its report reads the XBRL history of the predecessor (CIK 34088), which is also the CIK its accuracy reference uses.
 
 To add a case:
 
@@ -620,7 +623,7 @@ To add a case:
 The same-report check proves a change left reports *unchanged*; it does not prove they are *correct*. `npm run accuracy:check` compares the headline figures of every data-only case in a `golden:run` folder with the values the company filed with the SEC, and fails when a change makes any figure less accurate.
 
 ```powershell
-npm run golden:run -- --out tmp/golden/after
+npm run golden:run -- --db "$env:USERPROFILE\metis-check\check.db" --out tmp/golden/after
 npm run accuracy:check -- tmp/golden/after
 npm run accuracy:check -- tmp/golden/after --report tmp/accuracy/BASELINE.md --json tmp/accuracy/baseline.json
 ```
