@@ -17,7 +17,7 @@ import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { deriveReportCompletenessPresentation, withClassifiedDataOnlyGapCount, type ReportCompletenessPresentation } from "@/report/completeness";
 import { legacyScopeQualifications } from "@/report/legacyScopeQualifications";
-import { indexModelWrittenClaims, indexRepeatedClaims, withModelProseMarks, withPlainFigureNotes } from "@/report/presentation";
+import { indexModelWrittenClaims, indexRepeatedClaims, withPlainReaderFields, withModelProseMarks, withPlainFigureNotes } from "@/report/presentation";
 import { lenderConventionTables, withReaderConventions } from "@/report/readerConventions";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { Report } from "@/report/schema";
@@ -53,6 +53,8 @@ export const READER_PREPARATION_STEPS = {
   readerConventions: withReaderConventions,
   /** D-282: the "not confirmed" mark on model-written paragraphs and cells (presentation.ts). Runs last, after every step that matches stored text. */
   modelProseMarks: withModelProseMarks,
+  /** D-312: vocabulary for saved basis/reason/score-period fields. */
+  plainReaderFields: withPlainReaderFields,
 } as const satisfies Record<string, (report: Report) => Report>;
 
 export type ReaderPreparationStep = keyof typeof READER_PREPARATION_STEPS;
@@ -74,7 +76,7 @@ export interface SurfacePreparation {
 
 /** The export order: Markdown and print share it word for word. */
 const EXPORT_PREPARATION: SurfacePreparation = {
-  steps: ["dataOnlyGapCount", "plainFigureNotes", "gradeContract", "storedView", "valuationUseSafety", "readerConventions", "modelProseMarks"],
+  steps: ["dataOnlyGapCount", "plainFigureNotes", "gradeContract", "storedView", "valuationUseSafety", "readerConventions", "modelProseMarks", "plainReaderFields"],
   lenderTables: "before-reader-conventions",
 };
 
@@ -95,7 +97,7 @@ export const SURFACE_PREPARATION: Readonly<Record<ReportSurface, SurfacePreparat
    * Both kept as they are today; see the drift report.
    */
   web: {
-    steps: ["storedView", "readerConventions", "dataOnlyGapCount", "plainFigureNotes", "valuationUseSafety", "modelProseMarks"],
+    steps: ["storedView", "readerConventions", "dataOnlyGapCount", "plainFigureNotes", "valuationUseSafety", "modelProseMarks", "plainReaderFields"],
     lenderTables: "input",
   },
   /**

@@ -1,7 +1,11 @@
+import { readFileSync } from "node:fs";
+import { valuationAuditTables } from "@/report/auditTables";
+import { claimStatusMark, withReaderText } from "@/report/verificationMarks";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ReportView } from "@/components/report/ReportView";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { readerBaseUnits, withReaderConventions } from "@/report/readerConventions";
@@ -326,12 +330,12 @@ describe("full support only on complete evidence (D-309, check 5)", () => {
     const withheld = graded();
     withheld.appendix.missingData.push({ field: "capital.fcf.sbc", reason: "any wording", severity: "info" });
     expect(supportLevel(withheld)).toMatchObject({ level: "limited", limitations: [{ code: "fcf-after-sbc-withheld",
-      text: "stock-based compensation is not established for the latest fiscal year, so free cash flow after it is withheld" }] });
+      text: "stock-based compensation is not established for the historical annual calculation (period not recorded), so free cash flow after it is withheld" }] });
     // Controls: the same wording on another free-cash-flow field is not read as the SBC entry (it limits by its own
     // typed line), and on a non-headline field or as an expected entry it changes nothing.
     const wording = graded();
     wording.appendix.missingData.push({ field: "capital.fcf.note", reason: "stock-based compensation not disclosed; free cash flow is reported before SBC", severity: "info" });
-    expect(supportLevel(wording).limitations).toEqual([{ code: "headline-input-qualified", text: "a free-cash-flow figure is withheld or qualified" }]);
+    expect(supportLevel(wording).limitations).toEqual([{ code: "headline-input-qualified", text: "a historical free-cash-flow figure is withheld or qualified (period not recorded)" }]);
     const control = graded();
     control.appendix.missingData.push(
       { field: "capital.note", reason: "stock-based compensation not disclosed; free cash flow is reported before SBC", severity: "info" },
@@ -343,5 +347,118 @@ describe("full support only on complete evidence (D-309, check 5)", () => {
   it("states a partial grade on every surface", () => {
     const report = graded({ valuation: 0.7 });
     for (const text of surfaces(report)) expect(text).toContain("the valuation grade rests on 70.0% of the evidence that applies on this company's route");
+  });
+});
+
+describe("Step 4 period and diagnostic reader regressions (D-310, D-312)", () => {
+  it("dates historical capital refusals from their own records, never provider dataset dates", () => {
+    const report = loadTask28Fixture();
+    report.balanceSheet.graded!.keyNumbers = [];
+    report.balanceSheet.coverage.numbers = [];
+    report.meta.asOfMap["statements.balanceAnnual"] = "2025-06-30";
+    report.balanceSheet.debtProfile.numbers = [{ value: 9, unit: "currency", source: "computed.capital.netDebtToEbitda.netDebt", asOf: "2024-06-30", verified: true }];
+    report.appendix.missingData = [{ field: "capital.netDebtToEbitda", reason: "wording must not decide the period", severity: "info" }];
+    expect(supportLevelText(supportLevel(report))).toContain("net debt to EBITDA for the historical annual period ended 2024-06-30 is withheld");
+    report.balanceSheet.coverage.numbers = [{ value: 3, unit: "currency", source: "computed.capital.netDebtToEbitda.ebitda", asOf: "2023-06-30", verified: true }];
+    expect(supportLevelText(supportLevel(report))).toContain("historical net debt to EBITDA is withheld (period not recorded)");
+    report.balanceSheet.coverage.numbers = [];
+    report.balanceSheet.debtProfile.numbers = [];
+    // The provider envelope is still present; it must never fill the missing calculation date.
+    expect(supportLevelText(supportLevel(report))).toContain("historical net debt to EBITDA is withheld (period not recorded)");
+    report.appendix.missingData = [];
+    expect(supportLevelText(supportLevel(report))).not.toContain("net debt to EBITDA");
+  });
+  it("uses the refused coverage basis and dates SBC from the admitted annual FCF series (D-310 review)", () => {
+    const report = loadTask28Fixture();
+    report.balanceSheet.graded!.keyNumbers = [];
+    report.balanceSheet.debtProfile.numbers = [];
+    report.meta.asOfMap["statements.incomeAnnual"] = "2025-12-31";
+    report.balanceSheet.coverage.numbers = [{ value: 12, unit: "currency", source: "computed.capital.interestCoverage.ebit", asOf: "2023-12-31", verified: true }];
+    report.fundamentals.fcf = [{ label: "Before SBC", values: [{ period: "2022-12-31", value: { value: 25, unit: "currency", source: "computed.capital.fcf.beforeSbc", asOf: "2022-12-31", verified: true } }] }];
+    report.appendix.missingData = ["capital.interestCoverage", "capital.fcf.sbc"].map(field => ({field, reason: "irrelevant wording", severity: "info" as const}));
+    const text = supportLevelText(supportLevel(report));
+    expect(text).toContain("interest coverage for the historical annual period ended 2023-12-31 is withheld");
+    expect(text).toContain("stock-based compensation is not established for the historical annual period ended 2022-12-31");
+    expect(text).not.toContain("2025-12-31");
+    // A current house after-SBC figure is shown: omit the old SBC refusal.
+    report.balanceSheet.coverage.numbers.push({ value: 30, unit: "currency", source: "computed.capital.current.cashBridge.afterSbcStandardizedFcf", asOf: "2026-09-30", verified: true });
+    expect(supportLevel(report).limitations.some(x => x.code === "fcf-after-sbc-withheld")).toBe(false);
+    // No exact annual FCF record: an explicitly unrecorded historical period, never the dataset date.
+    report.balanceSheet.coverage.numbers = [];
+    report.fundamentals.fcf = [];
+    expect(supportLevelText(supportLevel(report))).toContain("historical annual calculation (period not recorded)");
+  });
+
+  it("preserves model-written words and QName inventories (D-312 review)", () => {
+    const prose = "eps and us-gaap:X describe the AI's claim.";
+    expect(displayProse(prose, undefined, {modelWritten:true})).toBe(prose);
+    expect(displayProse(prose + " " + MODEL_PROSE_MARK)).toBe(prose + " " + MODEL_PROSE_MARK);
+    const r = loadTask28Fixture();
+    r.business.whatTheySell = [{text:prose, label:"FACT", source:"edgar:10-K item1", asOf:"2025-12-31"}];
+    r.appendix.verificationLog = [{claim:prose, outcome:"verified", validationStatus:"validated", path:"business.whatTheySell[0]", evidenceKind:"factual-claim", source:"edgar:10-K item1"}];
+    const shown = prepareReportForSurface(r, "markdown").report;
+    expect(claimStatusMark(shown.business.whatTheySell[0]!)).toBe("validated");
+    expect(displayClaimText(shown.business.whatTheySell[0]!)).toBe(prose);
+    const copy = withReaderText(shown.business.whatTheySell[0]!, "Company record: " + prose);
+    expect(claimStatusMark(copy)).toBe("validated");
+    expect(displayClaimText(copy)).toBe("Company record: " + prose);
+    const members = "Observed member QNames: country:US, us-gaap:NonUsMember, srt:EuropeMember.";
+    expect(displayProse(members)).toBe(members);
+    expect(displayProse("FinanceLeaseLiabilityNoncurrent 99; FinanceLeaseLiabilityCurrent unavailable")).toBe("noncurrent finance lease liability 99; current finance lease liability unavailable");
+  });
+
+  it("formats bridge and enterprise-value diagnostics through the reader rule (D-312 review)", () => {
+    const sample = ReportSchema.parse(JSON.parse(readFileSync("fixtures/report/DEMO-current.json", "utf8")));
+    sample.valuation.dcf.bridge!.shareBasisNote = "Held-share evidence: us-gaap:CommonStockSharesHeldInEmployeeTrustShares at 2025-12-31.";
+    const note = valuationAuditTables(sample.valuation.dcf).find(t => t.heading === "Enterprise value to equity bridge")!.note!;
+    expect(note).toContain("shares held in an employee trust at 2025-12-31");
+    expect(note).not.toContain("us-gaap:");
+    const r = loadTask28Fixture();
+    r.valuation.multiplesBasis = "FinanceLeaseLiabilityCurrent 4; FinanceLeaseLiabilityNoncurrent 99.";
+    for (const text of surfaces(r)) {
+      expect(text).toContain("current finance lease liability 4; noncurrent finance lease liability 99.");
+      expect(text).not.toContain("FinanceLeaseLiability");
+    }
+  });
+
+  it("keeps recorded FX precision in both assumption and multiples bases on every surface (D-312 review)", () => {
+    const r = loadTask28Fixture();
+    const basis = "FX inputs use 0.006712345 USD per JPY; native value 148.979234. Growth was 12.3456%.";
+    r.valuation.multiplesBasis = basis;
+    r.valuation.dcf.assumptions[0]!.basis = basis;
+    const original = JSON.stringify(r);
+    for (const text of surfaces(r)) {
+      expect(text.split("0.006712345 USD per JPY").length).toBeGreaterThanOrEqual(3);
+      expect(text.split("native value 148.979234").length).toBeGreaterThanOrEqual(3);
+      expect(text).toContain("Growth was 12.3%.");
+      expect(text).not.toContain("native value 148.98");
+    }
+    expect(reportToAuditMarkdown(r)).toContain(basis);
+    expect(JSON.stringify(r)).toBe(original);
+  });
+
+  it("applies the vocabulary on all saved-report surfaces and preserves audit identifiers", () => {
+    const report = loadTask28Fixture();
+    const raw = "FinancingReceivableAllowanceForCreditLossExcludingAccruedInterest";
+    report.valuation.multiples[0]!.basis = `allowance 123 (${raw}) at 2024-12-31`;
+    report.appendix.missingData.push({field: "route.overlays.preRevenue.currency", severity: "warn",
+      reason: "ttm revenue 987 has reportedCurrency GBP and is not proven USD; the raw $10,000,000 pre-revenue threshold was not evaluated for that observation, and no FX conversion was attempted"});
+    const original = JSON.stringify(report);
+    for (const text of surfaces(report)) {
+      expect(text).not.toContain(raw);
+      expect(text).not.toContain("reportedCurrency");
+      expect(text).toContain("allowance for credit losses on loans (excluding accrued interest)");
+      expect(text).toContain("GBP");
+    }
+    expect(reportToAuditMarkdown(report)).toContain(raw);
+    expect(JSON.stringify(report)).toBe(original);
+  });
+
+  it("reads paths, field names and bank tags plainly while retaining dates and currency", () => {
+    expect(displayProse("Annual revenue definitions are unreconciled (statements.income.2018-12-31.revenue)."))
+      .toContain("revenue for the period ended 2018-12-31");
+    expect(displayProse("has reportedCurrency GBP; FinancingReceivableAllowanceForCreditLossExcludingAccruedInterest"))
+      .toBe("has reporting currency GBP; allowance for credit losses on loans (excluding accrued interest)");
+    expect(displayProse("Revenue was GBP 12 million in 2018." )).toBe("Revenue was GBP 12 million in 2018.");
   });
 });

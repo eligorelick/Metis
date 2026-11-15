@@ -178,7 +178,7 @@ describe("support level (D-300, R40)", () => {
       return confirmedStatementShare(prepareReportForSurface(ReportSchema.parse(r), "markdown").report); })();
     expect(share.total - baseline.total).toBe(3);
     expect(share.confirmed - baseline.confirmed).toBe(1);
-    expect(confirmedShareText(shown, true)).toMatch(/^\d+ of \d+ statements were confirmed against their records by code \(\d+(?:\.\d)?%\)\.$/);
+    expect(confirmedShareText(shown, true)).toMatch(/^\d+ of \d+ distinct statements were confirmed against their records by code \(\d+(?:\.\d)?%\); a statement repeated in another section counts once\.$/);
     // A data-only report has no AI-written statements to count.
     expect(confirmedShareText(shown, false)).toBe(DATA_ONLY_STATEMENTS_TEXT);
     for (const text of surfaces(parsed)) {
@@ -186,6 +186,20 @@ describe("support level (D-300, R40)", () => {
       expect(text).toContain(CONFIRMED_SHARE_DEFINITION.slice(0, CONFIRMED_SHARE_DEFINITION.indexOf(" (its")));
       expect(text).not.toMatch(/statements were confirmed[^.]*citation/i);
     }
+  });
+
+  it("uses distinct reader identity for redundant citation fields and officer wording (D-311)", () => {
+    const report = loadTask28Fixture();
+    report.appendix.verificationLog = [];
+    report.business.whatTheySell = [fact("The company sells pumps.")];
+    report.business.concentrationRisks = [{ ...fact("The company sells pumps."), sourceId: source }];
+    logEntry(report, "business.whatTheySell[0]", "validated");
+    logEntry(report, "business.concentrationRisks[0]", "validated");
+    const shown = prepareReportForSurface(ReportSchema.parse(report), "markdown").report;
+    expect(confirmedStatementShare(shown).confirmed).toBe(1);
+    // Control: another visible date is a different statement.
+    report.business.concentrationRisks[0]!.asOf = "2025-02-20";
+    expect(confirmedStatementShare(prepareReportForSurface(ReportSchema.parse(report), "markdown").report).confirmed).toBe(2);
   });
 
   it("review round 1: a validated and a contradicted copy of the same words are two statements, one confirmed", () => {
@@ -204,6 +218,19 @@ describe("support level (D-300, R40)", () => {
     // Same mark: one statement, confirmed once. Different mark: two statements, and the contradicted one is not confirmed.
     expect(split.total - same.total).toBe(1);
     expect(split.confirmed).toBe(same.confirmed);
+  });
+
+  it("identifies contradicted statements by their displayed tag (D-311)", () => {
+    const report = loadTask28Fixture();
+    report.appendix.verificationLog = [];
+    report.business.whatTheySell = [fact("Pump revenue was $1 billion.")];
+    report.business.concentrationRisks = [fact("Pump revenue was $1 billion.")];
+    logEntry(report, "business.whatTheySell[0]", "contradicted");
+    logEntry(report, "business.concentrationRisks[0]", "contradicted");
+    const before = confirmedStatementShare(prepareReportForSurface(ReportSchema.parse(report), "markdown").report);
+    report.business.concentrationRisks[0]!.label = "ESTIMATE";
+    // Both surfaces call these CONTRADICTED, so the hidden original tag is not another visible statement.
+    expect(confirmedStatementShare(prepareReportForSurface(ReportSchema.parse(report), "markdown").report)).toEqual(before);
   });
 
   it("counts only statements a reader surface prints: grade-strip reasoning is not printed (control)", () => {
@@ -328,7 +355,7 @@ describe("one figure shown once (D-301, R29)", () => {
       .toBe("4 field(s) in 1 vendor row(s) (2021-12-31 … 2021-12-31; basic EPS, diluted EPS, basic weighted share count, diluted weighted share count) withheld");
     expect(plainFieldNames("Vendor flows kept unverified for 2016-12-31: depreciationAndAmortization, changeInWorkingCapital."))
       .toBe("Vendor flows kept unverified for 2016-12-31: depreciation and amortization, change in working capital.");
-    for (const kept of ["us-gaap/EarningsPerShareDiluted", "computed.capital.current.netDebt", "fmp:netDebt", "statements.netDebt.cashBasis", "The EPS rose."]) expect(plainFieldNames(kept)).toBe(kept);
+    for (const kept of ["us-gaap/EarningsPerShareDiluted", "edgar:companyfacts/us-gaap/LongTermDebtNoncurrent", "computed.capital.current.netDebt", "fmp:netDebt", "statements.netDebt.cashBasis", "The EPS rose."]) expect(plainFieldNames(kept)).toBe(kept);
   });
 
   it("formats raw base-unit amounts in key-data caveats with the shared number format", () => {

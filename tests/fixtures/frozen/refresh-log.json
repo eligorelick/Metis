@@ -5073,5 +5073,22 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "audit-fixture",
+    "decision": "D-311",
+    "reason": "D-311 changes only the report stamp for period-aware support, distinct visible statements and plain reader diagnostics; no computation changes.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "31130f526283667235eeb0ad3b431a56f402de3c1fbb1c683c9cc9f841127f2e",
+    "afterSha256": "7ce6bc848e568eda805af6f9307ba442a7949f1b2b6bf61b67623bbf2cb09edd",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

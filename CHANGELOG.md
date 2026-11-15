@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.101.0** and
+Current source declares application **0.1.0**, report spec **1.102.0** and
 payload **1.113.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -17,6 +17,13 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased — Step 4 report blockers (D-310..D-312)
+
+- P1/P11/P22: support limitations name the historical annual capital period from calculation-owned records, never provider-envelope dates; absent/conflicting dates explicitly remain unrecorded. Historical missing-SBC refusals are dated from the admitted FCF series, or omitted when current after-SBC FCF is shown. The separate financial-asset add-back qualification remains.
+- P19/P22: count distinct displayed FACT/ESTIMATE statements with the same reader identity and officer-card selection as the report; repeated statements in another section count once. The README and definition say so.
+- P21/P22: code-written reader basis, warning and score-detail text uses plain field and standalone element names, retaining causes, dates, currencies and operands. Model wording, source paths, slash-form identifiers and QName lists remain intact. Filing-note source details are stripped before formatting; source-only facts introduce no basis column. The audit retains raw identifiers. Report spec is 1.102.0; payload, Stage B, scores and valuation methods are unchanged.
+- P19/P22: stored FX rates and numbers labelled `native value` keep their recorded precision in all reader notes, including assumption and multiples bases. Decimal rounding, base-unit grouping and integer compaction share this exception; ordinary percentages and prices keep their reader rounding. Saved records, audit exports and calculations are unchanged (D-312 precision review).
 
 ## Unreleased - Reader amounts and complete-evidence full support (P12, P19, P22, D-308, D-309) (2026-11-15)
 

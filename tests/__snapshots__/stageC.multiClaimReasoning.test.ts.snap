@@ -3,8 +3,8 @@
 exports[`catalyst and risk reasoning compatibility > preserves legacy objects, exact presentation goldens and unindexed verification paths 1`] = `
 {
   "audit": "2f6345f1931a697149c4f22f82c1c9e23ad5a6023c3211dcf2a62889f72d8f53",
-  "markdown": "611bdb604ada19d90396cb5090e5859392e2fbe6a59dc37ee29728204759ee1c",
-  "print": "73268656d766515a25c27cffd8d4f4c71534eecb484d9176979f2cbf251cb867",
+  "markdown": "6fc84f5f762cf7256e0448a4a9d8a0a124e8bbf95135a80988b24606bf973abc",
+  "print": "70f795c6e23d896b5b6242534a4fee861745e3d2e9d460eed812c0de7b1382c6",
   "ui": "5f0225dad1adaa9b5de45a4e1135221be1ceaf975f9a2de8e590a0d8d927518d",
 }
 `;

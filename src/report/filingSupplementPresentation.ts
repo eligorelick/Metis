@@ -2,6 +2,7 @@ import type { ReportAuditTable } from "@/report/auditTables";
 import { formatFinancialValue, formatNumber, formatPct } from "@/report/format";
 import type { FilingRef } from "@/report/schema";
 import { readerBaseUnits } from "@/report/readerConventions";
+import { plainFieldNames } from "@/report/presentation";
 
 /** D-273: a basis cell that repeats the row above word for word. */
 export const SAME_PASSAGE_AS_ABOVE = "Same passage as the row above.";
@@ -103,7 +104,7 @@ export function filingFactTables(d: FilingSupplements): ReportAuditTable[] {
     const bases = facts.map((f) => {
       const factText = f.text.replace(XBRL_PROVENANCE, "");
       const text = group.prefix === "composition-tax-" ? factText.replace(LEGACY_TAX_SCOPE, "") : factText;
-      return sentences(readerBaseUnits([f.computed ? `Derived: ${f.computed}.` : null, text.trim()].filter(Boolean).join(" ")));
+      return sentences(readerBaseUnits(plainFieldNames([f.computed ? `Derived: ${f.computed}.` : null, text.trim()].filter(Boolean).join(" "))));
     });
     const shared = facts.length > 1 ? bases[0]!.filter((s) => bases.every((basis) => basis.includes(s))) : [];
     const rowBases = bases.map((basis) => basis.filter((s) => !shared.includes(s)).join(" "));

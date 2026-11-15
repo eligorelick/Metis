@@ -13,12 +13,12 @@
  * its plain words are written here. Read time only; stored reports keep their
  * bytes (P21).
  */
-import type { Report, SourcedClaim } from "@/report/schema";
+import type { Report, TracedNumber } from "@/report/schema";
 import type { ManifestEntry } from "@/types/core";
 import { claimStatusMark } from "@/report/verificationMarks";
 import { TAX_OPERAND_EVIDENCE_SINCE_SPEC, specVersionBefore } from "@/report/versions";
 import { DCF_TAX_OPERANDS_FIELD, evidencePercentText } from "@/report/assessment";
-import { claimEchoKey } from "@/report/presentation";
+import { claimEchoKey, readerStatementInventory } from "@/report/presentation";
 
 export { DCF_TAX_OPERANDS_FIELD };
 
@@ -39,7 +39,7 @@ export const SUPPORT_LEVELS: Readonly<Record<SupportLevelKey, { label: string; d
 /** What the confirmed share counts, said once wherever it is shown. */
 export const CONFIRMED_SHARE_DEFINITION =
   "A statement counts as confirmed only when code matched it against the record it cites (its [validated] mark). " +
-  "Citation coverage shows where statements point, not that they are correct, and is not counted.";
+  "A statement repeated in another section counts once. Citation coverage shows where statements point, not that they are correct, and is not counted.";
 
 /** The data-only line: no model wrote any statement in the report. */
 export const DATA_ONLY_STATEMENTS_TEXT = "No AI-written statements (data-only report).";
@@ -181,7 +181,40 @@ function filingLabel(field: string): string {
  * code, field or status; its text is fixed here. Older reports that lack a
  * typed field simply contribute no limitation from it.
  */
-export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Report, "fairValue" | "routeMetrics" | "scores" | "meta">>): SupportLevel {
+type SupportReport = Pick<Report, "appendix"> & Partial<Pick<Report, "fairValue" | "routeMetrics" | "scores" | "meta" | "balanceSheet" | "fundamentals">>;
+
+/** D-310 review: calculation-owned records only. Provider envelope dates are
+ * observations, and the capital calculation may have rejected their newest row. */
+function capitalRecords(report: SupportReport): TracedNumber[] {
+  const out: TracedNumber[] = [];
+  const visit = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) { node.forEach(visit); return; }
+    const row = node as Partial<TracedNumber>;
+    if (typeof row.value === "number" && Number.isFinite(row.value) && typeof row.source === "string" && typeof row.unit === "string") { out.push(row as TracedNumber); return; }
+    Object.values(node).forEach(visit);
+  };
+  visit(report.balanceSheet);
+  visit(report.fundamentals);
+  return out;
+}
+
+function refusedCapitalPeriod(records: readonly TracedNumber[], field: string): string | undefined {
+  const sbc = field === "capital.fcf.sbc";
+  const root = sbc ? "computed.capital.fcf.beforeSbc" : `computed.${field}`;
+  const dates = [...new Set(records.flatMap(n => {
+    const id = n.sourceId ?? n.source;
+    if (id !== root && !(id.startsWith(`${root}.`) && !sbc)) return [];
+    const date = n.periodContext?.kind === "duration" ? n.periodContext.end : n.periodContext?.kind === "instant" ? n.periodContext.at
+      : sbc && /^\d{4}-\d{2}-\d{2}$/.test(n.period ?? "") ? n.period : n.asOf;
+    return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? [date] : [];
+  }))];
+  // The SBC gap's producer names the last admitted FCF row; other calculations
+  // require one unambiguous basis date, never a newest-date guess across operands.
+  return sbc ? dates.sort().at(-1) : dates.length === 1 ? dates[0] : undefined;
+}
+
+export function supportLevel(report: SupportReport): SupportLevel {
   const out: SupportLimitation[] = [];
   const add = (code: SupportLimitationCode, text: string) => { if (!out.some(item => item.text === text)) out.push({ code, text }); };
   const fv = report.fairValue;
@@ -238,6 +271,7 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
       `${listText(partial.map(item => evidencePercentText(item.share)))} of the evidence that applies on this company's route`);
   }
   const gaps: readonly ManifestEntry[] = report.appendix.missingData;
+  const capital = capitalRecords(report);
   // D-300: the cash-flow valuation's tax rate is a headline input. Its operands are
   // checked against a filing unless the typed manifest entry says otherwise; a saved report written
   // before that entry existed does not record which, so it is not shown to be checked (P19).
@@ -251,8 +285,10 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
   if (gaps.some(gap => gap.field === "statements.adsEps")) add("ads-eps-derived", "earnings per ADS are derived from ordinary-share EPS, not a filed per-ADS amount");
   // D-309: the house free-cash-flow figure is after stock-based compensation; Stage B's typed `capital.fcf.sbc`
   // entry records that it is withheld (the latest fiscal year's compensation is not established).
-  if (gaps.some(gap => gap.field === "capital.fcf.sbc" && gap.expected !== true)) {
-    add("fcf-after-sbc-withheld", "stock-based compensation is not established for the latest fiscal year, so free cash flow after it is withheld");
+  const currentAfterSbcShown = capital.some(n => ["computed.capital.current.cashBridge.afterSbcStandardizedFcf", "computed.current-capital.after-sbc-standardized-fcf"].includes(n.sourceId ?? n.source));
+  if (!currentAfterSbcShown && gaps.some(gap => gap.field === "capital.fcf.sbc" && gap.expected !== true)) {
+    const period = refusedCapitalPeriod(capital, "capital.fcf.sbc");
+    add("fcf-after-sbc-withheld", `stock-based compensation is not established for ${period ? `the historical annual period ended ${period}` : "the historical annual calculation (period not recorded)"}, so free cash flow after it is withheld`);
   }
   // D-309: the literal definition. Every other unexpected entry on a valuation input or headline
   // figure limits support, in one plain sentence per typed field, unless a limitation above already names it.
@@ -264,7 +300,16 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
     if (ROUTE_COVERED_GAP.test(field) && has("financial-route", "route-no-per-share-value")) continue;
     if (field === "valuation.dcf" && has("fair-value-withheld", "fair-value-dated")) continue;
     if (/^valuation\.(?:reverseDcf\.currentUse|dcf\.valuationDate)$/.test(field) && has("fair-value-dated")) continue;
-    add("headline-input-qualified", headlineGapText(field));
+    // D-310 (P1, P11): capital.* is the annual computation; currentCapital
+    // is a separate owner. A saved gap without its period cannot assert a
+    // current refusal. Read only the calculation's typed records, never dataset dates or reason text.
+    const annualCapital = /^capital\.(?:netDebtToEbitda|interestCoverage|fcf)/.test(field);
+    const period = refusedCapitalPeriod(capital, field);
+    const text = headlineGapText(field);
+    add("headline-input-qualified", annualCapital
+      ? period ? text.replace(/ is /, ` for the historical annual period ended ${period} is `)
+        : `${text.replace(/^(a |the )?/, "$1historical ")} (period not recorded)`
+      : text);
   }
   if (gaps.some(gap => gap.field === "edgar.predecessor")) add("predecessor-history", "successor issuer: history before the reorganization comes from the predecessor's filings or is not included");
   const filings = [...new Set(gaps.filter(gap => gap.severity === "critical" && gap.expected !== true && gap.field.startsWith("edgar.")).map(gap => filingLabel(gap.field)))];
@@ -284,46 +329,13 @@ export function supportLevelText(view: SupportLevel): string {
 
 export interface ConfirmedShare { confirmed: number; total: number }
 
-/** Containers the reader surfaces do not print: audit-export material and the grade strip's reasoning (the strip shows grades and one-line reasons). */
-const AUDIT_ONLY_KEYS = new Set(["appendix", "meta", "auditValuation", "gradeStrip"]);
-
-function isTaggedStatement(node: unknown): node is SourcedClaim {
-  const claim = node as Partial<SourcedClaim>;
-  return typeof claim.text === "string" && typeof claim.source === "string" && (claim.label === "FACT" || claim.label === "ESTIMATE");
-}
-
-/**
- * One statement however often it is repeated: the presentation layer's own identity (P22), the one
- * shown-once uses (words, tag, whole citation, resolved date and verification mark). D-300:
- * a validated and a contradicted copy of the same words are two statements, counted apart.
- */
-const statementKey = claimEchoKey;
-
-/**
- * The typed numerator and denominator (P19): every FACT or ESTIMATE statement
- * the reader surfaces show, counted once, and those whose own verification
- * mark is "validated". An unmarked statement counts as not confirmed. Call
- * after the report's verification marks are indexed (prepareReportForSurface).
- */
+/** D-311: repeats share the presentation identity; marks come from that same inventory. */
 export function confirmedStatementShare(report: Report): ConfirmedShare {
   const seen = new Map<string, boolean>();
-  const visit = (node: unknown, factsOnly = false): void => {
-    if (node === null || typeof node !== "object") return;
-    if (Array.isArray(node)) { for (const child of node) visit(child, factsOnly); return; }
-    if (isTaggedStatement(node)) {
-      // D-300: an officer with neither grade shows only FACTs (executiveCardClaims, executiveGroups).
-      if (factsOnly && node.label !== "FACT") return;
-      const key = statementKey(node);
-      seen.set(key, seen.get(key) === true || claimStatusMark(node) === "validated");
-      return;
-    }
-    for (const [key, value] of Object.entries(node)) if (!AUDIT_ONLY_KEYS.has(key)) visit(value, factsOnly);
-  };
-  const { leadership, ...rest } = report;
-  visit(rest);
-  const { executives, ...otherLeadership } = leadership;
-  visit(otherLeadership);
-  for (const e of executives) visit(e, e.grade === "not-assessed" && e.credibilityGrade === "not-assessed");
+  for (const claim of readerStatementInventory(report)) {
+    const key = claimEchoKey(claim);
+    seen.set(key, claimStatusMark(claim) === "validated");
+  }
   return { confirmed: [...seen.values()].filter(Boolean).length, total: seen.size };
 }
 
@@ -338,7 +350,7 @@ export function confirmedShareText(report: Report, modelWritten: boolean): strin
   if (!modelWritten) return DATA_ONLY_STATEMENTS_TEXT;
   const { confirmed, total } = confirmedStatementShare(report);
   if (total === 0) return "The AI wrote no FACT or ESTIMATE statements in this report, so none could be confirmed.";
-  return `${confirmed} of ${total} statements were confirmed against their records by code (${shareText(confirmed, total)}).`;
+  return `${confirmed} of ${total} distinct statements were confirmed against their records by code (${shareText(confirmed, total)}); a statement repeated in another section counts once.`;
 }
 
 /** The block every surface prints near the top: heading, two labelled lines and the definition note. */

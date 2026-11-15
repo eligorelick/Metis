@@ -20,6 +20,7 @@ import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import { formatFinancialValue } from "@/report/format";
 import {
   confidenceText,
+  compactLongIntegers,
   dataGapTables,
   dataStateText,
   executiveGroups,
@@ -27,6 +28,7 @@ import {
   gapCountText,
   gapSummary,
   humanizeInlineCitations,
+  displayProse,
   metricLabel,
   readerPrecision,
   scorecardTable,
@@ -78,6 +80,21 @@ const appVisibleText = (html: string): string => {
 };
 
 describe("figures in stored prose at reader precision", () => {
+  it.each([
+    "FX uses 0.006712345 USD per JPY; native value 148.979234.",
+    "FX uses 149.123456 JPY per USD; native value 149.123456.",
+    "FX uses CAD 1.365789 per USD; native value: 1.365789.",
+    "FX uses 1234567890 VND per USD; native value 1234567.891234.",
+    "native value 1234567890; native value 0.000000000012.",
+    "FX uses 1.23456789e-8 USD per JPY; native value −1.365789.",
+  ])("preserves recorded FX and native-value precision: %s (D-312 review)", (record) => {
+    expect(readerPrecision(record)).toBe(record);
+    expect(displayProse(record)).toBe(record);
+    expect(displayProse(compactLongIntegers(record))).toBe(record);
+    expect(readerPrecision(`${record} Growth was 12.3456%; price USD 23.4567 per share.`))
+      .toBe(`${record} Growth was 12.3%; price USD 23.46 per share.`);
+  });
+
   it("rounds what the passes over-stated and leaves stated precision alone", () => {
     expect(readerPrecision("Our base-case DCF value is USD 296.3179 per share.")).toBe("Our base-case DCF value is USD 296.32 per share.");
     expect(readerPrecision("Interest coverage was 426.7365x; the AQI index was 1.5671x and TATA 0.0839x.")).toBe("Interest coverage was 426.7×; the AQI index was 1.57× and TATA 0.084×.");

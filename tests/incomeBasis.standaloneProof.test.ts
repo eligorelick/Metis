@@ -5,7 +5,7 @@ import { completeCurrencyBundle, M } from "./helpers/currencyBundle";
 import { withIssuerFacts } from "./helpers/confirmedIssuer";
 import { enrichDataOnlyReport } from "@/pipeline/stageC/dataOnlyReport";
 import { assembleContextPayload } from "@/pipeline/stageC/payload";
-import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToMarkdown, reportToAuditMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { loadTask28Fixture } from "./helpers/task28Report";
 
@@ -103,6 +103,9 @@ it("carries unverified operating-source qualifications through the actual data-o
   const payload=assembleContextPayload(b,c,{checks:[],flags:[],gaps:[]});
   for(const text of [JSON.stringify(payload),JSON.stringify(report),reportToMarkdown(report),reportToPrintBody(report)]) {
     expect(text).toContain("unverified consolidated operating scope");
+  }
+  // D-312 review: slash-form source identities remain intact in evidence and reader citations.
+  for(const text of [JSON.stringify(payload),JSON.stringify(report),reportToAuditMarkdown(report),reportToMarkdown(report),reportToPrintBody(report)]) {
     expect(text).toContain("us-gaap/OtherNonoperatingIncomeExpense");
   }
 });

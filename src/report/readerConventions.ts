@@ -47,6 +47,16 @@ export function lenderConventionTables(report: Report): ReportAuditTable[] {
  */
 export const IDENTIFIER_CONTEXT = /(?:\b(?:seed|hash|fingerprint|accession|version|ver\.|v\.|id|ids|identifier|serial)|\bCIK(?:\s+(?:number|no\.?))?|\b(?:file|account|registration|serial|document|reference|filing|form|case|order|invoice|CUSIP|ISIN)\s+(?:number|no\.?)|\bno\.|#)\s*[:=]?\s*$/i;
 
+/** D-312 review (P19/P22): an FX operand or a stated native observation keeps
+ * its recorded digits. All reader number formatters use this same boundary. */
+export function isStoredRateValue(text: string, offset: number, length: number): boolean {
+  const before = text.slice(Math.max(0, offset - 60), offset);
+  const after = text.slice(offset + length);
+  return /\bnative value\s*[:=]?\s*(?:[A-Z]{3}\s+)?[+−]?$/i.test(before)
+    || /^(?:[eE][+-]?\d+)?\s+[A-Z]{3}\s+per\s+[A-Z]{3}\b/.test(after)
+    || (/\b[A-Z]{3}\s+$/.test(before) && /^(?:[eE][+-]?\d+)?\s+per\s+[A-Z]{3}\b/.test(after));
+}
+
 /** An 8-digit basic date (YYYYMMDD, 19xx or 20xx, a real calendar day) is a date, not an amount. */
 function basicDate(digits: string): boolean {
   const m = /^(19|20)(\d\d)(\d\d)(\d\d)$/.exec(digits);
@@ -66,6 +76,7 @@ function basicDate(digits: string): boolean {
  */
 export function readerBaseUnits(text: string): string {
   return text.replace(/(?<![\w./:,\-])-?(?!0\d)\d{7,15}(?:\.\d+)?(?![\w/:-]|[.,]\d)/g, (value: string, offset: number) => {
+    if (isStoredRateValue(text, offset, value.length)) return value;
     const digits = value.replace(/^-/, "");
     if (IDENTIFIER_CONTEXT.test(text.slice(Math.max(0, offset - 40), offset))) return value;
     if (!digits.includes(".") && basicDate(digits)) return value;

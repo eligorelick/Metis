@@ -12,7 +12,7 @@ import { applyReportAssessmentStatus } from "@/report/assessment";
 import { deriveReportCompletenessPresentation, withClassifiedDataOnlyGapCount } from "@/report/completeness";
 import { parseStoredReportWithSafety } from "@/report/legacyEntitySafety";
 import { legacyScopeQualifications } from "@/report/legacyScopeQualifications";
-import { withModelProseMarks, withPlainFigureNotes } from "@/report/presentation";
+import { withModelProseMarks, withPlainFigureNotes, withPlainReaderFields } from "@/report/presentation";
 import { lenderConventionTables, withReaderConventions } from "@/report/readerConventions";
 import { prepareReportForSurface, prepareReportSteps, SURFACE_PREPARATION, type ReportSurface } from "@/report/readerPreparation";
 import type { Report } from "@/report/schema";
@@ -58,7 +58,7 @@ const HAND_WRITTEN: Record<ReportSurface, (input: Report) => { report: Report; l
   print: exportChain,
   web: (input) => ({
     // D-282: the model-prose marks run last on the reader surfaces.
-    report: withModelProseMarks(withValuationUseSafety(withPlainFigureNotes(withClassifiedDataOnlyGapCount(withReaderConventions(withStoredReportView(input)))))),
+    report: withPlainReaderFields(withModelProseMarks(withValuationUseSafety(withPlainFigureNotes(withClassifiedDataOnlyGapCount(withReaderConventions(withStoredReportView(input))))))),
     lenderTables: lenderConventionTables(input),
   }),
   audit: (input) => ({ report: withSafeStoredReportView(input), lenderTables: [] }),
@@ -69,19 +69,19 @@ function exportChain(input: Report): { report: Report; lenderTables: unknown } {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withSafeStoredReportView(report);
   const lenderTables = lenderConventionTables(report);
-  return { report: withModelProseMarks(withReaderConventions(report)), lenderTables };
+  return { report: withPlainReaderFields(withModelProseMarks(withReaderConventions(report))), lenderTables };
 }
 
 describe("shared report preparation (P22)", () => {
   it("pins each surface's steps and named differences", () => {
     expect(SURFACE_PREPARATION.markdown).toBe(SURFACE_PREPARATION.print);
     expect(SURFACE_PREPARATION.markdown).toEqual({
-      steps: ["dataOnlyGapCount", "plainFigureNotes", "gradeContract", "storedView", "valuationUseSafety", "readerConventions", "modelProseMarks"],
+      steps: ["dataOnlyGapCount", "plainFigureNotes", "gradeContract", "storedView", "valuationUseSafety", "readerConventions", "modelProseMarks", "plainReaderFields"],
       lenderTables: "before-reader-conventions",
     });
     // EXCEPTION web-order and web-lender-tables (readerPreparation.ts).
     expect(SURFACE_PREPARATION.web).toEqual({
-      steps: ["storedView", "readerConventions", "dataOnlyGapCount", "plainFigureNotes", "valuationUseSafety", "modelProseMarks"],
+      steps: ["storedView", "readerConventions", "dataOnlyGapCount", "plainFigureNotes", "valuationUseSafety", "modelProseMarks", "plainReaderFields"],
       lenderTables: "input",
     });
     // EXCEPTION audit-partial.

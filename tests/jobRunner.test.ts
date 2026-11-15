@@ -6711,7 +6711,7 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.101.0"); // D-308/D-309: reader amounts and complete-evidence full support
+    expect(repRow?.specVersion).toBe("1.102.0"); // D-310..D-312: period-aware support and distinct reader statements
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
