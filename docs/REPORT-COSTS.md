@@ -1,8 +1,35 @@
 # Report costs and elapsed time
 
-Recorded 2026-11-14 (local date). These are observations of earlier builds, not a benchmark or a quote for the current build. No paid API run was made for this documentation.
+Recorded 2026-11-14 and 2026-11-15 (local dates). These are observations of earlier builds, not a benchmark or a quote for the current build. No paid API run was made for this documentation.
 
-## Claude sign-in
+## Claude sign-in, release check (2026-11-15)
+
+Reports #64 MSFT, #65 SAP and #66 PNC were generated on build `e6b67839` on 2026-11-15 through a Claude sign-in, requested Opus 5.5/high, on an isolated copy of the database (its report numbers are unrelated to the earlier measurement's). The three ran at the same time on one machine, so their elapsed times include contention. Each recorded $0 API spend and consumed subscription usage. Analyst telemetry reports several Claude models (the CLI's own subtasks); synthesis ran on Opus 5.5. Applied effort was not established. Token totals are CLI telemetry and combine uncached input, cache reads and cache writes.
+
+| Report/pass | Input tokens (incl. cache reads/writes) | Output tokens | Searches | Settle UTC | Interval seconds |
+|---|---:|---:|---:|---|---:|
+| MSFT bull | 1,416,231 | 39,292 | 8 | 2026-11-15T17:43:09.022Z | 392.593 |
+| MSFT bear | 1,408,170 | 35,316 | 8 | 2026-11-15T17:48:08.402Z | 299.380 |
+| MSFT synthesize | 854,637 | 142,904 | 0 | 2026-11-15T18:06:57.725Z | 1129.323 |
+| MSFT verify | 0 | 0 | 0 | 2026-11-15T18:07:07.835Z | 10.110 |
+| PNC bull | 1,628,924 | 39,979 | 8 | 2026-11-15T17:43:53.316Z | 436.709 |
+| PNC bear | 1,430,531 | 36,312 | 8 | 2026-11-15T17:49:05.056Z | 311.740 |
+| PNC synthesize | 1,089,768 | 200,901 | 0 | 2026-11-15T18:15:55.154Z | 1610.098 |
+| PNC verify | 0 | 0 | 0 | 2026-11-15T18:16:07.360Z | 12.206 |
+| SAP bull | 1,634,135 | 42,539 | 8 | 2026-11-15T17:42:57.738Z | 380.875 |
+| SAP bear | 1,445,800 | 38,388 | 8 | 2026-11-15T17:48:53.462Z | 355.724 |
+| SAP synthesize | 702,889 | 138,916 | 0 | 2026-11-15T18:07:58.234Z | 1144.772 |
+| SAP verify | 0 | 0 | 0 | 2026-11-15T18:08:08.512Z | 10.278 |
+
+| Report | Total input tokens (incl. cache reads/writes) | Total output tokens | Total minutes | Hypothetical Claude API estimate |
+|---|---:|---:|---:|---:|
+| MSFT | 3,679,038 | 217,512 | 30.52 | $19.23 |
+| PNC | 4,149,223 | 277,192 | 39.51 | $22.30 |
+| SAP | 3,782,824 | 219,843 | 31.53 | $19.69 |
+
+API estimates use the formula and registry prices stated in the next section (all input at the uncached Opus 5.5 rate of $4/million, output $20/million, plus 16 searches at $0.01); the same caveats apply.
+
+## Claude sign-in, earlier measurement (2026-11-14)
 
 Reports #64 JPM, #65 LLY and #66 TSM were generated on build `17c791d2` (stored report inputs and pass artifacts measured 2026-11-14). Requested Opus 5.5/high; analyst telemetry observed Opus 5.5 and Haiku 5.5, synthesis Opus 5.5. Applied effort was not established. Each report recorded $0 API spend and consumed subscription usage, whose monetary value and remaining allowance Metis cannot measure.
 
