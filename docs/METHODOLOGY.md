@@ -8957,6 +8957,13 @@ Every independently described figure in a filing-excerpt claim must pass the exi
 
 ### Reading order, the opening brief and shown-once (D-273)
 
+Before the key data, every surface prints the report's support level and its share of confirmed statements
+(D-300; README "Support levels"). Code sets the level from typed evidence only (the fair-value status and its
+valuation-use reason, the route recorded on the route metrics, the P12 grade qualifications, the typed
+statement-evidence entries and critical filing gaps): "Full support" when none applies, otherwise "Limited support"
+with each limitation in plain words. The confirmed share is the validated FACT and ESTIMATE statements over all
+shown, each counted once; a citation is not a confirmation.
+
 Every surface reads in one order: verdict; the business group (business and
 segments, competitive landscape, future outlook); catalysts and risks; then
 fundamentals, balance sheet, valuation, quality, technicals, leadership,
@@ -8970,7 +8977,7 @@ suppliers only from that field; what is next only
 from what is coming; risks from the risks and concentration risks), and only
 with a FACT whose own verification entry is validated or cited; an unverified,
 unchecked or contradicted claim, a judgment, or a statement of a limitation or
-absence never enters, and a part with none says "Not established from verified sources." A brief line never cites a market or computed record (such as the share price), and the three descriptive parts skip statements of change (D-276). A
+absence never enters. A part with none describes this report, never the sources (D-303): "Not covered in this report." when its fields hold no statement, otherwise a pointer to the report's own marked statements below. A brief line never cites a market or computed record (such as the share price), and the three descriptive parts skip statements of change (D-276). A
 statement shown in full in one list is referenced, not repeated, in a later
 list when its label, text, citation, resolved citation date and verification
 mark all match. Each score keeps its qualifying text beside it. Score drivers,

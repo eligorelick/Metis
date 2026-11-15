@@ -182,27 +182,8 @@ Financial-data subscriptions are optional: useful APIs are preferred, with publi
 
 ## Support levels
 
-Near the top of every report (app, Markdown and print) a short block states the report's support level and its share of confirmed statements. Code sets both from recorded evidence; no model output decides them.
-
-- **Full support**: The company is on a route the methods support, and no headline figure rests on vendor data not checked against a filing, is withheld for a missing filing or input, or is limited by the route.
-- **Limited support**: At least one of those conditions does not hold. The report lists, in plain words, what was not checked against filings or is not covered.
-
-The second line reads "N of M statements were confirmed against their records by code (P%)": M counts every AI-written FACT or ESTIMATE statement the report shows, once each; N counts those code matched against the record they cite. A citation alone is not a confirmation. A data-only report says "No AI-written statements (data-only report)".
-
-What this means by kind of company, for the current build (checked on the 25-company release panel):
-
-| Kind of company | What is checked against filings | What is limited |
-| --- | --- | --- |
-| US filer (10-K/10-Q) on the general route | Statements reconciled with the filed XBRL facts; the cash-flow (DCF) fair value and its bridge | Full support unless an input cannot be established; then the fair value or the figures built on it are withheld and listed (for example, unresolved share-class scope) |
-| Bank | Filed bank metrics (net interest margin, efficiency, capital and credit proxies) and filed net revenue | Always limited: valued on book value and excess returns on equity; free-cash-flow valuation and ROIC do not apply |
-| Insurer | Filed premiums-earned ratios and book value | Always limited, as for banks; a preferred-capital or other bridge input that is not filed withholds the fair value |
-| Equity REIT | FFO and AFFO approximations from filed lines, P/FFO and P/AFFO | Always limited: no per-share fair value on this route |
-| Regulated utility (rate regulation shown in the filings) | Filed statements, P/E, dividend yield, EV/EBITDA | Always limited: no per-share fair value or reverse DCF (the cash-flow model does not capture rate-base funding); Altman Z is withheld |
-| Foreign filer (20-F/40-F) | Annual figures where the filed XBRL facts can be matched; IFRS facts that cannot be matched stay disclosed gaps | Limited when interim figures come from Form 6-K: they are vendor data not checked against a filing; earnings per ADS are derived, not filed |
-| Recent IPO | The filed statements that exist | Five- and ten-year growth, beta and some forensic scores are withheld for short history; the level follows the other rows (a lender's cash-flow measures do not apply, for example) |
-| Loss-making or pre-revenue company | Filed statements; cash runway and burn | Always limited: no per-share fair value under the house rule for unprofitable or pre-revenue companies; P/E and related measures are withheld |
-
-A successor issuer whose history includes its predecessor's filings, and a report missing a filing section it needs (such as the latest 10-K), are also listed as limited.
+Near the top of every report (app, Markdown and print) a short block states the support level and the share of confirmed statements; code sets both from recorded evidence, never from model output. **Full support**: The company is on a route the methods support, and no headline figure rests on vendor data not checked against a filing, is withheld for a missing filing or input, or is limited by the route. **Limited support**: At least one of those conditions does not hold. The report lists, in plain words, what was not checked against filings or is not covered. The second line, "N of M statements were confirmed against their records by code (P%)", counts each AI-written FACT or ESTIMATE statement shown once and confirms only those code matched against the record they cite (a citation alone is not a confirmation); a data-only report says "No AI-written statements (data-only report)".
+By kind of company, for the current build (checked on the 25-company release panel): a **US filer (10-K/10-Q) on the general route** has its statements reconciled with the filed XBRL facts and a cash-flow (DCF) fair value, and has full support unless an input cannot be established (then that value or the figures built on it are withheld and listed, for example for unresolved share-class scope). **Banks** and **insurers** always have limited support: they are valued on book value and excess returns on equity with their filed route ratios, and free-cash-flow valuation and ROIC do not apply. **Equity REITs** (FFO, AFFO, P/FFO), **regulated utilities** (rate regulation shown in the filings; Altman Z withheld) and **loss-making or pre-revenue companies** (cash runway and burn lead; P/E withheld) always have limited support: their route gives no per-share fair value. A **foreign filer (20-F/40-F)** has its annual figures checked where the filed XBRL facts can be matched, and limited support when its interim figures come from Form 6-K (vendor data not checked against a filing) or its earnings per ADS are derived. A **recent IPO** has five- and ten-year growth, beta and some forensic scores withheld for short history; its level follows the other conditions. A successor issuer and a report missing a needed filing section (such as the latest 10-K) are also listed as limited.
 
 ## Configuration
 

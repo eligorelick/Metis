@@ -11,6 +11,171 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-303 - An empty business-brief part describes this report, never the sources (2026-11-15)
+
+P19 and P22 (release item R36; findings A9, K34). Owner: `src/report/presentation.ts` (`businessBrief`, the
+`BRIEF_PART_NOT_COVERED` and `BRIEF_PART_NOT_SHOWN` lines; each part now carries its own `empty` line, which the app,
+Markdown and print print).
+
+**Problem.** A part with no eligible statement printed "Not established from verified sources." That reads as a claim
+that the sources lack the fact, even when the report holds it (AMZN suppliers in the concentration list, NVDA's
+TSMC/Samsung sentence under what it sells, MU's cited Item 1A risks).
+
+**Rule.** Unchanged: each part reads only the field that answers it (D-273 review round 1) and admits only a FACT whose
+own mark is validated or cited. New: when the part's answering fields hold no statement it says "Not covered in this
+report."; when they hold statements that did not qualify (judgments, not-confirmed or contradicted statements,
+limitation statements) it says "Not in the brief: the report's statements on this appear, with their marks, in the
+sections below." The one-line whole-brief notice says no statement about the business in this report is confirmed or
+cited to its source. The choice is by typed state (empty field, label, verification mark), never by wording.
+
+**Not changed: JPM "Protection and competition".** The FDIC deposit-insurance sentence sits in the model's
+`business.protection` field as a cited (qualitative) FACT, so the rule above admits it; code cannot judge from its
+wording that it is not protection without reading meaning (P11, P18). It keeps its "[not confirmed]" mark. Closing it
+needs either a narrower field contract for new runs or a lead decision.
+
+**Before and after (same-report check, main 570807e4, 33 panel cases).** Every data-only case changes only the
+whole-brief notice (25 cases). Fixed-analyst replays (each part read "Not established from verified sources."
+before): AMZN "Customers and suppliers" and "What is next" not covered (the stored report has no
+`customersAndSuppliers` or `whatIsComing` field), "What it sells" points below; NVDA "Customers and suppliers" and
+"What is next" not covered; MU "Customers and suppliers" and "What is next" not covered, "Protection and competition"
+and "What could break it" point below; META "Customers and suppliers" and "What is next" not covered, "Protection and
+competition" points below; LLY #63 "Customers and suppliers" and "What is next" not covered. JPM #64, LLY #65 and TSM
+#66 fill every part and do not change. No figure changes.
+
+**Tests.** `tests/report.readable.test.ts` (D-273 brief tests revised to the new, equally strict lines: the drug maker's
+protection and risks parts point below; a limitation-only protection field points below; an empty what-is-next field
+is not covered; a report with no qualifying statement prints neither part line).
+
+## D-302 - A company figure on an officer's card reads as the company's record during the tenure (2026-11-15)
+
+P18 and P22 (release item R35; finding K15). Owners: `src/report/executiveDecisions.ts` (`executiveCardClaims`,
+`companyRecordText`), `src/report/presentation.ts` (`executiveGroups`, the pooled not-assessed list),
+`src/report/verificationMarks.ts` (`withReaderText`), prompt contract `src/pipeline/stageC/prompts.ts` (ROUTE 1).
+
+**Problem.** The typed-metric route asks the model to write "<Name>: operating cash flow for FY2026 was USD ...". The
+verifier needs the name (it ignores the executive's name words when it matches the metric), but the printed line
+reads as the person's own cash flow (AMZN Jassy, LLY Ricks/Montarce, META Zuckerberg, NVDA Kress/Huang, JPM
+Dimon/Barnum).
+
+**Rule.** At read time, a statement in a card's typed-metric buckets (`evidence.capitalAllocation` and
+`evidence.guidanceVsActuals`, ROUTE 1) whose prefix before the colon is the card's own officer (every word a word of
+the card's name, at least two words) prints as "Company record during this tenure: <rest>". Compensation, insider
+activity and the card's reasoning describe the person and keep their wording. In the pooled
+not-assessed list, where several officers' lines share one list, it prints "Company record during the tenure of
+<Name>: <rest>". The figure, citation and verification mark are unchanged (`withReaderText` copies the mark); the
+stored claim, its bytes and the log are unchanged (P21). Another person's name, a one-word label ("Cloud:") and
+unprefixed text are left as written.
+
+**Prompt.** Tested first: the verifier marks "Company record during <Name>'s tenure: ..." and four other phrasings
+unchecked (text-context-mismatch), so changing the example would cost every new run its execution grades. The
+prompt therefore keeps the verifiable form and now says the leading name only binds the figure to the card, that
+reports print it as the company's record, and that no other personal framing may be written. Loosening the
+verifier's metric match is a P19 change outside this brief.
+
+**Revises D-264** ("the original officer prefix ... remains untouched"). `tests/report.executiveDecisions.test.ts`
+(D-264 card test) now asserts the company-record wording on all three surfaces, that the stored text is absent from
+them, and still that the stored report is byte-identical: at least as strict.
+
+**Before and after (same-report check).** Lines changed from "<Name>: ..." to the company-record form: AMZN
+fixed-analyst 4 (Jassy: guidance share, TTM operating cash flow, each on the card and in a repeat), NVDA 4 (Huang,
+Kress), JPM #64 4 (Dimon, Barnum: ROTE, FY2025 repurchases), LLY #65 3 (Ricks, Montarce), LLY #63 2, META 4 (pooled
+list: "Company record during the tenure of Mark Zuckerberg / Susan Li: ..."). Marks unchanged. Compensation lines
+(NVDA's appointment package) keep their wording. Data-only cases do not change.
+
+## D-301 - One figure shown once, plain field labels and numbers, and the sample issuer's name (2026-11-15)
+
+P13, P22 and P27 (release items R29 and R39 sample part; findings K20, A7, D10). Owners: `src/report/presentation.ts`
+(`dedupeFigureRows`, `sameCurrencyBasis`, `periodEndsAt`, the `cash sti` phrase, `READER_FIELD_LABELS` /
+`plainFieldNames` in `dataGapTables`, `keyDataRows` notes), `src/report/filingDisclosurePresentation.ts`
+(`issuerFcfRows`), `scripts/build-sample-report.ts` and the synthetic `fixtures/fmp/*/DEMO.json`.
+
+**Rules.**
+- Registered aliases of one figure (`computed.current-capital.*` and `computed.capital.current.*`, the existing alias
+  table) merge when value, unit and as-of agree, a unitless ratio's currency is null on one id and absent on the other
+  (both mean no currency), and one copy omits its period while the other's period is the as-of date or a window ending
+  on it. The row with the stated window is kept. Different values, windows ending elsewhere, different currencies on
+  an amount, and ids that are not registered aliases stay separate: equal values never merge (statement total debt
+  and the lease-inclusive bridge both stay). Extends D-264's alias period rule (marked revised).
+- The statement field `cash-sti` reads "Cash and short-term investments (at <date>)". The statement line and the
+  debt-bridge figure stay two rows: they are different records whose identity is not proven.
+- One issuer free-cash-flow figure that one filing (same accession, form and date) states for the same period and
+  value in two exhibits prints once, naming both exhibits ("8-K EX-99.1 and EX-99.2 filed ...").
+- One field-label map turns statement field identifiers in data-gap reasons into words ("eps, epsDiluted" reads
+  "basic EPS, diluted EPS"); identifiers inside citations, tags and dotted ids are left alone. The audit export keeps
+  the identifiers.
+- Key-data notes print base-unit amounts in the shared number format (AMZN P/E caveat "pre-tax income 174926000000"
+  reads "174.93B").
+- R39 (sample part): the fictional issuer "Thesis Example Systems" / "Thesis" is renamed "Larkspur Example Systems" /
+  "Larkspur" in the synthetic FMP fixtures, the sample builder and its prose; `npm run sample:build` regenerates the
+  sample (only the name and the shifted excerpt offsets change). The financial word "thesis" and legacy data-folder
+  compatibility are untouched. The frozen audit fixture is re-recorded through `freeze:refresh` (target
+  `audit-fixture`, D-301: company name leaves and the input and projection digests only), and the two input digests
+  in `tests/audit.fixtureComparison.test.ts` are re-pinned.
+
+**Before and after (same-report check).** MU fixed-analyst coverage table: "Interest coverage 937.2x" and "Net debt to
+EBITDA -0.4x" each printed twice (once without a window, once with "ttm: 2025-08-29 to 2026-09-03"); now once each with
+the window. NVDA fixed-analyst: "Interest coverage 426.7x" twice, now once. NVDA (both cases): the five issuer FCF rows
+of 8-K 0001045810-26-000073 printed twice (EX-99.1, EX-99.2), now five rows naming both exhibits. "Cash sti" label:
+META fixed-analyst, LLY #65 and TSM #66. Field labels in data-gap reasons: 27 cases (no figure). AMZN P/E caveat
+numbers (both AMZN cases). No figure value changes; report.json, Stage B, payload and audit export are byte-identical
+in all 33 cases.
+
+**Tests.** `tests/release.w45.test.ts` ("one figure shown once"): the alias merge and four controls (window ending
+elsewhere, different ids, equal values under different definitions, currency amount without currency), the cash-sti
+label on two statement shapes, the exhibit merge and a different-filing control, field labels with citation controls,
+key-data caveat numbers.
+
+## D-300 - Support level and confirmed share near the top of every report (2026-11-15)
+
+P12, P19 and P22 (release items R40 and R41; findings K54, K55, A14, D1-D3). Owner: `src/report/supportLevel.ts`
+(one module: `SUPPORT_LEVELS`, `supportLevel`, `confirmedStatementShare`, `supportBlock`), printed by
+`src/report/export/markdown.ts`, `src/report/export/printHtml.ts` and `src/components/report/ReportView.tsx` before the
+key data; README "Support levels" states the same definitions (a test reads them from the module).
+
+**Rule.** "Full support" when none of the following typed states applies; otherwise "Limited support" followed by
+each in plain words, in this order:
+- financial route: `fairValue.method` is `excess-return` or `routeMetrics.route` is bank, insurer or mortgage REIT;
+- no per-share value on the route: `fairValue.currentUse.reason` is `route-policy` (equity REIT, regulated utility,
+  pre-revenue, unprofitable, lender cash flows);
+- fair value withheld (`status` suppressed or outside-domain for another reason) or a dated reference;
+- the P12 grade qualifications (`scores.qualification.composite.reasons`, from `financialEvidenceQualifications`):
+  `financial-evidence-blocked` (named by its field), `selected-operating-scope-unverified`, `cash-only-liquidity`;
+- the typed statement-evidence entries `statements.foreignInterim` (6-K interims are vendor data) and
+  `statements.adsEps`;
+- `edgar.predecessor` (successor issuer);
+- an unexpected critical `edgar.*` gap (a filing section not retrieved).
+Nothing reads reason wording (P11). Closest-owner notes: no typed "headline figure rests on vendor data" state exists
+beyond the 6-K interim entry, so the P12 qualifications stand in for it; the recent-IPO overlay leaves no typed trace
+on a saved report, so by itself it does not make support limited (README says so). No new status word: the two level
+names are the release brief's.
+
+The second line: "N of M statements were confirmed against their records by code (P%)": M is every FACT or
+ESTIMATE statement a reader surface prints (appendix, meta, the audit-only valuation and the grade strip's reasoning
+excluded), counted once by tag, text, citation and date; N is those whose own mark is "validated". An unmarked
+statement counts as not confirmed; a cited or qualitative statement is not confirmed. Data-only reports say "No
+AI-written statements (data-only report)". Citation coverage is never shown as confirmation.
+
+**Panel (same-report check, main 570807e4).** Before: no support block. After, data-only (no AI-written statements): Full support for AMZN, CAT,
+DIS, KO, LLY, MU, NVDA, QCOM, UNH, UNP and WMT. Limited support: JPM and BAC (bank route); PGR (insurer route; MD&A
+not retrieved); MET (insurer route; fair value withheld; preferred capital not established); O and PLD (equity REIT),
+DUK (regulated utility), FIGR (lender cash flows) - no per-share value on the route; RIVN (same, plus WACC weights not
+established) and VKTX (same, plus interest expense not established); META (fair value withheld; WACC weights not
+established); TSM (6-K interims; derived ADS EPS); NVO (6-K interims); XOM (dated reference valued at 2025-12-31;
+successor issuer; 10-K, MD&A and Item 1A not retrieved). Fixed-analyst replays (support level; statements
+confirmed): AMZN Full, 34 of 116 (29.3%); META Limited as its data-only case, 43 of 117 (36.8%); MU Full, 34 of 132
+(25.8%); NVDA Full, 30 of 111 (27.0%); JPM #64 Limited (bank), 23 of 284 (8.1%); LLY #63 Limited (fair value withheld;
+sales-to-capital not established), 57 of 256 (22.3%); LLY #65 Full, 84 of 287 (29.3%); TSM #66 Limited (6-K interims;
+derived ADS EPS), 27 of 241 (11.2%). The release analyst counts (A14) differ slightly because they counted printed
+tags, which include repeats and omit statements printed in tables.
+
+**Tests.** `tests/release.w45.test.ts` ("support level"): full support on all three surfaces before the key data;
+bank, route-policy and 6-K shapes; P12 and critical-filing codes with wording and expected-gap controls; the confirmed
+share (validated over shown, repeats once, judgments excluded, grade strip excluded, data-only line, citations not
+counted); README states both levels.
+
+**Version.** No stamp moves: every change is read-time presentation or the synthetic sample; no figure, payload,
+Stage B or schema changes (D-301 to D-303 the same).
+
 ## D-285 - A whole-feed news citation names one article or the statement is removed (2026-11-14)
 
 P20 and P22 (release item R8; findings K33, A13). Owners: `src/pipeline/stageC/payload.ts` (`newsSection` keeps
@@ -2830,7 +2995,7 @@ The new pretax 281 / restructuring 50 control and the ambiguous pretax 280 / res
 
 Dated follow-up (2026-11-14, final A1, P1/P10): the zero-restructuring regression failed on 0855db38 because both memberships yielded 300 but were counted twice. Candidate identity now uses exact numeric equality, without changing the existing one-dollar reconciliation predicate. Zero restructuring computes 300; restructuring 1 with pretax 280 keeps a gap because 299 and 300 both match. An aggregate operating-cost control computes 300 independently of child membership. All synthetic controls passed. No company-specific conditions were added. Same-report results against pinned main 57ba3f54 are recorded with D-267 part 1 below.
 
-## D-264 - Reader presentation across company types (2026-11-13) (Revised by D-282)
+## D-264 - Reader presentation across company types (2026-11-13) (Revised by D-282, D-301, D-302)
 
 Principles P22 (one shared presentation rule), P21 (immutable saved reports),
 P18 (code owns labels) and P20 (retain evidence and dates). The local LLY #63

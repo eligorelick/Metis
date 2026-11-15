@@ -18,6 +18,15 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Support level and confirmed share at the top; one figure shown once; company-record wording; brief absence wording (P12, P13, P18, P19, P22, P27, D-300..D-303) (2026-11-15)
+
+- Near the top of every report (app, Markdown, print) a short block states the support level ("Full support", or "Limited support" with what was not checked against filings or is not covered) and "N of M statements were confirmed against their records by code (P%)"; data-only reports say they hold no AI-written statements. Code sets both from typed evidence; README gains a "Support levels" section with the same definitions and a per-company-kind table (D-300).
+- The two registered ids of one ratio print once when one copy omits a window that ends on the shared date (MU and NVDA interest coverage and net debt to EBITDA); the statement field cash-sti reads "Cash and short-term investments"; one issuer free-cash-flow figure stated in two exhibits of one filing prints once with both exhibits named; statement field names in data-gap reasons read in plain words; key-data caveat amounts use the shared number format (D-301, revises D-264's alias period rule).
+- The fictional sample issuer is renamed Larkspur Example Systems; the sample is rebuilt and the frozen audit fixture re-recorded (company name and digests only) (D-301).
+- An executive card statement written "<Officer name>: operating cash flow ..." reads "Company record during this tenure: ..."; the figure, citation and mark are unchanged, and the prompt says the name only binds the figure to the card (D-302, revises D-264's untouched-prefix note).
+- An empty business-brief part says "Not covered in this report." or points to the report's own marked statements, never that sources lack the fact (D-303).
+- Stamps unchanged: every change is read-time presentation (saved reports' bytes are untouched) or the sample fixture; no figure, payload or schema changes.
+
 ## Unreleased - Statement marks, value-first conflicts, feed citations and coverage operands (P12, P18, P19, P20, P22, D-282..D-285) (2026-11-14)
 
 - The legend at the top says plainly what each mark means; "[unverified]" and "[qualitative]" now read "[not confirmed]"; every model-written paragraph and table cell ends with "[not confirmed]"; a contradicted statement shows a CONTRADICTED tag, never a bold FACT (D-282).
