@@ -5056,5 +5056,22 @@
       "$.prompt.sections[0].sha256",
       "$.payload.payloadVersion"
     ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "audit-fixture",
+    "decision": "D-309",
+    "reason": "D-308/D-309 move the report spec stamp to 1.101.0 (above D-307's 1.100.0) for read-time reader amounts and complete-evidence full support; only the stamp and its digest change",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "1c282b2cbc8cab1e902101ba5e1ec52cacc7a3671a9af66ad2aedc5e821805c4",
+    "afterSha256": "31130f526283667235eeb0ad3b431a56f402de3c1fbb1c683c9cc9f841127f2e",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]
