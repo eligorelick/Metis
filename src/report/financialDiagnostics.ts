@@ -86,6 +86,39 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
 }
 
 /** Pipeline-owned reconciliations are shared by AI and data-only reports. */
+type CurrentCapital = NonNullable<NonNullable<ComputedMetrics["capital"]>["current"]>;
+
+/**
+ * D-298 (P10, P20): on the TTM basis, name exactly which trailing flows this
+ * window admitted and which it did not establish, and the figures that rest on
+ * a missing flow (so they are withheld). Read from the snapshot's typed values;
+ * no sentence claims that every flow is complete.
+ */
+export function trailingFlowStatement(current: Pick<CurrentCapital, "netIncome" | "ebitda" | "cashBridge">): string {
+  const present = {
+    ocf: current.cashBridge.operatingCashFlow !== null,
+    capex: current.cashBridge.cashCapitalExpenditure !== null,
+    income: (current.netIncome ?? null) !== null,
+    ebitda: (current.ebitda ?? null) !== null,
+    sbc: (current.cashBridge.stockBasedCompensation ?? null) !== null,
+  };
+  const names: [keyof typeof present, string][] = [["ocf", "operating cash flow"], ["capex", "cash capital expenditure"],
+    ["income", "consolidated net income"], ["ebitda", "EBITDA"], ["sbc", "stock-based compensation"]];
+  const list = (items: string[]) => items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+  const admitted = names.filter(([key]) => present[key]).map(([, name]) => name);
+  const missing = names.filter(([key]) => !present[key]).map(([, name]) => name);
+  const fcf = present.ocf && present.capex;
+  const withheld = [
+    ...(fcf ? [] : ["FCF"]),
+    ...(fcf && present.sbc ? [] : ["FCF after SBC", "SBC share of FCF"]),
+    ...(fcf && present.income ? [] : ["FCF conversion"]),
+    ...(present.ebitda ? [] : ["net debt / EBITDA"]),
+  ];
+  const head = admitted.length > 0 ? `TTM flows admitted for this window: ${list(admitted)}.` : "No TTM flow is admitted for this window.";
+  const tail = missing.length === 0 ? "" : ` Not established for this window: ${list(missing)}${withheld.length > 0 ? `, so ${list(withheld)} ${withheld.length === 1 ? "is" : "are"} withheld` : ""}.`;
+  return `${head}${tail} Annual historical series remain separately labeled.`;
+}
+
 export function applyFinancialDiagnostics(report: Report, computed: ComputedMetrics, bundle?: DataBundle, options: {pendingVerification?:boolean; executiveEvidence?: ExecutiveDecisionEvidence} = {}): Report {
   const next = structuredClone(report);
   // structuredClone preserves internal aliases: grade keyNumbers may be the
@@ -139,7 +172,7 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
     }
     // Method statements, not issuer facts: JUDGMENT (audit 2026-10-22 F-20).
     next.balanceSheet.coverage.commentary.push({ label: "JUDGMENT", source: "computed.capital.current", asOf: current.asOf,
-      text: `Capital grading basis: ${period}. ${current.fallbackReason ?? "Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled."} ${current.cashBridge.definition}` });
+      text: `Capital grading basis: ${period}. ${current.fallbackReason ?? trailingFlowStatement(current)} ${current.cashBridge.definition}` });
     next.balanceSheet.debtProfile.commentary.push({ label: "JUDGMENT", source: "computed.capital.current", asOf: current.asOf,
       text: [current.debtBridge.compositionNote, current.debtBridge.leaseScopeNote ?? "The debt bridge shows debt on the retained basis and the selected operating-lease basis, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero.", current.debtBridge.leaseEvidenceNote]
         .filter((text): text is string => text !== undefined).join(" ") });

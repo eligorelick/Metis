@@ -168,7 +168,7 @@ with the classic layout (D-246). The dossier is the only layout; a leftover
 `METIS_UI_REDESIGN` value is ignored and the app starts normally, while the
 retired `THESIS_UI_REDESIGN` name is still refused like the others. Legacy data folders (`Thesis`, `thesis.db`, `Thesis/ai`) are
 unaffected and are still found in place. Some report and judge-prompt wording
-still spells the old names (for example "set THESIS_EV_INCLUDE_LEASES=1"); the
+spelled the old names (for example "set THESIS_EV_INCLUDE_LEASES=1"); reports built since D-296 name the `METIS_*` setting, and for older saved reports the
 setting to use is the `METIS_*` one.
 
 ## Report lifecycle and recovery

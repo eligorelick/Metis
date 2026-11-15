@@ -57,10 +57,11 @@ export const DEFAULT_JUDGE_ORDER_SETTING: JudgeOrderSetting = "random";
  * The setting name as reports and the judge prompt spell it, so callers never
  * spell it twice. It is display text only and is never used to read the
  * environment (the setting is `METIS_JUDGE_ORDER`, read through the parsed
- * config). FROZEN by D-228: renaming it changes saved-report wording and the
- * judge prompt bytes, which needs an owner decision first.
+ * config). D-296 (revising D-228's freeze): reports and the prompt name the
+ * current setting; the retired Thesis-era name is refused at startup. Saved
+ * reports keep their bytes and read through the retired-wording view.
  */
-export const JUDGE_ORDER_ENV_KEY = "THESIS_JUDGE_ORDER";
+export const JUDGE_ORDER_ENV_KEY = "METIS_JUDGE_ORDER";
 
 /** How many judge provider passes each setting costs. `both` is the expensive one. */
 export const JUDGE_PASSES_PER_SETTING: Record<JudgeOrderSetting, 1 | 2> = {

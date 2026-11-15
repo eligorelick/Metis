@@ -968,7 +968,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       // rows had arrived, and filed the configured substitution as an
       // unexpected incident on a keyed plan.
       reason: overridden > 0
-        ? `served by ${source} (${endpoint}) because THESIS_STATEMENT_SOURCE=edgar sets aside FMP's ${overridden} vendor row(s)`
+        ? `served by ${source} (${endpoint}) because METIS_STATEMENT_SOURCE=edgar sets aside FMP's ${overridden} vendor row(s)`
         : `served by ${source} (${endpoint}) because FMP ${fmpReason(inputs.fmp[member] as AnyMemberResult)}`,
       severity: "info",
       // A configured source choice is structural on any plan; an FMP shortfall
@@ -1032,12 +1032,12 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       gap: {
         field: `statements.${member}`,
         reason:
-          `${reason}; FMP's ${overridden} vendor row(s) were withheld because THESIS_STATEMENT_SOURCE=edgar builds statements from filed facts only`,
+          `${reason}; FMP's ${overridden} vendor row(s) were withheld because METIS_STATEMENT_SOURCE=edgar builds statements from filed facts only`,
         severity: "warn",
         attemptedSources: [original.value.endpoint, ...attemptedSources],
       },
     };
-    notes.push(`${member}: FMP's ${overridden} vendor row(s) withheld under THESIS_STATEMENT_SOURCE=edgar`);
+    notes.push(`${member}: FMP's ${overridden} vendor row(s) withheld under METIS_STATEMENT_SOURCE=edgar`);
   };
 
   /** Wrap a keyless fetch so a rejected promise can never escape as a throw. */
@@ -1499,13 +1499,13 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   // other backfill and used to be appended in every mode.
   if (predecessor !== null && inputs.edgarConfirmedIssuer && inputs.statementSource === "fmp") {
     notes.push(
-      `predecessor history from CIK ${predecessor.cik10} not appended: THESIS_STATEMENT_SOURCE=fmp keeps the statements vendor-only`,
+      `predecessor history from CIK ${predecessor.cik10} not appended: METIS_STATEMENT_SOURCE=fmp keeps the statements vendor-only`,
     );
     gaps.push({
       field: "edgar.predecessor",
       reason:
         `the registrant is a successor issuer whose predecessor (CIK ${predecessor.cik10}) has filed history of its own, ` +
-        "but THESIS_STATEMENT_SOURCE=fmp keeps the statements vendor-only, so no pre-reorganization periods were appended",
+        "but METIS_STATEMENT_SOURCE=fmp keeps the statements vendor-only, so no pre-reorganization periods were appended",
       severity: "info",
       attemptedSources: [predecessor.endpoint],
       expected: true,

@@ -27,7 +27,7 @@ import type { FiledBorrowingCost } from "@/edgar/borrowingCosts";
 import { BETA_MIN_MONTHS, BLUME_MARKET_WEIGHT, BLUME_RAW_WEIGHT } from "@/pipeline/stageB/betaEstimate";
 import { isFiniteNumber } from "@/pipeline/stageB/growth";
 import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
-import { leaseDebtConflict, millions, NET_DEBT_RESOLVER_VERSION, operatingLeaseOutOfDebt, resolveNetDebt } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, millions, operatingLeaseOutOfDebt, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
 import { resolveConsolidatedEquity, resolveParentProfit } from "@/pipeline/stageB/ownership";
@@ -1002,8 +1002,8 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     weightDebt = weightDebtAmount / (mcap + weightDebtAmount);
     notes.push(
       latestDebt !== null
-        ? `debt weight uses ${inputs.totalDebtLatestBasis ?? "the latest book totalDebt"} as market-value proxy; the effective cost of debt divides interest by ${base.debtBasis ?? "the average balance"}`
-        : `debt weight uses ${inputs.totalDebtBasis ?? "book totalDebt (avg of latest two periods)"} as market-value proxy`,
+        ? `debt weight uses ${inputs.totalDebtLatestBasis ?? "the latest book total debt"} as market-value proxy; the effective cost of debt divides interest by ${base.debtBasis ?? "the average balance"}`
+        : `debt weight uses ${inputs.totalDebtBasis ?? "book total debt (average of the latest two periods)"} as market-value proxy`,
     );
   }
 
@@ -1098,7 +1098,7 @@ export interface WaccDisclosure {
 
 const BETA_METHOD_LABEL = `Blume-adjusted (${BLUME_RAW_WEIGHT.toFixed(3)}·raw + ${BLUME_MEAN_WEIGHT.toFixed(3)}), clamped [${BETA_CLAMP[0]}, ${BETA_CLAMP[1]}]`;
 const WEIGHTS_BASIS_LABEL =
-  "market-value weights: equity = current market capitalization, debt = book totalDebt (average of the latest two balance sheets) as the market-value proxy";
+  "market-value weights: equity = current market capitalization, debt = book total debt (average of the latest two balance sheets) as the market-value proxy";
 
 const pctOrNa = (v: number | null): string => (v === null ? "n/a" : `${fmt(v)}%`);
 
@@ -1107,7 +1107,7 @@ export function waccDisclosure(result: WaccResult): WaccDisclosure {
   const rfAsOf = result.asOf?.riskFreeRate ?? null;
   const erpSourceLabel =
     result.erpSource === "vendor"
-      ? `FMP market-risk-premium (${result.erpCountry ?? "US"} totalEquityRiskPremium)`
+      ? `FMP market-risk-premium (${result.erpCountry ?? "US"} total equity risk premium)`
       : result.erpSource === "damodaran-fallback"
         ? `${ERP_FALLBACK.source} (static fallback)`
         : null;
@@ -1873,16 +1873,16 @@ export function computeRoic(
     return { series: [], latestRoicPct: null, asOf: inc[0]?.date ?? null, notes, gaps };
   }
   notes.push(
-    `invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (totalEquity, else parent totalStockholdersEquity + minorityInterest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (${NET_DEBT_RESOLVER_VERSION}; ${balance.some(b => b.cashConflictReconciled) ? "cash-only where short-term investments are not established from available facts" : "cash-only where short-term investments are unreported"}, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
+    `invested capital = total debt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (total equity, else parent stockholders' equity + noncontrolling interest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (${balance.some(b => b.cashConflictReconciled) ? "cash-only where short-term investments are not established from available facts" : "cash-only where short-term investments are unreported"}, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
   );
   const leaseDisclosed = bal.some((b) => isFiniteNumber(b.operatingLeaseLiability) && b.operatingLeaseLiability >= 0);
   if (includeOperatingLeases) {
     notes.push(
-      "invested capital uses the retained totalDebt basis (THESIS_EV_INCLUDE_LEASES=1); no separate operating-lease amount is subtracted, matching the enterprise-value convention",
+      "invested capital uses the retained total-debt basis (METIS_EV_INCLUDE_LEASES=1); no separate operating-lease amount is subtracted, matching the enterprise-value convention",
     );
   } else if (!leaseDisclosed) {
     notes.push(
-      "no separate operating-lease observation is available on these balance sheets; invested capital uses the retained totalDebt basis without a separate operating-lease adjustment. Operating-lease coverage is unverified; no direction of ROIC bias is established",
+      "no separate operating-lease observation is available on these balance sheets; invested capital uses the retained total-debt basis without a separate operating-lease adjustment. Operating-lease coverage is unverified; no direction of ROIC bias is established",
     );
   }
 
@@ -1935,7 +1935,7 @@ export function computeRoic(
     const terminalTax = normalizedEbit > 0
       ? (t ?? (normalizedEbit !== ebit && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry).pct / 100 : null)) : 0;
     if (t === null) {
-      rootCauses.set(row.date, !isFiniteNumber(row.incomeBeforeTax) || row.incomeBeforeTax! <= 0 ? "incomeBeforeTax is missing or non-positive" : "incomeTaxExpense is missing");
+      rootCauses.set(row.date, !isFiniteNumber(row.incomeBeforeTax) || row.incomeBeforeTax! <= 0 ? "pre-tax income is missing or non-positive" : "income tax expense is missing");
       gaps.push({
         field: "returns.roic.taxRate",
         reason: `${row.date}: an observed effective tax rate could not be computed — NOPAT and ROIC suppressed for this period`,
@@ -1945,7 +1945,7 @@ export function computeRoic(
     }
     if (lossYearFloor !== null) {
       const basis = "pre-tax income is not positive while operating income is, so no effective tax rate exists: " +
-        `operating income is taxed at the ${fmt(lossYearFloor.pct)}% marginal-rate floor, ${lossYearFloor.basis} (house rule D-58)`;
+        `operating income is taxed at the ${fmt(lossYearFloor.pct)}% marginal-rate floor, ${lossYearFloor.basis} (house rule)`;
       entry.taxFloorBasis = basis;
       yearNotes.push(basis);
       gaps.push({ field: "returns.roic.taxRate", reason: `${row.date}: ${basis}`, severity: "info" });

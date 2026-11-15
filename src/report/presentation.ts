@@ -1586,7 +1586,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   // Audit 2026-10-22 B-20: a P/E that is market cap over common income, not
   // price over diluted EPS (the reading a reader assumes), says so.
   if (pe) {
-    const notes = [/^marketCap \/ common income \(/.test(pe.basis ?? "") ? "market cap / common income, not price / diluted EPS" : null,
+    // D-296: the aggregate P/E basis in current and stored wording.
+    const notes = [/^(?:marketCap|market cap) \/ common income \(/.test(pe.basis ?? "") ? "market cap / common income, not price / diluted EPS" : null,
       pe.earningsCaveat ? `caveat: ${pe.earningsCaveat}` : null].filter((note): note is string => note !== null);
     rows.push({ label: pe.name, value: formatMultiple(pe.current), ...(notes.length > 0 ? { note: notes.join("; ") } : {}) });
   }

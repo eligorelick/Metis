@@ -436,7 +436,7 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
           ? "no explicit year takes its growth from analyst consensus; the revenue anchor row says why"
           : `${consensusYearsText(consensusYears)} take their revenue from calendarized analyst consensus; years ${consensusYears[consensusYears.length - 1] + 1}–${a.years} follow the convergent fade. ` +
             `A year is anchored only while its fiscal-year estimates have at least ${MIN_CONSENSUS_ANALYSTS} analysts, an implied dispersion of at most ${MAX_CONSENSUS_CV_PCT}% ` +
-            "((high − low) ÷ (d2(n) × mean)) and growth within the house band (house rule D-65); the DCF path vs consensus table shows every window",
+            "((high − low) ÷ (d2(n) × mean)) and growth within the house band (house rule); the DCF path vs consensus table shows every window",
       }];
   const valuationDateRow: DcfAssumption[] = a.valuationDate === undefined ? [] : [{
     name: "valuation date",

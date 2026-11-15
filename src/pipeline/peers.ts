@@ -44,7 +44,7 @@ export function peerSizeExclusion(subjectMarketCap: unknown, peerMarketCap: unkn
   if (ratio >= 1 / PEER_SIZE_RATIO_LIMIT && ratio <= PEER_SIZE_RATIO_LIMIT) return null;
   const big = (v: number) => v >= 1e12 ? `${(v / 1e12).toFixed(2)}T` : v >= 1e9 ? `${(v / 1e9).toFixed(2)}B` : `${(v / 1e6).toFixed(0)}M`;
   const grouped = (v: number) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `size screen: market cap ${big(peer)} is ${ratio < 1 ? `${grouped(1 / ratio)}× smaller than` : `${grouped(ratio)}× larger than`} the subject's ${big(subject)}, outside the ${PEER_SIZE_RATIO_LIMIT}× comparable-size band (house rule D-65)`;
+  return `size screen: market cap ${big(peer)} is ${ratio < 1 ? `${grouped(1 / ratio)}× smaller than` : `${grouped(ratio)}× larger than`} the subject's ${big(subject)}, outside the ${PEER_SIZE_RATIO_LIMIT}× comparable-size band (house rule)`;
 }
 
 
@@ -331,7 +331,7 @@ export function comparePeerFundamentals(opts: {
       `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within ${PEER_SIZE_RATIO_LIMIT}× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route or held-for-sale lender cash-flow applicability the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.`,
       "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
       "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
-      "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+      "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
       "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
       ...(collection?.notes ?? ["Peer fundamentals not collected on this report."]),
     ], candidates: collection?.candidateCount ?? 0, evaluated: Object.keys(collection?.candidates ?? {}).length,
@@ -372,7 +372,7 @@ export function comparePeerFundamentals(opts: {
   const commonValid = targetIncomeEnd !== null && targetIncomeEnd <= now && now - targetIncomeEnd <= MAX_STATEMENT_AGE && subjectCommon.value !== null;
   if (!commonValid) exclude(symbol, `Common earnings comparison: ${subjectCommon.reason ?? "subject TTM statement stale or missing"}`);
   const gainWithheld = isGainInflated(subjectCommon.nonOperatingShare)
-    ? `non-operating income ${(subjectCommon.nonOperatingShare * 100).toFixed(1)}% of the subject's trailing pre-tax income (above 25%, house rule D-98): its earnings rest on gains, so its market cap / common earnings is not compared with peers, as its P/E is not ranked against its own history` : null;
+    ? `non-operating income ${(subjectCommon.nonOperatingShare * 100).toFixed(1)}% of the subject's trailing pre-tax income (above 25%, house rule): its earnings rest on gains, so its market cap / common earnings is not compared with peers, as its P/E is not ranked against its own history` : null;
   const withheld = [scopeWithheld, gainWithheld].filter((reason): reason is string => reason !== null);
   if (commonValid && withheld.length) exclude(symbol, `Company figure withheld: ${withheld.join("; ")}`);
   const gainExclusions: string[] = [];
@@ -451,7 +451,7 @@ export function comparePeerFundamentals(opts: {
       exclude(peerSymbol, "common earnings: economic evidence does not describe this peer's trailing-earnings period");
     } else if (commonEligible && common.value !== null && isGainInflated(common.nonOperatingShare)) {
       const pct = (common.nonOperatingShare * 100).toFixed(1);
-      exclude(peerSymbol, `common earnings: non-operating income ${pct}% of trailing pre-tax income (above 25%, house rule D-98): its trailing earnings rest on gains, not operations, so it is left out of the common-earnings and P/E medians`);
+      exclude(peerSymbol, `common earnings: non-operating income ${pct}% of trailing pre-tax income (above 25%, house rule): its trailing earnings rest on gains, not operations, so it is left out of the common-earnings and P/E medians`);
       gainExclusions.push(`${peerSymbol}: non-operating income ${pct}%`);
     } else if (commonEligible && common.value !== null) {
       commonValues.push({ symbol: peerSymbol, value: mcap / common.value, economicEvidence: commonEvidence });
@@ -501,6 +501,6 @@ export function comparePeerFundamentals(opts: {
     ...(commonValid && withheld.length ? { currentWithheldReason: withheld.join("; ") } : {}),
     peerMedian: commonValid && trimmed.length >= 4 ? quantile(trimmed, .5) : null, peerCount: trimmed.length,
     basis: "Issuer market capitalization / four contiguous quarters of filed common earnings (or net income only with zero preferred and minority claims in each same-date quarterly balance). Not price/diluted EPS. At least four issuers after 1.5×IQR filtering required." });
-  if (trimmed.length < 4) peerCoverage.methodology.push(`Common-earnings median withheld: ${trimmed.length} eligible peers after the IQR rule${gainExclusions.length ? ` and the D-98 gain test (${gainExclusions.join(", ")})` : ""}; four required.`);
+  if (trimmed.length < 4) peerCoverage.methodology.push(`Common-earnings median withheld: ${trimmed.length} eligible peers after the IQR rule${gainExclusions.length ? ` and the gain test (${gainExclusions.join(", ")})` : ""}; four required.`);
   return out;
 }

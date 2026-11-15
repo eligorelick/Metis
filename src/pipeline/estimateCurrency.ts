@@ -102,7 +102,7 @@ export function inheritedIssuerCurrency(evidence: {
     code: reporting,
     basis:
       `inherited from the issuer's reporting currency ${reporting}: the statements and the listing agree and the issuer ` +
-      "is not an ADR; the provider row carries no currency of its own (D-57)",
+      "is not an ADR; the provider row carries no currency of its own",
   };
 }
 
