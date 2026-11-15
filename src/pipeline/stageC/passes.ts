@@ -132,7 +132,7 @@ import {
   type ProvenanceFailureReason,
 } from "@/pipeline/stageC/provenance";
 import { currencyCandidateInBaseUnits, matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
-import { unitLabel } from "@/report/format";
+import { sameTracedDisplayValue, unitLabel } from "@/report/format";
 import { buildPlainFigureIndex, checkPlainFigures, descriptionConflictsWithRecord, filedCalendarFiscalLabel, reportedSeriesLatest, validateClaimNumericSupport, valueConflictAtRecordDate, type ClaimEvidenceIndex, type ClaimSourceSpan, type PlainFigureText } from "@/pipeline/stageC/claimEvidence";
 import {
   parseCitationRef,
@@ -3802,6 +3802,16 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
             ok = false;
             reason = "text-context-mismatch";
             excerptNote = conflict ? `the printed description names another metric: ${conflict}` : "the printed source names another record";
+          }
+        }
+        // D-304: a match at registry precision must also agree at the
+        // submitted figure's displayed decimals and unit (P19/P22).
+        // Otherwise double rounding can give an incorrect figure a checkmark.
+        if (ok) {
+          const scale = number.value === 0 ? 1 : amount.value / number.value;
+          if (!sameTracedDisplayValue(number, { ...number, value: record.value / scale })) {
+            ok = false;
+            reason = "value-mismatch";
           }
         }
         // Exact matching validates any registry context before it can pass.

@@ -354,6 +354,34 @@ export function formatTracedValue(number: TracedNumber): string {
   return formatFinancialValue(number.value, number.unit, number.currency);
 }
 
+/**
+ * D-304: after identity matching, round both values in the submitted figure's
+ * displayed unit and decimals. Only that figure selects the display precision;
+ * trailing-zero suppression and a different compact spelling of the record
+ * cannot change the comparison. No issuer or analyst prose is parsed.
+ */
+export function sameTracedDisplayValue(left: TracedNumber, right: TracedNumber): boolean {
+  if (!Number.isFinite(left.value) || !Number.isFinite(right.value)) return false;
+  const match = /^[\u2212+-]?(?:\$)?[\d,]+(?:\.(\d+))?(?:e([+-]?\d+))?([KMBT]?)/.exec(formatTracedValue(left));
+  if (!match) return false;
+  const compact = LARGE_NUMBER_SCALES.find(([, suffix]) => suffix === match[3]);
+  // Whole compact amounts suppress trailing zeros, not the scale's normal
+  // precision: $1M and $1.00M both use two decimals in millions.
+  const digits = compact?.[2] ?? match[1]?.length ?? 0;
+  const displayScale = (compact?.[0] ?? 1) * 10 ** Number(match[2] ?? 0);
+  const unit = left.unit.trim();
+  const explicitScale = SCALED_MONEY_UNIT.exec(unit);
+  const sourceScale = explicitScale ? SCALE_MULTIPLIER[explicitScale[2]!.toLowerCase()]!
+    : /^(fraction|frac)$/i.test(unit) ? 100 : 1;
+  const rounded = (value: number): number => {
+    const displayed = value * sourceScale / displayScale;
+    // Preserve the score formatter's existing protection against rounding
+    // across a grade cutoff, at the same selected precision on both sides.
+    return unit.toLowerCase() === "0-100" ? Number(formatScore(displayed, digits)) : decimalRound(displayed, digits);
+  };
+  return rounded(left.value) === rounded(right.value);
+}
+
 /** A failed match does not mean a citation was never supplied. */
 export function numericCitationTraceLabel(value: TracedNumber["verified"]): string {
   return value === true ? "citation-traced" : value === false ? "untraced" : "not checked";

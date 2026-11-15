@@ -1,6 +1,6 @@
 import releaseW3Deltas from "./fixtures/release-w3-forensic-deltas.json";
 import releaseW4aDeltas from "./fixtures/release-w4a-wording-deltas.json";
-import { restorePublicPolishGolden } from "./helpers/publicPolishGolden";
+import { restoreReleaseLeftoversGolden, restorePublicPolishGolden } from "./helpers/publicPolishGolden";
 import { restoreP2ComputedGolden } from "./helpers/p2DcfInputsGolden";
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
@@ -134,7 +134,7 @@ describe("retained forensic observation context on real data-only exports", () =
     const c = runStageB(bundle, { evIncludeLeases: false });
     expect(flagOf(c)).toMatchObject({ severity: "warn", metrics: { discontinuedOpsYears: 2, lookbackYears: 4 },
       asOf: ["2025-12-31", "2024-12-31"], heuristic: true,
-      rule: "house rule: netIncomeFromDiscontinuedOperations nonzero in >= 2 of the last 5 fiscal years" });
+      rule: "house rule: net income from discontinued operations nonzero in >= 2 of the last 5 fiscal years" });
     const out = exportsOf(bundle, c);
     const retained = out.report.quality.flags.find(f => f.source === "computed.forensics.flags.recurring-discontinued-ops")!;
     expect(retained.severity).toBe("medium");
@@ -184,7 +184,7 @@ describe("retained forensic observation context on real data-only exports", () =
     // D-267: the pre-fix run set the quote's cap against the 2025-12-31 balance. The pin supplies that same amount
     // observed at the balance date, so every value is unchanged; the four leaves the dated history adds are asserted
     // exactly below and restored, and the pin keeps checking every other byte.
-    const computed = runStageB(fixture(undefined, BALANCE_DATE_CAP), { evIncludeLeases: false });
+    const computed = restoreReleaseLeftoversGolden(runStageB(fixture(undefined, BALANCE_DATE_CAP), { evIncludeLeases: false }));
     // D-300 review round 1: this fixture's tax-rate operands are vendor rows with no filed family, so Stage B adds the
     // typed manifest entry beside the unchanged basis wording. Assert it exactly, then remove it; no number moves.
     const taxOperands = { field: "valuation.dcf.taxOperands", reason: "Tax rate operands: vendor data, not checked against a filing", severity: "info" };

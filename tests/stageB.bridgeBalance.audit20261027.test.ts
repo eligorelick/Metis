@@ -224,7 +224,7 @@ describe("D-267 review: date refusal preserves independent failures", () => {
   it("keeps the critical missing-capital operand on an off-date balance", () => {
     const built = build(balance.date, undefined, { balance: { ...balance, totalDebt: null } });
     expect(built.assumptions).toBeNull();
-    expect(built.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.salesToCapital", severity: "critical", cause: "invested-capital-balance-fields-missing", reason: expect.stringContaining("totalDebt") }));
+    expect(built.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.salesToCapital", severity: "critical", cause: "invested-capital-balance-fields-missing", reason: expect.stringContaining("total debt") }));
   });
   it("keeps the critical nonpositive capital on an off-date balance", () => {
     const built = build(balance.date, undefined, { balance: { ...balance, totalStockholdersEquity: -55 * B } });

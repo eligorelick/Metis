@@ -1,3 +1,4 @@
+import { MODEL_TANGIBLE_COMMON_BASIS } from "@/pipeline/stageB/returns";
 import type { ReportAuditTable } from "@/report/auditTables";
 import { qualifiedGradeLabel } from "@/report/assessment";
 import { supplementalNumericInventoryText } from "@/report/supplementalNumericAudit";
@@ -439,6 +440,9 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
 /** A short reader label for a computed signal id ("revenueCagr" → "Revenue CAGR"). */
 export function signalLabel(id: string): string {
   const fixed: Record<string, string> = {
+    peOwnHistoryRank: "Valuation multiple own-history rank",
+    // Release R54: this rank uses P/TBV, or P/B where tangible book is unavailable; the label is true for both.
+    priceToTbvOwnHistoryRank: "Book multiple own-history rank (P/TBV, or P/B where tangible book is unavailable)",
     revenueCagr: "Revenue CAGR", operatingMarginSlope: "Operating-margin slope", epsCagr: "EPS CAGR",
     fcfCagr: "FCF CAGR", dcfUpside: "DCF upside", reverseImpliedVsAchievable: "Reverse-DCF implied vs achievable growth",
     roicVsWaccSpread: "ROIC − fiscal-year-end WACC spread", piotroskiF: "Piotroski F (share of signals)",
@@ -2550,6 +2554,7 @@ export const READER_FIELD_LABELS: Readonly<Record<string, string>> = {
   commonStockIssuance: "share issuance", commonStockRepurchased: "share repurchases", netDividendsPaid: "net dividends paid",
   commonDividendsPaid: "common dividends paid", preferredDividendsPaid: "preferred dividends paid", stockBasedCompensation: "stock-based compensation",
   financeLeasePrincipalPayments: "finance-lease principal payments", interestPaid: "interest paid", marketCap: "market cap",
+  peOwnHistoryRank: "valuation multiple own-history rank", priceToTbvOwnHistoryRank: "book multiple own-history rank",
 };
 
 const READER_FIELD_PATTERN = new RegExp(`(?<![\\w./:@-])(${Object.keys(READER_FIELD_LABELS).sort((a, b) => b.length - a.length).join("|")})(?![\\w/(@-]|\\.\\w)`, "g");
@@ -2853,7 +2858,7 @@ export function scoreDriverTable(scores: NonNullable<Report["scores"]>): BodyTab
     formatNumber(signal.transformedScore, 0),
     formatPct(signal.effectiveCompositeWeightPct, 1),
     signedPoints(signal.contributionPoints),
-    signal.fallbackReason ?? "—",
+    [signal.id === "roteLevel" || signal.id === "roteFloor" ? MODEL_TANGIBLE_COMMON_BASIS : null, signal.fallbackReason].filter(Boolean).join("; ") || "—",
   ]));
   if (rows.length === 0) return null;
   return {

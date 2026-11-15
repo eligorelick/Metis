@@ -998,7 +998,7 @@ export function computeScores(inputs: ScoringInputs, gaps: ManifestEntry[] = [])
     ],
     weights.quality,
     inputs.asOf,
-    "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on).",
+    "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the original-scale equivalent used for scoring — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on).",
     policy,
   );
 

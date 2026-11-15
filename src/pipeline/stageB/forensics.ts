@@ -164,7 +164,7 @@ export const FORENSICS_HOUSE_RULES = {
   minGrowthPct: 10,
   /** Suppress inventory growth-gap when revenue fell more than this % (overhang). */
   inventoryOverhangRevenueDeclinePct: -10,
-  /** One-time items: |totalOtherIncomeExpensesNet| > this share of |operatingIncome|. */
+  /** One-time items: |total other income and expenses, net| > this share of |operating income|. */
   oneTimeItemsShareOfOperatingIncome: 0.1,
   /** "Serial one-timers" when breached in >= this many of the lookback years. */
   oneTimeSerialYears: 3,
@@ -1177,7 +1177,7 @@ export function computeBeneish(current: ForensicsPeriod, prior: ForensicsPeriod,
   // TATA — PRIMARY: cash-flow construction (Hribar–Collins; research §4.2)
   const niT = continuingNetIncome(current.income);
   if (niT !== null && nv(current.income?.netIncomeFromContinuingOperations) === null) {
-    notes.push("TATA: netIncomeFromContinuingOperations unavailable — netIncome used (fallback).");
+    notes.push("TATA: net income from continuing operations unavailable — net income used (fallback).");
   }
   const cfoT = nv(current.cashFlow?.netCashProvidedByOperatingActivities);
   const taT = posOrNull(current.balance?.totalAssets);
@@ -2525,7 +2525,7 @@ export function computeSupportFlags(
         severity: "warn",
         message: `Net other ${nv(incT?.totalOtherIncomeExpensesNet)! < 0 ? "expense" : "income"} was ${fmt1(latestShare * 100)}% of operating income in the latest fiscal year. Classification of the underlying gains and expenses is required before normalizing recurring earnings; materiality alone does not establish a one-time item or accounting-quality concern.`,
         metrics: { otherItemsShareOfOperatingIncomePct: latestShare * 100 },
-        rule: `house rule: |totalOtherIncomeExpensesNet| > ${H.oneTimeItemsShareOfOperatingIncome * 100}% of |operatingIncome|`,
+        rule: `house rule: |total other income and expenses, net| > ${H.oneTimeItemsShareOfOperatingIncome * 100}% of |operating income|`,
         heuristic: true,
         asOf: incT?.date ? [incT.date] : [],
       });
@@ -2564,7 +2564,7 @@ export function computeSupportFlags(
       severity: "warn",
       message: `Nonzero discontinued-operation results were retained in ${discoYears.length} of the last ${lookback.length} fiscal-year observations (period ends: ${periodEnds.join(", ")}). The observation count does not establish the number or recurrence of portfolio transactions; one disposal can affect multiple periods. Missing amounts remain unknown.`,
       metrics: { discontinuedOpsYears: discoYears.length, lookbackYears: lookback.length },
-      rule: "house rule: netIncomeFromDiscontinuedOperations nonzero in >= 2 of the last 5 fiscal years",
+      rule: "house rule: net income from discontinued operations nonzero in >= 2 of the last 5 fiscal years",
       heuristic: true,
       asOf: discoYears,
     });

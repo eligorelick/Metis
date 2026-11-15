@@ -18,7 +18,7 @@ import type { FmpStatementRow } from "@/providers/fmp";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { leaseDebtScopeRefusal, leaseEvidenceNote, type LeaseFieldEvidence, type LeaseEvidenceContext } from "./leaseScope";
 import type { ManifestEntry, SectorRoute } from "@/types/core";
-import { deriveFcf } from "@/pipeline/stageB/financialValues";
+import { admittedSbc, negativeSbcRefusal, deriveFcf } from "@/pipeline/stageB/financialValues";
 import { resolveConsolidatedProfit } from "@/pipeline/stageB/ownership";
 import {
   IRREGULAR_SPACING_TOLERANCE_YEARS,
@@ -68,6 +68,8 @@ export interface CapitalIncomeRow extends FiscalDatedRow {
 export type CoverageOperand = "ebit" | "interestExpense";
 
 export interface CapitalCashFlowRow {
+  reportedCurrency?: string | null;
+  fieldProvenance?: FmpStatementRow["fieldProvenance"];
   fieldConflicts?: FmpStatementRow["fieldConflicts"];
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
@@ -626,26 +628,22 @@ export function computeCapital(
           rowNotes.push("FCF derived as operatingCashFlow + capitalExpenditure");
         }
       }
-      // WS6 (D-19): subtract SBC, using the SIGN THE FILER REPORTED. The
-      // us-gaap element is a positive add-back inside operating cash flow, so a
-      // NEGATIVE figure is a net credit — forfeitures reversing more expense
-      // than the period awarded. N4: `Math.abs` turned that credit into a
-      // charge and subtracted where it should add, understating free cash flow
-      // by twice the reversal.
+      // D-306 review: preserve a filed negative credit's sign; a vendor
+      // negative without exact-period proof cannot establish such a credit.
+      // Its cause is not inferred from the sign alone.
       const sbcExpense =
-        isFiniteNumber(r.stockBasedCompensation) && r.stockBasedCompensation !== 0
-          ? r.stockBasedCompensation
-          : null;
-      let fcf = fcfBeforeSbc;
+        admittedSbc(r) === 0 ? null : admittedSbc(r);
+      const sbcRefusal = negativeSbcRefusal(r);
+      let fcf = sbcRefusal ? null : fcfBeforeSbc;
       if (fcfBeforeSbc !== null && sbcExpense !== null) {
         fcf = fcfBeforeSbc - sbcExpense;
         rowNotes.push(
           sbcExpense < 0
-            ? `SBC reported as a net CREDIT of ${fmt(Math.abs(sbcExpense))} (forfeiture reversals exceeded the period's awards), so it is ADDED to FCF: ${fmt(fcfBeforeSbc)} → ${fmt(fcf)}`
+            ? `SBC reported as a net CREDIT of ${fmt(Math.abs(sbcExpense))} (filed negative amount; its cause is not inferred), so it is ADDED to FCF: ${fmt(fcfBeforeSbc)} → ${fmt(fcf)}`
             : `SBC ${fmt(sbcExpense)} subtracted from FCF (house default): ${fmt(fcfBeforeSbc)} → ${fmt(fcf)}`,
         );
       } else if (fcfBeforeSbc !== null) {
-        rowNotes.push("stock-based compensation not disclosed for this year — FCF is unadjusted (before SBC)");
+        rowNotes.push(sbcRefusal ?? "stock-based compensation not disclosed for this year — FCF is unadjusted (before SBC)");
       }
       // D-238 (P5): the conversion divides consolidated cash flow, so its net income is consolidated profit: the
       // cash-flow statement's own starting line, else the income statement's profit on that scope.
@@ -660,11 +658,11 @@ export function computeCapital(
       }
       let conversion: number | null = null;
       let conversionBeforeSbc: number | null = null;
-      if (fcf !== null && ni !== null) {
+      if (ni !== null && (fcf !== null || sbcRefusal !== null)) {
         if (ni <= 0) {
           rowNotes.push("net income ≤ 0 — FCF conversion not meaningful");
         } else {
-          conversion = fcf / ni;
+          conversion = fcf !== null ? fcf / ni : null;
           // WS6 review (SHOULD-FIX 2): the before-SBC ratio is kept beside it.
           // It is the definition the grading band was calibrated on, and grading
           // the after-SBC ratio against that band charged the same expense twice
@@ -906,13 +904,11 @@ export function computeCapital(
     const latestCf: CapitalCashFlowRow | undefined = cf.length > 0 ? cf[0] : undefined;
     if (latestCf !== undefined) {
       const sbcNotes: string[] = [];
-      const sbcVal = isFiniteNumber(latestCf.stockBasedCompensation)
-        ? latestCf.stockBasedCompensation
-        : null;
+      const sbcVal = admittedSbc(latestCf);
       if (sbcVal === null) {
         gaps.push({
           field: "capital.sbc",
-          reason: "Stock-based compensation is not disclosed for the latest cash-flow period",
+          reason: negativeSbcRefusal(latestCf) ?? "Stock-based compensation is not disclosed for the latest cash-flow period",
           severity: "info",
         });
       }

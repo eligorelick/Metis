@@ -378,8 +378,8 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
     cashBasis: null,
     // Fix round 2, M3: name the row's cash-only net debt only when it carries one (a keyless row often does not).
     reason: (inputs.cashConflictReconciled ? (cash === null && inputs.fieldConflicts?.cashAndCashEquivalents?.usable === false
-      ? `cashAndCashEquivalents withheld (${inputs.fieldConflicts.cashAndCashEquivalents.reason ?? "refused at admission"}); ` : "") +
-      "combined cash-and-short-term-investments unavailable; cashAndCashEquivalents or shortTermInvestments missing"
+      ? `cash and cash equivalents withheld (${inputs.fieldConflicts.cashAndCashEquivalents.reason ?? "refused at admission"}); ` : "") +
+      "combined cash-and-short-term-investments unavailable; cash and cash equivalents or short-term investments missing"
       : "combined cash-and-short-term-investments unavailable and one or more cash components missing") +
       (vendorNetDebt !== null ? "; the row's cash-only net debt is not used" : ""),
   };

@@ -90,7 +90,7 @@ describe("score evidence follows the actual metric basis", () => {
         rankedCurrent:{value:25,construction:"capitalization-common-income"}} }];
     const result = describeScoreEvidence(i,"valuation","peOwnHistoryRank");
     expect(result.fallbackReason).toMatch(/ranked as market cap \/ common income 25x, the construction of its history; the P\/E shown is price \/ diluted EPS/);
-    expect(operand(result,"peTtm current multiple").value).toBe(26);
+    expect(operand(result,"P/E current multiple").value).toBe(26);
   });
   it("labels the share trend's weighted-average denominator and limits the stewardship interpretation", () => {
     const i = inputs();
@@ -170,7 +170,7 @@ describe("score evidence follows the actual metric basis", () => {
     expect(result.asOf).toBe("2026-07-01");
     expect(result.startDate).toBeNull(); expect(result.endDate).toBeNull();
     expect(result.windowYears).toBeNull();
-    expect(operand(result, "evToEbitda current multiple").value).toBe(20);
+    expect(operand(result, "EV/EBITDA current multiple").value).toBe(20);
     expect(result.fallbackReason).toMatch(/dates.*unavailable|unavailable.*dates/i);
   });
   it("uses the years with a tagged repurchase price rather than the share-count trend window (D-61 timing)", () => {

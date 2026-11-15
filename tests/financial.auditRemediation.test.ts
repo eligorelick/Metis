@@ -21,7 +21,9 @@ describe("financial audit integrity", () => {
     expect(admitStockCompensation(result.row, facts, "quarter", "2026-11-01").row).toEqual(result.row);
   });
   it.each([{ cik: "2" }, { reportedCurrency: "EUR" }, { periodStart: "2025-09-01" }, { filingDate: "2026-03-01" }])("does not admit incompatible SBC %j", changes => {
-    expect(admitStockCompensation<FmpStatementRow>({ ...row, ...changes }, facts, "quarter", "2026-11-01").row.stockBasedCompensation).toBe(-7);
+    const out=admitStockCompensation<FmpStatementRow>({ ...row, ...changes }, facts, "quarter", "2026-11-01");
+    expect(out.row.stockBasedCompensation).toBeNull();
+    expect(out.row.fieldConflicts?.stockBasedCompensation).toMatchObject({usable:false,vendorValue:-7,secValue:null});
   });
   it("collapses a six-day annual alias before duration inference", () => {
     const vendor = { date: "2025-09-30", cik: "1", reportedCurrency: "USD", fiscalYear: "2025", period: "FY", filingDate: "2025-11-01", acceptedDate: "2025-11-01 10:00:00" };

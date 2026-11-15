@@ -1,3 +1,4 @@
+import { MODEL_TANGIBLE_COMMON_BASIS } from "@/pipeline/stageB/returns";
 import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /** Synthetic offline integration controls; these are not live-provider or forecast-accuracy evidence. */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,7 +31,14 @@ describe("synthetic accounting-route integration panel", () => {
     expect(repeated).toEqual(first);
     expect(first.report.meta).toMatchObject({ model: "none", costUsd: 0, verificationRate: null });
     expect(first.report.appendix.missingData.some((gap) => gap.field === "analysis.llm")).toBe(true);
-    expect(first.report.scores).toEqual(first.computed.scores);
+    const scored = structuredClone(first.report.scores);
+    for (const aspect of Object.values(scored!.aspects)) for (const driver of aspect.drivers) {
+      if (/^computed\.scores\.moat\.rote(?:Level|Floor)$/.test(driver.source)) {
+        expect(driver.definition).toBe(MODEL_TANGIBLE_COMMON_BASIS);
+        delete driver.definition;
+      }
+    }
+    expect(scored).toEqual(first.computed.scores);
     expect(first.report.appendix.sources).toEqual([{
       provider: "fmp", endpoint: "synthetic:/income-statement", asOf: "2025-12-31", fetchedAt: "2026-07-06T00:00:00.000Z", stale: false,
     }]);
@@ -88,6 +96,7 @@ describe("synthetic accounting-route integration panel", () => {
     expect(report.fairValue).toMatchObject({ status: "available", method: "excess-return" });
     expect(report.valuation.dcf.perShare).toEqual(report.fairValue?.perShare);
     expect(report.valuation.dcf.sensitivityGrid).toEqual([]);
+    for (const row of report.routeMetrics?.metrics ?? []) if (["pTbv","rote","justifiedPTbv","premiumToJustified"].includes(row.key)) expect(row.basis).toContain(MODEL_TANGIBLE_COMMON_BASIS);
     expect(report.valuation.dcf.assumptions).toEqual([]);
     expect(computed.capital.fcf.latestFcf).toBeNull();
     expect(computed.returns.roic.series).toEqual([]);

@@ -1,5 +1,5 @@
 import { computeCapital, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult, type CoverageOperand } from "./capital";
-import { deriveFcf } from "./financialValues";
+import { admittedSbc, negativeSbcRefusal, deriveFcf } from "./financialValues";
 import { completedTotalOmission, leaseDebtConflict, millions, operatingLeaseScopeUnproven, resolveNetDebt } from "./netDebt";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, classifyLeaseEvidence, leaseEvidenceNote, debtCompositionDefinition, type LeaseEvidenceClassification } from "./leaseScope";
 import type { SectorRoute } from "@/types/core";
@@ -73,10 +73,10 @@ export function cashFlowBridge(row: CapitalCashFlowRow | null): CashFlowBridge {
   const principalRaw = finite(row?.financeLeasePrincipalPayments);
   const principal = principalRaw !== null && principalRaw >= 0 ? principalRaw : null;
   const issuer = finite(row?.issuerFreeCashFlow);
-  const sbc = finite(row?.stockBasedCompensation);
+  const sbc = admittedSbc(row);
   return { operatingCashFlow, cashCapitalExpenditure: capex, standardizedFcf, financeLeasePrincipalPayments: principal,
     leaseAdjustedFcf: sub(standardizedFcf, principal), issuerFcf: issuer, stockBasedCompensation: sbc, afterSbcStandardizedFcf: sub(standardizedFcf, sbc), afterSbcIssuerFcf: sub(issuer, sbc),
-    definition: (row?.issuerFreeCashFlowDefinition ?? "Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed.") +
+    definition: (negativeSbcRefusal(row) ? `${negativeSbcRefusal(row)} ` : "") + (row?.issuerFreeCashFlowDefinition ?? "Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed.") +
       " SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
   };
 }
@@ -209,7 +209,7 @@ export interface SbcConcentration {
 /** N1: qualify, never replace, the house trailing after-SBC figure. */
 export function concentratedSbcQuarter(quarters: readonly CapitalCashFlowRow[], currency: string | null): SbcConcentration | null {
   if (quarters.length !== 4) return null;
-  const sbc = quarters.map(q => finite(q.stockBasedCompensation));
+  const sbc = quarters.map(q => admittedSbc(q));
   if (!sbc.every((v): v is number => v !== null && v > 0)) return null;
   const index = sbc.indexOf(Math.max(...sbc));
   const others = sbc.filter((_,i) => i !== index).sort((a,b) => a-b);

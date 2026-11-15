@@ -1,3 +1,4 @@
+import { MODEL_TANGIBLE_COMMON_BASIS } from "@/pipeline/stageB/returns";
 import { CORE_FACT_FORMS, conceptFactsSchema, parseFactPoints, factCoversPeriod, type CompanyFacts } from "@/edgar/xbrl";
 import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { DCF_TAX_OPERANDS_FIELD } from "@/report/assessment";
@@ -2394,10 +2395,10 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     cause,
   );
   if (bal === null || ic === null) {
-    const operand = (field: string) => `${field}${bal?.fieldConflicts?.[field]?.usable === false ? ` withheld (${bal.fieldConflicts[field]!.reason ?? "source conflict"})` : ""}`;
+    const operand = (field: string) => `${({totalDebt:"total debt",cashAndShortTermInvestments:"cash and short-term investments",cashAndCashEquivalents:"cash and cash equivalents"} as Record<string,string>)[field] ?? field}${bal?.fieldConflicts?.[field]?.usable === false ? ` withheld (${bal.fieldConflicts[field]!.reason ?? "source conflict"})` : ""}`;
     const missing = bal === null ? ["balance row"] : [
       ...(icDebt === null ? [operand("totalDebt")] : []),
-      ...(equity.value === null ? ["consolidated equity (totalEquity / totalStockholdersEquity)"] : []),
+      ...(equity.value === null ? ["consolidated equity (total equity / parent stockholders equity)"] : []),
       ...(!admittedLiquidity ? [operand("cashAndShortTermInvestments"), ...(bal.fieldConflicts?.cashAndCashEquivalents?.usable === false ? [operand("cashAndCashEquivalents")] : [])] : []),
     ];
     const lead = liquidityResolution?.conflict ? `invested capital liquidity refused: ${liquidityResolution.reason}`
@@ -2547,9 +2548,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const sbcInfo = inputs.fcfSbc ?? null;
   const sbcBasis =
     sbcInfo === null || sbcInfo.beforeSbc === null
-      ? "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series."
+      ? "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow SBC adjustment is not established. The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series."
       : sbcInfo.sbc === null
-        ? `Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of ${sbcInfo.asOf ?? "?"}: ${fmtNum(sbcInfo.beforeSbc)}, UNADJUSTED — stock-based compensation was not disclosed.`
+        ? `Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; SBC is not established, so it is not deducted from the reported free-cash-flow metric. The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of ${sbcInfo.asOf ?? "?"}: ${fmtNum(sbcInfo.beforeSbc)}, UNADJUSTED — stock-based compensation is not established.`
         : `Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of ${sbcInfo.asOf ?? "?"}: ${fmtNum(sbcInfo.beforeSbc)} before SBC → ${fmtNum(sbcInfo.afterSbc as number)} after subtracting SBC of ${fmtNum(sbcInfo.sbc)}.`;
   notes.push(sbcBasis);
 
@@ -2667,7 +2668,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       },
       reinvestmentRate: {
         value: reinvestRate,
-        basis: "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule)",
+        basis: "terminal reinvestment = terminal growth / terminal return on invested capital (Damodaran consistency rule)",
       },
     },
     midYear: { value: true, basis: MID_YEAR_DISCOUNTING_BASIS },
@@ -2964,7 +2965,7 @@ function dcfCore(
     if (o.guardMode === "null") return null;
     const clamped = waccPct - guardPp;
     notes.push(
-      `Gordon TV guard: WACC ${fmtNum(waccPct)}% - gTerm ${fmtNum(gTerm)}% < ${guardPp}pp — gTerm reduced to ${fmtNum(clamped)}% (house rule)`,
+      `Gordon TV guard: WACC ${fmtNum(waccPct)}% - terminal growth ${fmtNum(gTerm)}% < ${guardPp}pp — terminal growth reduced to ${fmtNum(clamped)}% (house rule)`,
     );
     gTerm = clamped;
   }
@@ -3355,7 +3356,7 @@ export interface SensitivityGrid {
 export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions): SensitivityGrid {
   const notes: string[] = [
     "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
-    `grid cells with WACC - gTerm < ${GRID_TV_GUARD_PP}pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)`,
+    `grid cells with WACC - terminal growth < ${GRID_TV_GUARD_PP}pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)`,
   ];
   const gaps: ManifestEntry[] = [];
   const waccPcts = SENSITIVITY_WACC_STEPS_PP.map((s) => base.waccPct + s);
@@ -5216,7 +5217,7 @@ export function multiplesFramework(
     priceToFcf:
       `market cap / (operating cash flow + capital expenditure) (${cashFlowBasisLabel}; the provider records capex as negative) — free cash flow BEFORE ` +
       "stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is " +
-      "ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed",
+      "ranked in. The capital block deducts SBC where disclosed and otherwise labels free cash flow unadjusted; its treatment is stated separately",
 
     priceToBook: `market cap / common equity (${balanceBasisLabel}; ${capital.equityBasis}); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness`,
     priceToTbv: `market cap / (common equity - goodwill - intangible assets); deducts goodwill ${bal?.goodwill ?? "unavailable"} and intangible assets ${bal?.intangibleAssets ?? "unavailable"} (source monetary units; vendor composition unverified unless stated). ${bal?.tangibleBookDeductionBasis ?? ""} (${balanceBasisLabel}; ${capital.equityBasis}; undisclosed preferred assumed zero only when no material preferred amount is known)`,
@@ -5791,7 +5792,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
         `discounted year by year to year ${years}. ROE is faded LINEARLY to ` +
         (terminalOverridePct === null
           ? "the cost of equity over exactly that horizon, so the year-N excess is zero and NO continuing value is added beyond it."
-          : `a caller-supplied terminal ROE of ${fmtNum(terminalOverridePct)}% over exactly that horizon — NOT to the cost of equity — so the year-N excess is NOT zero (it is reported as terminalExcess), and NO continuing value is added beyond it.`)
+          : `a caller-supplied terminal ROE of ${fmtNum(terminalOverridePct)}% over exactly that horizon — NOT to the cost of equity — so the year-N excess is NOT zero (it is reported as terminal excess return), and NO continuing value is added beyond it.`)
       : `explicit ${years}-year horizon (model not built)`;
   const coeSupplied = isNum(inputs.costOfEquityPct) ? inputs.costOfEquityPct : null;
   const unbuiltAssumptions = {
@@ -6097,6 +6098,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       costOfEquityPcts,
       perShare: perShareGrid,
       notes: [
+        ...((inputs.currentRoeBasis === "fiscal-year-rote" || inputs.currentRoeBasis === "ttm-rote" || alt?.basis === "fiscal-year-rote") ? [MODEL_TANGIBLE_COMMON_BASIS] : []),
         `rows = starting ${retLabel}; columns = cost of equity ${fmtNum(coe)}% ±${EXCESS_RETURN_GRID_COE_STEP_PP}pp`,
         overrideTerminal
           ? `each cell fades its start linearly over ${years} years to the caller-supplied terminal ROE ${fmtNum(endRoe)}%, discounted at the column's cost of equity`

@@ -1,3 +1,4 @@
+import { admittedSbc, negativeSbcRefusal } from "@/pipeline/stageB/financialValues";
 import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldConflict, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
@@ -828,7 +829,13 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       tagsFor("shortTermInvestments").some(t => points(facts, t, unit, observedAt).some(p =>
         p.instanceCarryingAmount === true && !p.start && p.end === row.date &&
         sec.evidence.filings.some(f => f.accn === p.accn && f.filed === p.filed && f.form === p.form)));
-    if (agreesWithSec(vendor, value, [sec]) && !newCarryingInvestment) continue;
+    if (agreesWithSec(vendor, value, [sec]) && !newCarryingInvestment) {
+      // D-306: a matching negative SBC needs its exact filed duration proof,
+      // including when there was no vendor/filing conflict to attach it to.
+      if (field === "stockBasedCompensation" && vendor < 0) out = { ...out, [field]: value,
+        fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence } };
+      continue;
+    }
     if (kind === "cashflow" && scope === "quarter" && field === "stockBasedCompensation" && proof === undefined &&
       out.fieldConflicts?.[field]?.usable !== false && !sec.operands && sec.evidence.periodStart && sec.evidence.filings.length === 1 && value >= 0) {
       const filing = sec.evidence.filings[0]!;
@@ -1027,8 +1034,18 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
 
 /** Same field admission at replay boundaries; never re-open other cash-flow scopes. */
 export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts: CompanyFacts | null, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  const enforceNegative = (result: { row: T; gaps: ManifestEntry[] }): { row: T; gaps: ManifestEntry[] } => {
+    const value = result.row.stockBasedCompensation;
+    if (typeof value !== "number" || !Number.isFinite(value) || value >= 0 || admittedSbc(result.row) !== null) return result;
+    const prior = result.row.fieldConflicts?.stockBasedCompensation;
+    const reason = prior?.usable === false ? prior.reason : negativeSbcRefusal(result.row)!;
+    const fieldProvenance = { ...result.row.fieldProvenance }; delete fieldProvenance.stockBasedCompensation;
+    return { row: { ...result.row, stockBasedCompensation: null, fieldProvenance,
+      fieldConflicts: { ...result.row.fieldConflicts, stockBasedCompensation: prior?.usable === false ? prior : {usable:false,vendorValue:value,secValue:null,reason} } },
+      gaps: prior?.usable === false ? result.gaps : [...result.gaps,{field:`statements.cashflow.${row.date}.stockBasedCompensation`,reason,severity:"warn"}] };
+  };
   if (!facts) {
-    if (row.stockBasedCompensation !== 0 || row.fieldProvenance?.stockBasedCompensation || row.fieldConflicts?.stockBasedCompensation?.usable === false) return { row, gaps: [] };
+    if (row.stockBasedCompensation !== 0 || row.fieldProvenance?.stockBasedCompensation || row.fieldConflicts?.stockBasedCompensation?.usable === false) return enforceNegative({ row, gaps: [] });
     const reason = `Stock-based compensation zero at ${row.date ?? "an undated period"} is not a filed amount for this exact period; no admitted issuer facts establish it.`;
     return { row: { ...row, stockBasedCompensation: null, fieldConflicts: { ...row.fieldConflicts,
       stockBasedCompensation: { usable: false, vendorValue: 0, secValue: null, reason } } },
@@ -1036,9 +1053,9 @@ export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts:
   }
 
   if (!validDay(row.date) || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") ||
-    (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
-  return admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "cashflow",
-    { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() }, true);
+    (row.cik != null && Number(row.cik) !== facts.cik)) return enforceNegative({ row, gaps: [] });
+  return enforceNegative(admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "cashflow",
+    { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() }, true));
 }
 
 /** Blocking observations only: a dated primary table can refute absence without admitting its dimensional amount. */
@@ -1080,7 +1097,7 @@ export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: Compa
   const unresolved = !filedCombined && (cash.row.cashBasis === "cash-only" || cash.row.cashAndShortTermInvestments == null ||
     cash.row.fieldConflicts?.shortTermInvestments?.usable === false || cash.row.shortTermInvestments === 0);
   if (investments.length && unresolved) {
-    const reason = `shortTermInvestments at ${row.date} withheld: ${investments.join("; ")}; investment scope or separation from cash cannot be admitted; combined liquidity and dependent capital figures are unavailable`;
+    const reason = `Short-term investments at ${row.date} withheld: ${investments.join("; ")}; investment scope or separation from cash cannot be admitted; combined liquidity and dependent capital figures are unavailable`;
     const fieldConflicts = { ...cash.row.fieldConflicts };
     const fieldProvenance = { ...cash.row.fieldProvenance };
     for (const field of ["shortTermInvestments", "cashAndShortTermInvestments", "netDebt"]) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { admitStockCompensation, admitBalanceCash, enrichFinancialFields } from "@/edgar/financialEnrichment";
 import type { CompanyFacts } from "@/edgar/xbrl";
-import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload } from "@/providers/fmp";
+import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
@@ -299,4 +299,18 @@ it("D-287 withholds an SBC zero even when issuer facts are unavailable", () => {
 it("D-287 review: a filed zero investment is not an investment witness", () => {
   const row = { date: "2026-06-30", reportedCurrency: "USD", cashAndCashEquivalents: 50e6, shortTermInvestments: 0, cashAndShortTermInvestments: 50e6 };
   expect(admitBalanceCash(row, facts({ CashAndCashEquivalentsAtCarryingValue: [point(50e6)], ShortTermInvestments: [point(0)] }), "quarter", observedAt).row.cashAndShortTermInvestments).toBe(50e6);
+});
+
+it.each(["annual","quarter"] as const)("D-306 refuses an unproved negative %s SBC at the common statement boundary",scope=>{
+ const row={date:"2026-06-30",reportedCurrency:"USD",stockBasedCompensation:-7};
+ const out=admitStockCompensation(row,facts({}),scope,observedAt);
+ expect(out.row.stockBasedCompensation).toBeNull();expect((out.row as FmpStatementRow).fieldConflicts?.stockBasedCompensation?.usable).toBe(false);
+ expect(row.stockBasedCompensation).toBe(-7);
+});
+
+it("D-306 retains exact filed negative SBC proof when the vendor already agrees",()=>{
+ const row:FmpStatementRow={date:"2026-06-30",reportedCurrency:"USD",stockBasedCompensation:-7};
+ const out=admitStockCompensation(row,facts({ShareBasedCompensation:[point(-7,{start:"2026-04-01"})]}),"quarter",observedAt);
+ expect(out.row.stockBasedCompensation).toBe(-7);
+ expect(out.row.fieldProvenance?.stockBasedCompensation).toMatchObject({source:"edgar",periodStart:"2026-04-01",periodEnd:row.date,unit:"USD"});
 });

@@ -98,7 +98,7 @@ describe("ROIC invested capital uses the house cash convention", () => {
     const r = computeRoic(income, [balanceRow({ cashConflictReconciled: true, cashAndCashEquivalents: null,
       leaseCoverageNote: "An unrelated presentation signal was suppressed" })]);
     const cause = r.gaps.find(g => g.field === "returns.roic.2025-12-31")?.reason;
-    expect(cause).toContain("cashAndCashEquivalents");
+    expect(cause).toContain("cash and cash equivalents");
     expect(cause).not.toContain("unrelated presentation signal");
   });
 
@@ -140,7 +140,7 @@ describe("ROIC invested capital uses the house cash convention", () => {
     ]);
 
     expect(r.latestRoicPct).toBeNull();
-    expect(r.gaps.find(g => g.field === "returns.roic.2025-12-31")?.reason).toMatch(/cashAndCashEquivalents/);
+    expect(r.gaps.find(g => g.field === "returns.roic.2025-12-31")?.reason).toMatch(/cash and cash equivalents/);
   });
 
   it.each([

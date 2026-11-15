@@ -287,7 +287,7 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       const completeSample = details.length > 0 && details.length === selected?.ownHistory?.observations &&
         details.every(point => day(point.periodEnd) !== null && finite(point.value));
       const periods = completeSample ? details.map(point => point.periodEnd).sort() : [];
-      result.period = selected ? `Current ${selected.key} empirical percentile rank among ${selected.ownHistory!.observations} historical quarters; ` +
+      result.period = selected ? `Current ${HISTORY_KEY_LABEL[selected.key] ?? "valuation multiple"} empirical percentile rank among ${selected.ownHistory!.observations} historical quarters; ` +
         (completeSample ? `retained fiscal sample periods ${periods[0]} to ${periods.at(-1)}` : "historical sample dates unavailable or incomplete") : null;
       const missingMarketDates = details.filter(point => day(point.marketDate) === null).length;
       const cashStat = stats.find(m => m.key === "priceToFcf");
@@ -303,7 +303,7 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
         selected.key !== ownKeys[0] && gainInflated === undefined ? `${HISTORY_KEY_LABEL[ownKeys[0]!] ?? ownKeys[0]} history comparison unavailable; using ${HISTORY_KEY_LABEL[selected.key] ?? selected.key} own-history rank. This does not imply the current multiple is unavailable.` : null,
       ].filter(Boolean).join(" ") : ["Own-history rank unavailable.", cashOwnershipScope].filter(Boolean).join(" ");
       if (selected) {
-        operand(`${selected.key} current multiple`, selected.current, `computed.valuation.multiples.${selected.key}.current`, quoteDate);
+        operand(`${HISTORY_KEY_LABEL[selected.key] ?? "valuation multiple"} current multiple`, selected.current, `computed.valuation.multiples.${selected.key}.current`, quoteDate);
         operand("own-history rank", selected.ownHistory!.percentileRank, `computed.valuation.multiples.${selected.key}.ownHistory.percentileRank`, quoteDate);
         operand("historical observations", selected.ownHistory!.observations, `computed.valuation.multiples.${selected.key}.ownHistory.observations`, null);
         if (completeSample) details.forEach((point, index) => {

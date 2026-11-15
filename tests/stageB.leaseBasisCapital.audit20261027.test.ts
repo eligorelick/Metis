@@ -83,14 +83,14 @@ describe("FIN-303: sales-to-capital removes the operating lease the bridge remov
   it.each(['totalDebt', 'totalStockholdersEquity', 'cashAndShortTermInvestments'] as const)("names the missing %s capital operand instead of zero-filling it", field => {
     const built = buildDcfAssumptions(dcfInput({ ...noLeaseBalance, [field]: null }));
     expect(built.assumptions).toBeNull();
-    expect(built.gaps.find(g => g.field === 'valuation.dcf.salesToCapital')?.reason).toContain(field);
+    expect(built.gaps.find(g => g.field === 'valuation.dcf.salesToCapital')?.reason).toContain(({totalDebt:'total debt',totalStockholdersEquity:'consolidated equity',cashAndShortTermInvestments:'cash and short-term investments'} as Record<string,string>)[field]);
     expect(built.gaps.some(g => /invested capital <= 0/.test(g.reason))).toBe(false);
   });
   it.each(['totalDebt', 'cashAndShortTermInvestments'] as const)("keeps a refused %s audit observation out of invested capital", field => {
     const built = buildDcfAssumptions(dcfInput({ ...noLeaseBalance,
       fieldConflicts: { [field]: { usable: false, reason: 'same-period source conflict retained for audit' } } }));
     expect(built.assumptions).toBeNull();
-    expect(built.gaps.find(g => g.field === 'valuation.dcf.salesToCapital')?.reason).toContain(field);
+    expect(built.gaps.find(g => g.field === 'valuation.dcf.salesToCapital')?.reason).toContain(({totalDebt:'total debt',totalStockholdersEquity:'consolidated equity',cashAndShortTermInvestments:'cash and short-term investments'} as Record<string,string>)[field]);
     expect(built.gaps.find(g => g.field === 'valuation.dcf.salesToCapital')?.reason).toContain('same-period source conflict');
   });
   it("a fully covered operating lease leaves sales-to-capital's invested capital", () => {

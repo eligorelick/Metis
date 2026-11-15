@@ -280,7 +280,7 @@ describe("D-237: one base in every Stage B tax rate", () => {
     const computed = stageB(fixtureFacts(PRETAX_TOTAL, false));
     expect(yearOneTaxPct(computed)).toBeCloseTo((48 / 228) * 100, 10);
     expect(computed.returns.wacc.taxRateUsed).toBe(0.2);
-    expect(computed.returns.wacc.taxRateBasis).toBe("FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)");
+    expect(computed.returns.wacc.taxRateBasis).toBe("Provider trailing effective tax rate (observed)");
     expect(computed.returns.roic.series.find(year => year.date === "2025-12-31")?.taxRateUsed).toBeCloseTo(40 / 190, 12);
     expect(computed.gaps.some(gap => /taxRatePretaxIncome$/.test(gap.field))).toBe(false);
   });
