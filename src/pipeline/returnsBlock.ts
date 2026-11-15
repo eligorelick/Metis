@@ -26,7 +26,7 @@ import {
   type RoicVsWaccSpread,
   PRIOR_YEAR_COST_OF_DEBT_MAX_YEARS_BACK,
   type PriorYearCostOfDebt,
-  // WS6 (D-19)
+  // D-19
   waccByFiscalYear,
   waccDisclosure,
   type WaccDisclosure,
@@ -52,7 +52,7 @@ import { preferredClaimsInFlow, toReturnsBalance, toReturnsIncome } from "./stag
 
 export interface ReturnsBlock {
   wacc: WaccResult;
-  // WS6 (D-19): every WACC input named with its source and date, and the WACC
+  // D-19: every WACC input named with its source and date, and the WACC
   // recomputed at each fiscal year end from that year's risk-free observation.
   waccInputs: WaccDisclosure;
   waccHistory: WaccHistoryResult;
@@ -77,7 +77,7 @@ export interface ReturnsBlock {
  * DGS10; the vendor endpoint is only the fallback, and the returns notes say so
  * when it is used.
  */
-// WS6: the series the rate came from travels with it, so the WACC disclosure
+// D-19: the series the rate came from travels with it, so the WACC disclosure
 // can name it instead of printing an unattributed percentage.
 export function riskFreePct(
   bundle: Pick<DataBundle, "treasury" | "macro" | "riskFreeFallback">,
@@ -101,7 +101,7 @@ export function riskFreePct(
   return { pct: null, asOf: null, seriesId: null };
 }
 
-// WS6: the full FRED DGS10 observation history the bundle fetched (five years
+// D-19: the full FRED DGS10 observation history the bundle fetched (five years
 // back), so a WACC can be recomputed at each fiscal year end.
 /**
  * The series every PER-YEAR WACC is recomputed from. Since D-60 the CURRENT
@@ -527,7 +527,7 @@ export function computeReturns(
     // keeps the bare name. Try both so a live vendor rename doesn't silently
     // suppress a levered WACC unnecessarily.
     effectiveTaxRate: vendorTaxRate ?? statementTax.rate,
-    // WS6 (D-19): name which tax-rate source actually supplied it.
+    // D-19: name which tax-rate source actually supplied it.
     effectiveTaxRateBasis:
       vendorTaxRate !== null && num(ratiosTtm?.effectiveTaxRateTTM) !== null
         ? "Provider trailing effective tax rate (observed)"
@@ -666,7 +666,7 @@ export function computeReturns(
   if (commonReturnTtm !== null) notes.push(commonReturnTtm.basisText);
   const dupont = computeDupont(returnsIncome, returnsBalance);
 
-  // WS6 (D-19): recompute the WACC at each ROIC fiscal year end from that
+  // D-19: recompute the WACC at each ROIC fiscal year end from that
   // year's own FRED observation. The bundle fetches DGS10 five years back, so
   // years outside that window (or without an observation near the year end)
   // are reported as missing and the current WACC is applied to them instead.

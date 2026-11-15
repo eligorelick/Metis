@@ -55,7 +55,7 @@ import type {
 } from "@/providers/fmp";
 import type { CikMapping, EdgarFiling } from "@/providers/edgar";
 import type { CompanyFacts } from "@/edgar/xbrl";
-// WS4 (D-14): successor-registrant history.
+// D-14: successor-registrant history.
 import type { PredecessorFacts } from "@/edgar/successor";
 import type { ExtractMethod } from "@/edgar/extract";
 import type { QuarterlySegmentRevenue } from "@/edgar/segmentFacts";
@@ -240,7 +240,7 @@ export interface EdgarBundle {
    * was merged.
    */
   companyFactsInstances?: CompanyFactsInstances;
-  // --- WS4 (D-14) ------------------------------------------------------------
+  // --- D-14 ------------------------------------------------------------
   /**
    * A successor registrant's predecessor and its facts, when the registrant
    * filed a Form 8-K12B and its own companyfacts payload begins at the
@@ -249,7 +249,7 @@ export interface EdgarBundle {
    * and would treat this optional second hop as a required bundle member.
    */
   predecessor: PredecessorFacts | null;
-  // --- end WS4 ---------------------------------------------------------------
+  // --- end D-14 --------------------------------------------------------------
   /** Derived from companyFacts when available (report-renderable). */
   xbrlSummary: XbrlSummary | null;
   /**

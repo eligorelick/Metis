@@ -22,7 +22,7 @@
  * Pure strings + builders — no network, no clock, no LLM. Deterministic.
  */
 
-// WS7 (D-20): the per-side character cap the analyst prompt must state and the
+// D-20: the per-side character cap the analyst prompt must state and the
 // pipeline enforces. Imported (not re-declared) so the number the model is told
 // and the number the code applies can never drift apart.
 import type { JudgeOrderSetting } from "@/report/schema";
@@ -186,7 +186,7 @@ export function buildLeadershipGuidance(
   return [
     "LEADERSHIP GRADING (evidence-based — grade credibility SEPARATELY from strategy):",
     "Grade each key executive A–F on the evidence in the payload, not on reputation. Inputs:",
-    // WS7 (D-20): a claim about a named person is the highest-harm thing this
+    // D-20: a claim about a named person is the highest-harm thing this
     // report emits and was the one grounded in the weakest source. Web search
     // is now out of bounds for it; the verifier enforces the same rule.
     "- NAMED-INDIVIDUAL RULE (enforced by the verification pass, not a suggestion): any claim that",
@@ -291,7 +291,7 @@ export function buildLeadershipGuidance(
  * ------------------------------------------------------------------------ */
 
 /**
- * WS7 (D-20). The 1-5 self-assessment rubric, stated verbatim to both analysts
+ * D-20. The 1-5 self-assessment rubric, stated verbatim to both analysts
  * and quoted to the judge. It exists so an honest thin case can SAY it is thin:
  * before this, the only signal a judge had about how much was behind a case was
  * how much of it there was, which rewarded volume.
@@ -500,7 +500,7 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "- Define a specialist term (UPB, DSCR, VIE, a product name) in plain words on first use.",
 ].join("\n");
 
-/** WS7 (D-20): the per-side length cap, stated to the analyst that must meet it. */
+/** D-20: the per-side length cap, stated to the analyst that must meet it. */
 function analystLengthRule(capChars: number): string {
   return [
     `LENGTH CAP: your complete ANALYST_CASE JSON must serialize to at most ${capChars} characters.`,
@@ -645,7 +645,7 @@ export function buildJudgeFraming(
     sectioned ? "report content in bounded parts; emit only the top-level sections requested in the final turn." : "report content as the JUDGE_OUTPUT structured schema.",
     "The cases start from shared retained inputs and can share omissions; adjudication is not independent factual validation.",
     "",
-    // WS7 (D-20): the two cases used to arrive in a fixed BULL-then-BEAR order
+    // D-20: the two cases used to arrive in a fixed BULL-then-BEAR order
     // with no stated lengths, so position and volume were silent advantages.
     judgeOrderSentence(setting),
     "Neither being first nor being second is evidence. The order actually used is recorded in the",
@@ -657,7 +657,7 @@ export function buildJudgeFraming(
     "  cited source; reject a claim ONLY for lack of support, never to appear balanced.",
     "- DO NOT MANUFACTURE BALANCE. If the evidence is lopsided, say so and grade accordingly. A",
     "  forced 'on the other hand' that the evidence does not support is a failure, not fairness.",
-    // WS7 (D-20): the judge may now act on the analysts' own strength scores.
+    // D-20: the judge may now act on the analysts' own strength scores.
     "- Each case carries `case_strength`, the analyst's OWN 1–5 score for its own side against this",
     "  rubric, and its length in characters. Both are stated above the two cases. You MAY DISCOUNT A",
     "  WEAK SIDE: a side that scored itself 1 or 2, or a side whose cited evidence plainly does not",

@@ -263,7 +263,7 @@ export interface WaccInputs {
   quoteCurrency?: string | null;
   /** Optional provenance passthrough (as-of dates of the inputs), echoed in the result. */
   asOf?: { riskFreeRate?: string; statements?: string; marketCap?: string };
-  // WS6 (D-19) — input provenance for the WACC disclosure block.
+  // D-19 — input provenance for the WACC disclosure block.
   /** Series the risk-free rate came from, e.g. "fred:DGS10" or "fmp:treasury.year10". */
   riskFreeSeriesId?: string | null;
   /** As-of date of the vendor ERP row (the fetch date; FMP publishes no observation date). */
@@ -366,7 +366,7 @@ export interface WaccResult {
   clampsApplied: string[];
   gaps: ManifestEntry[];
   asOf?: { riskFreeRate?: string; statements?: string; marketCap?: string };
-  // WS6 (D-19) — provenance echoed for the disclosure block.
+  // D-19 — provenance echoed for the disclosure block.
   /** Series the risk-free rate came from (input passthrough; null when the caller did not say). */
   riskFreeSeriesId: string | null;
   /** "vendor" = the supplied ERP was used; "damodaran-fallback" = the dated static fallback. */
@@ -1074,7 +1074,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
 }
 
 // ---------------------------------------------------------------------------
-// WS6 (D-19) — WACC input disclosure and per-fiscal-year WACC history
+// D-19 — WACC input disclosure and per-fiscal-year WACC history
 // ---------------------------------------------------------------------------
 
 /**

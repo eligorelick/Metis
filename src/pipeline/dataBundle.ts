@@ -91,7 +91,7 @@ import {
 } from "@/edgar/extract";
 import { latestEligibleFactEnd, latestFactEnd, looksLikeBankTagging, type CompanyFacts } from "@/edgar/xbrl";
 import { mergeInstanceFacts, parseInstanceFacts, type InstanceFacts } from "@/edgar/instanceFacts";
-// WS4 (D-14): successor registrants — the predecessor CIK and its facts.
+// D-14: successor registrants — the predecessor CIK and its facts.
 import {
   SUCCESSOR_FORM,
   predecessorCandidates,
@@ -128,7 +128,7 @@ import {
   type InsiderSentimentMonth,
 } from "@/providers/finnhub";
 import { getConfig } from "@/config/env";
-// WS4 (D-11): the two reserved fixture symbols short-circuit every provider.
+// D-11: the two reserved fixture symbols short-circuit every provider.
 import {
   isReservedFixtureSymbol,
   reservedFixtureManifestEntry,
@@ -1324,7 +1324,7 @@ async function buildEdgarBundle(
       auditorChange8Ks: dep("auditorChange8Ks", "warn"),
       nonReliance8Ks: dep("nonReliance8Ks", "warn"),
       companyFacts: dep("companyFacts", "warn"),
-      predecessor: null, // WS4 (D-14): no CIK, so no successor lookup either.
+      predecessor: null, // D-14: no CIK, so no successor lookup either.
       xbrlSummary: null,
       sic: null,
       registrant: null,
@@ -1614,7 +1614,7 @@ async function buildEdgarBundle(
 
   const filedFacts = await pFacts;
 
-  // WS4 (D-14): a successor registrant's own facts begin at the
+  // D-14: a successor registrant's own facts begin at the
   // reorganization; the predecessor's CIK is only in the 8-K12B's header.
   // Resolved on companyfacts as SEC serves it, before any filing is merged.
   const predecessor = await resolvePredecessor(
@@ -1838,7 +1838,7 @@ async function resolvePredecessor(
 }
 
 /**
- * WS4 (D-11): the EDGAR half of a reserved-symbol run. `buildEdgarBundle` is
+ * D-11: the EDGAR half of a reserved-symbol run. `buildEdgarBundle` is
  * never called, so data.sec.gov is never asked about a fictional issuer — the
  * synthetic CIK `0000000000` in the DEMO profile fixture used to be sent on
  * every fixture report. Each member is disclosed absent with the reserved rule
@@ -1859,7 +1859,7 @@ function reservedEdgarBundle(symbol: string): EdgarBundle {
     auditorChange8Ks: gap("auditorChange8Ks"),
     nonReliance8Ks: gap("nonReliance8Ks"),
     companyFacts: gap("companyFacts"),
-    predecessor: null, // WS4 (D-14): no request, so no predecessor lookup.
+    predecessor: null, // D-14: no request, so no predecessor lookup.
     xbrlSummary: null,
     sic: null,
     registrant: null,
@@ -1997,7 +1997,7 @@ export async function buildDataBundle(
   const today = builtAt.slice(0, 10);
 
   const cfg = getConfig();
-  // WS4 (D-11): DEMO and DBNK are reserved. Every keyless provider below is
+  // D-11: DEMO and DBNK are reserved. Every keyless provider below is
   // replaced by a disclosed gap and the EDGAR bundle is never built, so a
   // reserved-symbol report issues no request to any provider whatever keys are
   // configured — and an injected client is short-circuited too, so a test can
@@ -2418,7 +2418,7 @@ export async function buildDataBundle(
           sharesFloat,
         },
         fmpKeyless: fmp.fixtureMode,
-        // WS4 (D-12): FMP first with an EDGAR backfill of older periods
+        // D-12: FMP first with an EDGAR backfill of older periods
         // (`auto`), FMP alone (`fmp`), or companyfacts alone (`edgar`).
         statementSource: cfg.statementSource,
         edgarConfirmedIssuer,
@@ -2426,7 +2426,7 @@ export async function buildDataBundle(
           cik: edgarBundle.cik,
           registrant: edgarBundle.registrant,
           companyFacts: edgarBundle.companyFacts,
-          // WS4 (D-14): pre-reorganization history for a successor registrant.
+          // D-14: pre-reorganization history for a successor registrant.
           predecessor: edgarBundle.predecessor,
           ...(edgarBundle.companyFactsInstances === undefined ? {} : { companyFactsInstances: edgarBundle.companyFactsInstances }),
         },
@@ -2739,7 +2739,7 @@ export async function buildDataBundle(
       ...configuredFallbackGaps,
       ...companyFactsInstanceEntries(edgarBundle.companyFactsInstances),
       ...(riskFreeSubstitution === null ? [] : [riskFreeSubstitution]),
-      // WS4 (D-11): one entry naming the whole reserved-symbol rule, so a
+      // D-11: one entry naming the whole reserved-symbol rule, so a
       // reader of a DEMO/DBNK report is told that nothing here came from a
       // provider — not merely that individual members are missing.
       ...(reserved ? [reservedFixtureManifestEntry(sym)] : []),

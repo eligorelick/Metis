@@ -16,8 +16,8 @@ export interface UnusualOperatingItems {
   value: number;
   components: { tag: string; value: number }[];
   /**
-   * Tags with an amount the filings don't place inside the window (Codex
-   * review of PR #41): a fiscal-year amount with no filed prior year to date,
+   * Tags with an amount the filings don't place inside the window (D-98): a
+   * fiscal-year amount with no filed prior year to date,
    * or the reverse. None of such a tag is removed.
    */
   withheld: { tag: string; reason: string }[];

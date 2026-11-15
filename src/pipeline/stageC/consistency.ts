@@ -964,7 +964,7 @@ function calendarQuarter(phrase: string): { year: number; quarter: number } | nu
  * Whether a comparison-base phrase names the period a figure is measured against; null when that is not checkable. A phrase that
  * names a year and nothing finer is compared by its year. A finer phrase must name the base itself: its exact date or fiscal label
  * (`periodsAgree`), or the calendar quarter that closes on the base's end ("second quarter 2025" for 2025-06-30). An exact date,
- * month or quarter of the right year but another period is not established (PR #71 Codex review).
+ * month or quarter of the right year but another period is not established (D-128).
  */
 export function baseAgrees(phrase: string, base: { end: string; fiscal: string | null }): boolean | null {
   // An FY-labelled base (a spelled fiscal period is read as its FY label, D-128) is compared by fiscal label only (by calendar year it would misread a 52/53-week year).

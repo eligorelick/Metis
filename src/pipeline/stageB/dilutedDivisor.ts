@@ -23,8 +23,8 @@ export interface DivisorRow {
   continuingIncome?: number | null;
   /**
    * The filed if-converted increment for the period, which is not award
-   * dilution. `incomeDivisors` reads it from the filed facts; when Task 11
-   * (B4b) supplies it from its own reader, that value takes precedence.
+   * dilution. `incomeDivisors` reads it from the filed facts; when the
+   * convertible reader (D-147) supplies it, that value takes precedence.
    */
   conversionShares?: number | null;
   /** Whether the row is a quarter or a fiscal year (a quarter and a year can share an end date). */
@@ -99,7 +99,7 @@ const CONVERSION_TAGS = [
   "IncrementalCommonSharesAttributableToConversionOfPreferredStock",
 ] as const;
 
-/** The convertible carrying-value tags Task 11 reads (notes, and preferred at its option value). */
+/** The convertible carrying-value tags the convertible reader (D-147) reads (notes, and preferred at its option value). */
 const CONVERTIBLE_TAGS = [
   "ConvertibleNotesPayable", "ConvertibleDebtNoncurrent", "ConvertibleLongTermNotesPayable",
   "ConvertibleDebtCurrent", "ConvertibleNotesPayableCurrent", "ConvertibleDebt",

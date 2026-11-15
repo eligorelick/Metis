@@ -1,5 +1,5 @@
 /**
- * Stage B — route metrics for financial companies (WS5, D-17).
+ * Stage B — route metrics for financial companies (D-17).
  *
  * PURE, deterministic TypeScript: no network, no db, no LLM. Reads the
  * bundle's EDGAR companyfacts READ-ONLY for the line items a financial

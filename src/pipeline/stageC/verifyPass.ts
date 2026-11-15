@@ -38,7 +38,7 @@ export interface VerifyResult<T = JudgeOutput> {
   verificationRate: number | null;
   coverage: ProvenanceCoverage;
   /**
-   * WS7 (D-20): what the deterministic checks CHECKED, kept separate from what
+   * D-20: what the deterministic checks CHECKED, kept separate from what
    * they could cite. `coverage` says a figure resolved to a record; `checks`
    * says the sentence around it agreed with that record.
    */
@@ -297,7 +297,7 @@ function resolveOmittedIdentity(
 }
 
 /**
- * WS7 (D-20): the people the report itself names in its executive cards. The
+ * D-20: the people the report itself names in its executive cards. The
  * best evidence for "which names in this document are people" is the document's
  * own `leadership.executives[].name` list, which the judge filled from the
  * payload — no name guessing required for those.
@@ -394,7 +394,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const numbers = collectTracedNumberRefs(verifiedReport);
   const claims = collectSourcedClaimRefs(verifiedReport);
 
-  // WS7 (D-20): the deterministic no-model checks. Run before the coverage loop
+  // D-20: the deterministic no-model checks. Run before the coverage loop
   // because the named-individual restriction can reject a claim the citation
   // check would otherwise have counted as supported.
   // D-43: the payload's person rows, which a claim citing one is read
@@ -705,7 +705,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     const sourceId = citationSourceId(claim);
     if (sourceId !== null) claim.sourceId = sourceId;
     const match = claimSourceMatch(claim, registry, citationRegistry, fetchedUrls);
-    // WS7 (D-20): a claim about a named person that rests on a web-search result
+    // D-20: a claim about a named person that rests on a web-search result
     // is REJECTED, and rejected means it does not count as supported either. If
     // the URL still carried it, the coverage number would say the opposite of
     // the finding sitting next to it in the same appendix.
@@ -803,7 +803,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     });
   }
 
-  // WS7 (D-20): one log entry per deterministic-check FAILURE, each naming the
+  // D-20: one log entry per deterministic-check FAILURE, each naming the
   // sentence, the figure it cited and why it failed. These are distinct from the
   // citation-coverage entries above (they carry `check`), so a reader can tell
   // "this number has no source" from "this sentence contradicts its source".

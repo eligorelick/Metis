@@ -93,14 +93,14 @@ export interface AssembleReportArgs {
     verificationRate: number | null;
     /** Omitted only by legacy/test callers; generation passes explicit coverage. */
     coverage?: ProvenanceCoverage;
-    /** WS7 (D-20): deterministic check results; omitted only by legacy callers. */
+    /** D-20: deterministic check results; omitted only by legacy callers. */
     checks?: ConsistencyChecks;
     log: VerificationLogEntry[];
   };
   costEntries: CostBreakdownEntry[];
   model: string;
   /**
-   * WS7 (D-20): how the judge pass was actually run (order, seed, per-side
+   * D-20: how the judge pass was actually run (order, seed, per-side
    * lengths and self-assessments, `both`-mode reconciliation). Completed here
    * with the model-family fact the cost entries carry. Omitted by the data-only
    * and legacy paths, which never ran a judge.
@@ -664,7 +664,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     judgments: { cited: 0, total: 0, rate: null },
   };
 
-  // WS7 (D-20): complete the adversarial protocol with the model families the
+  // D-20: complete the adversarial protocol with the model families the
   // settled cost entries name, and disclose it — in the metadata AND in the
   // missing-data manifest, like every other behavior the report depends on.
   const execution = annotateSharedModelFamily(
@@ -708,10 +708,10 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     costUsd: totalCost(args.costEntries),
     verificationRate: args.verify.verificationRate,
     provenanceCoverage: coverage,
-    // WS7 (D-20)
+    // D-20
     ...(args.verify.checks === undefined ? {} : { consistencyChecks: args.verify.checks }),
     ...(judgeProtocol === undefined ? {} : { judgeProtocol }),
-    // end WS7
+    // end D-20
     dataCompleteness: buildDataCompleteness(missingData),
     execution,
     disclaimer: DISCLAIMER_TEXT,
@@ -732,7 +732,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     missingData,
     verificationRate: args.verify.verificationRate,
     provenanceCoverage: coverage,
-    // WS7 (D-20): checked, beside cited, in the appendix a reader actually opens.
+    // D-20: checked, beside cited, in the appendix a reader actually opens.
     ...(args.verify.checks === undefined ? {} : { consistencyChecks: args.verify.checks }),
     verificationLog: args.verify.log,
     costBreakdown: args.costEntries,
@@ -805,7 +805,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     scenarioPresentation: buildScenarioPresentation(args.computed, comparableScenarioPrice(args.computed, args.bundle)),
     thesisTriggers: args.computed.valuation ? buildThesisTriggers(args.computed, guidanceLowCitation(filingDisclosures)) : [],
     ...(fairValue ? { fairValue } : {}),
-    // WS5 (D-17): the bank / insurer / mortgage-REIT route metrics and the
+    // D-17: the bank / insurer / mortgage-REIT route metrics and the
     // P/TBV-against-ROTE reading, pipeline-filled exactly like the blocks
     // above. Absent entirely on routes that have none, so a general report is
     // unchanged.

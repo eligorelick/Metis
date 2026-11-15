@@ -1618,7 +1618,7 @@ export function paidReservationCapRefusal(
     if (parent === undefined) throw new Error("jobScheduler: budget feasibility has no job row");
     // Admission sweeps expired leases first: each becomes presumed spend dated
     // at its acquisition (or nothing, when already settled or presumed), and
-    // only unexpired leases stay live. Mirror that without writing (PR #88 review).
+    // only unexpired leases stay live. Mirror that without writing (D-185).
     const nowIso = authority.toISOString();
     const allLive = tx.select({ jobId: jobLlmLeases.jobId, reservedCostUsd: jobLlmLeases.reservedCostUsd })
       .from(jobLlmLeases).where(gt(jobLlmLeases.leaseExpiresAt, nowIso)).all();

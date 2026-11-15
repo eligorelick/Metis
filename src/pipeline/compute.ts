@@ -52,7 +52,7 @@ import {
   type RoutingIncomeRow,
   type RoutingCashflowRow,
 } from "@/pipeline/stageB/sectorRouting";
-// WS5: XBRL routing evidence (D-16) and financial-route metrics (D-17).
+// XBRL routing evidence (D-16) and financial-route metrics (D-17).
 import { deriveRoutingEvidence } from "@/pipeline/stageB/routingEvidence";
 import {
   computeFinancialMetrics,
@@ -120,7 +120,7 @@ import {
   classifyInstrumentSupport,
   UnsupportedInstrumentError,
 } from "@/pipeline/stageB/instrumentSupport";
-// WS6 (D-19): METIS_EV_INCLUDE_LEASES.
+// D-19: METIS_EV_INCLUDE_LEASES.
 import { getConfig } from "@/config/env";
 import { mergeManifest } from "@/pipeline/stageA/manifest";
 import type {
@@ -176,7 +176,7 @@ export interface ComputedMetrics {
   technicals: TechnicalsResult;
   valuation: ValuationResult;
   /**
-   * WS5 (D-17): route metrics for bank / insurer / mortgage-REIT routes — the
+   * D-17: route metrics for bank / insurer / mortgage-REIT routes — the
    * figures those routes lead with. Empty on every other route. Each metric is
    * computed from the filer's tags or withheld with its reason.
    */
@@ -605,7 +605,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
 
   const todayIso = bundle.builtAt.slice(0, 10);
 
-  // WS5: routing evidence from EDGAR companyfacts, read-only (D-16).
+  // Routing evidence from EDGAR companyfacts, read-only (D-16).
   const routingEvidence = deriveRoutingEvidence(admittedFacts, { today: todayIso });
 
   // --- Route FIRST -----------------------------------------------------------
@@ -770,7 +770,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
       cashflowAnnual: routingCashflowAnnual,
       availableQuarters: incomeQuarterly.length,
     },
-    // WS5: XBRL routing evidence (D-16). Read-only from the bundle's EDGAR
+    // XBRL routing evidence (D-16). Read-only from the bundle's EDGAR
     // companyfacts; an absent or failed payload routes on industry/SIC alone
     // and says so in the routing note and the manifest.
     { today: todayIso, evidence: routingEvidence },
@@ -812,7 +812,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     suppressed.push({ key, reason });
   };
 
-  // WS5: the REIT sub-map drives the withholding disclosures in the plan.
+  // D-16: the REIT sub-map drives the withholding disclosures in the plan.
   const degradation = degradationPlan(
     route.base,
     route.overlays,
@@ -851,7 +851,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   if (isSuppressed("operatingMargin")) growth.margins.operating = { series: [], slopePctPtsPerYear: null };
 
   // --- Returns (WACC / ROIC / DuPont) ---------------------------------------
-  // WS6 (D-19): METIS_EV_INCLUDE_LEASES is read ONCE per Stage B run and
+  // D-19: METIS_EV_INCLUDE_LEASES is read ONCE per Stage B run and
   // handed to both consumers — the returns block (WACC debt leg, invested
   // capital) and the valuation block (both EV bridges) — so the lease basis
   // cannot drift between them and the run makes a single settings read
@@ -1208,14 +1208,14 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     currencyEvidence,
     growth,
     evIncludeLeases,
-    // WS6 wiring.
+    // D-18 and D-19 inputs.
     capital,
     wacc: returns.wacc,
     waccInputs: returns.waccInputs,
     waccHistory: returns.waccHistory,
     roic: returns.roic,
     dupont: returns.dupont,
-    // WS5: P/TBV against ROTE on the financial routes.
+    // D-17: P/TBV against ROTE on the financial routes.
     rote: returns.rote,
     commonReturnTtm: returns.commonReturnTtm,
     profile,
@@ -1234,7 +1234,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
       valuation.gaps = valuation.gaps.map(gap => gap.field === "valuation.dcf" ? {...gap,reason:`${gap.reason} ${sbcConcentration.basis}`} : gap);
     }
   }
-  // --- Route metrics for financial companies (WS5, D-17) --------------------
+  // --- Route metrics for financial companies (D-17) --------------------
   // The bank, insurer and mortgage-REIT routes have led with NIM, the
   // efficiency ratio, the combined ratio, book value per share, the spread and
   // leverage since the route table was written, and nothing computed any of
@@ -1640,7 +1640,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     projectionPeriodGaps,
     technicals.gaps,
     valuation.gaps,
-    // WS5: every withheld route metric reaches the missing-data manifest with
+    // D-17: every withheld route metric reaches the missing-data manifest with
     // the reason it was withheld.
     financialMetrics.gaps,
     runway?.gaps ?? null,
@@ -1679,7 +1679,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
 }
 
 /**
- * WS5 (D-17): the report-ready route-metrics block, or null on a route that has
+ * D-17: the report-ready route-metrics block, or null on a route that has
  * none.
  *
  * `Report.routeMetrics` was defined and never populated, and the excess-return

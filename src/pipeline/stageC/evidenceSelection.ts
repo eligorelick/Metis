@@ -193,11 +193,11 @@ const SCHEDULED_TRIAL = /\btrials?\b[^.]{0,60}?\b(?:scheduled|set)\s+(?:to\s+(?:
 // and an antitrust allegation never when it is only a risk the issuer may face.
 const LEGAL_CONTEXT = /\b(?:court|jury|judge|plaintiffs?|complaints?|lawsuits?|suits?|litigation|proceedings?|cases?|antitrust|Attorneys? General|Commission|regulators?)\b/i;
 const NON_LEGAL_TRIAL = /\b(?:clinical|Phase\s*(?:[0-9]|I{1,3}V?|IV)\S*|pivotal|registrational|patients?|enrol\w*|dosing|endpoints?|FDA|stud(?:y|ies)|product candidates?|free trial|trial period)\b/i;
-// Codex review of PR #42: a modal within a few words of any proceeding verb
+// D-99 (evidence families): a modal within a few words of any proceeding verb
 // ("regulators could bring actions", "proceedings may seek structural
 // relief") states a risk, whichever clause would otherwise keep it.
 const HYPOTHETICAL_CLAIM = /^\s*(?:if|should)\b|\b(?:may|could|might|would)\s+(?:\w+\s+){0,2}?(?:be|become|face|incur|result|bring|seek|file|commence|impose|levy|allege|sue|pursue|initiate)\b/i;
-// Codex re-review of PR #42: the modal guard reads only the words up to and
+// D-99: the modal guard reads only the words up to and
 // including the matched claim, so "the FTC filed a case ..., which could
 // result in structural relief" stays an actual case while "regulators could
 // bring actions alleging ..." does not.

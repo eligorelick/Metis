@@ -177,7 +177,7 @@ export interface CapitalOptions {
 export interface FcfYearRow {
   date: string;
   /**
-   * Free cash flow AFTER stock-based compensation (WS6 house default, D-19).
+   * Free cash flow AFTER stock-based compensation (house default, D-19).
    * SBC is a real cost of employing people that happens to be settled in
    * shares, so adding it back overstates the cash a shareholder can claim.
    * Equal to `fcfBeforeSbc` when SBC was not disclosed for the year.
@@ -205,7 +205,7 @@ export interface FcfYearRow {
 }
 
 /**
- * WS6 (D-19): dilution from outstanding awards — the gap between the diluted
+ * D-19: dilution from outstanding awards — the gap between the diluted
  * and basic weighted-average share counts of the latest fiscal year. Null
  * members mean the statement did not disclose one of the counts, which is
  * disclosed rather than assumed to be zero.
@@ -339,7 +339,7 @@ export interface CapitalResult {
     note?: string;
   };
   shareCount: ShareCountTrend;
-  /** WS6 (D-19): diluted-vs-basic share overhang from outstanding awards. */
+  /** D-19: diluted-vs-basic share overhang from outstanding awards. */
   dilution: DilutionOverhang;
   buybackPriceAnalysis: {
     /** Total buyback dollars across analyzed years (positive). */
@@ -394,7 +394,7 @@ const MS_PER_YEAR = 365.25 * 24 * 3600 * 1000;
 const DAY_MS = 86_400_000;
 
 /**
- * WS6 (D-19) house default: SBC is subtracted from free cash flow.
+ * D-19 house default: SBC is subtracted from free cash flow.
  *
  * The cash-flow statement adds SBC back to operating cash flow because no cash
  * left the building that period, but the expense is real: it is paid in newly
@@ -920,7 +920,7 @@ export function computeCapital(
         sbcNotes.push("revenue missing or ≤ 0 — SBC % of revenue unavailable");
       }
       let pctOfFcf: number | null = null;
-      // WS6: the RATIO stays measured against FCF BEFORE the deduction —
+      // D-19: the RATIO stays measured against FCF BEFORE the deduction —
       // dividing SBC by an FCF it has already been subtracted from would
       // double-count it and inflate the ratio.
       const latestFcf = latestFcfRow?.fcfBeforeSbc ?? null;
@@ -941,7 +941,7 @@ export function computeCapital(
     }
   }
 
-  // --- WS6 (D-19): dilution from outstanding awards -----------------------------------------
+  // --- D-19: dilution from outstanding awards -----------------------------------------
   // The diluted/basic gap is withheld as an award attribution when the
   // fiscal year spans filed conversion or participating-preferred IPO evidence. Missing counts are
   // disclosed, never assumed to be zero.
@@ -1305,7 +1305,7 @@ export function computeCapital(
     );
   }
 
-  // WS6 (D-19): state the convention and show the adjustment's size, so the
+  // D-19: state the convention and show the adjustment's size, so the
   // report never prints a free-cash-flow figure whose definition is implicit.
   if (latestFcfRow !== null) {
     notes.push(FCF_SBC_BASIS);

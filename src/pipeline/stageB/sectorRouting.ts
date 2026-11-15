@@ -13,7 +13,7 @@
  * matching FIRST, case-insensitive, trimmed; SIC fallback; XBRL tag evidence
  * from EDGAR companyfacts confirms, contradicts or — when neither industry nor
  * SIC decides — supplies the base route, and alone decides the equity-vs-
- * mortgage REIT sub-map (WS5, D-16); overlays compose), the route table with
+ * mortgage REIT sub-map (D-16); overlays compose), the route table with
  * its hard suppressions ("Financial-company routes" there) and the
  * unprofitable / pre-revenue house rules below.
  *
@@ -129,7 +129,7 @@ export interface RouteOptions {
   /** ISO date used for IPO-recency math — passed in for determinism. */
   today: string;
   /**
-   * XBRL routing evidence read from EDGAR companyfacts (WS5, D-16). Optional:
+   * XBRL routing evidence read from EDGAR companyfacts (D-16). Optional:
    * without it the route rests on industry/SIC alone and, for a REIT, the
    * sub-map is `undetermined` unless the vendor industry names one.
    */
@@ -147,7 +147,7 @@ export type ReitSubmap = "equity" | "mortgage" | "undetermined";
 export interface CompanyRouteResult extends CompanyRoute {
   /**
    * REIT sub-map when the base is `reit` or `reit-mortgage`; null otherwise
-   * (WS5, D-16). `routeCompany` always sets it; the field is optional only so a
+   * (D-16). `routeCompany` always sets it; the field is optional only so a
    * hand-built route fixture predating it still satisfies the type.
    */
   reitSubmap?: ReitSubmap | null;
@@ -363,7 +363,7 @@ export function routeCompany(
     }
   }
 
-  // ---- XBRL routing evidence (WS5, D-16): confirms, contradicts, or decides.
+  // ---- XBRL routing evidence (D-16): confirms, contradicts, or decides.
   const evidence = opts.evidence ?? null;
   const sicNum = parseSic(sicRaw);
   // 6000–6499 and 6700–6799: major groups 65 (real-estate operators and
@@ -570,7 +570,7 @@ export function routeCompany(
     });
   }
 
-  // ---- REIT sub-map (WS5, D-16): SIC 6798 alone never decides mortgage vs equity.
+  // ---- REIT sub-map (D-16): SIC 6798 alone never decides mortgage vs equity.
   let reitSubmap: ReitSubmap | null = null;
   if (base === "reit" || base === "reit-mortgage") {
     const industryIsReit = industryLc !== null && industryLc.startsWith("reit");
@@ -1152,7 +1152,7 @@ const OVERLAY_POLICIES: Readonly<Record<SectorOverlay, { suppress: readonly stri
 
 /**
  * Metrics withheld when a REIT's equity-vs-mortgage sub-map is undetermined
- * (WS5, D-16). SIC 6798 covers both types, and the two maps disagree about
+ * (D-16). SIC 6798 covers both types, and the two maps disagree about
  * which figures mean anything: FFO/AFFO and P/FFO are the equity-REIT metrics,
  * while book value per share, the net interest spread and assets/equity
  * leverage are the mortgage-REIT ones. Publishing either set without knowing
@@ -1176,7 +1176,7 @@ export const REIT_SUBMAP_UNDETERMINED_SUPPRESSED = [
  * display EV/EBITDA (hard product rule; suppress wins over lead).
  *
  * A `CompanyRouteResult` additionally carries `reitSubmap`; when it is
- * "undetermined" both REIT metric families are withheld (WS5, D-16).
+ * "undetermined" both REIT metric families are withheld (D-16).
  */
 export function metricPolicy(
   route: SectorRoute | CompanyRoute | (CompanyRoute & { reitSubmap?: ReitSubmap | null }),
@@ -1406,7 +1406,7 @@ export function degradationPlan(
     );
   }
 
-  // ---- REIT sub-map undetermined (WS5, D-16)
+  // ---- REIT sub-map undetermined (D-16)
   if (route === "reit" && reitSubmap === "undetermined") {
     items.push({
       target: "valuation.reit",

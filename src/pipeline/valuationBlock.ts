@@ -76,17 +76,17 @@ interface ValuationCtx {
   /** Normalized statements retain each quarter's own filing-linked currency evidence. */
   currencyEvidence: readonly CurrencyEvidenceRow[];
   growth: GrowthResult;
-  /** WS6 (D-19): FCF/SBC treatment for the DCF assumption block. */
+  /** D-19: FCF/SBC treatment for the DCF assumption block. */
   capital: CapitalResult;
   wacc: WaccResult;
-  // WS6 (D-19): the named WACC inputs and the per-fiscal-year WACC series.
+  // D-19: the named WACC inputs and the per-fiscal-year WACC series.
   waccInputs: WaccDisclosure;
   waccHistory: WaccHistoryResult;
   /** Annual ROIC series — evidence for the DCF terminal excess-return rule. */
   roic: RoicResult;
   /** Latest fiscal-year DuPont decomposition — the excess-return ROE fallback. */
   dupont: DupontResult;
-  /** WS5: return on tangible common equity — the return P/TBV is read against. */
+  /** D-17: return on tangible common equity — the return P/TBV is read against. */
   rote: RoteResult;
   /** D-102: the trailing-four-quarter common return (financial routes). */
   commonReturnTtm: TtmCommonReturn | null;
@@ -230,7 +230,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
   const { route, incomeAnnual, balanceAnnual, balanceQuarterly, incomeQuarterly, ttmInc, ttmCf, growth, wacc, roic, profile, quote, evIncludeLeases } = ctx;
   const operatingTtm = operatingMarginBasis(ttmInc);
   const dcfUsesTtm = ttmInc !== null && operatingTtm.revenue !== null && operatingTtm.operatingIncome !== null;
-  // WS6 (D-18/D-19): the growth-anchor regression method and the WACC
+  // D-18/D-19: the growth-anchor regression method and the WACC
   // disclosure travel into the DCF assumption block with the rest.
   const waccByYear = new Map(ctx.waccHistory.points.map((point) => [point.date, point]));
 
@@ -596,7 +596,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
           revenueCagr3yExcludedSpanYears: revenueCagr3y.excludedSpanYears,
           revenueCagr5yPct: revenueCagr5y.cagrPct,
           revenueCagr5yExcludedSpanYears: revenueCagr5y.excludedSpanYears,
-          // WS6 (D-18): the log-linear regression method of the growth anchor.
+          // D-18: the log-linear regression method of the growth anchor.
           revenueLogLinear: growth.revenueLogLinear,
           analystEstimates,
           // D-98 (rate limits): a rate-limit refusal is named, not shown as "uncovered".
@@ -604,7 +604,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
             ? { analystEstimatesRefusal: bundle.analystEstimates.gap.reason }
             : {}),
           waccPct: wacc.waccPct ?? 0,
-          // WS6 (D-19): every WACC input named in the assumption block.
+          // D-19: every WACC input named in the assumption block.
           waccBasis: ctx.waccInputs.summary,
           // D-19: the reported FCF before and after the SBC deduction.
           // D-60: the trailing twelve months when the current-capital cash
@@ -656,7 +656,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
           marketCap,
           // The terminal excess-return rule reads the same annual ROIC series
           // the returns section reports.
-          // WS6 (D-19): each ROIC year carries the WACC recomputed from its own
+          // D-19: each ROIC year carries the WACC recomputed from its own
           // fiscal year end's risk-free observation, when one existed.
           roicHistory: roic.series.map((y) => {
             const point = waccByYear.get(y.date);
@@ -840,7 +840,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     }),
   ];
 
-  // WS5: FFO/AFFO per the NAREIT definition where the filer's tags allow (net
+  // D-17: FFO/AFFO per the NAREIT definition where the filer's tags allow (net
   // income + real-estate D&A − gains on property sales + impairments; AFFO less
   // recurring capex and straight-line rent), falling back to the netIncome +
   // D&A approximation and saying so. Read-only from EDGAR companyfacts.
@@ -883,7 +883,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     // quarter; say whether the current FFO is that construction.
     ffoHistoryComparable: route.base === "reit" ? nareitFfo.netIncomePlusTotalDa : undefined,
     affoHistoryComparable: route.base === "reit" ? nareitFfo.affoHistoryComparable === true : undefined,
-    // WS6 (D-19): off by default; see docs/METHODOLOGY.md, "EV bridge".
+    // D-19: off by default; see docs/METHODOLOGY.md, "EV bridge".
     includeLeasesInEv: evIncludeLeases,
     // The observation cutoff any supplied comparability evidence must predate;
     // without it every supplied evidence row read as "unavailable".
@@ -1137,7 +1137,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
           // date: labelling a fiscal-year FFO with a TTM as-of asserted a
           // freshness the figure does not have.
           asOf: nareitFfo.asOf ?? isoDay(inc0?.date),
-          // WS5: print the basis FFO/AFFO were actually built on, and withhold
+          // D-17: print the basis FFO/AFFO were actually built on, and withhold
           // the whole block when the equity-vs-mortgage sub-map is unproven.
           ffoBasis: nareitFfo.ffoBasis,
           affoBasis: nareitFfo.affoBasis,
@@ -1210,7 +1210,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     staleNoncontrollingEarnings: filedAnnualNciEarnings(bundle, ctx.modelCurrency),
     latestAnnualIncomeDate: isoDay(inc0?.date),
     analysisCutoff: bundle.builtAt.slice(0, 10),
-    // WS6 (D-19): the DCF equity bridge follows the same lease convention.
+    // D-19: the DCF equity bridge follows the same lease convention.
     leaseLiability: bridgePoint ? num(bridgePoint.capitalLeaseObligations) : null,
     operatingLeaseLiability: bridgePoint ? num(bridgePoint.operatingLeaseLiability) : null,
     includeLeasesInEv: evIncludeLeases,
@@ -1332,7 +1332,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
   for (const history of [historyIncome, historyCashflow]) {
     if (history.gap !== null) result.gaps.push(history.gap);
   }
-  // WS5: the FFO computation's own notes and gaps (which tags resolved, which
+  // D-17: the FFO computation's own notes and gaps (which tags resolved, which
   // stand-in was used) reach the report on the route that consumes them.
   if (route.base === "reit") {
     result.notes.push(...nareitFfo.notes);

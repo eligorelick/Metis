@@ -549,7 +549,7 @@ function singleSuccessfulArtifact(
   if (successes.length !== 1) return null;
   const success = successes[0]!;
   const fingerprint = success.envelope.payloadFingerprint;
-  // Verify is a schema-valid final report, so Task 20's explicit null legacy
+  // Verify is a schema-valid final report, so the explicit null legacy
   // compatibility remains safe. Every artifact that can feed paid downstream
   // work must instead carry a known, nonblank payload provenance cohort.
   if (pass === "verify") {

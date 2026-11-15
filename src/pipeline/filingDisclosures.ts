@@ -598,7 +598,7 @@ function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow
     const re = a.restated.restatedFiling;
     return { pct: null, note: `${label} not shown: ${aEnd} was re-presented in ${re.form} ${re.filed} and no filing re-presents ${bEnd}, so the two quarters are on different presentations.` };
   }
-  // Task 7's rule (b) applied to the pair: the printed quarter's filing re-presented earlier periods of the concept
+  // D-134 applied to the pair: the printed quarter's filing re-presented earlier periods of the concept
   // and the earlier filing that supplies the comparison did not, so the two quarters sit on different presentations.
   // Equal dates, both re-presenting, or neither leave the cell alone. A row without the marker keeps plain arithmetic.
   if (a.presentation !== null && b.presentation !== null && b.presentation.filed < a.presentation.filed && a.presentation.represented && !b.presentation.represented) {
@@ -610,7 +610,7 @@ function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow
   return plain;
 }
 
-/** `checked` is set when a shown quarter carries the builder's `revenuePresentation`, i.e. `oneBasisGrowth` could run (Task 9b). */
+/** `checked` is set when a shown quarter carries the builder's `revenuePresentation`, i.e. `oneBasisGrowth` could run (D-134). */
 function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, notes: string[], flags: { presentationChecked: boolean }): FilingDisclosures["quarterlyTrend"] {
   // Integration review (R2): the trend notes only the quarterly rows it shows
   // (an annual row on the same date is not one of them), once per row.

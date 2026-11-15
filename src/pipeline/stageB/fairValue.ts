@@ -394,7 +394,7 @@ function big(v: number): string {
 function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
   const g = a.growthPath.value;
   const m = a.ebitMarginPath.value;
-  // WS6: the discount rate and the growth anchor's range are report-visible
+  // D-18, D-19: the discount rate and the growth anchor's range are report-visible
   // rows, so a reader sees the WACC inputs and the method spread, not just the
   // point estimate the fade starts from.
   const anchor = a.growthAnchor;

@@ -1723,7 +1723,7 @@ export async function runJob<TPayload = unknown>(
       } } : {}),
       effort: analysisEffort,
       payload,
-      jobSeed: jobId, // WS7 (D-20): seeds the judge's case order
+      jobSeed: jobId, // D-20: seeds the judge's case order
       runGeneration: state.runGeneration,
       passAttemptFor: (pass) => {
         const attemptId = passAttemptIds.get(pass);
@@ -2194,7 +2194,7 @@ export async function runJob<TPayload = unknown>(
               verificationRate,
               verificationLog: verifyLog,
               costBreakdown,
-              payload, // WS7 (D-20): recovers the judge order/length protocol
+              payload, // D-20: recovers the judge order/length protocol
             });
         } catch (err) {
           // A reused durable synthesize artifact has no analyst outputs to

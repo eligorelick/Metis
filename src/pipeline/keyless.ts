@@ -127,7 +127,7 @@ export interface KeylessInputs {
   /** No FMP key configured → the substitution gaps are `expected`. */
   fmpKeyless: boolean;
   /**
-   * WS4 (D-12) statement-history policy, from `METIS_STATEMENT_SOURCE`:
+   * D-12 statement-history policy, from `METIS_STATEMENT_SOURCE`:
    *  - `auto`: FMP first, then EDGAR companyfacts for periods older than the
    *    oldest FMP row (a plan that caps `limit` truncates history);
    *  - `fmp`: never backfill;
@@ -156,7 +156,7 @@ export interface KeylessInputs {
     registrant: EdgarRegistrant | null;
     companyFacts: FetchResult<CompanyFacts>;
     /**
-     * WS4 (D-14): a successor registrant's predecessor and its facts, when the
+     * D-14: a successor registrant's predecessor and its facts, when the
      * bundle resolved one. Optional so a caller that never looks for one (and
      * every existing test) keeps working unchanged.
      */
@@ -932,7 +932,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     member !== "spy" && member !== "sectorEtf";
 
   /**
-   * WS4 (D-12): `METIS_STATEMENT_SOURCE=edgar` rebuilds the six statement
+   * D-12: `METIS_STATEMENT_SOURCE=edgar` rebuilds the six statement
    * members from companyfacts even when FMP served rows, so a reader who
    * distrusts the vendor's normalisation can run on filed facts alone. It never
    * lifts the issuer gate.

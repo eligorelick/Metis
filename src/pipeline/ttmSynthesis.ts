@@ -431,7 +431,7 @@ export function ttmCashFlow(
  * The window gates of ttmCashFlowFromNormalized (no rejected current period,
  * four contiguous quarters, one known currency), without its manifest entries.
  * A filed CFO identity establishes only CFO's twelve months; the other quarterly
- * flows summed beside it still need their own admitted window (PR #83 review).
+ * flows summed beside it still need their own admitted window (D-172).
  */
 export function cashFlowQuarterWindowAdmitted(
   normalized: NormalizedQuarterSet<FmpCashFlowRow>,

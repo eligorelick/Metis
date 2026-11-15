@@ -13,7 +13,7 @@ import { type ManifestEntry } from "@/types/core";
 import { DISCLAIMER_TEXT, REPORT_SPEC_VERSION, ReportSchema, type Report, type CostBreakdownEntry, type ExecutionMetadataEntry } from "@/report/schema";
 import { buildDataCompleteness } from "@/report/completeness";
 import { annotateSharedModelFamily, attributeJudgeProtocolDisclosures, buildExecutionMetadataEntry, webResearchLimitationGaps, failedPassNote, sharedModelFamilyOf } from "@/report/execution";
-// WS7 (D-20): the judgement-protocol block the passes store is completed with
+// D-20: the judgement-protocol block the passes store is completed with
 // the model families only the runner's settled execution list knows. This is a
 // PURE module (no clock, no network, no provider) — the passes module itself
 // stays injected, as the decoupling note above requires.

@@ -2,7 +2,7 @@
  * Stage C — the adversarial protocol: which case the judge reads first, how long
  * each case may be, and what the two sides said about their own strength.
  *
- * WS7 (DECISIONS D-20). Three defects this module fixes, all of them structural
+ * D-20. Three defects this module fixes, all of them structural
  * rather than model-quality problems:
  *
  *  1. POSITION. `judgeUserTurns` always wrote BULL CASE then BEAR CASE. First

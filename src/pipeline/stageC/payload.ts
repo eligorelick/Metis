@@ -1155,7 +1155,7 @@ function computedSections(
       source: `computed.valuation.taxCapitalSensitivity.cell${index + 1}`, asOf: computed.fairValue?.currentUse?.valueDate ?? null,
     }));
   } else if (val.kind === "excess-return") {
-    // WS5 review (NIT 8): the model's shape and the multiple a financial is
+    // D-17: the model's shape and the multiple a financial is
     // actually read on had no consumer anywhere downstream — the payload showed
     // one number from a model whose horizon, discount rate and opening book
     // value were only inferable from prose.
@@ -1323,9 +1323,8 @@ function computedSections(
         asOf: null,
       });
       // D-44: completeness was shown only inside the score's unit qualifier,
-      // which no record carries, so the true "quality evidence completeness
-      // 0.4" in report 26 could only be cited against the score record and
-      // failed. Its own row gives it its own id and unit.
+      // which no record carries, so a true "quality evidence completeness
+      // 0.4" could only be cited against the score record and failed. Its own row gives it its own id and unit.
       scoreFigures.push({
         label: `${key} evidence completeness`,
         value: a.dataCompleteness,
@@ -1419,7 +1418,7 @@ function computedSections(
   } else if (computed.projections) {
     // No weights here: nothing is weighted on this route, so none are shown.
     // The n/a row gives "probability-weighted forecasts are unavailable" a
-    // gap tag to cite (D-43; report 26 cited "unsupported" for it).
+    // gap tag to cite (D-43), never "unsupported".
     sections.push(payloadSection({
       title: "Weighted projections (computed)",
       figures: [{ label: "weighted projections", value: null, unit: "", source: "computed.projections", asOf: null }],
@@ -1868,7 +1867,7 @@ const GRADES_CONSENSUS_WORDS: ReadonlyMap<string, string> = new Map(
 /**
  * The estimates section renders outside the untrusted envelopes, so the
  * consensus is stated only as one of FMP's rating words; any other provider
- * string is withheld rather than quoted (Codex review of PR #48).
+ * string is withheld rather than quoted (D-101).
  */
 function gradesConsensusWord(value: unknown): string {
   const raw = strOrNull(value);
@@ -4159,7 +4158,7 @@ export function isIncompleteAnalystCase(detail: string): boolean {
 
 export function previousOutputBlock(raw: string, incompleteCase = false): string {
   // D-185: an incomplete analyst case needs its missing sections written, so it is
-  // not told to repair in place (that kept an ASML skeleton unchanged).
+  // not told to repair in place (that would keep a skeleton case unchanged).
   const instruction = incompleteCase
     ? "incomplete: keep its correct claims and write the missing sections in full"
     : "repair this JSON in place — do not start over";

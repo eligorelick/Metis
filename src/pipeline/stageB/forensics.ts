@@ -1565,12 +1565,12 @@ export interface PiotroskiResult {
   outOf: number;
   signals: Record<PiotroskiSignalName, PiotroskiSignal>;
   /**
-   * WS5: which scale this score is on. "standard" is the paper's 9-signal
+   * D-17: which scale this score is on. "standard" is the paper's 9-signal
    * F-score; "financial" is the reduced battery for a bank, insurer or
    * mortgage REIT. A 3-of-3 must never be read against the 9-point scale.
    */
   variant: "standard" | "financial" | "eligibility-unresolved";
-  /** WS5: display label carrying the scale, e.g. "Piotroski F (financial variant, 3 signals)". */
+  /** D-17: display label carrying the scale, e.g. "Piotroski F (financial variant, 3 signals)". */
   label: string;
   notes: string[];
   gaps: ManifestEntry[];
@@ -1826,7 +1826,7 @@ export function computePiotroski(
     );
   }
 
-  // WS5: the label carries the scale. A 3-of-3 on a bank must never be read
+  // D-17: the label carries the scale. A 3-of-3 on a bank must never be read
   // against the paper's 9-point scale; the Stage C payload renders this string
   // as the figure's label (payload.ts), and grading weights the signal by the
   // share of the nine signals that were evaluable.
@@ -2874,7 +2874,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
   );
   let altman: AltmanResult | null = null;
   if (altmanSelection.variant === null) {
-    // WS5 (criterion g): the variant selector already explains the refusal in
+    // D-17: the variant selector already explains the refusal in
     // its notes; carry that exact text into the MANIFEST too, so a report whose
     // Z-score cell is blank says why it is blank rather than looking like a
     // fetch that failed.
@@ -2960,7 +2960,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     notes.push(
       eligibilityUnresolved ? `Beneish M-score eligibility unresolved: ${eligibilitySubject} does not validate operating-method applicability; withheld pending methodology review.` : "Beneish M-score not computed: financial company (Beneish excluded financial institutions from the model's estimation sample, paper p.5).",
     );
-    // WS5 (criterion g): the reason reaches the MANIFEST, not only the notes.
+    // D-17: the reason reaches the MANIFEST, not only the notes.
     // A battery that silently produces nothing reads as missing data; this says
     // it was refused, and why.
     gaps.push(
@@ -3023,7 +3023,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     notes.push(
       eligibilityUnresolved ? `Accrual ratios eligibility unresolved: ${eligibilitySubject} does not validate operating accrual methodology; withheld pending methodology review.` : "Accrual ratios suppressed for financial companies — financial-asset flows swamp operating accruals (research §6.3).",
     );
-    // WS5 (criterion g): reason to the manifest as well as the notes.
+    // D-17: reason to the manifest as well as the notes.
     gaps.push(
       gapEntry(
         "forensics.accrualsRatio",

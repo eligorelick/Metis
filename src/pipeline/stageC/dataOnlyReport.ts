@@ -988,7 +988,7 @@ function enrichDataOnlyReportInContext(stub: Report, args: EnrichDataOnlyReportA
     projections: computed.projections,
     scenarioTargets: computed.scenarioTargets,
     fairValue: computed.fairValue,
-    // WS5 (D-17): the route metrics a financial report leads with, and the
+    // D-17: the route metrics a financial report leads with, and the
     // P/TBV-against-ROTE reading, on the data-only surface too — this report
     // has no analyst pass to describe them in prose.
     ...(routeMetrics ? { routeMetrics } : {}),

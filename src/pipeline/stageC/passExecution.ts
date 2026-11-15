@@ -566,7 +566,7 @@ export function isRetryablePassFailure<T>(run: PassRun<T>): boolean {
 }
 
 /**
- * WS7 (D-20): fold a mirrored `both`-mode attempt's billing into the primary
+ * D-20: fold a mirrored `both`-mode attempt's billing into the primary
  * result so the pass settles ONE cost entry covering both requests. The primary
  * output is the report; usage and execution evidence cover both requests.
  * A mirrored attempt that failed still contributes whatever it billed — an
