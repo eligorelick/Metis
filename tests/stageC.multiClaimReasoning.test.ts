@@ -85,12 +85,8 @@ describe("catalyst and risk reasoning compatibility", () => {
       }
     }
     // D-309 review round 1: the fixture's synthetic `valuation.cet1Ratio` data gap is a valuation-input gap, so the
-    // support line names it once on each export. Check it, then remove it so the digests keep pinning every other byte.
-    const supportPhrase = "; a valuation input is withheld or qualified";
-    for (const key of ["markdown", "print"] as const) {
-      expect(outputs[key].split(supportPhrase).length - 1).toBe(1);
-      outputs[key] = outputs[key].replace(supportPhrase, "");
-    }
+    // support line names it once on each export, in place; the digests below pin it.
+    for (const key of ["markdown", "print"] as const) expect(outputs[key].split("; a valuation input is withheld or qualified").length - 1).toBe(1);
     expect(Object.fromEntries(Object.entries(outputs).map(([key, value]) => [key, createHash("sha256").update(value).digest("hex")]))).toMatchSnapshot();
   });
 

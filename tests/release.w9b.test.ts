@@ -10,10 +10,7 @@ import { REPORT_SPEC_VERSION } from "@/report/versions";
 import { ReportSchema, type FairValue, type Report, type TracedNumber } from "@/report/schema";
 import { MODEL_PROSE_MARK, consensusTables, displayClaimText, displayProse, figureRow, indexModelWrittenClaims } from "@/report/presentation";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
-import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
-import type { ComputedMetrics } from "@/pipeline/compute";
-import { computeCapital } from "@/pipeline/stageB/capital";
-import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
+import { prepareReportForSurface } from "@/report/readerPreparation";
 import { loadTask28Fixture } from "./helpers/task28Report";
 import { readableHtml } from "./helpers/uiParityContract";
 
@@ -80,17 +77,48 @@ describe("raw base-unit amounts in reader text (D-308, check 3)", () => {
     expect(displayProse("Model deck version 1234567.123456 states the figures.")).toBe("Model deck version 1234567.123456 states the figures.");
   });
 
-  it("review round 1: code-written method statements that assembly adds to an AI-written report carry grouped amounts", () => {
-    const capital = attachCurrentCapital(computeCapital([], [], [], [], { price: null }), {
-      income: { date: "2026-06-30", revenue: 100, netIncome: 20, operatingIncome: 30, interestExpense: 2 },
-      cashFlow: { date: "2026-06-30", operatingCashFlow: 40, capitalExpenditure: -25, stockBasedCompensation: 9, financeLeasePrincipalPayments: 3 },
-      balance: { date: "2026-06-30", totalDebt: 30, cashAndShortTermInvestments: 15, operatingLeaseLiability: 10, capitalLeaseObligations: 10 }, currency: "USD",
-    });
-    capital.current!.cashBridge.definition = "TTM net income = filed fiscal year 77670000000 + current YTD 12902000000 - prior YTD 1234567.";
-    const out = applyFinancialDiagnostics(ReportSchema.parse(loadTask28Fixture()), { capital } as ComputedMetrics);
-    const statement = out.balanceSheet.coverage.commentary.at(-1)!.text;
-    expect(statement).toContain("filed fiscal year 77,670,000,000 + current YTD 12,902,000,000 - prior YTD 1,234,567.");
-    expect(statement).toContain("2026-06-30");
+  it("review round 2: an AI-written grade interpretation keeps its digits through preparation and export; a data-only one is grouped", () => {
+    const interpretation = "Backlog of 12345678901 supports the case.";
+    // AI-written report (no analysis.llm gap): the interpretation is shown as written, with the model-prose mark.
+    const model = ReportSchema.parse(loadTask28Fixture());
+    model.appendix.missingData = model.appendix.missingData.filter(gap => gap.field !== "analysis.llm");
+    model.valuation.graded = { ...model.valuation.graded, interpretation };
+    expect(withReaderConventions(model).valuation.graded.interpretation).toBe(interpretation);
+    const prepared = prepareReportForSurface(model, "markdown").report;
+    expect(prepared.valuation.graded.interpretation).toBe(`${interpretation} ${MODEL_PROSE_MARK}`);
+    for (const text of surfaces(model)) {
+      expect(text).toContain("Backlog of 12345678901 supports the case.");
+      expect(text).not.toContain("Backlog of 12,345,678,901");
+    }
+    // Control: in a data-only report the same grade text is code-written and is grouped on display.
+    const dataOnly = ReportSchema.parse(loadTask28Fixture());
+    dataOnly.appendix.missingData.push({ field: "analysis.llm", reason: "no AI connection", severity: "critical" });
+    dataOnly.valuation.graded = { ...dataOnly.valuation.graded, interpretation };
+    expect(reportToMarkdown(dataOnly)).toContain("Backlog of 12,345,678,901 supports the case.");
+  });
+
+  it("review round 2: the two saved code-written method statements of an AI-written report are grouped at read time, by typed fields", () => {
+    const grading = "Capital grading basis: ttm: 2025-07-01 to 2026-06-30. TTM net income = filed fiscal year 57670000000 + current YTD 12902000000.";
+    const bridge = "The debt bridge offsets cash of 31234567890 against total debt of 41234567890.";
+    const saved = ReportSchema.parse(loadTask28Fixture());
+    saved.appendix.missingData = saved.appendix.missingData.filter(gap => gap.field !== "analysis.llm");
+    const method = (text: string) => ({ label: "JUDGMENT" as const, source: "computed.capital.current", asOf: "2026-06-30", text });
+    // Controls in the same report: an AI statement citing the same record but labelled FACT, and an AI JUDGMENT with the
+    // same source outside the two commentary lists, stay as written.
+    const aiFact = { label: "FACT" as const, source: "computed.capital.current", asOf: "2026-06-30", text: "Cash reached 51234567890 at quarter end." };
+    const aiElsewhere = method("Our judgment: the 61234567890 buyback is large.");
+    saved.balanceSheet.coverage.commentary = [...saved.balanceSheet.coverage.commentary, aiFact, method(grading)];
+    saved.balanceSheet.debtProfile.commentary = [...saved.balanceSheet.debtProfile.commentary, method(bridge)];
+    saved.business.whatTheySell = [...saved.business.whatTheySell, aiElsewhere];
+    const stored = JSON.stringify(saved);
+    for (const text of surfaces(saved)) {
+      expect(text).toContain("filed fiscal year 57,670,000,000 + current YTD 12,902,000,000.");
+      expect(text).toContain("cash of 31,234,567,890 against total debt of 41,234,567,890.");
+      expect(text).toContain("Cash reached 51234567890 at quarter end.");
+      expect(text).toContain("the 61234567890 buyback is large.");
+    }
+    // Read time only: the saved report keeps its bytes (P21).
+    expect(JSON.stringify(saved)).toBe(stored);
   });
 
   it("leaves dates, accessions, identifiers, small and already-grouped numbers alone (controls)", () => {

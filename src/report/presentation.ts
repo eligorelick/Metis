@@ -110,7 +110,16 @@ export function indexModelWrittenClaims(report: Report): void {
     for (const [key, value] of Object.entries(node)) if (key !== "appendix" && key !== "meta") visit(value);
   };
   visit(report);
+  // Review round 2: report assembly writes two method statements into every report (`applyFinancialDiagnostics`):
+  // the capital grading basis and the debt-bridge note. They are code-written, identified by their typed fields
+  // (JUDGMENT, source `computed.capital.current`) on their own commentary paths, never by wording (P11).
+  for (const claim of [...report.balanceSheet.coverage.commentary, ...report.balanceSheet.debtProfile.commentary]) {
+    if (claim.label === "JUDGMENT" && claim.source === CODE_METHOD_STATEMENT_SOURCE) modelWrittenClaims.delete(claim);
+  }
 }
+
+/** The typed source of the code-written capital method statements (`applyFinancialDiagnostics`). */
+const CODE_METHOD_STATEMENT_SOURCE = "computed.capital.current";
 
 export function isModelWrittenClaim(claim: SourcedClaim): boolean {
   return modelWrittenClaims.has(claim);

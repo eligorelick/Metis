@@ -84,6 +84,13 @@ export function unavailableModelInputTables(report: Pick<Report, "valuation" | "
   return rows.length ? [{ heading: "Valuation input availability", headers: ["Input", "Recorded value", "Basis / limitation"], rows }] : [];
 }
 
+/**
+ * D-308 review round 2: a grade block's one-line reason and interpretation (a section's `graded`, the moat block, the
+ * grade strip) can be written by the AI, so the reader view never groups them. Display groups them only when no
+ * model-prose mark is attached (a data-only report's code-written grade text).
+ */
+const AI_WRITTEN_GRADE_PROSE = /\.(?:graded|moatGraded|gradeStrip\.[A-Za-z]+)\.(?:oneLineWhy|interpretation)$/;
+
 /** Keep claim and figure identities intact for the existing verification-mark index. */
 export function withReaderConventions(report: Report): Report {
   function visit(value: unknown, path: string): unknown {
@@ -93,6 +100,7 @@ export function withReaderConventions(report: Report): Report {
       // reason and period cell, and a grade qualification's detail carry the same producer amounts as the fields
       // already listed. Traced figures are returned unchanged above, so their periods and identities are untouched.
       // Review round 1: code-written fields only; a grade line (oneLineWhy) can be model-written and is shown as written.
+      if (AI_WRITTEN_GRADE_PROSE.test(path)) return text;
       return /\.(?:note|basis|reason|definition|enterpriseValueNote|multiplesBasis|interpretation|fallbackReason|ownHistoryBasis|earningsCaveat|detail|period)$|\.(?:notes|assumptions|basis)\.\d+$/.test(path) ? readerBaseUnits(text) : text;
     }
     if (Array.isArray(value)) return value.map((v, i) => visit(v, `${path}.${i}`));

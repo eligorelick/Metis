@@ -53,8 +53,9 @@ valuation, grade or score changes. The demo fixture carries one synthetic `valua
 support by itself (a new test pins that); the existing D-300 tests that mean "no other limitation" remove only that
 entry, and two wording controls on `valuation.dcf.note` and `capital.fcf.note` now assert the exact limitation list
 (the decoy wording is still not read as the tax-operand or SBC entry; a non-headline field stays full). The exact-export digest in
-`tests/stageC.multiClaimReasoning.test.ts` now asserts that phrase once on Markdown and print and removes it before hashing,
-as it already does for the D-256 and D-282 lines; the pinned digests are unchanged.
+`tests/stageC.multiClaimReasoning.test.ts` asserts that phrase once on Markdown and print and pins new Markdown and print
+digests that include it in place (review round 2); with the phrase removed the old digests are reproduced exactly, so it
+is the only change. The UI and audit digests are unchanged.
 
 **Panel (same-report check, main `90c232c5`, 33 cases).** Before (main): Full support for AMZN (both), DIS, NVDA (both)
 and WMT. After: **no case has full support**; all 33 are Limited. Lines added to each case (all earlier reasons
@@ -131,9 +132,8 @@ UNH and WMT the net-debt lease note, the SBC row and the scenario bridge; CAT, L
 row and the scenario bridge; BAC, JPM and JPM #64 the excess-return continuing value and opening book and the bank
 key-number formulas; TSM, TSM #66 and NVO the unadjusted reported free cash flow, the ADS share-basis check, scenario
 inputs and the consensus rows with an unestablished currency; RIVN and MET the valuation-availability basis; MET, DUK,
-PLD, FIGR, O, PGR, META, CAT, KO, UNH, UNP and LLY the data-gap reasons. `report.json` changes `meta.specVersion` and, after review round 1, the two code-written method statements
-below; `stageB.json` and `payload.txt` do not change; the audit export changes its spec line and, in the five
-analyst cases (AMZN, LLY #63, LLY #65, MU, NVDA), the stored capital-grading statement it lists (amounts grouped).
+PLD, FIGR, O, PGR, META, CAT, KO, UNH, UNP and LLY the data-gap reasons. `report.json` changes only `meta.specVersion`; `stageB.json` and `payload.txt` do not change; the audit export
+changes only its spec line.
 
 **Tests.** `tests/release.w9b.test.ts`: amounts with cents, at a sentence end, before a comma and a fractional share
 count; controls (dates, accessions, CIK, a leading-zero file number, a seed, a URL path, small decimals, already grouped
@@ -146,19 +146,26 @@ paths, a route-metric formula with a plain-period control and the consensus cell
 Fixed: (1) identifier guards in `readerBaseUnits`: a number after a version, id or identifier word, a CIK (also "CIK
 number"/"CIK no."), a file, account, registration, form, document, reference, filing, case, order, invoice, CUSIP or
 ISIN number, "no." or "#", and an 8-digit basic date (19xx or 20xx with a real month and day) is left as written; the
-D-67 precision pass applies the same identifier context, so a version is not rounded either. (2) Code-written text only:
-`displayProse` skips grouping for a paragraph that carries the model-prose mark (D-282) and for a statement of an
-AI-written report (recorded when a surface prepares the report, like the verification-mark index); the reader view no
-longer groups `oneLineWhy`, which the analyst can write. Main grouped those AI-written texts; they now show as written
-(no panel case had an AI-written amount of seven or more digits). (3) Code writes two method statements into
-AI-written reports at assembly (`applyFinancialDiagnostics`: the capital grading basis with the TTM derivation, and
-the debt-bridge note); they now group their amounts where they are written, a typed-producer fix at the owner, so new
-reports store them grouped. A saved AI-written report shows those two statements as stored. `report.json` changes for
-those statements only (`balanceSheet.coverage.commentary` in 22 cases, `debtProfile.commentary` in 1, and the same
-claim text in 5 analyst verification logs); all 7,076 verification entries keep their status, path and outcome.
-Tests: every reproduced case, a "number of" amount, an invalid 8-digit day and a year-led amount with cents as
-controls; a marked paragraph and an AI-report statement stay as written while code prose and a data-only statement are
-grouped; the method statement from `applyFinancialDiagnostics`.
+D-67 precision pass applies the same identifier context, so a version is not rounded either. (2) Code-written text only.
+How AI-written prose is protected, at each step:
+- Reader view (`withReaderConventions`, before model marking): it groups only listed code-written fields, and never a
+  grade block's `oneLineWhy` or `interpretation` (a section's `graded`, the moat block, the grade strip), which the
+  analyst can write (review round 2). Statements are returned unchanged, as before.
+- Display (`displayProse`): a paragraph that carries the D-282 model-prose mark is shown as written; in a data-only
+  report the same grade text has no mark and is grouped, as on main.
+- Statements (`displayClaimText`, claim reasoning): every statement of an AI-written report is recorded when a surface
+  prepares the report (like the verification-mark index) and shown as written, except the two method statements report
+  assembly writes into every report (`applyFinancialDiagnostics`: the capital grading basis and the debt-bridge note).
+  Those are identified by their typed fields, never by wording: label JUDGMENT, source `computed.capital.current`, on
+  `balanceSheet.coverage.commentary` or `balanceSheet.debtProfile.commentary`. They are grouped at read time, so a
+  saved AI-written report shows them as main did. Stored bytes do not change: the round-1 producer change is reverted.
+Main grouped AI-written statements and paragraphs; they now show as written (no panel case has an AI-written amount
+of seven or more digits). Tests: every reproduced case, a "number of" amount, an invalid 8-digit day and a year-led
+amount with cents as controls; a marked paragraph and an AI-report statement stay as written while code prose and a
+data-only statement are grouped; an AI-written grade interpretation through preparation and all three exports, with a
+data-only control; both saved method statements grouped on all three surfaces with the saved report's bytes unchanged,
+and two controls (an AI FACT citing the same record on the same list, an AI JUDGMENT with the same source elsewhere)
+shown as written.
 
 **Version.** Report 1.100.0 for D-308 and D-309 (read-time meaning on every surface); payload, Stage B, pipeline and
 score bands unchanged. Sample rebuilt; the frozen audit fixture re-recorded (spec stamp and digest only).

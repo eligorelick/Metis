@@ -17,7 +17,6 @@ import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { executiveAssessmentReason } from "@/report/executiveAssessment";
 import { reasoningClaims } from "@/report/presentation";
-import { readerBaseUnits } from "@/report/readerConventions";
 import { derivedExecutiveTenureYears, executiveMetricDuringTenure, executiveTenureStart, filingTenureFor, startAgreesWithFiling, validatedExecutiveDecisions, type ExecutiveDecisionEvidence } from "@/report/executiveDecisions";
 
 /** Positive contracts for pipeline-owned metric families, never the model's evidence bucket. */
@@ -171,13 +170,12 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
     for (const field of ["netDebtToEbitda", "interestCoverage", "fcfConversionBeforeSbc", "sbcPctOfFcf"] as const) {
       append(next.balanceSheet.coverage.numbers, numeric(`computed.capital.current.${field}`, current[field], field === "sbcPctOfFcf" ? "%" : "x", current.asOf, null, period));
     }
-    // Method statements, not issuer facts: JUDGMENT (audit 2026-10-22 F-20). D-308 review round 1: code writes them
-    // into AI-written reports too, where reader display leaves statements as stored, so their amounts are grouped here.
+    // Method statements, not issuer facts: JUDGMENT (audit 2026-10-22 F-20).
     next.balanceSheet.coverage.commentary.push({ label: "JUDGMENT", source: "computed.capital.current", asOf: current.asOf,
-      text: readerBaseUnits(`Capital grading basis: ${period}. ${current.fallbackReason ?? trailingFlowStatement(current)} ${current.cashBridge.definition}`) });
+      text: `Capital grading basis: ${period}. ${current.fallbackReason ?? trailingFlowStatement(current)} ${current.cashBridge.definition}` });
     next.balanceSheet.debtProfile.commentary.push({ label: "JUDGMENT", source: "computed.capital.current", asOf: current.asOf,
-      text: readerBaseUnits([current.debtBridge.compositionNote, current.debtBridge.leaseScopeNote ?? "The debt bridge shows debt on the retained basis and the selected operating-lease basis, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero.", current.debtBridge.leaseEvidenceNote]
-        .filter((text): text is string => text !== undefined).join(" ")) });
+      text: [current.debtBridge.compositionNote, current.debtBridge.leaseScopeNote ?? "The debt bridge shows debt on the retained basis and the selected operating-lease basis, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero.", current.debtBridge.leaseEvidenceNote]
+        .filter((text): text is string => text !== undefined).join(" ") });
   }
   const concentration = current?.sbcConcentration;
   if (concentration) {
