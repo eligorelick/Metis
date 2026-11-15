@@ -273,7 +273,7 @@ describe("FIN-404 carried minors (Task 9 review)", () => {
     const note = [...out.valuation.notes, ...(out.valuation.dcf?.notes ?? [])].find((n) => /^Per-share values divide by/.test(n));
     expect(note).toMatch(/^Per-share values divide by the latest weighted-average diluted share count, /);
     expect(note).not.toMatch(/the diluted count is kept so the per-share value carries the dilution/);
-    expect(note).toMatch(/does not carry the option and RSU dilution the market cap omits \(D-60 disclosure\)\.$/);
+    expect(note).toMatch(/does not carry the option and RSU dilution the market cap omits\.$/);
   });
 
   it("control: a profitable quarter keeps the diluted-count tail", () => {

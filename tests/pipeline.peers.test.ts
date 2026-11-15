@@ -115,7 +115,7 @@ describe("one gain test for both sides of the peer comparison", () => {
   it("excludes a gain-carried peer from common earnings and P/E while retaining P/B", () => {
     const result = run({ ...four(), P6: earning(candidate("P6", 3000), 30, 15) });
     expect(result.peerCoverage.comparisons[0]).toMatchObject({ current: 10, peerMedian: 17.5, peerCount: 4 });
-    expect(result.peerCoverage.exclusions.find(e => e.symbol === "P6")?.reason).toMatch(/^common earnings: non-operating income 50\.0% of trailing pre-tax income \(above 25%, house rule D-98\)/);
+    expect(result.peerCoverage.exclusions.find(e => e.symbol === "P6")?.reason).toMatch(/^common earnings: non-operating income 50\.0% of trailing pre-tax income \(above 25%, house rule\)/);
     const computed = multiplesFramework("general", { ...subject(), ...result });
     expect(computed.multiples.find(m => m.key === "peTtm")?.peers?.median).toBe(17.5);
     expect(computed.multiples.find(m => m.key === "priceToBook")?.peers?.count).toBe(5);
@@ -123,13 +123,13 @@ describe("one gain test for both sides of the peer comparison", () => {
   it("withholds a median left with three eligible peers", () => {
     const result = run({ ...four(), P5: earning(candidate("P5", 2500), 30, 15) });
     expect(result.peerCoverage.comparisons[0]).toMatchObject({ current: 10, peerMedian: null, peerCount: 3 });
-    expect(result.peerCoverage.methodology.join(" ")).toMatch(/Common-earnings median withheld: 3 eligible peers .*D-98 gain test \(P5: non-operating income 50\.0%/);
+    expect(result.peerCoverage.methodology.join(" ")).toMatch(/Common-earnings median withheld: 3 eligible peers .* the gain test \(P5: non-operating income 50\.0%/);
   });
   it("withholds a gain-carried subject and combines a scope refusal once", () => {
     const income = earning(candidate("ROOT"), 30, 10).incomeQuarterly;
     const result = runSubject(income);
     expect(result.peerCoverage.comparisons[0]).toMatchObject({ current: null, peerMedian: 17.5, peerCount: 4,
-      currentWithheldReason: expect.stringMatching(/^non-operating income 66\.7% of the subject's trailing pre-tax income \(above 25%, house rule D-98\)/) });
+      currentWithheldReason: expect.stringMatching(/^non-operating income 66\.7% of the subject's trailing pre-tax income \(above 25%, house rule\)/) });
     const both = runSubject(income, unresolvedTarget()).peerCoverage;
     expect(both.comparisons[0].currentWithheldReason).toMatch(/^Issuer-common economic share scope unresolved.*; non-operating income 66\.7%/);
     expect(both.exclusions.filter(e => e.symbol === "ROOT" && e.reason.startsWith("Company figure withheld:"))).toHaveLength(1);

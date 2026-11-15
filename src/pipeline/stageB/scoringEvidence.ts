@@ -273,7 +273,7 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
         operand("Beneish M", i.forensics.beneish?.score, "computed.forensics.beneish.score");
         operand("sales-growth index (SGI)", i.forensics.beneish?.indices.sgi, "computed.forensics.beneish.indices.sgi");
         operand("Beneish M with SGI at neutral 1.0", i.forensics.beneish?.sgiNeutralScore, "computed.forensics.beneish.sgiNeutralScore");
-        result.fallbackReason = "Sales growth alone carries M above the −1.78 flag line; graded on M with SGI at neutral 1.0 (D-61).";
+        result.fallbackReason = "Sales growth alone carries M above the −1.78 flag line; graded on M with SGI at neutral 1.0.";
       }
     }
   } else if (aspect === "valuation") {

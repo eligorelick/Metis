@@ -85,7 +85,7 @@ export function supplementTemporaryEquity<T extends FmpBalanceSheetRow>(row: T, 
     const vendor = ownRefusal ? prior.vendorValue : row[field];
     if (vendor != null) {
       if (finite(vendor) && same(vendor, value) && row.fieldConflicts?.[field]?.usable !== false) continue;
-      const reason = `${field} uses filed ${value} ${evidence.unit} after matching same-filing SEC assets, liabilities and permanent equity; vendor ${vendor} retained as an observation (D-261)`;
+      const reason = `${field} uses filed ${value} ${evidence.unit} after matching same-filing SEC assets, liabilities and permanent equity; vendor ${vendor} retained as an observation`;
       out = { ...out, [field]: value, fieldProvenance: { ...out.fieldProvenance, [field]: evidence },
         fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: finite(vendor) ? vendor : null, secValue: value, usable: true, resolution: "filed-family", cause: "vendor-sec-value-conflict", reason, secEvidence: evidence } } };
       gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true });

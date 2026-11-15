@@ -104,7 +104,7 @@ async function main(jobFile: string): Promise<void> {
   const stageC = await load<typeof import("../../src/pipeline/stageC/index")>("src/pipeline/stageC/index.ts");
   const { payloadFingerprint, serializePayloadForPrompt } = await load<typeof import("../../src/pipeline/stageC/payload")>("src/pipeline/stageC/payload.ts");
   const { JUDGE_OUTPUT_SCHEMA, ReportSchema } = await load<typeof import("../../src/report/schema")>("src/report/schema.ts");
-  const { buildDataOnlyReport, NO_KEY_SKIP_REASON } = await load<typeof import("../../src/pipeline/jobRunner")>("src/pipeline/jobRunner.ts");
+  const { buildDataOnlyReport, NO_KEY_MODEL_LABEL, NO_KEY_SKIP_REASON } = await load<typeof import("../../src/pipeline/jobRunner")>("src/pipeline/jobRunner.ts");
   const { parseStoredReportWithSafety } = await load<typeof import("../../src/report/legacyEntitySafety")>("src/report/legacyEntitySafety.ts");
   const { reportToMarkdown } = await load<typeof import("../../src/report/export/markdown")>("src/report/export/markdown.ts");
   const { reportToPrintHtml } = await load<typeof import("../../src/report/export/printHtml")>("src/report/export/printHtml.ts");
@@ -132,7 +132,7 @@ async function main(jobFile: string): Promise<void> {
       symbol: bundle.symbol,
       companyName,
       generatedAt: new Date().toISOString(),
-      model: "none (no ANTHROPIC_API_KEY)",
+      model: NO_KEY_MODEL_LABEL,
       costUsd: 0,
       bundle,
       validation,

@@ -298,13 +298,21 @@ describe("product-line headings are code-checked labels (D-271, P18)", () => {
     const names = bundleSegmentNameKeys(bundle);
     const items = [line("Verandol dominates the market", fact("No reviewed source establishes that Verandol dominates the market.")),
       line("Verandol", fact("Verandol is a once-weekly injectable.")), line("corvista", fact("Corvista treats psoriasis.")),
-      line("Zelvan", fact("Zelvan treats migraine.")), line("United States", fact("United States sales grew."))];
+      line("Zelvan", fact("Zelvan treats migraine.")), line("United States", fact("United States sales grew.")),
+      line("Orvane", fact("Orvane treats migraine.", "https://news.example.com/orvane"))];
+    // D-299 (revises this round-2 rule for one case): a proper name that the issuer's own filing excerpt
+    // writes ("Zelvan", cited to edgar:10-K item1) is admitted; the sentence-shaped heading and a name
+    // only a web source writes ("Orvane") still are not.
     expect(gateProductLineHeadings(items, names)!.map(item => item.productLine))
-      .toEqual([UNNAMED_PRODUCT_LINE_HEADING, "Verandol", "corvista", UNNAMED_PRODUCT_LINE_HEADING, "United States"]);
+      .toEqual([UNNAMED_PRODUCT_LINE_HEADING, "Verandol", "corvista", "Zelvan", "United States", UNNAMED_PRODUCT_LINE_HEADING]);
     // Claims are always kept.
     expect(gateProductLineHeadings(items, names)!.map(item => item.claims)).toEqual(items.map(item => item.claims));
-    // Control: no segmentation data (or a refused feed) keeps no model-written heading.
-    expect(new Set(gateProductLineHeadings(items, bundleSegmentNameKeys(undefined))!.map(item => item.productLine))).toEqual(new Set([UNNAMED_PRODUCT_LINE_HEADING]));
+    // Control: no segmentation data (or a refused feed) keeps no model-written heading that the issuer's
+    // own filing excerpts do not name (D-299); with them, only the proper names those excerpts write stand.
+    const webOnly = items.map(item => ({ ...item, claims: item.claims.map(claim => ({ ...claim, source: "https://news.example.com/item" })) }));
+    expect(new Set(gateProductLineHeadings(webOnly, bundleSegmentNameKeys(undefined))!.map(item => item.productLine))).toEqual(new Set([UNNAMED_PRODUCT_LINE_HEADING]));
+    expect(gateProductLineHeadings(items, bundleSegmentNameKeys(undefined))!.map(item => item.productLine))
+      .toEqual([UNNAMED_PRODUCT_LINE_HEADING, "Verandol", UNNAMED_PRODUCT_LINE_HEADING, "Zelvan", "United States", UNNAMED_PRODUCT_LINE_HEADING]);
     const refused = { segmentation: { product: { ok: false }, geographic: { ok: false } } } as unknown as Parameters<typeof bundleSegmentNameKeys>[0];
     expect(bundleSegmentNameKeys(refused).size).toBe(0);
     expect(gateProductLineHeadings(undefined, names)).toBeUndefined();

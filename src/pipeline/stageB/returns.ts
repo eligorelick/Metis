@@ -27,7 +27,7 @@ import type { FiledBorrowingCost } from "@/edgar/borrowingCosts";
 import { BETA_MIN_MONTHS, BLUME_MARKET_WEIGHT, BLUME_RAW_WEIGHT } from "@/pipeline/stageB/betaEstimate";
 import { isFiniteNumber } from "@/pipeline/stageB/growth";
 import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
-import { leaseDebtConflict, millions, NET_DEBT_RESOLVER_VERSION, operatingLeaseOutOfDebt, resolveNetDebt } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, millions, operatingLeaseOutOfDebt, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
 import { resolveConsolidatedEquity, resolveParentProfit } from "@/pipeline/stageB/ownership";
@@ -1873,16 +1873,16 @@ export function computeRoic(
     return { series: [], latestRoicPct: null, asOf: inc[0]?.date ?? null, notes, gaps };
   }
   notes.push(
-    `invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (totalEquity, else parent totalStockholdersEquity + minorityInterest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (${NET_DEBT_RESOLVER_VERSION}; ${balance.some(b => b.cashConflictReconciled) ? "cash-only where short-term investments are not established from available facts" : "cash-only where short-term investments are unreported"}, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
+    `invested capital = total debt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (total equity, else parent stockholders' equity + noncontrolling interest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (${balance.some(b => b.cashConflictReconciled) ? "cash-only where short-term investments are not established from available facts" : "cash-only where short-term investments are unreported"}, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
   );
   const leaseDisclosed = bal.some((b) => isFiniteNumber(b.operatingLeaseLiability) && b.operatingLeaseLiability >= 0);
   if (includeOperatingLeases) {
     notes.push(
-      "invested capital uses the retained totalDebt basis (THESIS_EV_INCLUDE_LEASES=1); no separate operating-lease amount is subtracted, matching the enterprise-value convention",
+      "invested capital uses the retained total-debt basis (METIS_EV_INCLUDE_LEASES=1); no separate operating-lease amount is subtracted, matching the enterprise-value convention",
     );
   } else if (!leaseDisclosed) {
     notes.push(
-      "no separate operating-lease observation is available on these balance sheets; invested capital uses the retained totalDebt basis without a separate operating-lease adjustment. Operating-lease coverage is unverified; no direction of ROIC bias is established",
+      "no separate operating-lease observation is available on these balance sheets; invested capital uses the retained total-debt basis without a separate operating-lease adjustment. Operating-lease coverage is unverified; no direction of ROIC bias is established",
     );
   }
 
@@ -1945,7 +1945,7 @@ export function computeRoic(
     }
     if (lossYearFloor !== null) {
       const basis = "pre-tax income is not positive while operating income is, so no effective tax rate exists: " +
-        `operating income is taxed at the ${fmt(lossYearFloor.pct)}% marginal-rate floor, ${lossYearFloor.basis} (house rule D-58)`;
+        `operating income is taxed at the ${fmt(lossYearFloor.pct)}% marginal-rate floor, ${lossYearFloor.basis} (house rule)`;
       entry.taxFloorBasis = basis;
       yearNotes.push(basis);
       gaps.push({ field: "returns.roic.taxRate", reason: `${row.date}: ${basis}`, severity: "info" });

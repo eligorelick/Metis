@@ -69,7 +69,7 @@ describe("FIN-119-V1: invested capital does not depend on the caption of the sam
   it("sales-to-capital does not depend on the caption of the same financing", () => {
     expect(preferred.s2c).toBeCloseTo(permanent.s2c, 9);
     expect(nci.s2c).toBeCloseTo(permanent.s2c, 9);
-    expect(preferred.s2cBasis).toMatch(/temporaryEquity 200M/); // the basis names the claim
+    expect(preferred.s2cBasis).toMatch(/temporary equity 200M/); // the basis names the claim
   });
 
   it("ROIC does not depend on the caption of the same financing", () => {
@@ -146,7 +146,7 @@ describe("FIN-119-V1: the DCF's sales-to-capital and its filed history", () => {
     // Invested capital 700 -> 800: sales-to-capital 1000 / 700 -> 1000 / 800, both inside the house range.
     expect(base.assumptions!.salesToCapital.value).toBeCloseTo(1000 / 700, 9);
     expect(withClaim.assumptions!.salesToCapital.value).toBeCloseTo(1000 / 800, 9);
-    expect(withClaim.assumptions!.salesToCapital.basis).toMatch(/\+ temporaryEquity 100 \[/);
+    expect(withClaim.assumptions!.salesToCapital.basis).toMatch(/\+ temporary equity 100 \[/);
     expect(base.assumptions!.salesToCapital.basis).not.toMatch(/temporaryEquity/);
   });
 

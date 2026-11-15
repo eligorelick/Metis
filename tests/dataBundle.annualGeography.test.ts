@@ -218,7 +218,8 @@ describe("annual primary-filing geography fallback", () => {
     expect(normalized.segments.geographic.map(row => row.sharePct)).toEqual([59.1, 40.9]);
     result.segmentation.geographic = { ok: true, value: { source: "fmp", endpoint: "vendor", asOf: "2025-12-31", fetchedAt: now, data: { rows: [{ date: "2025-12-31", reportedCurrency: "USD", data: { Domestic: 123, Foreign: 456 } }], raw: null } } };
     const vendor = applySegmentShares(business, result);
-    expect(vendor.segments.geographic[0]?.name).toBe("Invented traveler locations");
+    // D-299 (P18): a model-written geography name that no record entry binds by amount is withheld.
+    expect(vendor.segments.geographic[0]?.name).toBe("Segment (name not matched to its record)");
     expect(vendor.segments.geographic[0]?.revenue.source).toBe("model-memory");
     expect(vendor.segments.geographic[0]?.revenue.verificationNote).toBeUndefined();
   });

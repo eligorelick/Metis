@@ -609,7 +609,7 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
       asOf.marketCap = null;
       notes.push(`Currency not established at the balance date (${inputs.marketCapHistoryCurrencyReason}) — original-variant X4 (market value of equity over liabilities) cannot be formed; suppressed.`);
       gaps.push(gapEntry("forensics.altman.currency",
-        `${inputs.marketCapHistoryCurrencyReason} — market-equity X4 cannot be set against the ${b.date ?? "balance-sheet"} liabilities; original-variant Z suppressed (D-267)`, "warn"));
+        `${inputs.marketCapHistoryCurrencyReason} — market-equity X4 cannot be set against the ${b.date ?? "balance-sheet"} liabilities; original-variant Z suppressed`, "warn"));
     } else if (!x4Currency.comparable) {
       equityNumerator = null;
       notes.push(
@@ -640,7 +640,7 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
         gaps.push(gapEntry("forensics.altman.marketCapDate",
           `no market value of equity observed on or before the balance-sheet date ${b.date ?? "(undated)"} within ${STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS} days` +
           `${inputs.marketCapHistorySource ? ` in ${inputs.marketCapHistorySource}` : " (no dated market-cap history)"}; ` +
-          `the current market cap${inputs.marketCapAsOf ? ` (${inputs.marketCapAsOf.slice(0, 10)})` : ""} is not set against an older balance sheet, so original-variant X4 and Z are withheld (D-267)`,
+          `the current market cap${inputs.marketCapAsOf ? ` (${inputs.marketCapAsOf.slice(0, 10)})` : ""} is not set against an older balance sheet, so original-variant X4 and Z are withheld`,
           "warn"));
       }
     } else {

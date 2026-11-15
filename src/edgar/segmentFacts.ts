@@ -405,8 +405,8 @@ export type GeographyContradiction = "business-segments" | "issuer-geography";
 export interface SegmentAxisEvidence { axis: string; rows: readonly { label: string; member?: string }[] }
 
 export const PROVIDER_GEOGRAPHY_REASONS: Readonly<Record<GeographyContradiction, string>> = {
-  "business-segments": "Provider (FMP) geographic rows withheld as company geography: they name the issuer's reportable business segments (XBRL us-gaap:StatementBusinessSegmentsAxis), and segment revenue is not entity-wide geographic revenue (D-80).",
-  "issuer-geography": "Provider (FMP) geographic rows withheld as company geography: the issuer tags its own geographic revenue (XBRL srt:StatementGeographicalAxis), and at least one provider region name is not one of the issuer's geographic labels; the issuer's rows are in \"Segment revenue by quarter (10-Q/10-K XBRL)\" under its own labels (D-80).",
+  "business-segments": "Provider (FMP) geographic rows withheld as company geography: they name the issuer's reportable business segments (XBRL us-gaap:StatementBusinessSegmentsAxis), and segment revenue is not entity-wide geographic revenue.",
+  "issuer-geography": "Provider (FMP) geographic rows withheld as company geography: the issuer tags its own geographic revenue (XBRL srt:StatementGeographicalAxis), and at least one provider region name is not one of the issuer's geographic labels; the issuer's rows are in \"Segment revenue by quarter (10-Q/10-K XBRL)\" under its own labels.",
 };
 
 const norm = (s: string): string => s.replace(/\s*\([^)]*\)\s*$/, "").toLowerCase().replace(/[^a-z0-9]/g, "").replace(/segments?$/, "");

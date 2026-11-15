@@ -136,7 +136,7 @@ function admitBalanceLeaseFields<T extends FmpStatementRow>(row: T, facts: Compa
     const sec = liability(facts, prefix, unit, row.date!, observedAt);
     if (!sec || !unchangedInstant(facts, sec, observedAt) || vendorAgreesWithFiled(vendor, sec.value)) continue;
     if (ownRefusal && (prior.secValue !== sec.value || !sameFiledInstant(prior.secEvidence, sec.evidence))) continue;
-    const reason = `${field} at ${row.date} uses the unambiguous exact-instant filed ${sec.evidence.tags.join(" + ")} ${millions(sec.value)} ${unit}; vendor ${millions(vendor)} retained as an observation (D-261)`;
+    const reason = `${field} at ${row.date} uses the unambiguous exact-instant filed ${sec.evidence.tags.join(" + ")} ${millions(sec.value)} ${unit}; vendor ${millions(vendor)} retained as an observation`;
     out = { ...out, [field]: sec.value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence },
       fieldConflicts: { ...out.fieldConflicts, [field]: { usable: true, resolution: "filed-family", cause: "vendor-sec-value-conflict", vendorValue: vendor, secValue: sec.value, reason, secEvidence: sec.evidence } } };
     gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true });
@@ -1804,7 +1804,7 @@ export function balanceAdmissionEntries(admissions: readonly BalanceAdmission[])
       : kind === "minor-debt-total" ? { field: "statements.balance.totalDebt.minorDifference", severity: "info", expected: true,
         reason: `minor vendor-total differences after debt-scope reconciliation at ${dates}: ${list}` }
       : { field: "statements.balance.longTermInvestments", severity: "info", expected: true,
-        reason: `vendor longTermInvestments read as undisclosed at ${dates}; filled with the D-98 chain from the same-period filing, the vendor value retained in the raw row: ${list}. Latest: ${dated[0]!.detail}`,
+        reason: `vendor longTermInvestments read as undisclosed at ${dates}; filled with the filed noncurrent-investment tag chain from the same-period filing, the vendor value retained in the raw row: ${list}. Latest: ${dated[0]!.detail}`,
         ...(sources.length > 0 ? { attemptedSources: sources } : {}) });
   }
   return entries;
@@ -2481,7 +2481,7 @@ export function admitVendorLongTermInvestments<T extends FmpStatementRow>(row: T
   const parts = resolved.components.map(c => `${c.label} ${millions(c.value)} (${c.tags.join(", ")})`).join(" + ");
   const floorNotes = resolved.notes.filter(note => note.includes("not used"));
   return { row: out, admissions: [{ kind: "stakes", date, summary: `${millions(value)}${vendor == null ? " (vendor absent)" : ""}`,
-    detail: `vendor longTermInvestments ${vendor == null ? "absent" : millions(vendor)} at ${date} read as undisclosed: the same-period filing shows noncurrent investments, filled with the D-98 chain: ` +
+    detail: `vendor longTermInvestments ${vendor == null ? "absent" : millions(vendor)} at ${date} read as undisclosed: the same-period filing shows noncurrent investments, filled with the filed noncurrent-investment tag chain: ` +
       `${parts} = ${millions(value)} ${currency}${resolved.absent.length > 0 ? `; absent and excluded: ${resolved.absent.join(", ")}` : ""}` +
       `${floorNotes.length > 0 ? `; ${floorNotes.join("; ")}` : ""}; vendor value retained in the raw row`,
     attemptedSources: evidence.tags.map((tag) => `edgar:companyfacts/${tag.replace(/^us-gaap\//, "")}`) }] };

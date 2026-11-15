@@ -1318,7 +1318,7 @@ export function degradationPlan(
         action: "suppress",
         disclosure:
           "Altman Z, Beneish M and the accrual ratios are not computed for financials (their models are " +
-          "estimated on non-financial firms). Capital, credit and funding are graded instead (D-46): " +
+          "estimated on non-financial firms). Capital, credit and funding are graded instead: " +
           "tangible common equity / tangible assets, net charge-offs / average loans, nonperforming loans / loans " +
           "where the filer tags them, and loans / deposits. CET1 is shown when the filer tags it and is never graded.",
       },

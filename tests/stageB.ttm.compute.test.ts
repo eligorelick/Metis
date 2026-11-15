@@ -1757,7 +1757,7 @@ describe("runStageB wiring — WACC tax rate without a TTM effective rate (audit
   it("keeps the TTM rate when the complete TTM pair is positive", () => {
     const computed = runStageB(keylessTax(() => {}));
     expect(computed.returns.wacc.taxRateUsed).toBeCloseTo(40 / 190, 9);
-    expect(computed.returns.wacc.taxRateBasis).toMatch(/^TTM incomeTaxExpense/);
+    expect(computed.returns.wacc.taxRateBasis).toMatch(/^TTM income tax expense/);
     expect(computed.gaps.some((g) => g.field === "returns.wacc.effectiveTaxRate.basis")).toBe(false);
   });
 

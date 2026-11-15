@@ -406,7 +406,7 @@ const MAINT_CAPEX_HEURISTIC_NOTE =
 
 const BUYBACK_HEURISTIC_NOTE =
   "HEURISTIC: the proxy assumes shares were repurchased at each fiscal year's average price (average daily market cap ÷ basic weighted-average shares, diluted as a disclosed fallback); its premium/discount to today's quote measures price appreciation since the repurchases, not timing, and is not graded. " +
-  "Timing (D-61, graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent";
+  "Timing (graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent";
 
 /**
  * D-61 house rules for repurchase timing. A paid price more than 1.6× away
@@ -781,7 +781,7 @@ export function computeCapital(
     else if (resolution.value === null) { /* no net debt to adjust; the resolution says why */ }
     else if (leaseExcluded) ndNotes.push(`net debt excludes the operating-lease liability ${fmt(operatingLease as number)}, as enterprise value does (EBITDA is already after operating-lease cost)`);
     else if (leaseScope !== null) ndNotes.push(`${leaseScope}, as enterprise value is`);
-    ndNotes.push(`${resolution.version}: ${resolution.reason}`);
+    ndNotes.push(`house net-debt basis: ${resolution.reason}`);
     ndNotes.push(leaseEvidenceNote(latestBal, { removed: netDebt !== null && leaseExcluded ? operatingLease ?? null : null }).replace(/\.$/, ""));
     // EBITDA: own computation preferred (operatingIncome + cash-flow D&A), vendor fallback noted.
     const latestInc: CapitalIncomeRow | undefined = inc.length > 0 ? inc[0] : undefined;
@@ -807,13 +807,13 @@ export function computeCapital(
     if (ebitLatest !== null && daLatest !== null) {
       ebitda = ebitLatest + daLatest;
       ebitdaComputed = true;
-      ndNotes.push("EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)");
+      ndNotes.push("EBITDA computed as operating income + cash-flow D&A (latest FY, not TTM)");
     } else if (latestInc !== undefined && isFiniteNumber(latestInc.ebitda)) {
       ebitda = latestInc.ebitda;
       ndNotes.push(
         cfMatch !== undefined && isFiniteNumber(cfMatch.depreciationAndAmortization) && cfMatch.depreciationAndAmortization <= 0
-          ? `vendor ebitda field used (cash-flow D&A ${fmt(cfMatch.depreciationAndAmortization)} treated as undisclosed)`
-          : "vendor ebitda field used (own operatingIncome + D&A not computable)",
+          ? `vendor EBITDA used (cash-flow D&A ${fmt(cfMatch.depreciationAndAmortization)} treated as undisclosed)`
+          : "vendor EBITDA used (own operating income + D&A not computable)",
       );
     }
     let value: number | null = null;

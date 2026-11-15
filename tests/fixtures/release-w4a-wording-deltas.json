@@ -1,0 +1,253 @@
+[
+ {
+  "path": [
+   "returns",
+   "roic",
+   "series",
+   2,
+   "notes",
+   0
+  ],
+  "before": "2024-12-31: invested-capital equity basis totalEquity: consolidated total equity including NCI; NCI is not added again",
+  "after": "2024-12-31: invested-capital equity basis total equity: consolidated total equity including NCI; NCI is not added again"
+ },
+ {
+  "path": [
+   "returns",
+   "roic",
+   "series",
+   3,
+   "notes",
+   0
+  ],
+  "before": "2025-12-31: invested-capital equity basis totalEquity: consolidated total equity including NCI; NCI is not added again",
+  "after": "2025-12-31: invested-capital equity basis total equity: consolidated total equity including NCI; NCI is not added again"
+ },
+ {
+  "path": [
+   "returns",
+   "roic",
+   "series",
+   3,
+   "notes",
+   1
+  ],
+  "before": "2024-12-31: invested-capital equity basis totalEquity: consolidated total equity including NCI; NCI is not added again",
+  "after": "2024-12-31: invested-capital equity basis total equity: consolidated total equity including NCI; NCI is not added again"
+ },
+ {
+  "path": [
+   "returns",
+   "roic",
+   "notes",
+   0
+  ],
+  "before": "invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (totalEquity, else parent totalStockholdersEquity + minorityInterest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (NET_DEBT_V3; cash-only where short-term investments are unreported, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY \"EV bridge\")",
+  "after": "invested capital = total debt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (total equity, else parent stockholders' equity + noncontrolling interest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (cash-only where short-term investments are unreported, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY \"EV bridge\")"
+ },
+ {
+  "path": [
+   "returns",
+   "roic",
+   "notes",
+   1
+  ],
+  "before": "no separate operating-lease observation is available on these balance sheets; invested capital uses the retained totalDebt basis without a separate operating-lease adjustment. Operating-lease coverage is unverified; no direction of ROIC bias is established",
+  "after": "no separate operating-lease observation is available on these balance sheets; invested capital uses the retained total-debt basis without a separate operating-lease adjustment. Operating-lease coverage is unverified; no direction of ROIC bias is established"
+ },
+ {
+  "path": [
+   "capital",
+   "netDebtToEbitda",
+   "note"
+  ],
+  "before": "NET_DEBT_V3: total debt minus cash and short-term investments (combined field); 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted; EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)",
+  "after": "house net-debt basis: total debt minus cash and short-term investments (combined field); 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted; EBITDA computed as operating income + cash-flow D&A (latest FY, not TTM)"
+ },
+ {
+  "path": [
+   "capital",
+   "buybackPriceAnalysis",
+   "note"
+  ],
+  "before": "HEURISTIC: the proxy assumes shares were repurchased at each fiscal year's average price (average daily market cap ÷ basic weighted-average shares, diluted as a disclosed fallback); its premium/discount to today's quote measures price appreciation since the repurchases, not timing, and is not graded. Timing (D-61, graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent",
+  "after": "HEURISTIC: the proxy assumes shares were repurchased at each fiscal year's average price (average daily market cap ÷ basic weighted-average shares, diluted as a disclosed fallback); its premium/discount to today's quote measures price appreciation since the repurchases, not timing, and is not graded. Timing (graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent"
+ },
+ {
+  "path": [
+   "valuation",
+   "assumptions",
+   "revenueAnchor",
+   "basis"
+  ],
+  "before": "year-one revenue 1.31B (8.77% over TTM 1.2B) from analyst consensus calendarized to 12M ending 2027-03-31 (fiscal-year estimates spread by the quarterly shape of the fiscal year ending 2025-12-31 (21.05%, 26.32%, 26.32% and 26.32% of its reported revenue, each quarter's share over its three months); the fiscal year ending 2026-12-31 contributes its consensus less the 300M already reported through 2026-03-31 (1 quarter), spread over its unreported days); measured against the seasonally neutral run-rate 1.2B (latest quarter ending 2026-03-31 × 4 = 1.2B; TTM 1.2B carried 4.5 months at the quarter's 25% year-over-year growth = 1.3B; bounded by the two); year two is not anchored: 12M ending 2028-03-31 is not covered by the fiscal-year estimates (the estimates cover through 12M ending 2027-03-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
+  "after": "year-one revenue 1.31B (8.77% over TTM 1.2B) from analyst consensus calendarized to 12M ending 2027-03-31 (fiscal-year estimates spread by the quarterly shape of the fiscal year ending 2025-12-31 (21.05%, 26.32%, 26.32% and 26.32% of its reported revenue, each quarter's share over its three months); the fiscal year ending 2026-12-31 contributes its consensus less the 300M already reported through 2026-03-31 (1 quarter), spread over its unreported days); measured against the seasonally neutral run-rate 1.2B (latest quarter ending 2026-03-31 × 4 = 1.2B; TTM 1.2B carried 4.5 months at the quarter's 25% year-over-year growth = 1.3B; bounded by the two); year two is not anchored: 12M ending 2028-03-31 is not covered by the fiscal-year estimates (the estimates cover through 12M ending 2027-03-31) (house rule: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
+ },
+ {
+  "path": [
+   "valuation",
+   "assumptions",
+   "growthPath",
+   "basis"
+  ],
+  "before": "year one 8.77% from the revenue anchor (analyst consensus) (consensus anchors year one only); later years follow a convergent fade from year 1's 8.77% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule D-58; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases.",
+  "after": "year one 8.77% from the revenue anchor (analyst consensus) (consensus anchors year one only); later years follow a convergent fade from year 1's 8.77% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
+ },
+ {
+  "path": [
+   "valuation",
+   "assumptions",
+   "taxRatePath",
+   "basis"
+  ],
+  "before": "TTM effective rate 21.05% fading to 21% by year 10: the company historical median 19.26% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule D-58: the terminal rate converges toward the marginal rate); Tax rate operands: vendor data, not checked against a filing",
+  "after": "TTM effective rate 21.05% fading to 21% by year 10: the company historical median 19.26% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule: the terminal rate converges toward the marginal rate); Tax rate operands: vendor data, not checked against a filing"
+ },
+ {
+  "path": [
+   "valuation",
+   "assumptions",
+   "salesToCapital",
+   "basis"
+  ],
+  "before": "TTM revenue / invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again)",
+  "after": "TTM revenue / invested capital (total debt + consolidated equity [total equity] - cash and short-term investments, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again)"
+ },
+ {
+  "path": [
+   "valuation",
+   "assumptions",
+   "terminal",
+   "reinvestmentRate",
+   "basis"
+  ],
+  "before": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 285.09M in year 10 becomes 213.92M in year 11 (-24.97%): reinvestment moves from 5.15% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 47.4%) to 30.56% (terminal growth 2.5% / terminal ROIC 8.18%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure)",
+  "after": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 285.09M in year 10 becomes 213.92M in year 11 (-24.97%): reinvestment moves from 5.15% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 47.4%) to 30.56% (terminal growth 2.5% / terminal ROIC 8.18%). The step is where the two reinvestment conventions meet, not a forecast"
+ },
+ {
+  "path": [
+   "valuation",
+   "assumptions",
+   "midYear",
+   "basis"
+  ],
+  "before": "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule D-60)",
+  "after": "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule)"
+ },
+ {
+  "path": [
+   "valuation",
+   "assumptions",
+   "scenarioMarginCeiling",
+   "basis"
+  ],
+  "before": "scenario operating margins are capped at 20% = gross margin 40% (FY 2025-12-31) less the leanest operating-expense ratio on record, 20% (FY 2025-12-31, among the TTM and the last five fiscal years); the cap never pulls a scenario below the base path (house rule D-60)",
+  "after": "scenario operating margins are capped at 20% = gross margin 40% (FY 2025-12-31) less the leanest operating-expense ratio on record, 20% (FY 2025-12-31, among the TTM and the last five fiscal years); the cap never pulls a scenario below the base path (house rule)"
+ },
+ {
+  "path": [
+   "valuation",
+   "assumptions",
+   "notes",
+   1
+  ],
+  "before": "Year-one revenue anchor: year-one revenue 1.31B (8.77% over TTM 1.2B) from analyst consensus calendarized to 12M ending 2027-03-31 (fiscal-year estimates spread by the quarterly shape of the fiscal year ending 2025-12-31 (21.05%, 26.32%, 26.32% and 26.32% of its reported revenue, each quarter's share over its three months); the fiscal year ending 2026-12-31 contributes its consensus less the 300M already reported through 2026-03-31 (1 quarter), spread over its unreported days); measured against the seasonally neutral run-rate 1.2B (latest quarter ending 2026-03-31 × 4 = 1.2B; TTM 1.2B carried 4.5 months at the quarter's 25% year-over-year growth = 1.3B; bounded by the two); year two is not anchored: 12M ending 2028-03-31 is not covered by the fiscal-year estimates (the estimates cover through 12M ending 2027-03-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
+  "after": "Year-one revenue anchor: year-one revenue 1.31B (8.77% over TTM 1.2B) from analyst consensus calendarized to 12M ending 2027-03-31 (fiscal-year estimates spread by the quarterly shape of the fiscal year ending 2025-12-31 (21.05%, 26.32%, 26.32% and 26.32% of its reported revenue, each quarter's share over its three months); the fiscal year ending 2026-12-31 contributes its consensus less the 300M already reported through 2026-03-31 (1 quarter), spread over its unreported days); measured against the seasonally neutral run-rate 1.2B (latest quarter ending 2026-03-31 × 4 = 1.2B; TTM 1.2B carried 4.5 months at the quarter's 25% year-over-year growth = 1.3B; bounded by the two); year two is not anchored: 12M ending 2028-03-31 is not covered by the fiscal-year estimates (the estimates cover through 12M ending 2027-03-31) (house rule: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
+ },
+ {
+  "path": [
+   "valuation",
+   "assumptions",
+   "notes",
+   4
+  ],
+  "before": "terminal tax rate floored: the company historical median 19.26% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule D-58: the terminal rate converges toward the marginal rate)",
+  "after": "terminal tax rate floored: the company historical median 19.26% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule: the terminal rate converges toward the marginal rate)"
+ },
+ {
+  "path": [
+   "valuation",
+   "multiples",
+   "peerCoverage",
+   "methodology",
+   3
+  ],
+  "before": "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+  "after": "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E."
+ },
+ {
+  "path": [
+   "valuation",
+   "multiples",
+   "notes",
+   4
+  ],
+  "before": "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+  "after": "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E."
+ },
+ {
+  "path": [
+   "valuation",
+   "notes",
+   1
+  ],
+  "before": "Year-one revenue anchor: year-one revenue 1.31B (8.77% over TTM 1.2B) from analyst consensus calendarized to 12M ending 2027-03-31 (fiscal-year estimates spread by the quarterly shape of the fiscal year ending 2025-12-31 (21.05%, 26.32%, 26.32% and 26.32% of its reported revenue, each quarter's share over its three months); the fiscal year ending 2026-12-31 contributes its consensus less the 300M already reported through 2026-03-31 (1 quarter), spread over its unreported days); measured against the seasonally neutral run-rate 1.2B (latest quarter ending 2026-03-31 × 4 = 1.2B; TTM 1.2B carried 4.5 months at the quarter's 25% year-over-year growth = 1.3B; bounded by the two); year two is not anchored: 12M ending 2028-03-31 is not covered by the fiscal-year estimates (the estimates cover through 12M ending 2027-03-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
+  "after": "Year-one revenue anchor: year-one revenue 1.31B (8.77% over TTM 1.2B) from analyst consensus calendarized to 12M ending 2027-03-31 (fiscal-year estimates spread by the quarterly shape of the fiscal year ending 2025-12-31 (21.05%, 26.32%, 26.32% and 26.32% of its reported revenue, each quarter's share over its three months); the fiscal year ending 2026-12-31 contributes its consensus less the 300M already reported through 2026-03-31 (1 quarter), spread over its unreported days); measured against the seasonally neutral run-rate 1.2B (latest quarter ending 2026-03-31 × 4 = 1.2B; TTM 1.2B carried 4.5 months at the quarter's 25% year-over-year growth = 1.3B; bounded by the two); year two is not anchored: 12M ending 2028-03-31 is not covered by the fiscal-year estimates (the estimates cover through 12M ending 2027-03-31) (house rule: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
+ },
+ {
+  "path": [
+   "valuation",
+   "notes",
+   4
+  ],
+  "before": "terminal tax rate floored: the company historical median 19.26% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule D-58: the terminal rate converges toward the marginal rate)",
+  "after": "terminal tax rate floored: the company historical median 19.26% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule: the terminal rate converges toward the marginal rate)"
+ },
+ {
+  "path": [
+   "valuation",
+   "notes",
+   9
+  ],
+  "before": "DCF terminal transition: FCFF 285.09M in year 10 becomes 213.92M in year 11 (-24.97%): reinvestment moves from 5.15% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 47.4%) to 30.56% (terminal growth 2.5% / terminal ROIC 8.18%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure).",
+  "after": "DCF terminal transition: FCFF 285.09M in year 10 becomes 213.92M in year 11 (-24.97%): reinvestment moves from 5.15% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 47.4%) to 30.56% (terminal growth 2.5% / terminal ROIC 8.18%). The step is where the two reinvestment conventions meet, not a forecast."
+ },
+ {
+  "path": [
+   "valuation",
+   "notes",
+   10
+  ],
+  "before": "NET_DEBT_V3: net debt -100000000 as of 2025-12-31; totalDebt 0, cashAndShortTermInvestments 100000000",
+  "after": "House net-debt basis: net debt -100000000 as of 2025-12-31; total debt 0, cash and short-term investments 100000000"
+ },
+ {
+  "path": [
+   "valuation",
+   "gaps",
+   8,
+   "reason"
+  ],
+  "before": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+  "after": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own; the analyst-consensus growth case uses them in USD"
+ },
+ {
+  "path": [
+   "scores",
+   "aspects",
+   "moat",
+   "note"
+  ],
+  "before": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
+  "after": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
+ },
+ {
+  "path": [
+   "gaps",
+   25,
+   "reason"
+  ],
+  "before": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+  "after": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own; the analyst-consensus growth case uses them in USD"
+ }
+]

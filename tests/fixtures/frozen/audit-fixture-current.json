@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "cac252e2a3906df034d44b4cfab197cd5051c05bdaf7da68d8f950c0fb28258c",
+  "projectionSha256": "7ff450e7842190ee1af93a76124c6dfe3beee7d01c2591cb27ce93242798b9a7",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
     "stageB": {
@@ -223,7 +223,7 @@
               "nopat": 1598780487.804878,
               "investedCapitalAvg": 4400000000,
               "taxRateUsed": 0.2682926829268293,
-              "notes": ["2024-12-31: invested-capital equity basis totalEquity: consolidated total equity including NCI; NCI is not added again", "no prior balance sheet — single-period IC used"],
+              "notes": ["2024-12-31: invested-capital equity basis total equity: consolidated total equity including NCI; NCI is not added again", "no prior balance sheet — single-period IC used"],
               "operatingLoss": false,
               "terminalEvidenceRoicPct": 36.33592017738359
             },
@@ -233,7 +233,7 @@
               "nopat": 1822916666.6666667,
               "investedCapitalAvg": 4550000000,
               "taxRateUsed": 0.2708333333333333,
-              "notes": ["2025-12-31: invested-capital equity basis totalEquity: consolidated total equity including NCI; NCI is not added again", "2024-12-31: invested-capital equity basis totalEquity: consolidated total equity including NCI; NCI is not added again"],
+              "notes": ["2025-12-31: invested-capital equity basis total equity: consolidated total equity including NCI; NCI is not added again", "2024-12-31: invested-capital equity basis total equity: consolidated total equity including NCI; NCI is not added again"],
               "operatingLoss": false,
               "terminalEvidenceRoicPct": 40.06410256410257
             }
@@ -241,8 +241,8 @@
           "latestRoicPct": 40.06410256410257,
           "asOf": "2025-12-31",
           "notes": [
-            "invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (totalEquity, else parent totalStockholdersEquity + minorityInterest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (NET_DEBT_V3; cash-only where short-term investments are unreported, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY \"EV bridge\")",
-            "no separate operating-lease observation is available on these balance sheets; invested capital uses the retained totalDebt basis without a separate operating-lease adjustment. Operating-lease coverage is unverified; no direction of ROIC bias is established"
+            "invested capital = total debt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (total equity, else parent stockholders' equity + noncontrolling interest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (cash-only where short-term investments are unreported, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY \"EV bridge\")",
+            "no separate operating-lease observation is available on these balance sheets; invested capital uses the retained total-debt basis without a separate operating-lease adjustment. Operating-lease coverage is unverified; no direction of ROIC bias is established"
           ],
           "gaps": []
         },
@@ -335,7 +335,7 @@
             "cashBasis": "combined-field",
             "reason": "total debt minus cash and short-term investments (combined field)"
           },
-          "note": "NET_DEBT_V3: total debt minus cash and short-term investments (combined field); 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted; EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)"
+          "note": "house net-debt basis: total debt minus cash and short-term investments (combined field); 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted; EBITDA computed as operating income + cash-flow D&A (latest FY, not TTM)"
         },
         "interestCoverage": {
           "value": 16.666666666666668,
@@ -363,7 +363,7 @@
             {"date": "2024-12-31", "repurchased": 200000000, "avgMarketCap": null, "avgPriceProxy": null, "sharesProxy": null, "note": "no market-cap history inside the fiscal window"},
             {"date": "2025-12-31", "repurchased": 200000000, "avgMarketCap": null, "avgPriceProxy": null, "sharesProxy": null, "note": "no market-cap history inside the fiscal window"}
           ],
-          "note": "HEURISTIC: the proxy assumes shares were repurchased at each fiscal year's average price (average daily market cap ÷ basic weighted-average shares, diluted as a disclosed fallback); its premium/discount to today's quote measures price appreciation since the repurchases, not timing, and is not graded. Timing (D-61, graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent"
+          "note": "HEURISTIC: the proxy assumes shares were repurchased at each fiscal year's average price (average daily market cap ÷ basic weighted-average shares, diluted as a disclosed fallback); its premium/discount to today's quote measures price appreciation since the repurchases, not timing, and is not graded. Timing (graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent"
         },
         "notes": [
           "capex-intensity slope requires ≥3 non-null annual points (house rule)",
@@ -618,7 +618,7 @@
         "route": "general",
         "assumptions": {
           "forecastPeriod": {"basis": "fiscal-year", "anchorEndDate": "2025-12-31", "anchorStartDate": "2025-01-01"},
-          "startRevenue": {"value": 12500000000, "basis": "latest annual FY 2025-12-31 revenue as of 2025-12-31. Annual fallback: statement 2025-12-31; price 2025-12-31; equity-bridge balance 2025-12-31; statement age at price 0 days. Balance changes after 2025-12-31 are not reflected in this equity bridge; the dated annual fallback carries that uncertainty (D-65)."},
+          "startRevenue": {"value": 12500000000, "basis": "latest annual FY 2025-12-31 revenue as of 2025-12-31. Annual fallback: statement 2025-12-31; price 2025-12-31; equity-bridge balance 2025-12-31; statement age at price 0 days. Balance changes after 2025-12-31 are not reflected in this equity bridge; the dated annual fallback carries that uncertainty."},
           "years": 10,
           "wacc": {
             "value": 9.257246428985505,
@@ -653,7 +653,7 @@
             "yearTwoGrowthPct": 7.777777777777772,
             "runRate": null,
             "clampedFrom": null,
-            "basis": "year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
+            "basis": "year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
             "anchoredGrowthPct": [8.000000000000007, 7.777777777777772, 7.560137457044669, 7.348242811501593, 7.14285714285714],
             "consensusYears": [1, 2, 3, 4, 5],
             "consensusPath": [
@@ -727,7 +727,7 @@
           },
           "growthPath": {
             "value": [8.000000000000007, 7.777777777777772, 7.560137457044669, 7.348242811501593, 7.14285714285714, 5.744621538783548, 4.634841204380644, 3.754007969238248, 3.054890167201452, 2.5],
-            "basis": "year one 8% from the revenue anchor (analyst consensus), years 2–5 7.78%, 7.56%, 7.35%, 7.14% on consensus (consensus anchors years 1–5; house rule D-65); later years follow a convergent fade from year 5's 7.14% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule D-58; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
+            "basis": "year one 8% from the revenue anchor (analyst consensus), years 2–5 7.78%, 7.56%, 7.35%, 7.14% on consensus (consensus anchors years 1–5; house rule); later years follow a convergent fade from year 5's 7.14% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
           },
           "ebitMarginPath": {
             "value": [20, 20, 20, 20, 20, 20, 20, 20, 20, 20],
@@ -739,19 +739,19 @@
           },
           "salesToCapital": {
             "value": 2.9761904761904763,
-            "basis": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are treated as non-operating assets, and the equity bridge adds them back at carrying value less the tax a sale would owe)"
+            "basis": "latest annual FY 2025-12-31 revenue / operating invested capital (total debt + consolidated equity [total equity] - cash and short-term investments - long-term investments 500M, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are treated as non-operating assets, and the equity bridge adds them back at carrying value less the tax a sale would owe)"
           },
           "terminal": {
             "gTermPct": {"value": 2.5, "basis": "min(2.5%, risk-free 4%) — HOUSE CONVENTION: nothing grows faster than rf forever"},
             "roicTermPct": {"value": 9.257246428985505, "basis": "terminal ROIC = WACC (zero excess returns in perpetuity, HOUSE CONVENTION default — see docs/METHODOLOGY.md, \"Terminal value house convention\"); ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% — no per-year risk-free observation was available to recompute a year-specific WACC"},
             "reinvestmentRate": {
               "value": 0.27005870689281986,
-              "basis": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 3.02B in year 10 becomes 2.39B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure)"
+              "basis": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 3.02B in year 10 becomes 2.39B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast"
             }
           },
           "midYear": {
             "value": true,
-            "basis": "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule D-60)"
+            "basis": "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule)"
           },
           "scenarioMarginCeiling": {
             "pct": 20,
@@ -759,19 +759,19 @@
             "grossMarginPeriod": "FY 2025-12-31",
             "minOpexRatioPct": 40,
             "minOpexRatioPeriod": "FY 2025-12-31",
-            "basis": "scenario operating margins are capped at 20% = gross margin 60% (FY 2025-12-31) less the leanest operating-expense ratio on record, 40% (FY 2025-12-31, among the TTM and the last five fiscal years); the cap never pulls a scenario below the base path (house rule D-60)"
+            "basis": "scenario operating margins are capped at 20% = gross margin 60% (FY 2025-12-31) less the leanest operating-expense ratio on record, 40% (FY 2025-12-31, among the TTM and the last five fiscal years); the cap never pulls a scenario below the base path (house rule)"
           },
           "nonOperatingInvestments": {"value": 500000000, "balanceDate": "2025-12-31"},
           "investmentTax": {"ratePct": 21, "basis": "max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two)"},
           "asOf": {"statements": "2025-12-31", "estimates": "2027-12-31"},
           "notes": [
-            "Year-one revenue anchor: year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
+            "Year-one revenue anchor: year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
             "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over latest annual FY 2025-12-31 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule: median of methods). It does not set year one, which comes from consensus.",
             "EBIT margin regime improving: dated 5y slope 1pp/year; target 20% versus current 20% and median 19%",
             "terminal ROIC held at WACC: 2 fiscal years of ROIC on record, 4 needed to evidence durable excess returns (house convention)",
             "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% — no per-year risk-free observation was available to recompute a year-specific WACC",
             "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC → 1550000000 after subtracting SBC of 250000000.",
-            "Annual fallback: statement 2025-12-31; price 2025-12-31; equity-bridge balance 2025-12-31; statement age at price 0 days. Balance changes after 2025-12-31 are not reflected in this equity bridge; the dated annual fallback carries that uncertainty (D-65)."
+            "Annual fallback: statement 2025-12-31; price 2025-12-31; equity-bridge balance 2025-12-31; statement age at price 0 days. Balance changes after 2025-12-31 are not reflected in this equity bridge; the dated annual fallback carries that uncertainty."
           ]
         },
         "dcf": {
@@ -1056,7 +1056,7 @@
               "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route or held-for-sale lender cash-flow applicability the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
               "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
               "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
-              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
               "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
               "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
             ],
@@ -1098,7 +1098,7 @@
             "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route or held-for-sale lender cash-flow applicability the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
             "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
             "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
-            "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+            "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
             "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
             "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made.",
             "Peer DEMO: stale, future or invalid provider cache observation",
@@ -1112,19 +1112,19 @@
           ]
         },
         "notes": [
-          "Year-one revenue anchor: year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
+          "Year-one revenue anchor: year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
           "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over latest annual FY 2025-12-31 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule: median of methods). It does not set year one, which comes from consensus.",
           "EBIT margin regime improving: dated 5y slope 1pp/year; target 20% versus current 20% and median 19%",
           "terminal ROIC held at WACC: 2 fiscal years of ROIC on record, 4 needed to evidence durable excess returns (house convention)",
           "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% — no per-year risk-free observation was available to recompute a year-specific WACC",
           "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC → 1550000000 after subtracting SBC of 250000000.",
-          "Annual fallback: statement 2025-12-31; price 2025-12-31; equity-bridge balance 2025-12-31; statement age at price 0 days. Balance changes after 2025-12-31 are not reflected in this equity bridge; the dated annual fallback carries that uncertainty (D-65).",
+          "Annual fallback: statement 2025-12-31; price 2025-12-31; equity-bridge balance 2025-12-31; statement age at price 0 days. Balance changes after 2025-12-31 are not reflected in this equity bridge; the dated annual fallback carries that uncertainty.",
           "DCF equity bridge: EV − net debt − minority interest − preferred equity. 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
           "DCF equity bridge adds long-term investments (filed carrying value) of 500000000: long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital. They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied.",
           "DCF equity bridge subtracts the estimated tax on non-operating investments (21% marginal rate, zero tax basis assumed) of 105000000: 21% of the 500000000 added above; the rate is max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two). The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost.",
-          "DCF terminal transition: FCFF 3.02B in year 10 becomes 2.39B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure).",
-          "Per-share values divide by the latest weighted-average diluted share count, 205M; the quoted market cap implies 200M shares outstanding at the quote, and the divisor is 2.5% above that count. The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure).",
-          "NET_DEBT_V3: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000"
+          "DCF terminal transition: FCFF 3.02B in year 10 becomes 2.39B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast.",
+          "Per-share values divide by the latest weighted-average diluted share count, 205M; the quoted market cap implies 200M shares outstanding at the quote, and the divisor is 2.5% above that count. The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits.",
+          "House net-debt basis: net debt -1300000000 as of 2025-12-31; total debt 1200000000, cash and short-term investments 2500000000"
         ],
         "gaps": [
           {"field": "valuation.multiples.enterpriseValue.leases", "reason": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.", "severity": "info"},
@@ -1135,7 +1135,7 @@
           {"field": "valuation.reverseDcf.growthBracket", "reason": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%", "severity": "warn"},
           {
             "field": "valuation.analystEstimates.currency",
-            "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+            "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own; the analyst-consensus growth case uses them in USD",
             "severity": "info",
             "attemptedSources": ["fmp:/stable/analyst-estimates"]
           }
@@ -1592,7 +1592,7 @@
               }
             ],
             "notApplicableReason": null,
-            "note": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
+            "note": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
           },
           "leadership": {
             "score": 63.77,
@@ -1847,63 +1847,63 @@
         },
         {
           "field": "edgar.auditorChange8Ks(DEMO)",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fixtures/edgar"]
         },
         {
           "field": "edgar.cik(DEMO)",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fixtures/edgar"]
         },
         {
           "field": "edgar.companyFacts(DEMO)",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fixtures/edgar"]
         },
         {
           "field": "edgar.item1a(DEMO)",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fixtures/edgar"]
         },
         {
           "field": "edgar.latestTenK(DEMO)",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fixtures/edgar"]
         },
         {
           "field": "edgar.latestTenQ(DEMO)",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fixtures/edgar"]
         },
         {
           "field": "edgar.mdna(DEMO)",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fixtures/edgar"]
         },
         {
           "field": "edgar.nonReliance8Ks(DEMO)",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fixtures/edgar"]
         },
         {
           "field": "edgar.tenQMdna(DEMO)",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fixtures/edgar"]
@@ -1919,105 +1919,105 @@
         {"field": "growth.revenueAcceleration.threeYearCagr", "reason": "3y revenue acceleration benchmark withheld: actual span is 2.00 years, outside the 3y horizon (±0.05y fiscal-calendar tolerance)", "severity": "info"},
         {
           "field": "insiderSentiment.DEMO",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["finnhub"]
         },
         {
           "field": "macro.BAMLH0A0HYM2",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.CPIAUCSL",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.CPILFESL",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.DFII10",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.DGS10",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.DGS2",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.EFFR",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.NASDAQCOM",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.PAYEMS",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.T10Y2Y",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.T10Y3M",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.T10YIE",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.UNRATE",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
         },
         {
           "field": "macro.VIXCLS",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["fred"]
@@ -2044,13 +2044,13 @@
         {"field": "scores.valuation.peOwnHistoryRank", "severity": "info", "reason": "peOwnHistoryRank withheld: no admitted current multiple and compatible historical multiple sample establish a percentile rank. Own-history rank unavailable."},
         {
           "field": "shortInterest.DEMO",
-          "reason": "latest FINRA short interest unavailable because trend fetch failed: DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "latest FINRA short interest unavailable because trend fetch failed: DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "attemptedSources": ["finra"]
         },
         {
           "field": "shortInterest.trend.DEMO",
-          "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+          "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
           "severity": "info",
           "expected": true,
           "attemptedSources": ["finra"]
@@ -2061,7 +2061,7 @@
         {"field": "technicals.relativeStrength.sector", "reason": "no XLK history supplied", "severity": "info"},
         {
           "field": "valuation.analystEstimates.currency",
-          "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+          "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own; the analyst-consensus growth case uses them in USD",
           "severity": "info",
           "attemptedSources": ["fmp:/stable/analyst-estimates"]
         },
@@ -2095,7 +2095,7 @@
         "symbol": "DEMO",
         "companyName": "Thesis Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
-        "specVersion": "1.94.0",
+        "specVersion": "1.95.0",
         "model": "synthetic-fixture",
         "pipelineVersion": "audit-fixture-comparison",
         "evidenceContract": "EVIDENCE_CONTRACT_1",
@@ -2582,17 +2582,17 @@
             {
               "name": "start revenue",
               "value": "12.50B",
-              "basis": "latest annual FY 2025-12-31 revenue as of 2025-12-31. Annual fallback: statement 2025-12-31; price 2025-12-31; equity-bridge balance 2025-12-31; statement age at price 0 days. Balance changes after 2025-12-31 are not reflected in this equity bridge; the dated annual fallback carries that uncertainty (D-65)."
+              "basis": "latest annual FY 2025-12-31 revenue as of 2025-12-31. Annual fallback: statement 2025-12-31; price 2025-12-31; equity-bridge balance 2025-12-31; statement age at price 0 days. Balance changes after 2025-12-31 are not reflected in this equity bridge; the dated annual fallback carries that uncertainty."
             },
             {
               "name": "year-one revenue anchor",
               "value": "13.50B (consensus)",
-              "basis": "year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
+              "basis": "year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
             },
             {
               "name": "consensus-anchored years",
               "value": "years 1–5 of 10",
-              "basis": "years 1–5 take their revenue from calendarized analyst consensus; years 6–10 follow the convergent fade. A year is anchored only while its fiscal-year estimates have at least 3 analysts, an implied dispersion of at most 25% ((high − low) ÷ (d2(n) × mean)) and growth within the house band (house rule D-65); the DCF path vs consensus table shows every window"
+              "basis": "years 1–5 take their revenue from calendarized analyst consensus; years 6–10 follow the convergent fade. A year is anchored only while its fiscal-year estimates have at least 3 analysts, an implied dispersion of at most 25% ((high − low) ÷ (d2(n) × mean)) and growth within the house band (house rule); the DCF path vs consensus table shows every window"
             },
             {
               "name": "WACC (discount rate)",
@@ -2602,7 +2602,7 @@
             {
               "name": "revenue growth (yr1 → yrN)",
               "value": "8.0% → 2.5%",
-              "basis": "year one 8% from the revenue anchor (analyst consensus), years 2–5 7.78%, 7.56%, 7.35%, 7.14% on consensus (consensus anchors years 1–5; house rule D-65); later years follow a convergent fade from year 5's 7.14% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule D-58; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
+              "basis": "year one 8% from the revenue anchor (analyst consensus), years 2–5 7.78%, 7.56%, 7.35%, 7.14% on consensus (consensus anchors years 1–5; house rule); later years follow a convergent fade from year 5's 7.14% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
             },
             {"name": "EBIT margin (yr1 → yrN)", "value": "20.0% → 20.0%", "basis": "held flat at current 20% (latest annual FY 2025-12-31) under improving dated-margin regime (5y median 19%, slope 1pp/year)"},
             {
@@ -2613,7 +2613,7 @@
             {
               "name": "sales-to-capital",
               "value": "2.98",
-              "basis": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are treated as non-operating assets, and the equity bridge adds them back at carrying value less the tax a sale would owe)"
+              "basis": "latest annual FY 2025-12-31 revenue / operating invested capital (total debt + consolidated equity [total equity] - cash and short-term investments - long-term investments 500M, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are treated as non-operating assets, and the equity bridge adds them back at carrying value less the tax a sale would owe)"
             },
             {"name": "terminal growth", "value": "2.5%", "basis": "min(2.5%, risk-free 4%) — HOUSE CONVENTION: nothing grows faster than rf forever"},
             {
@@ -2624,12 +2624,12 @@
             {
               "name": "terminal reinvestment (terminal growth / terminal ROIC)",
               "value": "27.0%",
-              "basis": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 3.02B in year 10 becomes 2.39B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure)"
+              "basis": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 3.02B in year 10 becomes 2.39B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast"
             },
             {
               "name": "discounting convention",
               "value": "mid-year (terminal value at N − 0.5)",
-              "basis": "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule D-60)"
+              "basis": "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule)"
             },
             {
               "name": "free cash flow, SBC treatment",
@@ -3002,7 +3002,7 @@
             "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route or held-for-sale lender cash-flow applicability the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
             "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
             "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
-            "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+            "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
             "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
             "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
           ],
@@ -3452,7 +3452,7 @@
             "cause": "fmp-no-api-key"
           },
           {"field": "technicals.relativeStrength.SPY", "reason": "no valid SPY closes supplied for relative-strength alignment", "severity": "warn"},
-          {"field": "validation.xbrlCrossCheck", "reason": "FMP↔XBRL cross-check skipped — companyfacts unavailable (DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent)", "severity": "warn"},
+          {"field": "validation.xbrlCrossCheck", "reason": "FMP↔XBRL cross-check skipped — companyfacts unavailable (DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent)", "severity": "warn"},
           {"field": "valuation.reverseDcf.growthBracket", "reason": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%", "severity": "warn"},
           {
             "field": "earningsCalendarNext(DEMO)",
@@ -3462,63 +3462,63 @@
           },
           {
             "field": "edgar.auditorChange8Ks(DEMO)",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fixtures/edgar"],
             "expected": true
           },
           {
             "field": "edgar.cik(DEMO)",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fixtures/edgar"],
             "expected": true
           },
           {
             "field": "edgar.companyFacts(DEMO)",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fixtures/edgar"],
             "expected": true
           },
           {
             "field": "edgar.item1a(DEMO)",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fixtures/edgar"],
             "expected": true
           },
           {
             "field": "edgar.latestTenK(DEMO)",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fixtures/edgar"],
             "expected": true
           },
           {
             "field": "edgar.latestTenQ(DEMO)",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fixtures/edgar"],
             "expected": true
           },
           {
             "field": "edgar.mdna(DEMO)",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fixtures/edgar"],
             "expected": true
           },
           {
             "field": "edgar.nonReliance8Ks(DEMO)",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fixtures/edgar"],
             "expected": true
           },
           {
             "field": "edgar.tenQMdna(DEMO)",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fixtures/edgar"],
             "expected": true
@@ -3534,105 +3534,105 @@
           {"field": "growth.revenueAcceleration.threeYearCagr", "reason": "3y revenue acceleration benchmark withheld: actual span is 2.00 years, outside the 3y horizon (±0.05y fiscal-calendar tolerance)", "severity": "info"},
           {
             "field": "insiderSentiment.DEMO",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["finnhub"],
             "expected": true
           },
           {
             "field": "macro.BAMLH0A0HYM2",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.CPIAUCSL",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.CPILFESL",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.DFII10",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.DGS10",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.DGS2",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.EFFR",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.NASDAQCOM",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.PAYEMS",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.T10Y2Y",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.T10Y3M",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.T10YIE",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.UNRATE",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
           },
           {
             "field": "macro.VIXCLS",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["fred"],
             "expected": true
@@ -3659,13 +3659,13 @@
           {"field": "scores.valuation.peOwnHistoryRank", "reason": "peOwnHistoryRank withheld: no admitted current multiple and compatible historical multiple sample establish a percentile rank. Own-history rank unavailable.", "severity": "info"},
           {
             "field": "shortInterest.DEMO",
-            "reason": "latest FINRA short interest unavailable because trend fetch failed: DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "latest FINRA short interest unavailable because trend fetch failed: DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["finra"]
           },
           {
             "field": "shortInterest.trend.DEMO",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": ["finra"],
             "expected": true
@@ -3676,7 +3676,7 @@
           {"field": "technicals.relativeStrength.sector", "reason": "no XLK history supplied", "severity": "info"},
           {
             "field": "valuation.analystEstimates.currency",
-            "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+            "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own; the analyst-consensus growth case uses them in USD",
             "severity": "info",
             "attemptedSources": ["fmp:/stable/analyst-estimates"]
           },
@@ -4160,7 +4160,7 @@
               }
             ],
             "notApplicableReason": null,
-            "note": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
+            "note": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
           },
           "leadership": {
             "score": 63.77,
@@ -4380,7 +4380,7 @@
         "version": "1",
         "currency": "USD",
         "estimateCurrency": "USD",
-        "estimateCurrencyBasis": "inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57)",
+        "estimateCurrencyBasis": "inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own",
         "quote": {"price": 40, "marketCap": 8000000000, "yearHigh": 44, "yearLow": 28, "volume": 1200000, "priceAvg50": 39, "priceAvg200": 36, "asOf": "2025-12-31", "marketCapOrigin": "provider"},
         "shares": {"outstanding": 200000000, "float": 180000000, "freeFloatPct": 90, "asOf": "2025-12-31", "floatAsOf": "2025-12-31"},
         "enterpriseValue": {"value": 7200000000, "periodEnd": "2025-12-31", "marketCap": 8000000000, "totalDebt": 1200000000, "cash": 2000000000},

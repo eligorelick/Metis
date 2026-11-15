@@ -148,26 +148,11 @@ describe("a clean METIS_-only environment parses exactly as before (D-228)", () 
 describe("source scan: no src file reads a THESIS_ environment name (D-228)", () => {
   /**
    * The only THESIS_ text allowed in src: the rejection list in the namespace
-   * owner, and the frozen reader- and prompt-visible strings that still spell
-   * the old names (rewording them changes saved-report text and the judge
-   * prompt, which needs an owner decision). Each is an exact line.
+   * owner, and the frozen judge-prompt key that still spells the old name
+   * (rewording it changes prompt bytes). Each is an exact line. Reader text
+   * names the current METIS_ settings (D-296 revises D-228's frozen wording).
    */
   const FROZEN_LINES: Readonly<Record<string, readonly string[]>> = {
-    "src/pipeline/keyless.ts": [
-      "? `served by ${source} (${endpoint}) because THESIS_STATEMENT_SOURCE=edgar sets aside FMP's ${overridden} vendor row(s)`",
-      "`${reason}; FMP's ${overridden} vendor row(s) were withheld because THESIS_STATEMENT_SOURCE=edgar builds statements from filed facts only`,",
-      "notes.push(`${member}: FMP's ${overridden} vendor row(s) withheld under THESIS_STATEMENT_SOURCE=edgar`);",
-      "`predecessor history from CIK ${predecessor.cik10} not appended: THESIS_STATEMENT_SOURCE=fmp keeps the statements vendor-only`,",
-      "\"but THESIS_STATEMENT_SOURCE=fmp keeps the statements vendor-only, so no pre-reorganization periods were appended\",",
-    ],
-    "src/pipeline/stageB/valuation.ts": [
-      "excluded: \" (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it)\",",
-      "included: \" (THESIS_EV_INCLUDE_LEASES=1)\",",
-      "`THESIS_EV_INCLUDE_LEASES=1: no operating-lease adjustment is subtracted from enterprise value; the retained operating-lease observation is ${fmtNum(leaseLiability)}. EBITDA remains after operating-lease cost (ASC 842).${leaseLiability > 0 ? \" EV/EBITDA is not comparable to the default basis that subtracts this observation.\" : \"\"} ${leaseEvidenceNote(bal)}`,",
-    ],
-    "src/pipeline/stageB/returns.ts": [
-      "\"invested capital uses the retained totalDebt basis (THESIS_EV_INCLUDE_LEASES=1); no separate operating-lease amount is subtracted, matching the enterprise-value convention\",",
-    ],
     "src/pipeline/stageC/judgeProtocol.ts": [
       "export const JUDGE_ORDER_ENV_KEY = \"THESIS_JUDGE_ORDER\";",
     ],

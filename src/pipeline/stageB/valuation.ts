@@ -1774,13 +1774,13 @@ function buildRevenueAnchor(args: {
   const yearOneGapText = yearOneGap === null || Math.abs(yearOneGap) < 0.05 ? "" :
     `; year one is ${fmtNum(Math.abs(yearOneGap))}% ${yearOneGap < 0 ? "below" : "above"} the consensus ${fmtMoney(ntm1 as number)}`;
   const gateText = !anyConsensus ? "" :
-    ` House rule D-65: consensus sets every year whose fiscal-year estimates have at least ${MIN_CONSENSUS_ANALYSTS} analysts and an implied dispersion of at most ${MAX_CONSENSUS_CV_PCT}%, while its growth stays within [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, max(${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, the prior year)].`;
+    ` House rule: consensus sets every year whose fiscal-year estimates have at least ${MIN_CONSENSUS_ANALYSTS} analysts and an implied dispersion of at most ${MAX_CONSENSUS_CV_PCT}%, while its growth stays within [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, max(${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, the prior year)].`;
   const guidedYoyIssuerEffectPp = statedGuide?.qualifiers?.map(parseIssuerGrowthEffect).find(effect => effect !== null)?.pp ?? null;
   const issuerEffectText = guidedYoyIssuerEffectPp === null ? "" :
     `; the issuer states that, excluding an item it names, the guided quarter's year-over-year growth would be about ${Math.abs(guidedYoyIssuerEffectPp).toFixed(2)}pp ${guidedYoyIssuerEffectPp < 0 ? "lower" : "higher"}; this issuer-stated effect is disclosed only and does not adjust any modeled revenue level`;
   const basis =
     `year-one revenue ${fmtMoney(yearOneRevenue)} (${fmtNum(yearOneGrowthPct)}% over ${periodBasis} ${fmtMoney(startRev)}) from ${rawText}` +
-    `${clampText}${yearOneGapText}; measured against ${levelText}${yearTwoText}${stopText} (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate).${gateText}${comparabilityText}${issuerEffectText}`;
+    `${clampText}${yearOneGapText}; measured against ${levelText}${yearTwoText}${stopText} (house rule: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate).${gateText}${comparabilityText}${issuerEffectText}`;
   notes.push(`Year-one revenue anchor: ${basis}`);
   return {
     source, yearOneRevenue, yearOneGrowthPct, yearTwoGrowthPct, runRate, clampedFrom, basis,
@@ -1832,7 +1832,7 @@ export function scenarioMarginCeiling(ttm: DcfIncomeRow | null, history: DcfInco
     basis:
       `scenario operating margins are capped at ${fmtNum(pct)}% = gross margin ${fmtNum(latest.gross)}% (${latest.period}) ` +
       `less the leanest operating-expense ratio on record, ${fmtNum(leanest.opex)}% (${leanest.period}, among the TTM and the last five fiscal years); ` +
-      "the cap never pulls a scenario below the base path (house rule D-60)",
+      "the cap never pulls a scenario below the base path (house rule)",
   };
 }
 
@@ -1848,7 +1848,7 @@ export const MID_YEAR_DISCOUNTING_BASIS =
   "because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal " +
   "values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year " +
   "adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of " +
-  "(1 + WACC)^0.5 (house rule D-60)";
+  "(1 + WACC)^0.5 (house rule)";
 
 /**
  * Build the base-case DCF assumption block. Every assumption carries
@@ -2253,7 +2253,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   if (interiorMargins.length) marginBasis += `; trend withheld across interior unavailable periods: ${interiorMargins.join(", ")}`;
   if (missingImprovingCeiling) {
     const cause = [...new Set([ttm?.grossProfitBasis,...normalizedHistory.map(r=>r.grossProfitBasis)].filter((s):s is string=>!!s))].join(" ");
-    const reason = `Improving-trend uplift is withheld because a supported gross-profit ceiling is unavailable (D-60)${cause ? `. ${cause}` : "."}`;
+    const reason = `Improving-trend uplift is withheld because a supported gross-profit ceiling is unavailable${cause ? `. ${cause}` : "."}`;
     marginBasis += `; ${reason}`;
     gaps.push(gapEntry("valuation.dcf.marginCeiling",reason,"info"));
   }
@@ -2311,7 +2311,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const taxTerminal = Math.max(companyTax, taxFloor);
   const companyTaxText = historicalMedianTax !== null ? "company historical median" : `${periodBasis} effective rate${rereadTax ? " re-read without tagged one-off items" : ""}`;
   const terminalTaxText = taxTerminal > companyTax
-    ? `the ${companyTaxText} ${fmtNum(companyTax)}% floored at ${fmtNum(taxTerminal)}% = ${taxFloorText} (house rule D-58: the terminal rate converges toward the marginal rate)`
+    ? `the ${companyTaxText} ${fmtNum(companyTax)}% floored at ${fmtNum(taxTerminal)}% = ${taxFloorText} (house rule: the terminal rate converges toward the marginal rate)`
     : `the ${companyTaxText} ${fmtNum(taxTerminal)}%, at or above the ${fmtNum(taxFloor)}% floor = ${taxFloorText}`;
   if (taxTerminal > companyTax) notes.push(`terminal tax rate floored: ${terminalTaxText}`);
   // D-60: management's effective-tax-rate guidance, when the same release
@@ -2339,7 +2339,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     guidedTax !== null
       ? `guided GAAP effective rate ${fmtNum(guidedTax)}% (${guide?.taxRatePeriod ?? "guided period"}, ${guide?.source ?? "earnings release"})` +
         `${currentTaxRate === null ? "" : ` against the ${periodBasis} ${rereadTax ? "rate re-read without tagged one-off items," : "observed"} ${fmtNum(currentTaxRate)}%`}` +
-        `${tEff === taxTerminal ? ` held flat: terminal rate is ${terminalTaxText}` : ` fading to ${fmtNum(taxTerminal)}% by year ${years}: ${terminalTaxText}`} (house rule D-60: tax guidance sets year one)`
+        `${tEff === taxTerminal ? ` held flat: terminal rate is ${terminalTaxText}` : ` fading to ${fmtNum(taxTerminal)}% by year ${years}: ${terminalTaxText}`} (house rule: tax guidance sets year one)`
       : currentTaxRate === null
       ? `${unavailableTaxReason} — held at ${terminalTaxText} for all ${years} years`
       : tEff === taxTerminal
@@ -2379,7 +2379,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // FIN-119-V1: temporary equity (redeemable preferred and redeemable NCI) is financing capital. A refused operand leaves
   // the capital unknown, never zero (D-87): the DCF is withheld as it is for missing equity.
   const temporary = temporaryEquityClaims(bal);
-  const temporaryText = temporary !== null && temporary.capitalTotal !== 0 ? ` + temporaryEquity ${fmtMoney(temporary.capitalTotal)} [${temporary.capitalBasis}]` : "";
+  const temporaryText = temporary !== null && temporary.capitalTotal !== 0 ? ` + temporary equity ${fmtMoney(temporary.capitalTotal)} [${temporary.capitalBasis}]` : "";
   const ic =
     bal && icDebt !== null && equity.value !== null && admittedLiquidity
       ? icDebt + equity.value + (temporary === null ? 0 : temporary.capitalTotal) - liquidity!
@@ -2417,7 +2417,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       // Warn, not critical (B4a final review I-1; D-135 OD-3): the DCF is withheld, but main published one on the
       // lease-inclusive capital, and a critical gap would block the report.
       gaps.push(gapEntry("valuation.dcf.salesToCapital",
-        `${LEASE_EMPTIED_CAPITAL_LEAD}invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (lease-excluded basis, D-25), and the issuer's own filed history does not establish a sales-to-capital ratio on that basis (${history.basis}) - ` +
+        `${LEASE_EMPTIED_CAPITAL_LEAD}invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (lease-excluded basis), and the issuer's own filed history does not establish a sales-to-capital ratio on that basis (${history.basis}) - ` +
         `this sales-to-capital DCF is withheld instead of falling back to the lease-inclusive basis`, "warn", "invested-capital-lease-emptied"));
       return { assumptions: null, notes, gaps };
     }
@@ -2468,7 +2468,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     const balanceLabel = cause === "anchor-refused" ? "the retained balance" : "the only admitted balance";
     gaps.push(gapEntry("valuation.dcf.bridgeBalanceDate",
       `${root}; ${balanceLabel} is ${balanceDate}, ${offset}. On the fiscal-year fallback, invested capital and the equity bridge must be dated at the statement date, ` +
-      "so this DCF is withheld instead of mixing dates (D-267)", "warn", "dcf-balance-date-mismatch"));
+      "so this DCF is withheld instead of mixing dates", "warn", "dcf-balance-date-mismatch"));
     return { assumptions: null, notes, gaps };
   }
   // D-60: long-term investments (strategic and non-marketable stakes, long
@@ -2484,11 +2484,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const operatingIc = lti !== null && ic - lti > 0 ? ic - lti : null;
   const holdingExceedsCapital = emptiedHistory === null && lti !== null && operatingIc === null;
   const exceedsBasis = holdingExceedsCapital
-    ? `operating invested capital ${millions(ic - (lti as number))} is not positive once long-term investments ${millions(lti as number)} are removed, so the operating ratio is unbounded and takes the house cap ${S2C_CLAMP[1]} (the limit it approaches from below); the holding is added back in the bridge (house rule D-135, FIN-304)`
+    ? `operating invested capital ${millions(ic - (lti as number))} is not positive once long-term investments ${millions(lti as number)} are removed, so the operating ratio is unbounded and takes the house cap ${S2C_CLAMP[1]} (the limit it approaches from below); the holding is added back in the bridge (house rule)`
     : null;
   const exceedsHoldingClause = `the holding meets or exceeds operating invested capital, so sales-to-capital takes the house cap ${S2C_CLAMP[1]} and the holding is added back here`;
   const emptiedHoldingClause = "sales-to-capital takes the issuer's own history because invested capital is not positive once the operating lease leaves debt";
-  const capitalDefinition = `invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason})`;
+  const capitalDefinition = `invested capital (total debt + consolidated equity [${equity.basis}]${temporaryText} - cash and short-term investments, ${bal.basis} balance as of ${bal.date}; ${equity.reason})`;
   // Audit 2026-10-22 A-2: the house floor guards against a mis-scaled input,
   // so it yields to a lower ratio the issuer's own filings establish.
   const s2cHistory = emptiedHistory ?? establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseBasis);
@@ -2500,15 +2500,15 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   let s2cBasis = exceedsBasis !== null
     ? `sales-to-capital is the house cap ${S2C_CLAMP[1]}, not a measured ratio; ${capitalDefinition} less long-term investments: ${exceedsBasis}`
     : operatingIc !== null
-    ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are treated as non-operating assets, and the equity bridge adds them back at carrying value less the tax a sale would owe)`
+    ? `${periodBasis} revenue / operating invested capital (total debt + consolidated equity [${equity.basis}]${temporaryText} - cash and short-term investments - long-term investments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are treated as non-operating assets, and the equity bridge adds them back at carrying value less the tax a sale would owe)`
     : `${periodBasis} revenue / ${capitalDefinition}`;
-  if (bal.leaseCoverageNote) s2cBasis += ` Retained totalDebt operand ${bal.totalDebt} (source monetary units): ${bal.leaseCoverageNote}`;
+  if (bal.leaseCoverageNote) s2cBasis += ` Retained total-debt operand ${bal.totalDebt} (source monetary units): ${bal.leaseCoverageNote}`;
   if (leaseExcluded) s2cBasis += ` Invested capital excludes the disclosed operating-lease portion ${bal.operatingLeaseLiability} (source monetary units): the lease-inclusive total is unavailable, so debt is taken on the lease-excluded basis.`;
-  else if (leaseOut.amount > 0) s2cBasis += ` The operating-lease liability ${millions(leaseOut.amount)} removed: its cost is inside the EBIT this DCF projects (ASC 842; D-25).`;
+  else if (leaseOut.amount > 0) s2cBasis += ` The operating-lease liability ${millions(leaseOut.amount)} removed: its cost is inside the EBIT this DCF projects (ASC 842).`;
   else if (leaseOut.clause !== null) s2cBasis += ` The operating lease is not removed from invested capital: ${leaseOut.clause}; total debt is used as reported.`;
   else if (leaseBasis.includeLeasesInEv && isNum(bal.operatingLeaseLiability) && bal.operatingLeaseLiability > 0) s2cBasis += ` The operating lease ${millions(bal.operatingLeaseLiability)} is kept in invested capital: METIS_EV_INCLUDE_LEASES keeps it in debt, as the equity bridge does.`;
   if (emptiedHistory !== null) {
-    s2cBasis = `sales-to-capital ${s2c.toFixed(4)}x is the median of the issuer's own filed fiscal-year ratios on the lease-excluded basis: invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (D-25), ` +
+    s2cBasis = `sales-to-capital ${s2c.toFixed(4)}x is the median of the issuer's own filed fiscal-year ratios on the lease-excluded basis: invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt, ` +
       `so the ${bal.basis} balance as of ${bal.date} cannot establish a ratio and the lease is not put back (${emptiedHistory.basis})${s2c !== rawS2c ? `; held to the house cap ${S2C_CLAMP[1]}` : ""}` +
       `${lti !== null ? `; long-term investments ${fmtMoney(lti)} are treated as non-operating assets, and the equity bridge adds them back at carrying value less the tax a sale would owe` : ""}`;
   } else if (s2c !== rawS2c && s2cFloor !== S2C_CLAMP[0] && rawS2c < s2cFloor) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${filedRevenue} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
@@ -2588,7 +2588,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const annualFallbackBasis = ttm?.basis === "annual"
     ? `Annual fallback: statement ${statementDate}; price ${inputs.valuationDate ?? "date unavailable"}; equity-bridge balance ${bridgeDate}` +
       (elapsedDays === null ? "." : `; statement age at price ${elapsedDays} days.`) +
-      ` Balance changes after ${bridgeDate} are not reflected in this equity bridge; the dated annual fallback carries that uncertainty (D-65).`
+      ` Balance changes after ${bridgeDate} are not reflected in this equity bridge; the dated annual fallback carries that uncertainty.`
     : null;
   if (annualFallbackBasis) notes.push(annualFallbackBasis);
   let valuationDate: DcfAssumptions["valuationDate"] | undefined;
@@ -2600,11 +2600,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       elapsedYears,
       basis: `cash flows are discounted from the statement date ${statementDate} and rolled forward ${elapsedDays} days to the quote date ${inputs.valuationDate} ` +
         `at the WACC (× ${factor.toFixed(4)}), so the per-share value and the price it is compared with share a date; ${bridgeBalanceText ?? `the equity bridge stays at the ${statementDate} balance, ` +
-        "whose later cash generation is inside the first window's flows"} (house rule D-65)`,
+        "whose later cash generation is inside the first window's flows"} (house rule)`,
     };
     notes.push(`Valuation date: ${valuationDate.basis}`);
   } else if (elapsedDays !== null && elapsedDays > MAX_ROLL_FORWARD_DAYS) {
-    notes.push(`Valuation date: the quote ${inputs.valuationDate} is ${elapsedDays} days after the statement date ${statementDate}, beyond the ${MAX_ROLL_FORWARD_DAYS}-day roll-forward limit; the value is stated at the statement date${bridgeBalanceText === null ? "" : `, and ${bridgeBalanceText}`} (house rule D-65)`);
+    notes.push(`Valuation date: the quote ${inputs.valuationDate} is ${elapsedDays} days after the statement date ${statementDate}, beyond the ${MAX_ROLL_FORWARD_DAYS}-day roll-forward limit; the value is stated at the statement date${bridgeBalanceText === null ? "" : `, and ${bridgeBalanceText}`} (house rule)`);
     gaps.push(gapEntry("valuation.dcf.valuationDate", `quote ${elapsedDays} days after the statement date — value not rolled forward`, "info"));
   }
 
@@ -2640,12 +2640,12 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
         `year one ${fmtNum(growthPath[0])}% from the revenue anchor (${revenueAnchor.source === "consensus" ? "analyst consensus" : revenueAnchor.source})` +
         (anchoredGrowth.length >= 2
           ? `, ${anchoredGrowth.length === 2 ? "year two" : `years 2–${anchoredGrowth.length}`} ${anchoredGrowth.slice(1).map((g) => `${fmtNum(g)}%`).join(", ")} on consensus` +
-            ` (consensus anchors ${consensusYearsText(revenueAnchor.consensusYears ?? [])}; house rule D-65)`
+            ` (consensus anchors ${consensusYearsText(revenueAnchor.consensusYears ?? [])}; house rule)`
           : revenueAnchor.source === "consensus" ? " (consensus anchors year one only)" : "") +
         "; " +
         `later years follow a convergent fade from year ${anchoredGrowth.length}'s ${fmtNum(lastAnchored)}% to the terminal rate ${fmtNum(gTerm)}% in year ${years}: ` +
         `the excess over the terminal rate decays geometrically with a ${GROWTH_FADE_HALF_LIFE_YEARS}-year half-life, rescaled so it closes exactly in year ${years}, ` +
-        `so it falls somewhat faster than halving every ${GROWTH_FADE_HALF_LIFE_YEARS} years (house rule D-58; the linear fade is retired). ` +
+        `so it falls somewhat faster than halving every ${GROWTH_FADE_HALF_LIFE_YEARS} years (house rule; the linear fade is retired). ` +
         (rateSetsYearOne
           ? `Year one carries the near-term growth rate ${fmtNum(gMid)}% = ${gMidBasis}. `
           : "") +
@@ -4117,13 +4117,13 @@ export interface MultiplesFrameworkInputs {
  * The operator setting the EV bridge basis names (WS6, D-19), exactly as the
  * basis spells it. AMZN audit 2026-10-20 finding 20: the report states the
  * lease convention without the environment variable that changes it.
- * FROZEN by D-228: the text still spells the retired Thesis-era name (the setting
- * is now `METIS_EV_INCLUDE_LEASES`); rewording it changes report text, which
- * needs an owner decision first.
+ * D-296 (revising D-228's frozen wording): the text names the current setting,
+ * `METIS_EV_INCLUDE_LEASES`, because the retired Thesis-era name is refused at
+ * startup; saved reports keep their original bytes.
  */
 export const EV_LEASE_SETTING_TEXT = {
-  excluded: " (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it)",
-  included: " (THESIS_EV_INCLUDE_LEASES=1)",
+  excluded: " (house default; set METIS_EV_INCLUDE_LEASES=1 to keep it)",
+  included: " (METIS_EV_INCLUDE_LEASES=1)",
 } as const;
 
 /** WS6 (D-19): the EV bridge, both ways, with the convention stated. Only the
@@ -4838,7 +4838,7 @@ export function multiplesFramework(
       : "") +
     " − cash and short-term investments" +
     (netDebt.nonOperatingEquitySecurities !== undefined
-      ? ` excluding ${fmtGrouped(netDebt.nonOperatingEquitySecurities)} of marketable equity securities, which are not cash (the D-60 net cash the DCF bridge and the key-data EV use; house rule D-65)`
+      ? ` excluding ${fmtGrouped(netDebt.nonOperatingEquitySecurities)} of marketable equity securities, which are not cash (the one net cash the DCF bridge and the key-data EV use; house rule)`
       : "") +
     (evLeaseScope !== null ? `; ${evLeaseScope}` : "") +
     (financeOnlyTotal !== null ? `; ${financeLeaseOnlyEvClause(financeOnlyTotal)}` : "") +
@@ -4886,7 +4886,7 @@ export function multiplesFramework(
     gaps.push(
       gapEntry(
         "valuation.multiples.enterpriseValue.leases",
-        `THESIS_EV_INCLUDE_LEASES=1: no operating-lease adjustment is subtracted from enterprise value; the retained operating-lease observation is ${fmtNum(leaseLiability)}. EBITDA remains after operating-lease cost (ASC 842).${leaseLiability > 0 ? " EV/EBITDA is not comparable to the default basis that subtracts this observation." : ""} ${leaseEvidenceNote(bal)}`,
+        `METIS_EV_INCLUDE_LEASES=1: no operating-lease adjustment is subtracted from enterprise value; the retained operating-lease observation is ${fmtNum(leaseLiability)}. EBITDA remains after operating-lease cost (ASC 842).${leaseLiability > 0 ? " EV/EBITDA is not comparable to the default basis that subtracts this observation." : ""} ${leaseEvidenceNote(bal)}`,
         "warn",
       ),
     );
@@ -5980,7 +5980,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   const roll = rollForwardFactor(inputs.asOf ?? null, inputs.valuationDate ?? null, coe);
   let valuationDate: ExcessReturnResult["valuationDate"];
   if (roll !== null) {
-    const basis = `Excess-return value rolled forward ${roll.days} days to the quote date ${inputs.valuationDate} from opening book ${inputs.asOf} at the cost of equity ${fmtNum(coe)}% (factor ${roll.factor.toFixed(6)}), gross of distributions; interim dividends and buybacks are not deducted (house convention, D-65).`;
+    const basis = `Excess-return value rolled forward ${roll.days} days to the quote date ${inputs.valuationDate} from opening book ${inputs.asOf} at the cost of equity ${fmtNum(coe)}% (factor ${roll.factor.toFixed(6)}), gross of distributions; interim dividends and buybacks are not deducted (house convention).`;
     valuationDate = { value: inputs.valuationDate!, elapsedYears: roll.days / DAYS_PER_YEAR, basis };
     notes.push(`Valuation date: ${basis}`);
   } else {
@@ -6717,7 +6717,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       ...(temporaryAdmitted.unsplit !== 0 ? [`temporary equity of ${millions(temporaryAdmitted.unsplit)} with no filed parent/NCI split, deducted beside preferred`] : []),
       ...(redeemableNoncontrolling !== 0 ? [`redeemable noncontrolling interests of ${millions(redeemableNoncontrolling)}, added to the book noncontrolling interest as the floor of the larger-of test (E-5), never deducted twice`] : []),
     ];
-    temporaryEquityNote = `DCF equity bridge deducts ${parts.join(" and ")}: filed in temporary equity outside every equity field, they are claims senior to common (${temporaryAdmitted.basis}; house rule, decisions D-135 OD-1).` +
+    temporaryEquityNote = `DCF equity bridge deducts ${parts.join(" and ")}: filed in temporary equity outside every equity field, they are claims senior to common (${temporaryAdmitted.basis}; house rule).` +
       (parentLike !== 0
         ? " This caption can also hold redeemable common shares (for example shares subject to possible redemption or an ESOP put), which may already be in the diluted share count; " +
           "the filed facts do not separate them from redeemable preferred, so such shares would be counted both as a claim and in the divisor."
@@ -7315,7 +7315,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         if (components.some((c) => c.kind === "debt-like-obligation")) {
           notes.push("These are filed liabilities and the FCFF path does not project their settlement, so equity value is what remains after them. " +
             (afterTax
-              ? `Each is deducted net of the tax relief a settlement would earn, at the ${fmtNum(taxRatePct)}% marginal-rate floor (${assumptions.investmentTax!.basis}; D-98, D-58). ` +
+              ? `Each is deducted net of the tax relief a settlement would earn, at the ${fmtNum(taxRatePct)}% marginal-rate floor (${assumptions.investmentTax!.basis}). ` +
                 "The relief is approximate: the rate omits state and local taxes and assumes the deduction is taken against taxable income in the year the claim is paid, " +
                 "and a payment that is not deductible (a government fine or penalty, 26 U.S.C. §162(f)) or that only adds to tax basis (contingent consideration, which adds to the basis of the acquired assets or shares) " +
                 `is credited a relief it will not earn, or not for years, understating that claim by up to ${fmtNum(taxRatePct)}% of it.` +
@@ -7461,7 +7461,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
           `terminal transition: FCFF ${fmtMoney(lastRow.fcff)} in year ${lastRow.year} becomes ${fmtMoney(fcffNext)} in year ${lastRow.year + 1}` +
           `${step === null ? "" : ` (${step >= 0 ? "+" : ""}${fmtNum(step)}%)`}: reinvestment moves from ${fmtNum(lastReinvest * 100)}% of NOPAT ` +
           `(revenue growth / sales-to-capital, an implied return on new capital of ${fmtNum(impliedRonic)}%) to ${fmtNum(termReinvest * 100)}% ` +
-          `(terminal growth ${fmtNum(dcf.gTermUsedPct)}% / terminal ROIC ${fmtNum(roicTerm)}%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure)`;
+          `(terminal growth ${fmtNum(dcf.gTermUsedPct)}% / terminal ROIC ${fmtNum(roicTerm)}%). The step is where the two reinvestment conventions meet, not a forecast`;
         assumptions.terminal.reinvestmentRate = { ...assumptions.terminal.reinvestmentRate, basis: `${assumptions.terminal.reinvestmentRate.basis}; ${text}` };
         notes.push(`DCF ${text}.`);
       }
@@ -7493,16 +7493,16 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
           // A loss period's filed count equals its basic count (ASC 260-10-45-17), so the not-restored case carries no award dilution either.
           // FIN-404's statement of what the divisor carries stays beside the D-265 sentence.
           const tail = belowNote !== null && !economicScope.multiClass
-            ? `${belowNote} ${basicOnly || divisor?.basis === "loss-period-withheld"
-              ? "The per-share value does not carry the option and RSU dilution the market cap omits (D-60 disclosure)."
-              : substituted !== null ? "The restored award dilution is kept in the divisor (D-60 disclosure)." : "(D-60 disclosure)."}`
+            ? `${belowNote}${basicOnly || divisor?.basis === "loss-period-withheld"
+              ? " The per-share value does not carry the option and RSU dilution the market cap omits."
+              : substituted !== null ? " The restored award dilution is kept in the divisor." : ""}`
             : economicScope.multiClass
             ? `The quoted market-cap count may cover only the quoted class; the diluted denominator uses the admitted all-class units. ${economicScope.approximation ? `${fmtMoney(economicScope.approximation.affectedShares)} of the difference is the unquoted ${economicScope.approximation.unprovenClassIds.map(displayClassName).join(", ")}, not option or RSU dilution. ` : ""}The remaining difference can reflect period averaging, awards and share transactions; this comparison alone does not attribute it.`
             : basicOnly || divisor?.basis === "loss-period-withheld"
-            ? "The gap is repurchases or issuance since the quarter, and the per-share value does not carry the option and RSU dilution the market cap omits (D-60 disclosure)."
+            ? "The gap is repurchases or issuance since the quarter, and the per-share value does not carry the option and RSU dilution the market cap omits."
             : substituted !== null
-              ? "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the restored award dilution is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure)."
-              : "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure).";
+              ? "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the restored award dilution is kept so the per-share value carries the dilution the market cap omits."
+              : "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits.";
           // D-265 review: one statement with one denominator, the divisor against the quote count.
           const relation = shareBasis === null ? `${fmtNum(Math.abs(diff))}% ${diff < 0 ? "below" : "above"}` : shareBasisRelation(shareBasis);
           notes.push(`${head}; the quoted market cap implies ${fmtMoney(implied)} shares outstanding at the quote, and the divisor is ${relation} that count. ${tail}`);

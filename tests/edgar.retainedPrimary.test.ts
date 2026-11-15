@@ -131,7 +131,7 @@ it.each(["complete", "missing tax", "refused tax", "before equity"])("recovers a
     expect(effectiveTaxRateFromTtm(out)).toBe(0.1);
     const waccTax = waccTaxRateFromStatements(out, { incomeBeforeTax: 100, incomeTaxExpense: 40 });
     expect(waccTax).toMatchObject({ rate: 0.1, fallback: null });
-    expect(waccTax.basis).toMatch(mode === "before equity" ? /before equity-method results/ : /TTM incomeTaxExpense \/ incomeBeforeTax/);
+    expect(waccTax.basis).toMatch(mode === "before equity" ? /before equity-method results/ : /TTM income tax expense \/ pre-tax income/);
     expect(gaps.some(g => g.field === "compute.ttmIncome.taxPair")).toBe(false);
   } else {
     expect(out.incomeBeforeTax).toBeNull();

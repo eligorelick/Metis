@@ -11,6 +11,146 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-299 - Product-line headings and segment row names are code-owned (2026-11-14)
+
+P18 and P19; release items R37 and R38. Owner: `src/pipeline/stageC/passes.ts` (assembly); `src/report/schema.ts`
+(the fallback heading). Revises D-271 round 2 (see that entry).
+
+**R37.** At assembly a heading stood only when it equalled a segment name or a filed quarterly member label (D-277),
+so a product the issuer's own 10-Q names ("Foundayo" for LLY #65) printed "Product line (its name is not in the cited
+claims)". Rule: a heading is also admitted when it has a proper name's shape (every word capitalized, except short
+connectors such as "and", "of", "&") and a FACT claim of the same item cited to one of the issuer's own retained SEC
+filing excerpts (an `edgar:` source) writes it as a whole name. The read-time rule (presentation) still prints it
+only when that claim verified or is a cited qualitative statement. The D-271 example "Verandol dominates the market"
+stays refused (it is a sentence), and a name that only a web source writes stays refused. The fallback heading is
+the neutral "Product line"; a stored or model-copied earlier placeholder is still never a name
+(`LEGACY_UNNAMED_PRODUCT_LINE_HEADING`).
+
+**R38.** Product segment rows (and the fallback geographic rows used when no admitted geography basis exists) kept
+the judge's names beside traced revenue. Rule (`boundSegmentName`): the row's name is the key of the one entry of the
+latest segmentation record whose amount is the row's revenue under the P8 same-observation allowance
+(`vendorAgreesWithFiled`), at the record's date and currency; with no single such entry the name is withheld as
+"Segment (name not matched to its record)". No revenue, share or other figure changes. On the fictional DEMO sample
+the three judge rows cite a 10-K excerpt, not the segmentation record, so their names are withheld.
+
+**Not done: R32 ("[member]" labels).** Only TSM's provider rows carry XBRL label syntax ("Wafer [member]",
+"Other Products [member]", "Europe Middle East and Africa [member]"). Its bundle retains no filed member label (a
+20-F filer: quarterly segments are "no 10-Q or 10-K among the filings of the last 15 months" and annual geography is
+not established), so no filed label establishes the stripped name, and the brief's rule does not allow stripping it.
+The names are unchanged. Needs a lead decision: retain the 20-F label linkbase, or accept the provider label.
+
+**Tests revised (D-271's assertion replaced, at least as strict).** `tests/report.businessStory.test.ts` "keeps a
+heading at assembly only when ..." now also expects an `edgar:`-cited proper name to stand ("Zelvan") and adds a
+web-only name ("Orvane") that must not; its no-segmentation control now runs on web-cited copies (all refused) and on
+the issuer-cited items (only the proper names stand).
+`tests/dataBundle.annualGeography.test.ts` now expects the invented vendor-path geography name to be withheld
+(was: kept); the row keeps its revenue and source.
+
+## D-298 - Filer-type and flow-completeness notes state only what is true (2026-11-14)
+
+P10, P20 and P24; release items R33 and R34. Owners: `src/providers/currentReports.ts` and its reader
+`src/pipeline/filingDisclosures.ts` (R33); `src/report/financialDiagnostics.ts` (R34).
+
+**R33.** A 20-F/40-F filer furnishes results on Form 6-K, so "no Item 2.02 (results) 8-K among the filings of the
+last 400 days" does not apply. The collector writes `foreignResultsNote(form)` ("6-K results releases are not read:
+as a 20-F filer the issuer furnishes its results on Form 6-K rather than an Item 2.02 8-K, so this report uses no
+results release") when the latest annual form is 20-F or 40-F. The reader replaces the owner's own domestic note
+(`isNoResultsEightKNote`) in a collection that predates this, typed on the retained `latestTenK` form. A 10-K filer
+keeps the domestic note (control). The "(Form 8-K, last 12 months)" heading prints only when 8-K event rows exist,
+which a 6-K filer has none of; the eligible-item scope note is unchanged.
+
+**R34.** "Complete TTM flows are used with the corresponding current balance" printed whenever the TTM basis ran,
+beside withheld flows. `trailingFlowStatement` reads the snapshot's typed values (operating cash flow, cash capex,
+consolidated net income, EBITDA): with all present the sentence is kept; otherwise it names the admitted flows and
+the ones not established for the window, whose figures are withheld. No flow or figure changes.
+
+## D-297 - Withheld, not wrong: a source-less gap and a dated margin refusal (2026-11-14)
+
+P10, P11, P20 and P21; release items R30 and R31. Owners: `src/report/legacyEntitySafety.ts` (R30);
+`src/edgar/revenueAdmission.ts` (`operatingMarginRefusal`) and `src/pipeline/filingDisclosures.ts` (R31).
+
+**R30.** The fiscal cash dividend payout row of a year whose operands are not established is written with
+`value: null`, a reason and an empty `source` (`compute.ts`, `fiscalCashDividendPayout`). The stored-report safety
+pass read every record with a string `source` and an `asOf` key as a citation, found the empty one ambiguous,
+rewrote it to `unsupported:legacy-citation` and added a "Legacy citation validation" warning, which also counted
+toward the data-warning confidence cap. Rule: a record with a null `value`, a non-empty `reason` and an empty source
+is a disclosed gap that cites nothing; it is left as written. A statement or a valued figure with an empty source is
+still marked (control). The filing table prints "no source: the ratio is withheld" for such a row.
+
+**R31.** "Operating margin withheld: ..." printed without its period, under "Filing review limitations", beside
+filed margins of other periods (an annual row can share the quarter's date). Rule: the refusal names its period
+("Operating margin for 2024-12-31 withheld: ..."), sits with the quarterly trend whose cell it explains, and the
+trend keeps it only while that field's typed conflict is still a refusal (`usable === false`), so a later admission
+of the same field supersedes it. On the LLY input the note belongs to the derived Q4 FY2024 quarter, whose margin the
+trend withholds; no shown quarter had a superseding filed reconstruction, so the note is dated and moved, not
+retired.
+
+## D-296 - Reader text names rules, settings and fields in words (2026-11-14)
+
+P20 and P22 (diagnostics belong to the audit export); release items R28 and R39. Owners: the producer of each string.
+Revises D-228's frozen wording (see that entry).
+
+**Problem.** Data-only reports opened with "ANTHROPIC_API_KEY not configured" and named "none (no ANTHROPIC_API_KEY)"
+as the model. Basis, note and gap text quoted decision ids ("(ASC 842; D-25)", "house rule D-65", "(D-57)", "D-237",
+"the D-60 net cash", "Timing (D-61, graded)", "(D-267)", "the D-98 chain" and others), the net-debt method label
+NET_DEBT_V3 and raw field names (totalDebt, totalEquity, cashAndShortTermInvestments, longTermInvestments,
+operatingIncome, incomeTaxExpense / incomeBeforeTax, temporaryEquity). Reader text told the reader to set
+`THESIS_EV_INCLUDE_LEASES=1` or named `THESIS_STATEMENT_SOURCE`, names the startup guard now refuses (D-228).
+
+**Rule.** A string that reaches a report, export or manifest names the rule in words. Decision ids stay in comments
+and this log; the method label stays in the structured `version` field. At each producer:
+- `jobRunner.ts`: `NO_KEY_SKIP_REASON` is "This report was built without an AI connection, so no AI analysis ran.";
+  the saved model label is `NO_KEY_MODEL_LABEL`, "none (no AI connection)". `dataOnlyReasonClause`
+  (`dataOnlyReport.ts`) reads a recorded reason as a clause inside the synthesis and section sentences.
+- About 50 strings in `stageB/valuation.ts`, `fairValue.ts`, `capital.ts`, `returns.ts`, `forensics.ts`,
+  `grading.ts`, `scoringEvidence.ts`, `sectorRouting.ts`, `pipeline/compute.ts`, `peers.ts`,
+  `estimateCurrency.ts`, `edgar/financialEnrichment.ts`, `edgar/temporaryEquityEnrichment.ts`,
+  `edgar/segmentFacts.ts`, `providers/reservedSymbols.ts` and the read-time notes of
+  `report/legacyPayloadRecordSafety.ts` drop the id, or say "house rule" / "house convention" where the sentence
+  already states the rule.
+- `capital.ts` and `compute.ts` print "house net-debt basis:" for the method label; the invested-capital,
+  sales-to-capital, EBITDA and tax-rate bases name total debt, total equity, parent stockholders' equity,
+  noncontrolling interest, cash and short-term investments, long-term investments, temporary equity, operating
+  income, income tax expense and pre-tax income in words (`ownership.ts` owns the equity-basis labels).
+- `keyless.ts`, `valuation.ts` and `returns.ts` name `METIS_STATEMENT_SOURCE` and `METIS_EV_INCLUDE_LEASES`.
+  `THESIS_JUDGE_ORDER` (a judge-prompt key) stays frozen; the retired-name guard is unchanged; saved reports keep
+  their bytes. `tests/config.retiredSettings.test.ts` now allows only that one THESIS_ line in `src` (stricter).
+
+**Limits.** Judge-prompt text in `stageC/payload.ts` keeps its ids (prompt bytes, not reader text; W1's file);
+`presentation.ts` keeps its read-time rewrite of a stored "WS6 D-18" sentence. Field names inside generic gap lists
+(for example "eps, epsDiluted, weightedAverageShsOut" in keyless share-basis gaps, and `${field}` in filed-replacement
+reasons) are not reworded: that needs a field-label map that no owner has yet. "Cash sti" is presentation-owned (W1).
+Guard: `tests/release.presentationProducers.test.ts` scans every string literal in `src` for a decision id outside
+the allowed prompt lines.
+
+**Same-report check (all four decisions).** Main a020ac44 against this branch, 33 panel cases (25 data-only, 8
+fixed-analyst): every case changes text only. No number, verification flag, coverage rate or score leaf changes in
+any `stageB.json` or `report.json` (checked leaf by leaf). Per item: R28 no-AI reason and model label on all 25
+data-only cases; decision ids, NET_DEBT_V3 and field names in basis/note/gap text on all 33; R30 LLY (all three cases:
+the "Legacy citation validation" warning and the `unsupported:legacy-citation` cell go, so the data-issue count is 13,
+was 14, and LLY #65's fundamentals confidence note reads "13 data warnings"); R31 LLY (all three cases), O, PGR, XOM
+(the margin note is dated and moves to the trend); R33 TSM, NVO (both TSM cases); R34 META (both cases), NVO, O, PLD, TSM (both cases),
+VKTX and FIGR (the TTM window withholds a flow); R37 LLY #65 ("Foundayo" printed twice; other unnamed headings read "Product
+line"), JPM #64 ("Home Lending", "Investment Banking" printed), TSM #66 (stored names admitted, all still printed as
+"Product line" by the read-time rule); R38 NVDA ("China including Hong Kong (quarter ended 2026-07-26)" becomes the
+filed label "China (including Hong Kong) (quarter ended 2026-07-26)"), all other bound names unchanged; R39 none of
+the panel cases runs with the lease or statement-source setting. Accuracy check (25-company panel files):
+330 match, 14 mismatch, 121 gap, 70 not-established before and after; no figure changes status.
+
+**Tests revised (wording pins, at least as strict).** Assertions that quoted the old text now quote the new text
+(and, for NET_DEBT_V3 and the retired setting names, also assert their absence). Hash pins of text re-pinned after a
+leaf comparison showed only text moved: `tests/liquidity.unrepairedParity.test.ts` (216 disclosure hashes; every
+number checked equal), the Stage B subtree digests in `tests/stageC.payload.passes.test.ts` (`returns`, `capital`,
+`gaps`), and `tests/report.forensicObservationContext.test.ts`, which now asserts the 25 new text leaves
+(`tests/fixtures/release-w4a-wording-deltas.json`, generated against main a020ac44) and restores the old ones before
+its earlier pins.
+
+**Version stamps (D-296-D-299 together).** Report 1.94.0 -> 1.95.0, payload 1.108.0 -> 1.109.0, pipeline
+stage-c-1.6.49 -> stage-c-1.6.50, Stage B `STAGE_B_2026_11_COMPLETE_RATIO_INPUTS_81` ->
+`STAGE_B_2026_11_READER_WORDING_82`. Frozen records re-recorded under D-296 (`stagec-payload`, `audit-fixture`):
+text leaves only, no number. Score bands, fair-value, scenario and net-debt resolver stamps do not move (no
+calculation changes).
+
 ## D-291 - A model value that moves more than 10% needs a decision entry (2026-11-14)
 
 P16, P17 and P27. Owner: `scripts/golden/value-check.ts` (`npm run golden:value-check`), beside `golden:diff` in the
@@ -599,6 +739,10 @@ with `--update-expectation`, and their notes now state the filed match.
 ## D-271 - A home for the business story, for every company type (2026-11-14)
 
 **Revised by D-277:** assembly also admits the code-built filed quarterly XBRL member labels, using the same whole-name match.
+
+**Revised by D-299:** assembly also admits a heading with a proper name's shape that a FACT claim cited to the issuer's own
+retained SEC filing excerpt writes as a whole name; the fallback heading is the neutral "Product line"; and product
+(and fallback geographic) segment row names are the record's own key, bound by amount, or withheld.
 
 P18, P20, P21 and P22. Owners: `src/report/schema.ts` (fields and the heading
 rule), `src/pipeline/stageC/passes.ts` (generation), `src/pipeline/stageC/prompts.ts`
@@ -7070,6 +7214,9 @@ needs the code on the valuation result as well. Out of scope here: switching
 any consumer, links between copied refusals, saved-report readers, S1.
 
 ## D-228 - Only METIS_ names configure Metis; a leftover THESIS_ name stops startup (2026-11-12)
+
+**Revised by D-296:** the frozen reader wording that still spelled `THESIS_STATEMENT_SOURCE` and `THESIS_EV_INCLUDE_LEASES`
+(`keyless.ts`, `stageB/valuation.ts`, `stageB/returns.ts`) now names the `METIS_*` setting; `THESIS_JUDGE_ORDER` stays frozen.
 
 Principles P23, P24 and P26. Revises D-21 (the `X-Thesis-Token` header and the
 `THESIS_RESUME_ON_START` name) and D-143 / B11-OD-5 (the startup warning about

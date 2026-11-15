@@ -74,6 +74,29 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
 }
 
 /** Pipeline-owned reconciliations are shared by AI and data-only reports. */
+type CurrentCapital = NonNullable<NonNullable<ComputedMetrics["capital"]>["current"]>;
+
+/**
+ * D-298 (P10, P20): on the TTM basis, say which trailing flows this window
+ * admitted and which it withholds, instead of calling every flow complete.
+ * Read from the snapshot's typed values: a withheld flow is null there, and
+ * every figure built on it is withheld too.
+ */
+export function trailingFlowStatement(current: Pick<CurrentCapital, "netIncome" | "ebitda" | "cashBridge">): string {
+  const flows: [string, number | null][] = [
+    ["operating cash flow", current.cashBridge.operatingCashFlow],
+    ["cash capital expenditure", current.cashBridge.cashCapitalExpenditure],
+    ["consolidated net income", current.netIncome ?? null],
+    ["EBITDA", current.ebitda ?? null],
+  ];
+  const withheld = flows.filter(([, value]) => value === null).map(([name]) => name);
+  if (withheld.length === 0) return "Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled.";
+  const admitted = flows.filter(([, value]) => value !== null).map(([name]) => name);
+  const list = (names: string[]) => names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+  return `${admitted.length > 0 ? `TTM ${list(admitted)} ${admitted.length === 1 ? "is" : "are"} used with the corresponding current balance; ` : ""}` +
+    `TTM ${list(withheld)} ${withheld.length === 1 ? "is" : "are"} not established for this window, so the figures built on ${withheld.length === 1 ? "it" : "them"} are withheld; annual historical series remain separately labeled.`;
+}
+
 export function applyFinancialDiagnostics(report: Report, computed: ComputedMetrics, bundle?: DataBundle, options: {pendingVerification?:boolean; executiveEvidence?: ExecutiveDecisionEvidence} = {}): Report {
   const next = structuredClone(report);
   // structuredClone preserves internal aliases: grade keyNumbers may be the
@@ -127,7 +150,7 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
     }
     // Method statements, not issuer facts: JUDGMENT (audit 2026-10-22 F-20).
     next.balanceSheet.coverage.commentary.push({ label: "JUDGMENT", source: "computed.capital.current", asOf: current.asOf,
-      text: `Capital grading basis: ${period}. ${current.fallbackReason ?? "Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled."} ${current.cashBridge.definition}` });
+      text: `Capital grading basis: ${period}. ${current.fallbackReason ?? trailingFlowStatement(current)} ${current.cashBridge.definition}` });
     next.balanceSheet.debtProfile.commentary.push({ label: "JUDGMENT", source: "computed.capital.current", asOf: current.asOf,
       text: [current.debtBridge.compositionNote, current.debtBridge.leaseScopeNote ?? "The debt bridge shows debt on the retained basis and the selected operating-lease basis, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero.", current.debtBridge.leaseEvidenceNote]
         .filter((text): text is string => text !== undefined).join(" ") });

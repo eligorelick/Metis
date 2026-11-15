@@ -4505,6 +4505,48 @@ function latestSegmentationTotal(
 /** D-280: shares use same-period consolidated revenue only after the full split reconciles (P8).
  * Missing, partial or overlapping splits withhold every share; model percentages are discarded.
  */
+/** D-299 (P18): the name a product segment row carries when no record binds it. */
+export const UNBOUND_SEGMENT_NAME = "Segment (name not matched to its record)";
+
+/**
+ * D-299 (P18, P19): a product segment row's name is code-owned. It is the name
+ * of the one entry of the latest segmentation record whose amount is the row's
+ * revenue (the same-observation allowance of P8) at the record's own date and
+ * currency; the record's own key replaces the model's text. With no such
+ * single entry the name is withheld.
+ */
+export function boundSegmentName(
+  row: { name: string; revenue: { value: number; period?: string | null; currency?: string | null } },
+  res: DataBundle["segmentation"]["product"] | undefined,
+  filedQuarters?: NonNullable<DataBundle["edgar"]>["quarterlySegments"],
+): string {
+  const value = row.revenue.value;
+  if (typeof value !== "number" || !Number.isFinite(value)) return UNBOUND_SEGMENT_NAME;
+  const period = row.revenue.period == null ? null : row.revenue.period.slice(0, 10);
+  const agrees = (amount: unknown): boolean => typeof amount === "number" && Number.isFinite(amount) && vendorAgreesWithFiled(amount, value);
+  // The latest segmentation record (provider or filed annual rows): its own key.
+  const latest = res?.ok ? res.value?.data.rows[0] : undefined;
+  const data = latest?.data;
+  if (latest !== undefined && data !== undefined && data !== null && typeof data === "object") {
+    const date = typeof latest.date === "string" ? latest.date.slice(0, 10) : null;
+    const currencyOk = row.revenue.currency == null || typeof latest.reportedCurrency !== "string" || row.revenue.currency === latest.reportedCurrency;
+    if ((period === null || period === date) && currencyOk) {
+      const matches = Object.entries(data).filter(([, amount]) => agrees(amount));
+      if (matches.length === 1) return matches[0]![0];
+    }
+  }
+  // The filed quarterly segment table (D-277's code-built member labels): the label
+  // of the one cell at the row's quarter end, named with that quarter.
+  if (filedQuarters?.ok && period !== null) {
+    const cells = filedQuarters.value.data.axes.flatMap(axis =>
+      row.revenue.currency != null && axis.currency !== row.revenue.currency ? [] :
+      axis.quarters.flatMap((quarter, index) => quarter.end === period
+        ? axis.rows.filter(segment => agrees(segment.values[index])).map(segment => `${segment.label} (quarter ended ${quarter.end})`) : []));
+    if (cells.length === 1) return cells[0]!;
+  }
+  return UNBOUND_SEGMENT_NAME;
+}
+
 export function applySegmentShares(
   business: JudgeOutput["business"],
   bundle: DataBundle | undefined,
@@ -4528,12 +4570,13 @@ export function applySegmentShares(
       sharePct: share(value, geographicTotal.total),
       shareWithheldReason: geographicTotal.reason,
     }))
-    : business.segments.geographic.map(row => ({ ...row, sharePct: share(row.revenue.value, geographicTotal.total), shareWithheldReason: geographicTotal.reason }));
+    : business.segments.geographic.map(row => ({ ...row, name: boundSegmentName(row, primary, bundle?.edgar?.quarterlySegments), sharePct: share(row.revenue.value, geographicTotal.total), shareWithheldReason: geographicTotal.reason }));
   return {
     ...business,
     segments: {
       product: business.segments.product.map((row) => ({
         ...row,
+        name: boundSegmentName(row, bundle?.segmentation?.product, bundle?.edgar?.quarterlySegments),
         sharePct: share(row.revenue.value, productTotal.total),
         shareWithheldReason: productTotal.reason,
       })),
@@ -4583,8 +4626,30 @@ export function bundleSegmentNameKeys(bundle: DataBundle | undefined): Set<strin
  * heading replaces it and the claims are kept. The
  * read-time rule (a naming FACT must be validated or qualitative) still applies.
  */
-export function gateProductLineHeadings<T extends { productLine: string }>(items: readonly T[] | undefined, names: ReadonlySet<string>): T[] | undefined {
-  return items?.map(item => names.has(productLineHeadingKey(item.productLine)) ? item : { ...item, productLine: UNNAMED_PRODUCT_LINE_HEADING });
+export function gateProductLineHeadings<T extends { productLine: string; claims?: readonly Pick<SourcedClaim, "text" | "label" | "source">[] }>(items: readonly T[] | undefined, names: ReadonlySet<string>): T[] | undefined {
+  return items?.map(item => names.has(productLineHeadingKey(item.productLine)) || issuerFilingNamesHeading(item) ? item : { ...item, productLine: UNNAMED_PRODUCT_LINE_HEADING });
+}
+
+/** D-299: the words a proper name may carry in lower case. */
+const NAME_CONNECTORS = new Set(["and", "of", "for", "the", "in", "on", "with", "&", "-", "de", "y"]);
+
+/**
+ * D-299 (revising D-271 round 2 for one case): a heading that has a proper
+ * name's shape (every word capitalized except short connectors, so a sentence
+ * such as "Verandol dominates the market" is not one) is code-admitted when a
+ * FACT claim of the same item, cited to one of the issuer's own retained SEC
+ * filing excerpts (an `edgar:` source), writes it as a whole name. The
+ * read-time rule still prints it only when that claim verified or is a cited
+ * qualitative statement.
+ */
+export function issuerFilingNamesHeading(item: { productLine: string; claims?: readonly Pick<SourcedClaim, "text" | "label" | "source">[] }): boolean {
+  const heading = item.productLine.trim();
+  const words = heading.split(/\s+/);
+  const nameShape = productLineHeadingIsName(heading) && /^\p{Lu}/u.test(words[0] ?? "") &&
+    words.every(word => NAME_CONNECTORS.has(word.toLowerCase()) || /^\p{Lu}/u.test(word));
+  if (!nameShape) return false;
+  const filed = (item.claims ?? []).filter(claim => typeof claim.source === "string" && /^edgar:/i.test(claim.source));
+  return productLineNamedInClaims({ productLine: heading, claims: filed });
 }
 
 /** The sources an executive decision may quote: the same excerpts the verify pass reads. */

@@ -11,7 +11,7 @@
  * emits "error".
  *
  * Degrades gracefully with NO Anthropic key: runs fetch/validate/compute, marks
- * the four LLM steps "skipped" (reason "ANTHROPIC_API_KEY not configured"), and
+ * the four LLM steps "skipped" (reason `NO_KEY_SKIP_REASON`), and
  * persists a data-only Report stub (meta + appendix + empty graded sections
  * flagged) so the UI always has something to render. Missing data NEVER throws
  * (non-negotiable rule #4); a failed LLM step marks that step
@@ -105,7 +105,7 @@ import { persistRunInputSnapshot, readJobRunSnapshotRef, readRunInputSnapshot } 
 import { validateBundle, type ValidationReport } from "@/pipeline/stageA/validate";
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { canonicalizeFetchedUrl } from "@/pipeline/stageC/provenance";
-import { enrichDataOnlyReport } from "@/pipeline/stageC/dataOnlyReport";
+import { dataOnlyReasonClause, enrichDataOnlyReport } from "@/pipeline/stageC/dataOnlyReport";
 import { isIncompleteAnalystCase, previousOutputBlock } from "@/pipeline/stageC/payload";
 import {
   getJobSnapshot,
@@ -557,8 +557,17 @@ export interface ReportMetaInput {
 
 export { PIPELINE_VERSION } from "@/report/versions";
 
-/** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
-export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
+/**
+ * Reason recorded on skipped LLM steps when no Anthropic key is configured. It is
+ * reader text (the data-only banner, synthesis and section notes quote it), so it
+ * says in plain words that no AI analysis ran and why; the configuration variable
+ * name stays out of reader surfaces (D-296).
+ */
+export const NO_KEY_SKIP_REASON = "This report was built without an AI connection, so no AI analysis ran." as const;
+
+/** Saved model label for a data-only report built without an AI connection (D-296). */
+export const NO_KEY_MODEL_LABEL = "none (no AI connection)" as const;
+
 
 /** Reason recorded when the ticker resolved to no usable data, so no model is called. */
 export const NO_ANALYZABLE_DATA_REASON =
@@ -4571,7 +4580,7 @@ function persistDataOnly(
 
   const generatedAt = now().toISOString();
   const model = hasKey ? "unavailable" : disclosure.reason && disclosure.reason !== NO_KEY_SKIP_REASON
-    ? "none (AI connection unavailable)" : "none (no ANTHROPIC_API_KEY)";
+    ? "none (AI connection unavailable)" : NO_KEY_MODEL_LABEL;
   const dataOnlyInput: DataOnlyInput = {
     symbol: state.symbol,
     companyName: companyNameOf(bundle, state.symbol),
@@ -5436,7 +5445,7 @@ export function buildDataOnlyReport(input: DataOnlyInput): Report {
   // ran and a schema placeholder when it did not; "ungraded" (before the
   // 2026-09-06 audit, F170) contradicted the band shown next to it.
   const flagClaim = {
-    text: `No completed analysis is available — ${input.reason.replace(/[.!?]+$/, "")}. This section is data-only: no analyst grade exists; any displayed score band comes from deterministic calculations.`,
+    text: `No completed analysis is available — ${dataOnlyReasonClause(input.reason)}. This section is data-only: no analyst grade exists; any displayed score band comes from deterministic calculations.`,
     label: "JUDGMENT" as const,
     source: "pipeline",
     asOf: null,

@@ -1522,7 +1522,7 @@ function ttmTaxRatePretax(q: FmpIncomeStatementRow[], pretax: number, tax: numbe
   const tag = q.map(row => row.pretaxIncomeBeforeEquityMethod?.proof.tags[0]).find(Boolean) ?? "the filed pre-tax line";
   return { value, basis: `TTM effective tax rate: the provision${tax === null ? "" : ` ${tax}`} is divided by ${value}, the four quarters' filed pre-tax income before ` +
     `equity-method results (${tag}), not by the ${pretax} that includes the after-tax equity-method results, because the filer presents those results after its ` +
-    `provision. Filed operands: ${operands.join("; ")}. Pre-tax income elsewhere keeps the figure that reconciles to net income (P13, D-237).` };
+    `provision. Filed operands: ${operands.join("; ")}. Pre-tax income elsewhere keeps the figure that reconciles to net income.` };
 }
 
 /**
@@ -1564,8 +1564,8 @@ export function waccTaxRateFromStatements(ttm: TtmIncome | null, latestAnnual: F
       recoveredPretax.tags.includes(`us-gaap/${PRETAX_EXCLUDING_EQUITY_METHOD_TAG}`) ||
       recoveredPretax.calculation === "pretax-plus-equity-method");
     return { rate: ttmRate, basis: rebased
-      ? "TTM incomeTaxExpense / filed pre-tax income before equity-method results, from the statements (observed effective rate; the provider's ratio divides by pre-tax income after those results, D-237)"
-      : "TTM incomeTaxExpense / incomeBeforeTax from the statements (observed effective rate)", fallback: null };
+      ? "TTM income tax expense / filed pre-tax income before equity-method results, from the statements (observed effective rate; the provider's ratio divides by pre-tax income after those results)"
+      : "TTM income tax expense / pre-tax income from the statements (observed effective rate)", fallback: null };
   }
   const zeroShield = (why: string) => {
     const basis = `0% tax shield: ${why}, so no effective rate exists and the debt is given no tax shield (house rule, audit 2026-10-22 B-32)`;
@@ -1579,7 +1579,7 @@ export function waccTaxRateFromStatements(ttm: TtmIncome | null, latestAnnual: F
   const tax = num(latestAnnual?.incomeTaxExpense);
   if (date === null || pretax === null || tax === null) return { rate: null, basis: null, fallback: null };
   if (!(pretax > 0)) return zeroShield(`no complete TTM tax pair, and the latest annual pre-tax income is not positive (${pretax}, FY ending ${date})`);
-  const basis = `latest annual incomeTaxExpense / incomeBeforeTax, FY ending ${date} (observed effective rate; no complete TTM tax pair exists)`;
+  const basis = `latest annual income tax expense / pre-tax income, FY ending ${date} (observed effective rate; no complete TTM tax pair exists)`;
   return { rate: tax / pretax, basis, fallback: basis };
 }
 
@@ -2559,7 +2559,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     ttmGaps.push({ field: "statements.income.annual.taxRatePretaxIncome", severity: "info", expected: true, attemptedSources: ["edgar:companyfacts"],
       reason: "Annual effective tax rates (the ROIC series' tax rate and the DCF's historical tax rates) divide each year's provision by the filed pre-tax income before " +
         "equity-method results, not by the pre-tax figure that includes the after-tax equity-method result, because the filer presents that result after its provision. " +
-        `Filed operands: ${annualTaxBases.join("; ")}. Pre-tax income elsewhere keeps the figure that reconciles to net income (P13, D-237).` });
+        `Filed operands: ${annualTaxBases.join("; ")}. Pre-tax income elsewhere keeps the figure that reconciles to net income.` });
   }
 
   const routingCashflowTtm: RoutingCashflowRow | null = ttmCf
@@ -2975,10 +2975,10 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     const convertedSource = altmanRun?.variant === "original" ? altmanRun.asOf.marketCapSource ?? null : null;
     const refusal = altmanRun?.gaps.some((g) => g.field === "forensics.altman.currency") === true ? foreignCapRefusal : null;
     const altmanNote = convertedSource !== null && convertedSource.startsWith("current market capitalization converted at")
-      ? `Altman X4 converts the admitted USD market capitalization observed on ${altmanRun!.asOf.marketCap} back into the reporting currency (${convertedSource}) for its local-currency liability denominator, both dated with the ${altmanRun!.asOf.balanceSheet} balance sheet (D-267).`
+      ? `Altman X4 converts the admitted USD market capitalization observed on ${altmanRun!.asOf.marketCap} back into the reporting currency (${convertedSource}) for its local-currency liability denominator, both dated with the ${altmanRun!.asOf.balanceSheet} balance sheet.`
       : refusal !== null
-        ? `Altman X4 does not use the converted market capitalization: ${refusal}${altmanRun?.variant === "private" ? "; the book-equity Z-prime variant is used instead" : ""} (D-267).`
-        : `Altman does not use the converted market capitalization: ${altmanRun === null ? "no Altman score is computed" : `the ${altmanRun.variant} variant uses book equity`} (D-267).`;
+        ? `Altman X4 does not use the converted market capitalization: ${refusal}${altmanRun?.variant === "private" ? "; the book-equity Z-prime variant is used instead" : ""}.`
+        : `Altman does not use the converted market capitalization: ${altmanRun === null ? "no Altman score is computed" : `the ${altmanRun.variant} variant uses book equity`}.`;
     forensics.notes.push(`${foreignBasis.note} ${altmanNote}`);
   }
 
@@ -5306,7 +5306,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   }
   if (!financialRoute && netDebtInfo.value === null && balPoint !== null) {
     result.notes.push(
-      `${netDebtInfo.version}: net debt unavailable — ${netDebtInfo.reason}`,
+      `House net-debt basis: net debt unavailable — ${netDebtInfo.reason}`,
     );
     // Review m5: only a provider balance has an FMP netDebt field to set aside; a keyless report names none.
     const balPointFamily = balPointBasis === "quarter" ? bundle.statements.balanceQuarterly : bundle.statements.balanceAnnual;
@@ -5320,7 +5320,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   } else if (!financialRoute && netDebtInfo.value !== null) {
     const c = netDebtInfo.components;
     result.notes.push(
-      `${netDebtInfo.version}: ${balPoint?.cashConflictReconciled ? netDebtInfo.reason + "; " : ""}net debt ${netDebtInfo.value} as of ${netDebtInfo.asOf ?? "?"}; totalDebt ${c.totalDebt}, cashAndShortTermInvestments ${c.cashAndShortTermInvestments ?? "derived from cash + shortTermInvestments"}` +
+      `House net-debt basis: ${balPoint?.cashConflictReconciled ? netDebtInfo.reason + "; " : ""}net debt ${netDebtInfo.value} as of ${netDebtInfo.asOf ?? "?"}; total debt ${c.totalDebt}, cash and short-term investments ${c.cashAndShortTermInvestments ?? "derived from cash + short-term investments"}` +
         (netDebtInfo.nonOperatingEquitySecurities !== undefined
           ? `, less marketable equity securities ${netDebtInfo.nonOperatingEquitySecurities} that are not cash (${str(balPoint?.marketableEquityBasis) ?? "filed fair value"})`
           : ""),

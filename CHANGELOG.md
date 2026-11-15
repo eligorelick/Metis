@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.94.0** and
-payload **1.108.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.95.0** and
+payload **1.109.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,15 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Reader wording at the producers (D-296-D-299) (2026-11-14)
+
+- Data-only reports say "This report was built without an AI connection, so no AI analysis ran." instead of naming the API-key variable; the saved model label is "none (no AI connection)" (D-296).
+- Basis, note and gap text no longer quotes decision ids, the net-debt method label or raw field names; it names the rule, the setting (`METIS_EV_INCLUDE_LEASES`, `METIS_STATEMENT_SOURCE`) and the figure in words (D-296, revising D-228's frozen wording).
+- A withheld dividend-payout year with no source is a disclosed gap, not an "ambiguous legacy citation"; a withheld operating margin names its period and sits with the quarterly trend (D-297).
+- 20-F/40-F filers get a foreign-filer note (6-K results releases are not read) instead of the domestic Item 2.02 8-K note; the TTM capital basis names the flows it admitted and the ones withheld (D-298).
+- Product-line headings named by the issuer's own filing excerpt stand; the fallback heading is "Product line"; segment row names are the record's own key or withheld (D-299, revising D-271). TSM's "[member]" labels are unchanged: no filed label is retained (needs a lead decision).
+- Report 1.95.0, payload 1.109.0, Stage B `STAGE_B_2026_11_READER_WORDING_82`, pipeline `stage-c-1.6.50`; no figure changes.
 
 ## Unreleased - W3 review corrections (D-286-D-290)
 

@@ -98,7 +98,7 @@ describe("FIN-303: sales-to-capital removes the operating lease the bridge remov
     const noLease = buildDcfAssumptions(dcfInput(noLeaseBalance));
     // 1000 / (300 - 200 + 500 - 100) = 2.0, the no-lease balance's own figure.
     expect(withLease.assumptions!.salesToCapital.value).toBeCloseTo(2.0, 9);
-    expect(withLease.assumptions!.salesToCapital.basis).toMatch(/operating-lease liability 200M removed: its cost is inside the EBIT this DCF projects \(ASC 842; D-25\)/);
+    expect(withLease.assumptions!.salesToCapital.basis).toMatch(/operating-lease liability 200M removed: its cost is inside the EBIT this DCF projects \(ASC 842\)\./);
     // Control: a balance with no lease, and the lease-inclusive switch (the default's opposite).
     expect(noLease.assumptions!.salesToCapital.value).toBeCloseTo(2.0, 9);
     const included = buildDcfAssumptions(dcfInput(withLeaseBalance, { includeLeasesInEv: true }));

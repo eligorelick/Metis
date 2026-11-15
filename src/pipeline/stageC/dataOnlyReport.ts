@@ -252,6 +252,16 @@ function quotePrice(bundle: DataBundle): { price: number; asOf: string | null } 
  * nobody made.
  */
 export const NEUTRAL_MIDPOINT_SCORE = 50;
+/**
+ * A recorded data-only reason as a clause inside a reader sentence: its closing
+ * punctuation is dropped and a sentence-initial capital (not an acronym such as
+ * "LLM") is lowered, so "(…)" and "— …." read as one sentence (D-296).
+ */
+export function dataOnlyReasonClause(reason: string): string {
+  const trimmed = reason.trim().replace(/[.!?]+$/, "");
+  return /^[A-Z][a-z]/.test(trimmed) ? `${trimmed[0]!.toLowerCase()}${trimmed.slice(1)}` : trimmed;
+}
+
 
 const ASPECT_LABEL: Record<ScoreAspect, string> = {
   fundamentals: "fundamentals",
@@ -821,7 +831,7 @@ function synthesis(
   disclosedGaps: number,
 ): string {
   const parts: string[] = [
-    `Data-only report: no completed multi-pass analysis is available (${reason}), so there is no analyst synthesis, no narrative scenarios and no analyst grades.`,
+    `Data-only report: no completed multi-pass analysis is available (${dataOnlyReasonClause(reason)}), so there is no analyst synthesis, no narrative scenarios and no analyst grades.`,
   ];
   const composite = computed.scores.composite;
   if (composite.score !== null && composite.band !== null) {
@@ -913,7 +923,7 @@ function enrichDataOnlyReportInContext(stub: Report, args: EnrichDataOnlyReportA
   const asOf = computed.builtAt.slice(0, 10);
   const flagClaim =
     stub.fundamentals.commentary[0] ??
-    ({ text: `No completed LLM analysis is available — ${args.reason}.`, label: "JUDGMENT", source: "pipeline", asOf: null } satisfies SourcedClaim);
+    ({ text: `No completed LLM analysis is available — ${dataOnlyReasonClause(args.reason)}.`, label: "JUDGMENT", source: "pipeline", asOf: null } satisfies SourcedClaim);
 
   const block = (key: ScoreAspect): GradeBlock => gradeBlock(key, computed.scores.aspects[key], asOf, flagClaim);
   const fundamentalsGrade = block("fundamentals");

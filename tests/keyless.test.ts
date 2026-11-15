@@ -601,7 +601,7 @@ describe("applyKeylessFallbacks", () => {
     // The reason is the operator's policy, not an FMP shortfall FMP did not
     // have; a configured substitution is structural on a keyed plan too.
     const entry = out.gaps.find((g) => g.field === "keyless.incomeAnnual");
-    expect(entry?.reason).toMatch(/because THESIS_STATEMENT_SOURCE=edgar sets aside FMP's 1 vendor row\(s\)$/);
+    expect(entry?.reason).toMatch(/because METIS_STATEMENT_SOURCE=edgar sets aside FMP's 1 vendor row\(s\)$/);
     expect(entry?.reason).not.toMatch(/returned no rows/);
     expect(entry?.expected).toBe(true);
     // A member FMP never served keeps the shortfall wording.
@@ -629,10 +629,10 @@ describe("applyKeylessFallbacks", () => {
     expect(out.members.incomeAnnual.gap.field).toBe("statements.incomeAnnual");
     expect(out.members.incomeAnnual.gap.reason).toMatch(/^EDGAR companyfacts produced no incomeAnnual rows: /);
     expect(out.members.incomeAnnual.gap.reason).toMatch(
-      /; FMP's 2 vendor row\(s\) were withheld because THESIS_STATEMENT_SOURCE=edgar builds statements from filed facts only$/,
+      /; FMP's 2 vendor row\(s\) were withheld because METIS_STATEMENT_SOURCE=edgar builds statements from filed facts only$/,
     );
     expect(out.members.incomeAnnual.gap.attemptedSources).toContain("/stable/x");
-    expect(out.notes).toContain("incomeAnnual: FMP's 2 vendor row(s) withheld under THESIS_STATEMENT_SOURCE=edgar");
+    expect(out.notes).toContain("incomeAnnual: FMP's 2 vendor row(s) withheld under METIS_STATEMENT_SOURCE=edgar");
     // The other modes keep the vendor's rows exactly as before.
     const auto = await applyKeylessFallbacks(inputs({ fmp, fmpKeyless: false, statementSource: "auto", edgar }));
     expect(auto.members.incomeAnnual.ok && auto.members.incomeAnnual.value.source).toBe("fmp");
@@ -667,12 +667,12 @@ describe("applyKeylessFallbacks", () => {
     expect(vendorOnly.members.incomeAnnual.ok && vendorOnly.members.incomeAnnual.value.data.rows).toHaveLength(1);
     expect(vendorOnly.members.incomeAnnual.ok && vendorOnly.members.incomeAnnual.value.endpoint).toBe("/stable/x");
     expect(vendorOnly.notes).toContain(
-      "predecessor history from CIK 0000034088 not appended: THESIS_STATEMENT_SOURCE=fmp keeps the statements vendor-only",
+      "predecessor history from CIK 0000034088 not appended: METIS_STATEMENT_SOURCE=fmp keeps the statements vendor-only",
     );
     expect(vendorOnly.gaps.find((g) => g.field === "edgar.predecessor")).toMatchObject({
       severity: "info",
       expected: true,
-      reason: expect.stringContaining("THESIS_STATEMENT_SOURCE=fmp keeps the statements vendor-only"),
+      reason: expect.stringContaining("METIS_STATEMENT_SOURCE=fmp keeps the statements vendor-only"),
     });
   });
 

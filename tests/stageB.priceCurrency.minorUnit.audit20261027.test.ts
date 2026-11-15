@@ -99,7 +99,7 @@ describe("FIN-107 minor-unit quote currencies", () => {
       kind: "not-compared", reason: "size not compared: listed in GBP, the subject in an unestablished currency; no currency conversion",
     });
     expect(peerDiscoveryScreen({ ...input, subjectCurrency: "GBP", peerCurrency: "GBp" })).toEqual({
-      kind: "excluded", reason: "size screen: market cap 0M is 1,000,000× smaller than the subject's 1.00B, outside the 100× comparable-size band (house rule D-65)",
+      kind: "excluded", reason: "size screen: market cap 0M is 1,000,000× smaller than the subject's 1.00B, outside the 100× comparable-size band (house rule)",
     });
   });
 });

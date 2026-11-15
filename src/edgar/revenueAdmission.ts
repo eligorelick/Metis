@@ -303,10 +303,13 @@ export function standaloneFiledOperatingIncome(row: FmpIncomeStatementRow, perio
     ? {value:row.operatingIncome,proof} : null;
 }
 
-export function operatingMarginRefusal(row: Pick<FmpIncomeStatementRow,"fieldProvenance">): string {
+/** D-297: the refusal names the period it withholds, so a reader can tell it
+ * from filed margins of other periods (an annual row can share the date). */
+export function operatingMarginRefusal(row: Pick<FmpIncomeStatementRow,"fieldProvenance"|"date">): string {
+  const period = typeof row.date === "string" && /^\d{4}-\d{2}-\d{2}/.test(row.date) ? ` for ${row.date.slice(0, 10)}` : "";
   return row.fieldProvenance?.operatingIncome || row.fieldProvenance?.nonMarginOperatingIncome ?
-    "Operating margin withheld: revenue uses a different filing basis; the prior filed operating result remains available for non-margin measures." :
-    "Operating margin withheld: the provider operating result has no corroborated bridge on the admitted revenue basis; it remains an unverified observation for non-margin measures.";
+    `Operating margin${period} withheld: revenue uses a different filing basis; the prior filed operating result remains available for non-margin measures.` :
+    `Operating margin${period} withheld: the provider operating result has no corroborated bridge on the admitted revenue basis; it remains an unverified observation for non-margin measures.`;
 }
 
 /** A shortcut using cash paid or disagreeing interest concepts is not an
