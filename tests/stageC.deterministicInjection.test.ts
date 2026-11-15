@@ -27,6 +27,7 @@ import type { DataBundle } from "@/pipeline/types";
 import type { DataSource } from "@/types/core";
 import type { JudgeOutput, Report } from "@/report/schema";
 import { ReportSchema } from "@/report/schema";
+import { annualSegmentHeading } from "@/report/presentation";
 import {
   assembleReport,
   applyMultiples,
@@ -703,4 +704,16 @@ it("D-280 quarterly split reconciles to quarterly revenue and carries a typed re
   expect(applySegmentShares(business,bundle).segments.product[0]).toMatchObject({sharePct:null,shareWithheldReason:"revenue-refused"});
   row.date="2026-03-27";
   expect(applySegmentShares(business,bundle).segments.product[0]).toMatchObject({sharePct:null,shareWithheldReason:"no-same-period-revenue"});
+});
+
+// D-280 review round 2 (P10): a withheld or unavailable feed names no revenue cause (the heading then says the share
+// basis is not established); only a feed that is present can be said to lack same-period revenue.
+it("D-280 a withheld segment feed withholds shares without claiming revenue is missing", () => {
+  const {bundle} = buildInputs();
+  const business=judgeOutput().business;
+  bundle.segmentation.product = { ok:false, error:{ kind:"withheld", message:"vendor names contradict the filed members" } } as unknown as typeof bundle.segmentation.product;
+  const shared = applySegmentShares(business,bundle).segments.product[0]!;
+  expect(shared.sharePct).toBeNull();
+  expect(shared.shareWithheldReason).toBeUndefined();
+  expect(annualSegmentHeading("Product",[shared],false)).toBe("Product segments (share basis not established; shares withheld)");
 });

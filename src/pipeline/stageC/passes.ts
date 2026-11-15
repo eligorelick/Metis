@@ -4476,9 +4476,11 @@ function latestSegmentationTotal(
   bundle: DataBundle | undefined,
 ): { total: number | null; reason?: "no-same-period-revenue" | "revenue-refused" | "split-does-not-reconcile" } {
   const missing = {total:null, reason:"no-same-period-revenue" as const};
-  if (res === undefined || !res.ok || !res.value) return missing;
+  // D-280 review round 2 (P10): a withheld or unavailable feed names no revenue cause; the heading falls back to
+  // "share basis not established" rather than claim same-period revenue is missing.
+  if (res === undefined || !res.ok || !res.value) return {total:null};
   const data = res.value.data.rows[0]?.data;
-  if (data === undefined || data === null || typeof data !== "object") return {total:null,reason:"split-does-not-reconcile"};
+  if (data === undefined || data === null || typeof data !== "object") return {total:null};
   let total = 0;
   let counted = 0;
   for (const key of Object.keys(data)) {
