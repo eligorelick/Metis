@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.102.0** and
+Current source declares application **1.0.0**, report spec **1.102.0** and
 payload **1.113.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -17,6 +17,10 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## 1.0.0 - First general release (prepared 2026-11-15; tag pending)
+
+The application version is now 1.0.0; report spec 1.102.0, payload 1.113.0 and the other stamps are unchanged by this entry. Plain-English release notes: [docs/RELEASE-NOTES-1.0.0.md](docs/RELEASE-NOTES-1.0.0.md). The release contains every entry below; entries headed Unreleased were merged before the version was set. Validation for this build is in [validation status](docs/VALIDATION-STATUS.md), what is missing or partial in [known limitations](docs/KNOWN-LIMITATIONS.md), and measured report costs in [report costs](docs/REPORT-COSTS.md).
 
 ## Unreleased — Step 4 report blockers (D-310..D-312)
 
