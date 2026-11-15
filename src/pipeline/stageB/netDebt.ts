@@ -13,7 +13,7 @@ export interface LeaseDebtInputs {
   operatingLeaseLiability?: number | null;
   financeLeaseLiability?: number | null;
   /**
-   * The vendor's own current/noncurrent split words the observed scope (VAL-4).
+   * The vendor's own current/noncurrent split words the observed scope (D-133).
    * Field evidence also establishes D-202's operating-only vendor line; an
    * unproved or differently dated operating observation cannot establish it.
    */
@@ -31,7 +31,7 @@ export function millions(value: number): string {
 /**
  * Two amounts a refusal sets side by side: each in millions, or both in full with grouped digits ("1,000,237" and
  * "1,000,000") when their millions would read alike while the values differ, so a refusal never shows two
- * equal-looking amounts (audit 2026-10-27 FIN-511-V2 re-review N1).
+ * equal-looking amounts (D-134).
  */
 export function millionsPair(a: number, b: number): [string, string] {
   const inMillions: [string, string] = [millions(a), millions(b)];
@@ -75,8 +75,7 @@ function leaseLineText(inputs: LeaseDebtInputs, total: number): string {
  * Missing splits retain the reported basis; contradictory supplied totals do
  * not. The reason names the amounts compared and, where the inputs state it,
  * each operand's current/noncurrent scope, so it describes the inputs and never
- * reads as a fault of the issuer's own balance sheet (audit 2026-10-29, AMZN
- * #51 VAL-4). A proved operating-only line is compared on its declared scope.
+ * reads as a fault of the issuer's own balance sheet (D-133). A proved operating-only line is compared on its declared scope.
  */
 export function leaseDebtConflict(inputs: LeaseDebtInputs): string | null {
   const debt = finite(inputs.totalDebt);
@@ -121,7 +120,7 @@ export function leaseDebtConflict(inputs: LeaseDebtInputs): string | null {
 
 /**
  * Removing the operating-lease liability from net debt or EV presumes totalDebt
- * holds it (audit 2026-10-19, CODE-1). An operating lease enriched from SEC
+ * holds it (D-97). An operating lease enriched from SEC
  * onto a vendor row whose totalDebt is borrowings only would otherwise be
  * subtracted from debt it was never in. Proven when the row's total lease
  * liability covers the operating slice, or when totalDebt reconciles to
@@ -135,8 +134,8 @@ export function operatingLeaseScopeUnproven(row: LeaseDebtInputs & { shortTermDe
 
 /**
  * The reason `operatingLeaseScopeUnproven` gives, without its net-debt consequence, for a consumer that states its own
- * (sales-to-capital, its A-2 history, ROIC). `operatingLeaseScopeUnproven` composes its text from this, so the two never
- * drift (fix round 1, M6).
+ * (sales-to-capital, its D-104 history, ROIC). `operatingLeaseScopeUnproven` composes its text from this, so the two
+ * never drift.
  */
 function operatingLeaseScopeUnprovenClause(row: LeaseDebtInputs & { shortTermDebt?: number | null; longTermDebt?: number | null }): string | null {
   const operating = finite(row.operatingLeaseLiability);
@@ -147,8 +146,8 @@ function operatingLeaseScopeUnprovenClause(row: LeaseDebtInputs & { shortTermDeb
   const debt = finite(row.totalDebt), short = finite(row.shortTermDebt), long = finite(row.longTermDebt);
   const composed = short !== null && long !== null ? short + long + operating + (finite(row.financeLeaseLiability) ?? 0) : null;
   if (debt !== null && composed !== null && Math.abs(composed - debt) <= tolerance(debt)) return null;
-  // KNW-04 (audit 2026-10-29, AMZN #51): each half names what it compared; a smaller total that exists is not denied.
-  // Fix round 3: amounts in millions, as every other refusal on this path.
+  // D-133: each half names what it compared; a smaller total that exists is not denied.
+  // Amounts are in millions, as every other refusal on this path.
   const cover = total === null ? "no total lease liability is disclosed" : `the total lease liability ${millions(total)} is smaller than it`;
   const reconcile = debt === null ? "total debt is unavailable"
     : composed === null ? "current and noncurrent borrowings are not both disclosed to reconcile it"
@@ -158,11 +157,11 @@ function operatingLeaseScopeUnprovenClause(row: LeaseDebtInputs & { shortTermDeb
 }
 
 /**
- * Audit 2026-10-27 FIN-303 and FIN-303-V1 (D-25, D-97 item 3): the operating-lease
+ * D-135 (D-25, D-97 item 3): the operating-lease
  * slice that leaves total debt, for every invested-capital consumer (DCF
- * sales-to-capital and its A-2 history, ROIC), exactly when the EV bridge
+ * sales-to-capital and its D-104 history, ROIC), exactly when the EV bridge
  * removes it. On the default switch (`includeLeases` false) that is the slice
- * when it is positive, at most total debt, and the CODE-1 proof holds
+ * when it is positive, at most total debt, and the D-97 lease-scope proof holds
  * (`operatingLeaseScopeUnproven` is null); otherwise 0 with the reason the slice
  * is not removed. With the lease-inclusive switch set, or with no operating
  * lease on the row, the amount is 0 and there is neither note nor clause.
@@ -208,7 +207,7 @@ export interface NetDebtInputs extends LeaseDebtInputs {
   marketableEquitySecurities?: number | null;
   /** Accepted only for diagnostics; its cash-only convention is never used. */
   vendorNetDebt?: number | null;
-  /** The admission's refusals: a total debt refused there is named as refused, not missing (KNW-04). */
+  /** The admission's refusals: a total debt refused there is named as refused, not missing (D-133). */
   fieldConflicts?: Readonly<Record<string, { readonly usable?: boolean; readonly reason?: string; readonly cause?: string } | undefined>>;
 }
 
@@ -376,7 +375,7 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
     ...base,
     value: null,
     cashBasis: null,
-    // Fix round 2, M3: name the row's cash-only net debt only when it carries one (a keyless row often does not).
+    // P20: name the row's cash-only net debt only when it carries one (a keyless row often does not).
     reason: (inputs.cashConflictReconciled ? (cash === null && inputs.fieldConflicts?.cashAndCashEquivalents?.usable === false
       ? `cash and cash equivalents withheld (${inputs.fieldConflicts.cashAndCashEquivalents.reason ?? "refused at admission"}); ` : "") +
       "combined cash-and-short-term-investments unavailable; cash and cash equivalents or short-term investments missing"

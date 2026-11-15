@@ -141,7 +141,7 @@ export interface ValidatableBundle {
     quarterEnd: string;
     positionsSummary: FetchResult<{ rows: ValidateDatedRow[] }>;
   };
-  /** Provider segmentation (optional): drives the AI-509 geography scope gap. */
+  /** Provider segmentation (optional): drives the D-127 geography scope gap. */
   segmentation?: { geographic: FetchResult<FmpPayload<FmpSegmentationRow>> };
   edgar: IssuerFactsInput & {
     quarterlySegments?: FetchResult<QuarterlySegmentRevenue>;
@@ -743,10 +743,10 @@ const FRESH_FILING_TAGS = [
 
 /**
  * D-175. A provider publishes its rows for a new filing within hours, and those
- * first rows are the least reliable: AAPL's 10-K for the year ended 2026-09-26,
- * accepted 2026-11-02 16:30, arrived with long-term debt 0 (D-174) and no annual
- * balance sheet (D-173), while SEC companyfacts did not yet carry the period, so no
- * figure from it could be cross-checked. The cross-check already records "not
+ * first rows are the least reliable: a new 10-K's first provider rows can carry
+ * long-term debt 0 (D-174) and no annual balance sheet (D-173) while SEC
+ * companyfacts does not yet carry the period, so no figure from it can be
+ * cross-checked. The cross-check already records "not
  * checkable" rows; this states the condition once, where the reader looks: when
  * the newest statement period was filed at most FRESH_FILING_DAYS before the
  * analysis and the admitted SEC facts have nothing at or after its period end.
@@ -1086,7 +1086,7 @@ function normCurrency(v: unknown): string | null {
 }
 
 /**
- * Reporting-vs-trading currency consistency (audit 2026-07-11 #6).
+ * Reporting-vs-trading currency consistency (P4).
  *
  * A mismatch (typical of ADRs / foreign issuers) means per-share and multiples
  * figures mix currencies. This is a READ-ONLY Stage-A disclosure: it surfaces
@@ -1230,7 +1230,7 @@ function checkCurrencyConsistency(bundle: ValidatableBundle, c: Collector): void
 }
 
 /**
- * AI-509 (OD-4): provider geography the issuer's own XBRL contradicts is
+ * D-127: provider geography the issuer's own XBRL contradicts is
  * withheld downstream by `admittedGeography`; this records why, as a gap only
  * (no new check id), so both report manifests carry it.
  */
