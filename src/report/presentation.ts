@@ -33,7 +33,7 @@ export function withPlainFigureNotes(report: Report): Report {
 
 /** D-282: the mark a model-written paragraph or table cell carries; the legend explains it. */
 export const MODEL_PROSE_MARK = `[${CLAIM_STATUS_WORDS.unverified}]`;
-/** D-282 review round 2 (lead decision): the caption on every AI-authored table, card or row group, on every
+/** D-282: the caption on every AI-authored table, card or row group, on every
  * surface. Its titles, dates and ratings are the AI's; a cell inside it that code checked keeps its own mark. */
 export const AI_BLOCK_CAPTION = "Written by the AI; not checked by code.";
 
@@ -47,7 +47,7 @@ export function isModelWrittenReport(report: Pick<Report, "appendix">): boolean 
 }
 
 /**
- * D-282 (P19, P22; release item R1): every model-written paragraph or table
+ * D-282 (P19, P22): every model-written paragraph or table
  * cell that is not a tagged statement carries the "not confirmed" mark, on
  * every surface: the verdict paragraph, each grade's one-line reason and
  * interpretation, the debate resolutions, the reverse-DCF and market-share
@@ -87,14 +87,14 @@ export function withModelProseMarks(report: Report): Report {
   const read = next.technicals?.read as Record<string, unknown> | undefined;
   if (read) for (const key of ["momentum", "keyLevels", "relativeStrength"]) if (typeof read[key] === "string") read[key] = mark(read[key] as string);
   for (const series of next.macro?.relevantSeries ?? []) series.relevance = mark(series.relevance) as string;
-  // Review round 1: flags in a model-written report are the judge's (passes.ts
+  // D-282: flags in a model-written report are the judge's (passes.ts
   // assembly copies them from the judge output); code flags exist only in data-only reports.
   for (const flag of [...(next.quality?.flags ?? []), ...(next.technicals?.flags ?? [])]) flag.text = mark(flag.text) as string;
   return next;
 }
 
 /**
- * D-308 review round 1 (P18, P22): the statements of a report the AI wrote, recorded once when a surface prepares the
+ * D-308 (P18, P22): the statements of a report the AI wrote, recorded once when a surface prepares the
  * report (like the verification-mark index), so display code can show the AI's words as written. A data-only
  * report's statements are written by code and are not recorded.
  */
@@ -110,7 +110,7 @@ export function indexModelWrittenClaims(report: Report): void {
     for (const [key, value] of Object.entries(node)) if (key !== "appendix" && key !== "meta") visit(value);
   };
   visit(report);
-  // Review round 2: report assembly writes two method statements into every report (`applyFinancialDiagnostics`):
+  // D-308: report assembly writes two method statements into every report (`applyFinancialDiagnostics`):
   // the capital grading basis and the debt-bridge note. They are code-written, identified by their typed fields
   // (JUDGMENT, source `computed.capital.current`) on their own commentary paths, never by wording (P11).
   for (const claim of [...report.balanceSheet.coverage.commentary, ...report.balanceSheet.debtProfile.commentary]) {
@@ -239,11 +239,11 @@ const PHRASE_FIXES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\byear one\b/gi, "year-one"],
   [/\bstock based\b/gi, "stock-based"],
   [/\b(short|long) term\b/gi, "$1-term"],
-  // D-301 (R29): the statement field "cashSti" is cash and short-term investments.
+  // D-301: the statement field "cashSti" is cash and short-term investments.
   [/\bcash sti\b/gi, "cash and short-term investments"],
   [/\b(gross margin|operating expenses|operating margin|tax rate|diluted EPS) (GAAP|non-GAAP)\b/g, "$2 $1"],
   [/\bfree cash flow operating cash flow less capex\b/gi, "FCF, operating cash flow less capex,"],
-  // FIGR extra-high audit: statement-row ids ("capex-negative") read as the outflow they record.
+  // D-163: statement-row ids ("capex-negative") read as the outflow they record.
   [/\bcapex negative\b/gi, "capital expenditure (cash outflow)"],
   [/\bbuybacks negative\b/gi, "share repurchases (cash outflow)"],
   [/\b(operating cash flow) issuer reconciliation\b/gi, "$1, issuer reconciliation,"],
@@ -346,7 +346,7 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.forensics.absolute-cash-flow-versus-balance-sheet-accrual-divergence": "Accrual divergence (cash-flow vs balance-sheet)",
   "computed.forensics.accruals.noaCurrent": "Net operating assets (current year)",
   "computed.forensics.accruals.noaPrior": "Net operating assets (prior year)",
-  // AMZN audit 2026-10-20 finding 20: the scaler is average NOA, or average
+  // D-99: the scaler is average NOA, or average
   // total assets when NOA is not positive (the forensic notes say which); one
   // label serves both, so it names neither.
   "computed.forensics.accruals.scalerValue": "Accrual scaler (average NOA or total assets)",
@@ -359,14 +359,14 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.forensics.accruals.aggregateAccrualsBalanceSheet": "Aggregate accruals (balance-sheet)",
   "computed.forensics.aggregate-accruals-cash-flow": "Aggregate accruals (cash-flow)",
   "computed.forensics.aggregate-accruals-balance-sheet": "Aggregate accruals (balance-sheet)",
-  // D-67: ids the NVDA final rerun cited under mechanical labels.
+  // D-67: ids a report cited under mechanical labels.
   "computed.valuation.dcf.perShare": "DCF value per share",
   "computed.valuation.guided-run-rate-growth-over-ttm-next-quarter-guidance-4": "Guided run-rate growth over TTM (next-quarter guidance × 4)",
   "computed.valuation.guided-quarter-revenue-growth-year-over-year": "Guided-quarter revenue growth, year over year",
   "computed.valuation.guided-sequential-pace-annualized": "Guided sequential pace, annualized",
   "computed.valuation.consensus-year-one-revenue-growth-over-ttm": "Consensus year-one revenue growth over TTM",
   "computed.valuation.dcf-base-case-year-one-revenue-growth-over-ttm": "DCF base-case year-one revenue growth over TTM",
-  // AMZN audit 2026-10-20 finding 15: "price paid vs the year's average" beside
+  // D-99: "price paid vs the year's average" beside
   // -3.0% read as paying 3% below the average; the measure is the reverse.
   "computed.capital.buybackPriceAnalysis.timingPct": "Buyback timing (year-average cost vs cost paid; negative = paid above average)",
   "computed.forensics.accruals.definition": "Accrual definition",
@@ -375,14 +375,14 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.forensics.piotroski-f-9-signals": "Piotroski F-score (nine signals)",
   "computed.forensics.accrual-operand-operating-investing-cash-flow-cfi-without-financial-asset-flows": "Operating investing cash flow (excluding financial-asset flows)",
   "manifest.valuation.multiples.ownHistory": "Data-gap record: own-history multiple ranks",
-  // FIGR extra-high audit (2026-11-02): ids the report printed as run-together words.
+  // D-163: ids the report printed as run-together words.
   "computed.suppressed": "Route-suppressed metrics",
   "computed.capital-cash.capex-d-a-latest": "Capex / D&A (latest fiscal year)",
   "computed.capital-cash.capex-revenue-latest": "Capex as % of revenue (latest fiscal year)",
   "computed.capital-cash.capex-revenue-slope": "Capex-to-revenue slope",
-  // FIGR extra-high audit A2-02: the ratio divides the cash-flow add-back, not allocated SBC expense.
+  // D-163: the ratio divides the cash-flow add-back, not allocated SBC expense.
   "computed.capital-cash.sbc-revenue": "SBC (cash-flow add-back) as % of revenue (latest fiscal year)",
-  // R9 names the SBC basis in the ids too; older reports keep the ids above.
+  // D-164 names the SBC basis in the ids too; older reports keep the ids above.
   "computed.capital-cash.sbc-cash-flow-add-back-revenue": "SBC (cash-flow add-back) as % of revenue (latest fiscal year)",
   "computed.capital-cash.sbc-cash-flow-add-back-fcf": "SBC (cash-flow add-back) as % of FCF (latest fiscal year)",
   "computed.current-capital.sbc-cash-flow-add-back": "SBC (cash-flow add-back)",
@@ -396,16 +396,16 @@ const EXACT_LABELS: Record<string, string> = {
   "payload.insiders.post-window-form-4-code-f-reported-shares-selected-rows-may-overlap": "Form 4 code F shares reported after the window (selected rows; may overlap)",
 };
 
-/** FIGR extra-high audit: the filed operands behind a TTM identity (`<metric>-filed-<window>-operand-<xbrl tag>`). */
+/** D-163: the filed operands behind a TTM identity (`<metric>-filed-<window>-operand-<xbrl tag>`). */
 const FILED_OPERAND_METRIC: Readonly<Record<string, string>> = {
   stockbasedcompensation: "Stock-based compensation",
   operatingcashflow: "Operating cash flow",
   capitalexpenditure: "Capital expenditure",
-  // R9: the two SBC bases are separate figures, each with its own filed operands.
+  // D-164: the two SBC bases are separate figures, each with its own filed operands.
   "sbc-cash-flow-add-back": "SBC (cash-flow add-back)",
   "sbc-allocated-expense": "SBC (allocated expense)",
 };
-/** FIGR extra-high audit A2-02 (R9): the SBC basis an id slug names. */
+/** D-163, D-164: the SBC basis an id slug names. */
 const SBC_BASIS_LABEL: Readonly<Record<string, string>> = {
   "cash-flow-add-back": "SBC (cash-flow add-back)",
   "allocated-expense": "SBC (allocated expense)",
@@ -418,7 +418,7 @@ const FILED_OPERAND_WINDOW: Readonly<Record<string, string>> = {
 /** Piotroski signal ids whose words alone name the wrong thing ("Turnover up"). */
 const PIOTROSKI_SIGNAL: Readonly<Record<string, string>> = { turnoverUp: "asset turnover up" };
 
-/** AI-117: reader labels for the insider-statistics ids (the generic fallback reads "form 4 code s"). */
+/** D-125: reader labels for the insider-statistics ids (the generic fallback reads "form 4 code s"). */
 const INSIDER_STAT_LABEL: Readonly<Record<string, string>> = {
   "purchase-transactions": "Insider purchase transactions (Form 4 code P; open-market or private)",
   "sale-transactions": "Insider sale transactions (Form 4 code S; open-market or private)",
@@ -452,7 +452,7 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
   [/^payload\.insiders\.mspr-(\d{4}-\d{2})$/, (m) => `Insider sentiment (MSPR), ${m[1]}`],
   [/^computed\.current-capital\.([a-z-]+?)-filed-(prior-year-ytd|current-ytd|fiscal-year)-operand-[a-z]+$/, (m) =>
     `${FILED_OPERAND_METRIC[m[1]!] ?? sentence(segmentWords(m[1]!))} (filed ${FILED_OPERAND_WINDOW[m[2]!]} operand)`],
-  // FIGR extra-high audit A2-02 (R9): a filing fact names its SBC basis and window.
+  // D-163, D-164: a filing fact names its SBC basis and window.
   [/^payload\.filing-facts\.sbc-(allocated-expense|cash-flow-add-back)-(\d{4}-\d{2}-\d{2})-to-(\d{4}-\d{2}-\d{2})$/, (m) =>
     `${SBC_BASIS_LABEL[m[1]!]}, ${m[2]} to ${m[3]}`],
   [/^computed\.forensics\.piotroski\.signals\.([A-Za-z]+)$/, (m) =>
@@ -473,7 +473,7 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
 export function signalLabel(id: string): string {
   const fixed: Record<string, string> = {
     peOwnHistoryRank: "Valuation multiple own-history rank",
-    // Release R54: this rank uses P/TBV, or P/B where tangible book is unavailable; the label is true for both.
+    // This rank uses P/TBV, or P/B where tangible book is unavailable; the label is true for both.
     priceToTbvOwnHistoryRank: "Book multiple own-history rank (P/TBV, or P/B where tangible book is unavailable)",
     revenueCagr: "Revenue CAGR", operatingMarginSlope: "Operating-margin slope", epsCagr: "EPS CAGR",
     fcfCagr: "FCF CAGR", dcfUpside: "DCF upside", reverseImpliedVsAchievable: "Reverse-DCF implied vs achievable growth",
@@ -489,7 +489,7 @@ export function signalLabel(id: string): string {
     buybackDiscipline: "Current price vs average repurchase price", capitalDeployment: "Capital deployment (ROIC − WACC)",
     shareCountTrend: "Annualized weighted-average diluted common-share trend", relStrength12m1m: "Relative strength vs SPY, 12-1 month",
     pctFromHigh52w: "Distance from 52-week high", smaGap: "SMA 50 / SMA 200 gap",
-    // Audit 2026-10-22 B-13: the regulated-utility balance sheet.
+    // D-104: the regulated-utility balance sheet.
     cfoPreWcToDebt: "CFO before working-capital changes / debt", debtToBookCapitalization: "Debt / book capitalization (with deferred taxes)",
   };
   return fixed[id] ?? sentence(segmentWords(id));
@@ -526,7 +526,7 @@ export function metricLabel(source: string, unit = ""): string {
   if (piotroski) return `Piotroski F (${piotroski[1]!.replaceAll("-", " ")}, ${piotroski[2]} of 9 signals)`;
   const outflow = /^(?:payload|computed)\..*\b(capex|buybacks)-negative-(year-ended-\d{4}-\d{2}-\d{2})$/.exec(source);
   if (outflow) return `${outflow[1] === "capex" ? "Capital expenditure" : "Share repurchases"} (cash outflow) (${outflow[2]!.replace("year-ended-", "year ended ")})`;
-  // Audit 2026-10-22 B-9: a multiple on the latest fiscal year (TTM
+  // D-112: a multiple on the latest fiscal year (TTM
   // suppressed) names that year in its payload label, so in its id too.
   const annual = /^computed\.valuation\.(p-e|evtoebitda|evtosales)-current-(fy\d{4}|fy-ended-\d{4}-\d{2}-\d{2})$/.exec(source);
   if (annual) {
@@ -551,7 +551,7 @@ export function readerMetricLabel(label: string): string {
   return cleaned.length ? cleaned[0]!.toUpperCase() + cleaned.slice(1) : cleaned;
 }
 
-/** B-4: the risk-free citation, `computed.returns.wacc.riskFree(<series id>)`. */
+/** D-111: the risk-free citation, `computed.returns.wacc.riskFree(<series id>)`. */
 const RISK_FREE_CITATION = /^computed\.returns\.wacc\.riskFree\(([^()\s]+)\)$/;
 /** The risk-free series ids that are not `fred:<SERIES>`, read under their labels in prose. */
 const RISK_FREE_BARE_IDS = /(?<![\w/])(?:fmp:treasury-rates\.year10|fred:DGS10\.last-cached|treasury:par-yield-curve\.10yr)/g;
@@ -575,11 +575,11 @@ export function sourceLabel(source: string): string {
   if (sec) return sec[1]!;
   const fred = /^fred:([A-Za-z0-9]+)$/.exec(source);
   if (fred) return `FRED ${fred[1]!.toUpperCase()}`;
-  // B-4: the risk-free citation carries the series that served the rate.
+  // D-111: the risk-free citation carries the series that served the rate.
   const riskFree = RISK_FREE_CITATION.exec(source);
   if (riskFree) return `Risk-free rate (${riskFreeSourceLabel(riskFree[1]!)})`;
   if (/^(computed|payload|manifest)\.[^\s]+$/.test(source)) return metricLabel(source);
-  // FIGR extra-high audit: pipeline-owned notes printed their raw ids.
+  // D-163: pipeline-owned notes printed their raw ids.
   // D-285: a statement re-cited to one news article names its publisher, title and link; a whole-feed tag
   // (a saved report's, or a row's source column) says that no single article is named.
   const article = /^news: (.+)$/.exec(source);
@@ -623,7 +623,7 @@ export interface FigureRow {
 }
 
 /**
- * A figure's Cited mark. F-23: a data-only report ran no citation check; its
+ * A figure's Cited mark. D-110: a data-only report ran no citation check; its
  * figures were computed. D-282 (P18, P19): a figure code could not match to its
  * record at stored precision reads "not confirmed", and one whose value
  * conflicts with that record reads "contradicted", in every table that shows it.
@@ -688,7 +688,7 @@ const FIGURE_METRIC_ALIASES = new Map(FIGURE_ALIAS_GROUPS.flatMap((group) =>
 
 /**
  * The identities a figure row is deduplicated on: its exact source, or a registered metric alias.
- * D-301 review round 2 (lead decision, P1/P13/P19/P22): rows merge only when every part is identical:
+ * D-301 (P1/P13/P19/P22): rows merge only when every part is identical:
  * the underlying traced value (never its display text or a rounding of it), the metric (the same source
  * or a registered alias of it), the stated window and period context, the unit, currency and as-of date,
  * and the verification mark. A window is never inferred from an end date, and a failed mark is never
@@ -714,7 +714,7 @@ function figureIdentities(row: FigureRow): string[] {
  * report printed both. `seen` carries identities across the tables of one
  * section. The first occurrence wins; the rows it removes are identical in
  * value, metric, window, basis and mark (`figureIdentities`), so nothing a
- * reader could see is lost. D-301 review round 2 retires D-264's merge of an
+ * reader could see is lost. D-301 retires D-264's merge of an
  * alias copy that omits its period: missing metadata is not evidence that two
  * windows match, so such copies print as their own rows.
  */
@@ -808,7 +808,7 @@ export function splitCommonLines(lists: readonly (readonly string[])[]): { commo
 export const QUALITATIVE_SCENARIO_HEADING = "Scenario conditions (qualitative)";
 
 /**
- * FIGR extra-high audit (2026-11-02): the model opened each case's first
+ * D-163: the model opened each case's first
  * commentary bullet with "Qualitative commentary:", under a heading that already
  * says so. A list item states its list's heading once; stored text is unchanged.
  */
@@ -832,7 +832,7 @@ export interface ScenarioReaderLists {
 }
 
 /**
- * D-273 review round 1 (P22): the Markdown and print scenario cards state a
+ * D-273 (P22): the Markdown and print scenario cards state a
  * repeated label once. A modeled condition that opens with an assumption the
  * card already lists refers to it instead of repeating it; the conditions each
  * stored with the same "separate qualitative condition" prefix print under one
@@ -844,7 +844,7 @@ export function scenarioReaderLists(scenario: Pick<Scenario, "whatWouldHaveToBeT
   const conditions = scenario.whatWouldHaveToBeTrue.map(condition => {
     if (!condition.startsWith(MODELED_CONDITIONS)) return scenarioListItem(condition);
     const rest = condition.slice(MODELED_CONDITIONS.length);
-    // Review round 2 (lead fix): only a whole code-written year-one-shift
+    // D-273: only a whole code-written year-one-shift
     // sentence is replaced, so the reference names what it replaces and a
     // longer or different condition ("Revenue grows 5%-10%.") prints as stored.
     const repeated = listed.find(a => /^Year-one shift\b/.test(a) && /\.$/.test(a) && rest.startsWith(a) && (rest.length === a.length || rest[a.length] === " "));
@@ -862,7 +862,7 @@ export function scenarioReaderLists(scenario: Pick<Scenario, "whatWouldHaveToBeT
 /**
  * Peer-table columns keyed by metric (peerColumnKeys) with reader headings:
  * the key of a registry figure is its id's last segment ("pettm-current"),
- * which the FIGR extra-high report printed as a column heading.
+ * which a report printed as a column heading (D-163).
  */
 export function peerTableColumns(peers: readonly { metrics: readonly TracedNumber[] }[]): { keys: string[]; headings: string[] } {
   const keys: string[] = [];
@@ -882,7 +882,7 @@ export function peerTableColumns(peers: readonly { metrics: readonly TracedNumbe
 }
 
 /**
- * Integration review of R3 (FIGR paid audit): with no cash-flow model the
+ * D-161: with no cash-flow model the
  * target, probability and deterministic-assumption scaffolding is withheld,
  * but each case's stated conditions and qualitative commentary are still the
  * analysis. Lines every case shares are stated once (D-62); null when no case
@@ -961,7 +961,7 @@ export interface BusinessStoryBlock {
 }
 
 /**
- * D-271, review round 1 (lead decision b): a heading is a name, never a claim.
+ * D-271: a heading is a name, never a claim.
  * It is printed only when a FACT claim that writes the name verified (a matched
  * figure) or is a cited qualitative statement. A contradicted, unverified or
  * unchecked claim never lends its words to an unmarked heading; that line prints
@@ -1008,7 +1008,7 @@ const claimHomes = new WeakMap<object, string>();
 const echoIndexed = new WeakSet<object>();
 
 /**
- * Review round 1: the identity keeps the whole citation (the stored source and
+ * D-273: the identity keeps the whole citation (the stored source and
  * source id) and its resolved date, so the same words cited to a different
  * filing or date are a different statement and print in both places.
  */
@@ -1115,7 +1115,7 @@ export function repeatedClaimsNote(homes: readonly string[]): string | null {
 
 export const BUSINESS_BRIEF_HEADING = "Business in brief";
 /**
- * D-303 (P19, P22; R36): what an empty part says. It describes this report, never
+ * D-303 (P19, P22): what an empty part says. It describes this report, never
  * the sources: a part whose answering fields hold no statement is not covered
  * here; a part whose statements did not qualify points to them, with their marks.
  */
@@ -1123,12 +1123,12 @@ export const BRIEF_PART_NOT_COVERED = "Not covered in this report.";
 export const BRIEF_PART_NOT_SHOWN = "Not in the brief: the report's statements on this appear, with their marks, in the sections below.";
 /**
  * Printed once instead of five empty parts, only when no part's fields hold any statement
- * (`briefNotCovered`). D-303 review round 1: a report with statements that did not qualify
+ * (`briefNotCovered`). D-303: a report with statements that did not qualify
  * prints each part's own wording instead, so a cited statement below is never denied.
  */
 export const BRIEF_NOT_ESTABLISHED = "Not covered in this report: the business fields the brief reads hold no statement.";
 
-/** D-303 review round 1: every part is empty because its fields hold nothing (never because statements did not qualify). */
+/** D-303: every part is empty because its fields hold nothing (never because statements did not qualify). */
 export function briefNotCovered(parts: readonly BusinessBriefPart[]): boolean {
   return parts.every(part => part.claims.length === 0 && part.empty === BRIEF_PART_NOT_COVERED);
 }
@@ -1145,7 +1145,7 @@ export interface BusinessBriefPart {
 }
 
 /**
- * Review round 1 (lead decision): a statement of a limitation or an absence
+ * D-273: a statement of a limitation or an absence
  * ("no reviewed source", "not disclosed") says what is not known; it never
  * fills a brief part, which then says it is not established.
  */
@@ -1166,7 +1166,7 @@ export function isBriefEligible(claim: SourcedClaim): boolean {
 }
 
 /**
- * Review round 1 (P18): every identity a citation can carry, so an old
+ * D-276 (P18): every identity a citation can carry, so an old
  * bracketed citation the parser cannot resolve ("[payload.quote.price ·
  * 2026-11-13 · 2026-11-13]") is still read by its leading id, and the source id
  * field is checked too. Any market or computed identity excludes the claim.
@@ -1178,14 +1178,14 @@ function briefCitationIds(claim: SourcedClaim): string[] {
 }
 
 /**
- * D-273 Part C audit (P18): the brief describes the business, so a claim that
+ * D-273 (P18): the brief describes the business, so a claim that
  * cites a market or computed record ("The share price was USD 346.19.",
  * payload.quote.price) is a figure about the stock, never a business line.
  */
 const MARKET_OR_COMPUTED_SOURCE = /^(?:payload|computed)\.|^fmp:/i;
 
 /**
- * D-273 Part C audit (P18): the descriptive parts (what it sells, customers and
+ * D-273 (P18): the descriptive parts (what it sells, customers and
  * suppliers, protection) skip a statement of change ("Mortgage fees decreased
  * ..."), which reports a result rather than describing the business. The
  * verifier's own direction vocabulary decides (findDirectionWords).
@@ -1214,8 +1214,8 @@ function briefClaims(options: { descriptive: boolean }, ...sources: readonly (re
 export function businessBrief(report: Pick<Report, "business" | "competitive" | "catalystsRisks">): BusinessBriefPart[] {
   const b = report.business;
   const c = report.competitive;
-  // Review round 1 (lead decision): each part reads only the field that answers it.
-  // Review round 2 (lead fix, P18): a word match cannot prove whose customer a
+  // D-273: each part reads only the field that answers it.
+  // D-273 (P18): a word match cannot prove whose customer a
   // statement names or that a protection statement is a strength, so those two
   // parts carry code-owned labels that describe their field ("Customers and
   // suppliers", "Protection and competition") instead of an interpretation.
@@ -1257,7 +1257,7 @@ export interface ExecutiveGroups {
 }
 
 /**
- * D-67: the identical "not assessed" cards (NVDA: six of eight, each repeating
+ * D-67: the identical "not assessed" cards (in one report six of eight, each repeating
  * the same grade line and reason) collapse into one line per distinct reason
  * listing those officers; their cited facts stay beneath it.
  */
@@ -1271,11 +1271,11 @@ export function executiveGroups(executives: readonly ExecutiveRecord[], withCont
   }
   const notAssessedLines = [...byReason.entries()].map(([reason, people]) =>
     `Not assessed: ${people.map((e) => `${e.name} (${e.title})`).join("; ")}.${reason ? ` ${reason}` : ""}`);
-  // AMZN audit 2026-10-20 finding 20: only cited facts go under the line. The
+  // D-99: only cited facts go under the line. The
   // officer's judgments are the model's case for a grade the evidence gate
   // withheld, so "Not assessed" was followed by "X's execution grade
   // recognizes ...".
-  // D-302 (R35): an officer-name prefix on a company figure reads as the company's record during that tenure.
+  // D-302: an officer-name prefix on a company figure reads as the company's record during that tenure.
   const notAssessedClaims = notAssessed.flatMap((e) => [...e.reasoning, ...EXECUTIVE_EVIDENCE_GROUPS.flatMap((group) => e.evidence[group.key] ?? [])]
     .filter((claim) => claim.label === "FACT").map((claim) => companyRecordClaim(e, claim, "named")));
   return { assessed, notAssessed, notAssessedLines, notAssessedClaims };
@@ -1336,7 +1336,7 @@ function isDailyHistoryFor(source: Report["appendix"]["sources"][number], symbol
 }
 
 /**
- * FIGR extra-high audit B2-17 (2026-11-02): a daily price history fetched while
+ * D-163: a daily price history fetched while
  * a session is open can end in that session's still-forming bar, and reports
  * built before Stage B began excluding it call that bar's latest trade the
  * "last close". The bar is provisional when the technicals' last close is
@@ -1412,7 +1412,7 @@ export function routeMetricsForDisplay(report: Pick<Report, "routeMetrics" | "ap
 }
 
 /**
- * How to name the quoted price (audit P3): "last close" when the quote was
+ * How to name the quoted price (D-62): "last close" when the quote was
  * observed at or after the 16:00 New York close (or on a weekend), "latest
  * price" with the time when it was observed during the session.
  */
@@ -1499,7 +1499,7 @@ function comparableFloatShares(shares: FloatData): number | null {
 }
 
 /**
- * The page-1 key-data box (audit P1-12), built ONLY from values already in
+ * The page-1 key-data box (D-62), built ONLY from values already in
  * the report: the provider market data block (D-62) when present, else the
  * traced quote, technicals and DCF bridge. A row whose inputs are absent is
  * omitted, never printed as "n/a". Derived rows (enterprise value at the
@@ -1524,7 +1524,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const price = md?.quote?.price ?? priceTrace?.value ?? null;
   const priceAsOf = md?.quote ? md.quote.asOf : priceTrace?.asOf ?? null;
   // The quote's observation time names a quote. Without one the box falls back to
-  // the technicals' last close, which is named by its own daily bar (B2-17).
+  // the technicals' last close, which is named by its own daily bar (D-163).
   const fromLastClose = md?.quote?.price == null && priceTrace?.source === "computed.technicals.last-close";
   const priceLabel = fromLastClose
     ? technicalsFigureLabel(priceTrace!, provisionalSessionBar(report)) ?? "Last close"
@@ -1542,7 +1542,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const dilutedShares = bridge?.dilutedShares ?? null;
   const scope = report.valuation.marketValueScope;
   const admittedPriceAsOf = scope?.priceAsOf ?? null;
-  // Audit 2026-10-22 B-8: a scope unresolved across share classes means the
+  // D-103: a scope unresolved across share classes means the
   // quote's cap may cover one class only, so page one shows no figure as the issuer's.
   const classAmbiguous = scope?.status === "unresolved" && scope.classAmbiguity === true;
   const marketCap = scope?.status === "resolved" ? scope.marketCap : classAmbiguous ? null : quotedCap;
@@ -1569,7 +1569,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   } else if (!scope && dilutedShares !== null && dilutedShares > 0) {
     rows.push({ label: `Diluted shares${bridge?.shareUnit ? ` (${bridge.shareUnit})` : ""}`, value: formatLargeNumber(dilutedShares), note: bridge?.asOf ? `at ${bridge.asOf}` : undefined });
   }
-  // Audit 2026-10-22 B-24: the newer quarter's headline, apart from every statement figure.
+  // D-103: the newer quarter's headline, apart from every statement figure.
   const newer = report.filingDisclosures ? shownFilingDisclosures(report.filingDisclosures).newerResults : undefined;
   if (newer && newer.revenue !== null && newer.epsDiluted !== null && newer.currency !== null) {
     rows.push({
@@ -1635,8 +1635,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   }
 
   const pe = report.valuation.multiples.find((m) => /^P\/E/i.test(m.name) && m.current !== null);
-  // AMZN audit 2026-10-20: a P/E carried by non-operating gains says so.
-  // Audit 2026-10-22 B-20: a P/E that is market cap over common income, not
+  // D-98: a P/E carried by non-operating gains says so.
+  // D-112: a P/E that is market cap over common income, not
   // price over diluted EPS (the reading a reader assumes), says so.
   if (pe) {
     // D-296: the aggregate P/E basis in current and stored wording.
@@ -1659,8 +1659,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     rows.push({ label: "Forward P/E (model base-case operating EPS)", value: formatMultiple(price / nextEps.value.value), note: `${nextEps.period}; excludes investment gains` });
   }
   const evEbitda = report.valuation.multiples.find((m) => /^EV\/EBITDA/i.test(m.name) && m.current !== null);
-  // Audit 2026-10-22 B-7: an EBITDA on a composed, lower-bound D&A says so.
-  // Audit 2026-10-22 B-9: an annual-basis name already carries its year.
+  // D-105: an EBITDA on a composed, lower-bound D&A says so.
+  // D-112: an annual-basis name already carries its year.
   const evLabel = (name: string): string => name === "EV/EBITDA" ? "EV/EBITDA (TTM)" : name;
   if (evEbitda) rows.push({ label: evLabel(evEbitda.name), value: formatMultiple(evEbitda.current), ...(evEbitda.earningsCaveat ? { note: `caveat: ${evEbitda.earningsCaveat}` } : {}) });
   else {
@@ -1699,16 +1699,16 @@ export function keyDataRows(report: Report): KeyDataRow[] {
       value: formatFinancialAmount(dcf.value, dcf.unit, dcf.currency),
       note: [
         comparison === null ? null : `${comparison.text} ${comparison.label}`,
-        // Audit 2026-10-22 B-30: the general-route DCF's base rate across the census.
+        // D-102: the general-route DCF's base rate across the census.
         report.fairValue?.method === "fcff-dcf" ? dcfBaseRateText() : null,
-        // Audit 2026-10-22 C-10: the excess-return value from the fiscal-year start, when it differs by more than 5pp.
+        // D-102: the excess-return value from the fiscal-year start, when it differs by more than 5pp.
         report.fairValue?.alternative ? `${report.fairValue.alternative.label}: ${formatFinancialAmount(report.fairValue.alternative.perShare, dcf.unit, dcf.currency)}` : null,
-        // Audit 2026-10-22 F-13: the inputs an outage or refusal substituted.
+        // D-111: the inputs an outage or refusal substituted.
         fairValueDegradedText(report.fairValue),
       ].filter((part): part is string => part !== null).join("; ") || undefined,
     });
   } else if (report.fairValue?.status === "outside-domain") {
-    // Audit 2026-10-22 B-29: the headline says why no DCF value is shown.
+    // D-102: the headline says why no DCF value is shown.
     rows.push({
       label: fairValueKeyDataLabel(report.fairValue, "shown"),
       value: "Model outside its domain",
@@ -1725,11 +1725,11 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   }
   const scores = report.scores;
   if (scores && scores.composite.score !== null) {
-    // F-19: the aspects' evidence floor and the neutral qualifier, with the
+    // D-100: the aspects' evidence floor and the neutral qualifier, with the
     // evidence share and the band thresholds beside the figure.
     rows.push({ label: "Composite grade", value: compositeText(scores), note: compositeNote(scores) });
   }
-  // D-301 (P22; R29): a recorded caveat's raw base-unit amounts ("pre-tax income 174926000000") read in the shared number format.
+  // D-301 (P22): a recorded caveat's raw base-unit amounts ("pre-tax income 174926000000") read in the shared number format.
   return rows.map(row => row.note ? { ...row, note: compactLongIntegers(row.note) } : row);
 }
 
@@ -1892,7 +1892,7 @@ function ratio(supported: number, total: number, rate: number | null): string {
 }
 
 /**
- * What was verified, one row per kind of check (P0-7). Qualitative claims are
+ * What was verified, one row per kind of check (D-62). Qualitative claims are
  * counted as cited but not machine-checkable instead of being folded into a
  * "0/N validated" headline; the numeric-claim ratio covers only claims that
  * state a figure.
@@ -1900,8 +1900,8 @@ function ratio(supported: number, total: number, rate: number | null): string {
 /**
  * Prose claims the coverage counts contradicted plus cited figures the
  * verification log marks contradicted: the two records the audit export
- * prints (AMZN audit 2026-10-20 finding 12: the export marked a cited salary
- * figure contradicted while the header, counting prose claims only, said 0).
+ * prints (D-98: the export once marked a cited salary figure contradicted while
+ * the header, counting prose claims only, said 0).
  */
 function contradictedCount(v: NonNullable<ProvenanceCoverage["factualValidation"]>, log: readonly VerificationLogEntry[] | undefined): { count: number; split: string | null } {
   const figures = (log ?? []).filter((entry) => entry.evidenceKind === "number" && displayedValidationStatus(entry) === "contradicted").length;
@@ -1915,7 +1915,7 @@ function contradictedCount(v: NonNullable<ProvenanceCoverage["factualValidation"
 export function trustRows(recorded: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): TrustRow[] {
   if (!recorded) return [];
   const coverage = displayedClaimCoverage(recorded, log);
-  // Audit 2026-10-22 B-10: validation first; citation and tracing are provenance.
+  // D-110: validation first; citation and tracing are provenance.
   const rows: TrustRow[] = [];
   const v = coverage.factualValidation && displayedFactualValidation(coverage.factualValidation, log);
   if (v) {
@@ -1942,7 +1942,7 @@ export function trustRows(recorded: ProvenanceCoverage | undefined, log?: readon
 
 /**
  * One-line header form of {@link trustRows}: what was checked against a cited
- * figure. Audit 2026-10-22 B-10: the line leads with the numeric validation
+ * figure. D-110: the line leads with the numeric validation
  * fraction; tracing and citation are provenance, on {@link provenanceHeadline}.
  */
 export function trustHeadline(recorded: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): string | null {
@@ -1960,7 +1960,7 @@ export function trustHeadline(recorded: ProvenanceCoverage | undefined, log?: re
   return parts.join("; ");
 }
 
-/** The header's provenance line: figures traced and claims cited, which are not validation (B-10). */
+/** The header's provenance line: figures traced and claims cited, which are not validation (D-110). */
 export function provenanceHeadline(recorded: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): string | null {
   if (!recorded) return null;
   const coverage = displayedClaimCoverage(recorded, log);
@@ -2121,7 +2121,7 @@ export function readerPrecision(text: string, source?: string): string {
   return out.replace(
     /(?<![\w.:/-])(-?)(\d+)\.(\d+)(?!\.?\d)(\s?(?:x|×)(?![A-Za-z0-9])|%| percentage points?\b| pp\b| (?:trillion|billion|million|thousand)\b| per share\b)?/g,
     (match, sign: string, whole: string, fraction: string, unit: string | undefined, offset: number, whole_text: string) => {
-      // D-308 review round 1: a version, id or CIK number is an identifier, not a figure to round.
+      // D-308: a version, id or CIK number is an identifier, not a figure to round.
       if (IDENTIFIER_CONTEXT.test(whole_text.slice(Math.max(0, offset - 40), offset))) return match;
       const decimals = fraction.length;
       const value = Number(`${sign}${whole}.${fraction}`);
@@ -2153,7 +2153,7 @@ export function withoutDecisionNumbers(text: string): string {
 }
 
 export function displayProse(text: string, source?: string, options: { modelWritten?: boolean } = {}): string {
-  // D-308 review round 1: code-written prose has its base-unit amounts grouped; model-written prose (a paragraph
+  // D-308: code-written prose has its base-unit amounts grouped; model-written prose (a paragraph
   // carrying the "not confirmed" mark, or a claim of a report the AI wrote) is shown as written.
   const conventions = readerConventionText(withoutDecisionNumbers(text), source);
   const readable = (options.modelWritten === true || text.trimEnd().endsWith(MODEL_PROSE_MARK) ? conventions : readerBaseUnits(conventions))
@@ -2296,13 +2296,13 @@ export function runSummary(report: Pick<Report, "meta">): string {
 
 /**
  * Which model passes used only the supplied evidence, from the execution
- * entries whose per-pass note the audit export prints (AMZN audit 2026-10-20
- * finding 17: the report itself never said the analysis had no web search).
+ * entries whose per-pass note the audit export prints (D-98: the report itself
+ * never said the analysis had no web search).
  * Null when no pass ran on a plan allowance.
  */
 export function evidenceScopeSummary(report: Pick<Report, "meta">): string | null {
   const stepName = passBaseName;
-  // Codex review of PR #41: failed and never-sent attempts are listed in a
+  // D-98: failed and never-sent attempts are listed in a
   // data-only report's run details, but they used no evidence at all.
   const entries = modelPasses(report.meta.execution)
     .filter((entry) => executionCompleted(entry) && subscriptionExecution(entry) !== null);
@@ -2327,7 +2327,7 @@ type LedgerRow = Report["appendix"]["costBreakdown"][number];
 interface LedgerUsage { requests: number; discarded: number; input: number; output: number }
 
 /**
- * R1 (FIGR paid audit): token totals over the same ledger rows the cost is
+ * D-156: token totals over the same ledger rows the cost is
  * summed from, when every row carries its settled tokens. Earlier reports'
  * rows carry none, and keep the per-pass execution totals.
  */
@@ -2350,7 +2350,7 @@ function tokenText(input: number | null, output: number | null): string {
 }
 
 /**
- * Tokens for plan-allowance runs, dollars for API runs (audit P3: "Cost
+ * Tokens for plan-allowance runs, dollars for API runs (D-62: "Cost
  * $0.000000" on a ChatGPT-plan run read as a free run).
  */
 export function usageSummary(report: Pick<Report, "meta" | "appendix">): string {
@@ -2378,7 +2378,7 @@ export function usageSummary(report: Pick<Report, "meta" | "appendix">): string 
 }
 
 /**
- * The data-state sentence (audit P3: "Completeness confirmed: state
+ * The data-state sentence (D-62: "Completeness confirmed: state
  * degraded" read as a contradiction). "Confirmed" described the metadata,
  * not the data; the sentence now leads with the data state.
  */
@@ -2568,7 +2568,7 @@ export function manifestEntryLabel(gap: ManifestEntry, issuer: string | null): s
 }
 
 /**
- * D-301 (P22; R29): the one map from statement field identifiers to the words a
+ * D-301 (P22): the one map from statement field identifiers to the words a
  * reader sees. A recorded reason that lists fields ("eps, epsDiluted") reads
  * "basic EPS, diluted EPS" in the body; the audit export keeps the identifiers.
  */
@@ -2655,7 +2655,7 @@ export function dataGapTables(c: Pick<ReportCompletenessPresentation, "classific
 export function methodologyNotes(report: Pick<Report, "scores" | "projections" | "valuation" | "meta"> & Partial<Pick<Report, "appendix" | "fairValue">>): string[] {
   const notes = [
     "Grades and the composite score are deterministic house rules (bands, weights and signal transforms published in docs/METHODOLOGY.md). They have not been backtested against outcomes; a grade is a summary of the evidence shown, not a forecast.",
-    // FIGR extra-high audit B2-19: do not describe model outputs a route does not produce.
+    // D-163: do not describe model outputs a route does not produce.
     unavailableCashFlowModel(report)
       ? "This report models no intrinsic value, scenario value or projection (see Valuation). Its scenarios are qualitative conditions, not price targets, guidance, predictions or probabilities."
       : "Intrinsic value, scenario values and projections are model ESTIMATEs computed from the disclosed inputs. They are not analyst price targets, guidance or predictions; the scenario display weights are a fixed prior, not probabilities.",
@@ -2680,7 +2680,7 @@ export function auditExportPath(report: Pick<Report, "meta">, context: ReportPre
 }
 
 /**
- * FIGR extra-high audit B2-19: the fundamentals cash-flow group is headed
+ * D-163: the fundamentals cash-flow group is headed
  * "Free cash flow" only when it holds a free-cash-flow measure. A lender's
  * group holds operating cash flow and SBC observations, which are not FCF.
  */
@@ -2774,7 +2774,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
   const limited = SCORE_ASPECT_ORDER.filter((key) => hasLimitedEvidence(scores.aspects[key]));
   const table: BodyTable = {
     heading: "Scorecard",
-    // D-273 review round 1 (P12): each aspect's text qualifies what its score means, so it stays beside the score.
+    // D-273 (P12): each aspect's text qualifies what its score means, so it stays beside the score.
     headers: ["Aspect", "Score", "Band", "Weight", "Evidence (all signal weights)", "What it measures"],
     rows: SCORE_ASPECT_ORDER.map((key) => {
       const aspect = scores.aspects[key];
@@ -2862,7 +2862,7 @@ export function assessmentLine(scores: NonNullable<Report["scores"]>): string | 
 
 /**
  * A pass in one line: model, effort, tokens and any adjustment (the full record is in the audit export).
- * R1: given the cost ledger, the tokens are every request the pass made (with how many there were and
+ * D-156: given the cost ledger, the tokens are every request the pass made (with how many there were and
  * were discarded) when its rows carry tokens, not only the accepted attempt's.
  */
 export function passLine(entry: NonNullable<Report["meta"]["execution"]>[number], costLedger?: readonly LedgerRow[]): string {
@@ -2881,7 +2881,7 @@ export function passLine(entry: NonNullable<Report["meta"]["execution"]>[number]
 /** Score drivers with reader labels, values in their own units and the points each adds. */
 export function scoreDriverTable(scores: NonNullable<Report["scores"]>): BodyTable | null {
   const historyLabel = (signal: NonNullable<NonNullable<Report["scores"]>["aspects"]["valuation"]["signals"]>[number]): string => {
-    // Audit PGR-4: a P/TBV rank that fell back to P/B is named for what it ranks.
+    // D-97: a P/TBV rank that fell back to P/B is named for what it ranks.
     if (signal.id === "priceToTbvOwnHistoryRank" && signal.operands.some(operand => /\.multiples\.priceToBook\.current$/.test(operand.source))) return "P/B own-history rank";
     if (signal.id !== "peOwnHistoryRank") return signalLabel(signal.id);
     const source = signal.operands.find(operand => /\.multiples\.(?:peTtm|evToEbitda|priceToFcf)\.current$/.test(operand.source))?.source;
@@ -2916,15 +2916,15 @@ export function factorExposureTable(scores: NonNullable<Report["scores"]>): Body
   };
 }
 
-/** OD-11: data-only runs performed no citation-check pass. */
+/** D-144: data-only runs performed no citation-check pass. */
 export function displayedProvenanceCoverage(report: Pick<Report, "meta" | "appendix">, scope: "header" | "appendix"): ProvenanceCoverage | undefined {
   if (report.appendix.missingData.some(gap => gap.field === "analysis.llm")) return undefined;
   return scope === "header" ? report.meta.provenanceCoverage : report.appendix.provenanceCoverage ?? report.meta.provenanceCoverage;
 }
 
-/** AI-201: merge identical stored macro rows without altering the record. */
+/** D-146: merge identical stored macro rows without altering the record. */
 /**
- * FIGR extra-high audit A2-26 (2026-11-02): the pipeline fetches these FRED
+ * D-163: the pipeline fetches these FRED
  * series as transforms (CPI as year-over-year %, payrolls as a monthly change),
  * but the model names the row, and "Core consumer price index ... 2.6%" read as
  * an index level. Transformed rows take a fixed name for what is measured.
@@ -3050,7 +3050,7 @@ export interface ValuationHeadlineView {
   /** The text after {@link VALUATION_WITHHELD_TEXT} when withheld; null where the surface prints no reason. */
   withheldReason: string | null;
   comparison: ValuationComparisonView | null;
-  /** Substituted inputs (audit 2026-10-22 F-13), at reader precision, beside a shown value. */
+  /** Substituted inputs (D-111), at reader precision, beside a shown value. */
   degradedCaveat: string | null;
   /** The fair value's basis, or why it is withheld or only a dated reference. */
   basisCaveat: string | null;

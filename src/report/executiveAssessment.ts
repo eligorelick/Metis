@@ -1,8 +1,8 @@
 import type { Executive } from "@/report/schema";
 
 /**
- * Why an executive card lacks an assessment. Reports stored before the FIGR
- * extra-high audit (B2-09, 2026-11-02) carry one generic sentence for either
+ * Why an executive card lacks an assessment. Reports stored before D-163
+ * carry one generic sentence for either
  * gap, so "execution and/or guidance-versus-actual evidence is absent" printed
  * beside an admitted execution grade. Readers now see which assessment is
  * missing; the stored text is mapped at read time.

@@ -71,10 +71,10 @@ function classifyCompleteness(
   // companyfacts — the best possible EDGAR outcome — reported `edgar: "missing"`
   // and downgraded forensics to "provisional". When EDGAR really is unavailable
   // its own `edgar.*` member gaps are in this same manifest and still classify.
-  // An `info` entry is a note about one derived reading, not an outage: NVDA
-  // report #48 (2026-10-26) recorded `edgar: "missing"` and provisional
-  // forensics for "No unique matched annual geography revenue table" beside
-  // 15 retained EDGAR sources, and the page then read "EDGAR partial".
+  // An `info` entry is a note about one derived reading, not an outage: it
+  // once recorded `edgar: "missing"` and provisional forensics for "No unique
+  // matched annual geography revenue table" beside 15 retained EDGAR sources,
+  // and the page then read "EDGAR partial" (D-113).
   const edgarGaps = actionableGaps.filter(
     (gap) => (edgarNotesCount || gap.severity !== "info") &&
       /^(?:legacy\.audit\.)?(?:edgar(?:[.:(]|$)|company.?facts(?:[.:(]|$))/i.test(gap.field),
@@ -157,7 +157,7 @@ const DATASET_ALIAS: Record<string, string> = {
 /**
  * The dataset a manifest field is about, so the provider failure, the
  * substitution layer's verdict and its detail entry count as one gap:
- * `fmp.historicalMarketCap(NVDA)`, `keyless.marketCapHistory` and
+ * `fmp.historicalMarketCap(<symbol>)`, `keyless.marketCapHistory` and
  * `keyless.marketCapHistory.shareBasis` all describe the missing market-cap
  * history. A field-level backfill entry keeps its own key.
  */
@@ -404,7 +404,7 @@ export function deriveReportCompletenessPresentation(
   };
 }
 
-/** B10-OD-2: confirm the recorded convention before carrying added gaps. */
+/** D-144: confirm the recorded convention before carrying added gaps. */
 export function recordedCompletenessRule(persisted: PersistedDataCompleteness | undefined, gaps: readonly ManifestEntry[]): "current" | "pre-1.44.0" | null {
  if (!persisted) return null;
  if (completenessMatches(persisted, buildDataCompleteness(gaps))) return "current";

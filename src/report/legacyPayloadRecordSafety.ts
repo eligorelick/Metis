@@ -6,8 +6,8 @@ import { geographicBasisNote } from "@/report/presentation";
 import type { Report, TracedNumber } from "@/report/schema";
 
 /**
- * Immutable view of a stored report made before this batch's report spec
- * (audit 2026-10-27, B3, D-67): the stored record kinds that were wrong as
+ * Immutable view of a stored report made before the D-124 report spec
+ * (D-124, D-67): the stored record kinds that were wrong as
  * shown are displayed under the current rules. The stored report, its bytes and
  * its recorded counts are never rewritten; a report at or after the cutoff is
  * returned as the identical object.
@@ -37,7 +37,7 @@ const LEGACY_GEOGRAPHY_NOTES: Readonly<Record<GeographyContradiction, string>> =
   "issuer-geography": "Not established as company geography: the issuer tags its own geographic revenue (this report's XBRL geographic table), and at least one of these provider region names is not among that table's labels; reports before spec 1.45.0 listed them as geography.",
 };
 
-/** The generator's exact data-only sentences that were false (AI-310); model-written text never contains them. */
+/** The generator's exact data-only sentences that were false (D-124); model-written text never contains them. */
 const MACRO_SENTENCES: Readonly<Record<string, readonly [string, string]>> = {
   APU000072610: ["Displayed in USD per therm.", "Displayed in USD per kilowatt-hour."],
   PCE: ["Displayed in USD (FRED serves billions; shown ×1,000,000,000).", "Displayed in USD at a seasonally adjusted annual rate (FRED serves billions; shown ×1,000,000,000)."],
@@ -89,7 +89,7 @@ export function withLegacyPayloadRecordSafety(report: Report): Report {
   if (!specVersionBefore(report.meta.specVersion, PAYLOAD_RECORD_CORRECTION_SPEC)) return report;
   const kinds: string[] = [];
 
-  // Rule 1 (AI-301): peer caps on another listing market than the subject's are not money in the subject's currency.
+  // Rule 1 (D-124): peer caps on another listing market than the subject's are not money in the subject's currency.
   const subjectSuffix = listingSuffix(report.meta.symbol);
   const peerIds = new Set<string>();
   for (const row of report.competitive?.peerTable ?? []) {
@@ -119,7 +119,7 @@ export function withLegacyPayloadRecordSafety(report: Report): Report {
   };
   let next = mapTraced(report, fix) as Report;
 
-  // Rule 5 (AI-310, data-only): the generator's exact false unit sentences.
+  // Rule 5 (D-124, data-only): the generator's exact false unit sentences.
   const series = next.macro?.relevantSeries;
   if (series !== undefined) {
     const fixed = series.map((row) => {
@@ -132,7 +132,7 @@ export function withLegacyPayloadRecordSafety(report: Report): Report {
     }
   }
 
-  // Rule 7 (AI-509): provider geography the report's own XBRL tables contradict.
+  // Rule 7 (D-127): provider geography the report's own XBRL tables contradict.
   const geographicIds = new Set<string>();
   const geographic = next.business?.segments?.geographic ?? [];
   const isProvider = (row: (typeof geographic)[number]): boolean => {
@@ -166,7 +166,7 @@ export function withLegacyPayloadRecordSafety(report: Report): Report {
     }
   }
 
-  // Rule 8 (AI-511, data-only): the fiscal-year FCF conversion is not the graded figure.
+  // Rule 8 (D-124, data-only): the fiscal-year FCF conversion is not the graded figure.
   const fcf = next.fundamentals?.fcf;
   if (fcf?.some((row) => row.label === OLD_FCF_LABEL)) {
     kinds.push("FCF conversion label");

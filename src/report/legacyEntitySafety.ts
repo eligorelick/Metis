@@ -98,7 +98,7 @@ export function sanitizeLegacyEntityConflicts(
   const issues: EntityIssue[] = [];
   // Distinct withheld STATEMENTS. The verification log carries a copy of every
   // checked sentence, so counting each withheld string once per occurrence
-  // reported "2 legacy statements" for one (audit 2026-09-06, F194).
+  // reported "2 legacy statements" for one.
   const withheldTexts = new Set<string>();
   let invalidCitationCount = 0;
   // D-263: score operands carry typed source coordinates, including array indexes.
@@ -124,8 +124,8 @@ export function sanitizeLegacyEntityConflicts(
     // The judge's own entity-conflict record is the RESOLUTION of a conflict,
     // not a claim: its bull/bear views restate the disputed association by
     // design (prompts.ts: "every supplied deterministic entity conflict must
-    // appear as kind=entity"). Withholding it (before the 2026-09-06 audit,
-    // F184) blocked every clean report whose judge had done exactly that.
+    // appear as kind=entity"). Withholding it (as an earlier rule did)
+    // blocked every clean report whose judge had done exactly that.
     const entry = value as { kind?: unknown; judgeResolution?: unknown; claim?: unknown; outcome?: unknown };
     if (entry.kind === "entity" && typeof entry.judgeResolution === "string") {
       return structuredClone(value);
@@ -183,7 +183,7 @@ export function sanitizeLegacyEntityConflicts(
 
   const safe = walk(cloned) as Report;
   const withheldCount = withheldTexts.size;
-  // Audit 2026-10-22 F-21 (review): the header counts the claims the report
+  // D-110: the header counts the claims the report
   // marks. A withheld claim prints as an unmarked placeholder, so it leaves
   // the counts at the status it was recorded with.
   if (withdrawn.length > 0) {

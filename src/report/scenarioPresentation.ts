@@ -31,7 +31,7 @@ export function prepareSampleReport(report: Report): Report {
 
 /**
  * D-60: price targets carry no weight. A 25/50/25 weight beside each target
- * implied a weighted value (NVDA report #34: ≈$284, above the quote) that the
+ * implied a weighted value (in one report ≈$284, above the quote) that the
  * report never showed and the grade contradicted. The display prior now
  * belongs to the weighted operating projections alone, and this is the one
  * place the report says it is not a calibrated probability.
@@ -93,7 +93,7 @@ export function hasCompleteSensitivityGrids(dcf: Valuation["dcf"] | undefined): 
 
 /**
  * A statement about the tested grids only, never an error bar or confidence
- * interval. D-65: both grids decide it. NVDA report #34 rerun called the value
+ * interval. D-65: both grids decide it. One report called the value
  * "robust" because every WACC × terminal-growth cell sat above the price while
  * four year-one-growth × margin cells sat below it; the grid that varies the
  * decisive inputs now counts, and the conclusion names the cells that cross.
@@ -142,7 +142,7 @@ export function summarizeSensitivity(cells: SensitivityCell[], currentPrice: num
 }
 
 /**
- * Audit 2026-10-22 C-11: the excess-return route's start-return × cost-of-equity
+ * D-102: the excess-return route's start-return × cost-of-equity
  * grid read against the price, on the same rules as the DCF grids: a robustness
  * claim needs every cell valid, and missing cells are excluded.
  */
@@ -201,7 +201,7 @@ export function buildScenarioPresentation(computed: ComputedMetrics, currentPric
 }
 
 /**
- * E-5: the minority-interest claim each scenario path deducts. Above the
+ * D-102: the minority-interest claim each scenario path deducts. Above the
  * threshold a path's own consolidated equity decides between book and the
  * earnings key, so the base path's choice does not describe the others.
  */
@@ -212,27 +212,27 @@ export function fixedBridgeMinorityText(bridge: DcfBridge, claim: (v: number | n
     : claim(bridge.minorityInterest);
 }
 
-/** The minority-interest and preferred clauses of the fixed-bridge sentence, each naming its temporary-equity part (FIN-119). */
+/** The minority-interest and preferred clauses of the fixed-bridge sentence, each naming its temporary-equity part (D-135). */
 export function fixedBridgeClaimsText(bridge: DcfBridge, claim: (v: number | null) => string, display: (v: number) => string): string {
   const temporary = bridge.temporaryEquity;
   return `minority interest ${fixedBridgeMinorityText(bridge, claim)}${temporaryEquityText(temporary?.redeemableNoncontrolling, "redeemable noncontrolling interests", display)}, ` +
     `preferred equity ${claim(bridge.preferred)}${temporaryEquityText(temporary === undefined ? undefined : temporary.redeemablePreferred + temporary.unsplit, "redeemable preferred and other temporary equity", display)}`;
 }
 
-/** FIN-119: names the temporary-equity claim inside a bridge line, when there is one. */
+/** D-135: names the temporary-equity claim inside a bridge line, when there is one. */
 function temporaryEquityText(amount: number | undefined, label: string, display: (v: number) => string): string {
   return amount === undefined || amount === 0 ? "" : ` (including ${label} of ${display(amount)})`;
 }
 
 /**
  * The non-operating lines each scenario path carries unchanged: assets added,
- * then the investment tax and any E-7 obligations subtracted.
+ * then the investment tax and any D-104 obligations subtracted.
  */
 export function fixedBridgeNonOperatingText(bridge: DcfBridge, display: (v: number) => string): string {
   if (bridge.nonOperatingAssets === undefined) return "";
   const components = bridge.nonOperatingComponents ?? [];
   if (components.length === 0) return `, plus non-operating marketable equity securities ${display(bridge.nonOperatingAssets)}`;
-  // E-7: an obligation from an earlier filing keeps its balance date; FIN-305: a line deducted after tax keeps saying so.
+  // D-104: an obligation from an earlier filing keeps its balance date; D-135: a line deducted after tax keeps saying so.
   const name = (label: string) => {
     const at = /; balance at (\d{4}-\d{2}-\d{2})/.exec(label);
     return label.replace(/ \(.*\)$/, "") + (/\(filed, after tax at /.test(label) ? " after tax" : "") + (at === null ? "" : ` (balance at ${at[1]})`);
@@ -266,7 +266,7 @@ function deterministicAssumptions(computed: ComputedMetrics, name: Scenario["nam
   const known = (v: number | null) => v === null ? "unavailable" : display(v);
   const claim = (v: number | null) => v === null ? "not disclosed; model uses 0" : display(v);
   // D-65: the margin shift the path carries after the scenario cap, beside the
-  // shock requested (NVDA bull: +10.12pp requested, 0 after the 65.21% cap).
+  // shock requested (e.g. a bull path: +10.12pp requested, 0 after a 65.21% cap).
   const effectiveMargin = (a.ebitMarginPath.value[0] ?? 0) - (valuation.assumptions.ebitMarginPath.value[0] ?? 0);
   const marginText = Math.abs(effectiveMargin - scenarioInputs.marginDeltaPp) < 0.005
     ? `operating margin ${display(scenarioInputs.marginDeltaPp)} percentage points`

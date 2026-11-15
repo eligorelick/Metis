@@ -4,7 +4,7 @@
  * The reverse solve varies one path while holding the remaining model fixed.
  *
  * D-60: every condition must be observable. The former projection milestones
- * restated the base path (NVDA: "revenue below $469.70B", "margin below
+ * restated the base path (e.g. "revenue below $469.70B", "margin below
  * 65.48%") and the reverse threshold was a growth rate on a modeled fade. Now:
  * the reverse threshold also names the revenue level it implies for the first
  * modeled year and the evidence beside it, and guidance supplies the
@@ -49,9 +49,9 @@ export function buildThesisTriggers(
   const start = val.assumptions.startRevenue?.value;
   const anchorEnd = val.assumptions.forecastPeriod?.anchorEndDate;
   const firstWindow = anchorEnd ? forecastYearPeriod(anchorEnd, 1, val.assumptions.forecastPeriod?.basis ?? "rolling-12-month") : null;
-  // AMZN audit 2026-10-20 finding 10: the condition that would change the
+  // D-99: the condition that would change the
   // assessment lies on the far side of the price-implied value from the base
-  // case. Every trigger read "below", so a price above the model value (AMZN:
+  // case. Every trigger read "below", so a price above the model value (e.g.
   // a 52.3% implied terminal margin against a 12.1% base) printed a condition
   // the base case already met. Without a base value, "below" as before.
   const awayFromBase = (implied: number, base: number | null | undefined): "above" | "below" =>

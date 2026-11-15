@@ -4,7 +4,7 @@ import type { Report } from "@/report/schema";
 
 /**
  * Display-time marking of a stored report whose statements were built from SEC
- * filings before this batch's report spec (audit 2026-10-27, B13, D-67). The
+ * filings before the D-134 report spec (D-134, D-67). The
  * derived lines and growth cells it shows are as stored; the notes below say
  * which derivations changed since. No figure is rewritten. Two classes carry a
  * note: FULL (the income statements were served by EDGAR: a `keyless.incomeAnnual`
@@ -17,7 +17,7 @@ import type { Report } from "@/report/schema";
  * member served wholly by predecessor rows carries the BACKFILL wording: both are conservative
  * over-inclusions. A report at or after the since-version, or in neither
  * class (an FMP-route report, whose `.shareBasis` entries describe vendor rows), is
- * returned as the identical object (Task 10b, R1 pre-flight I3).
+ * returned as the identical object (D-134).
  *
  * The since-version is frozen: it never compares against `REPORT_SPEC_VERSION`
  * itself, because later batches move that constant. Every note is a fixed

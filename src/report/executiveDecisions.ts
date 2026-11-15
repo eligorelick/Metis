@@ -254,7 +254,7 @@ export function companyRecordClaim(e: Executive, claim: SourcedClaim, form: "car
 export const COMPANY_RECORD_PREFIX = "Company record during this tenure: ";
 
 /**
- * D-302 (P18, P22; R35): a card statement written "<Officer name>: operating
+ * D-302 (P18, P22): a card statement written "<Officer name>: operating
  * cash flow ... was ..." reads as the person's own figure. The prefix is the
  * card's officer (every word of it is a word of the card's name, at least two
  * words), so it is replaced by the company-record wording; the figure, its

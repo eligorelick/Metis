@@ -347,7 +347,7 @@ export function loadReportPair(aId: number, bId: number): ReportPair | null {
 /**
  * Symbol-scoped {@link loadReportPair}: additionally requires BOTH reports to
  * belong to the given company symbol (case-normalized, same rule as
- * {@link getReportByIdForSymbol}), so a diff URL under /company/AAPL can never
+ * {@link getReportByIdForSymbol}), so a diff URL under /company/<symbol> can never
  * render another company's report via a foreign id in `?a`/`?b`. Returns null
  * when either id is unknown/unparseable OR either report belongs to a
  * different symbol.
