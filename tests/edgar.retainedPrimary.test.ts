@@ -346,3 +346,18 @@ it("establishes a changed perimeter from a revised comparative and explicit chan
     expect(primaryPerimeterChange(revised,incomplete)).toBeNull();
   }
 });
+
+
+it.each([true, false])("D-307: exact filed window supersedes quarter rounding only when the whole pair is proved (%s)", proved => {
+  const b = trailingOnlyFixture();
+  if (!b.edgar.companyFacts.ok || !b.statements.incomeQuarterly.ok) throw Error("fixture");
+  const facts = b.edgar.companyFacts.value.data.facts["us-gaap"]!;
+  const pretax = facts.IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest as { units: { USD: { val: number }[] } };
+  facts.IncomeTaxExpenseBenefit = { units: { USD: pretax.units.USD.map(p => ({ ...p, val: p.val * 0.1 })) } };
+  const q = b.statements.incomeQuarterly.value.data.rows;
+  q.forEach(r => { r.incomeBeforeTax = 92.5 * M; r.incomeTaxExpense = 9.2505 * M; });
+  const window = { ...ttmIncome(q)!, taxRateOperandsFiled: proved };
+  const out = withFiledIncomeWindow(b, window, q, [])!;
+  expect(out.incomeTaxExpense).toBe(37.002 * M);
+  expect(effectiveTaxRateFromTtm(out)).toBe(proved ? 0.1 : 37.002 / 370);
+});

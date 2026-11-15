@@ -270,9 +270,9 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
    * D-300 (P8, P12; review round 1): the reconciled filed earnings family the row's own tax-rate operands
    * agree with (provision and the pre-tax base the rate divides by), recorded when no value changes. Like
    * `interestExpenseAgreement`, it is evidence that the operands were checked against a filing and is kept
-   * out of `fieldProvenance`; absent means unverified.
+   * out of `fieldProvenance`; absent means unverified. D-307 retains the filed pair in `values` for effective-rate consumers.
    */
-  taxOperandAgreement?: { incomeBeforeTax: StatementFieldProvenance; incomeTaxExpense: StatementFieldProvenance };
+  taxOperandAgreement?: { incomeBeforeTax: StatementFieldProvenance; incomeTaxExpense: StatementFieldProvenance; values?: { pretax: number; tax: number } };
   equityMethodIncomePlacement?: EquityMethodIncomePlacement;
   netIncome?: number;
   /** Filed consolidated profit including noncontrolling interests (SEC ProfitLoss). */

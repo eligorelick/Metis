@@ -126,6 +126,15 @@ export function effectiveTaxPretaxIncome(row: Pick<FmpIncomeStatementRow, "incom
   return finite(row.pretaxIncomeBeforeEquityMethod?.value) ? row.pretaxIncomeBeforeEquityMethod.value : row.incomeBeforeTax;
 }
 
+/** D-307 (P8, P13): the proved filed pair owns rates, while statement identities keep their own amounts. */
+export function effectiveTaxOperands(row: FmpIncomeStatementRow | null | undefined): { pretax: number | null; tax: number | null } {
+  const agreement = row?.taxOperandAgreement;
+  if (row && agreement?.values && ["incomeBeforeTax", "incomeTaxExpense"].every(field =>
+    row.fieldConflicts?.[field]?.usable !== false) &&
+    agreement.incomeBeforeTax.periodEnd === row.date && agreement.incomeTaxExpense.periodEnd === row.date) return agreement.values;
+  return { pretax: effectiveTaxPretaxIncome(row), tax: finite(row?.incomeTaxExpense) ? row.incomeTaxExpense : null };
+}
+
 /** Reuse canonical filed statement resolution; never infer expense placement from EBIT. */
 export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpIncomeStatementRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string,
   opts: { bankRevenue?: boolean; securitiesRevenue?: boolean; earningsOnly?: boolean; filedRows?: FmpIncomeStatementRow[]; revenuePolicy?: OperatingRevenuePolicy } = {}):
@@ -379,7 +388,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
     // D-300 (P8, P12; review round 1): when the row's provision and the pre-tax
     // base the tax rate divides by are the same observation as the reconciled
     // filed family, the filed facts stand on their own proof: record it, as
-    // interest expense does. No value changes; a refused operand or another
+    // interest expense does. D-307 retains the filed amounts for rate consumers; a refused operand or another
     // value records nothing. The row's values after any adoption are compared,
     // so a second pass over an adopted row records the same proof (idempotent).
     if (out.taxOperandAgreement !== undefined) out = { ...out, taxOperandAgreement: undefined };
@@ -387,7 +396,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
         out.fieldConflicts?.incomeTaxExpense?.usable !== false && out.fieldConflicts?.incomeBeforeTax?.usable !== false &&
         same(out.incomeTaxExpense, family.tax.value)) {
       const base = out.pretaxIncomeBeforeEquityMethod ?? (same(out.incomeBeforeTax, family.pretax.value) ? family.pretax : null);
-      if (base) out = { ...out, taxOperandAgreement: { incomeBeforeTax: base.proof, incomeTaxExpense: family.tax.proof } };
+      if (base) out = { ...out, taxOperandAgreement: { incomeBeforeTax: base.proof, incomeTaxExpense: family.tax.proof, values: { pretax: base.value, tax: family.tax.value } } };
     }
     // Ownership scope is useful even when the provider's parent earnings agree.
     // Admit the signed bridge only from the same reconciled filing family;

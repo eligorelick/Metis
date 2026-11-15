@@ -174,7 +174,7 @@ import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } fro
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { filedCfoTtm, filedCashFlowTtm, filedCapexTtm } from "@/edgar/financialEnrichment";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
-import { effectiveTaxPretaxIncome } from "@/edgar/incomeClassification";
+import { effectiveTaxPretaxIncome, effectiveTaxOperands } from "@/edgar/incomeClassification";
 import { admitVendorLongTermInvestments, balanceAdmissionEntries, type BalanceAdmission } from "@/edgar/financialEnrichment";
 import { debtFamilyAdmission, type DebtFamilyStatement } from "@/pipeline/admission/debtFamily";
 import { withComputationContext } from "@/edgar/computationContext";
@@ -577,8 +577,8 @@ function toReturnsIncome(
     ebit: operatingIncomeForNonMargins(r),
     // D-237 (P13): ROIC reads this field only for the year's effective tax rate
     // and its sign, so it carries the provision's own base.
-    incomeBeforeTax: effectiveTaxPretaxIncome(r),
-    incomeTaxExpense: num(r.incomeTaxExpense),
+    incomeBeforeTax: effectiveTaxOperands(r).pretax,
+    incomeTaxExpense: effectiveTaxOperands(r).tax,
     netIncome: num(r.netIncome),
   };
 }
@@ -940,6 +940,8 @@ export interface TtmIncome {
    * (`effectiveTaxPretaxIncome`), else its `incomeBeforeTax`. Gated with the pair.
    */
   taxRatePretaxIncome: number | null;
+  taxRateIncomeTaxExpense?: number | null;
+  taxRateOperandsFiled?: boolean;
   /** D-237 (P20): set when a quarter's base differs from its `incomeBeforeTax`; the disclosure, with each filed operand. */
   taxRatePretaxBasis: string | null;
   /** D-60: four-quarter gross profit, or null unless all four quarters report it. */
@@ -1417,7 +1419,12 @@ function ttmIncomeFromNormalized(
     incomeBeforeTax = null;
     incomeTaxExpense = null;
   }
-  const taxBase = incomeBeforeTax === null ? null : ttmTaxRatePretax(q, incomeBeforeTax, incomeTaxExpense);
+  const taxRateOperandsFiled = q.every(filedTaxOperands);
+  // D-307: select the complete window once; incomplete proof keeps the original pair.
+  const taxRateIncomeTaxExpense = incomeTaxExpense === null ? null : taxRateOperandsFiled
+    ? q.reduce((sum, row) => sum + effectiveTaxOperands(row).tax!, 0) : incomeTaxExpense;
+  const taxBase = incomeBeforeTax === null ? null : ttmTaxRatePretax(q, incomeBeforeTax, taxRateIncomeTaxExpense);
+  if (taxBase && taxRateOperandsFiled) taxBase.value = q.reduce((sum, row) => sum + effectiveTaxOperands(row).pretax!, 0);
   if (taxBase?.basis) gaps?.push({ field: "compute.ttmIncome.taxRatePretaxIncome", reason: taxBase.basis, severity: "info", expected: true, attemptedSources: ["edgar:companyfacts"] });
 
   // Bottom-line fields feed routing (unprofitable overlay) and multiples
@@ -1519,6 +1526,8 @@ function ttmIncomeFromNormalized(
     incomeBeforeTax,
     incomeTaxExpense,
     taxRatePretaxIncome: taxBase?.value ?? null,
+    taxRateIncomeTaxExpense,
+    taxRateOperandsFiled,
     taxRatePretaxBasis: taxBase?.basis ?? null,
     // D-60: only the scenario margin ceiling reads it, and it falls back to the
     // latest fiscal year, so a partial window is simply not a TTM figure.
@@ -1573,7 +1582,7 @@ function ttmTaxRatePretax(q: FmpIncomeStatementRow[], pretax: number, tax: numbe
 export function effectiveTaxRateFromTtm(ttm: TtmIncome | null): number | null {
   if (ttm === null || ttm.incomeTaxExpense === null || ttm.taxRatePretaxIncome === null) return null;
   if (!(ttm.taxRatePretaxIncome > 0)) return null;
-  return ttm.incomeTaxExpense / ttm.taxRatePretaxIncome;
+  return (ttm.taxRateIncomeTaxExpense ?? ttm.incomeTaxExpense) / ttm.taxRatePretaxIncome;
 }
 
 export interface WaccStatementTaxRate {
@@ -1611,8 +1620,7 @@ export function waccTaxRateFromStatements(ttm: TtmIncome | null, latestAnnual: F
     return zeroShield(`TTM pre-tax income is not positive (${ttm.taxRatePretaxIncome} through ${ttm.date})`);
   }
   const date = isoDay(latestAnnual?.date);
-  const pretax = effectiveTaxPretaxIncome(latestAnnual);
-  const tax = num(latestAnnual?.incomeTaxExpense);
+  const { pretax, tax } = effectiveTaxOperands(latestAnnual);
   if (date === null || pretax === null || tax === null) return { rate: null, basis: null, fallback: null };
   if (!(pretax > 0)) return zeroShield(`no complete TTM tax pair, and the latest annual pre-tax income is not positive (${pretax}, FY ending ${date})`);
   const basis = `latest annual income tax expense / pre-tax income, FY ending ${date} (observed effective rate; no complete TTM tax pair exists)`;
@@ -3821,7 +3829,7 @@ function computeReturns(
   // D-237 (P8): the provider's ratio divides by its own pre-tax income. Where the
   // filings re-based the TTM pair's denominator, that ratio rests on another
   // basis than the provision and the filed pair replaces it.
-  const filedTaxPair = ttmInc !== null && ttmInc.taxRatePretaxBasis !== null;
+  const filedTaxPair = ttmInc !== null && (ttmInc.taxRateOperandsFiled || ttmInc.taxRatePretaxBasis !== null);
   const vendorTaxRate = filedTaxPair || (taxWindowPretax !== null && taxWindowPretax <= 0) ? null : num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate);
   const statementTax = waccTaxRateFromStatements(ttmInc, incomeAnnual[0]);
   if (vendorTaxRate === null && statementTax.fallback !== null) {
@@ -4416,7 +4424,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         // D-237 (P13): the DCF reads this field only as the tax rate's denominator.
         taxEvidenceBasis: equityWindowRows.every(filedTaxOperands) ? undefined : "Tax rate operands: vendor data, not checked against a filing",
         incomeBeforeTax: ttmInc.taxRatePretaxIncome,
-        incomeTaxExpense: ttmInc.incomeTaxExpense,
+        incomeTaxExpense: ttmInc.taxRateIncomeTaxExpense ?? ttmInc.incomeTaxExpense,
       }
     : inc0
       ? {
@@ -4430,8 +4438,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           operatingPerimeterRefusal: inc0.operatingPerimeterRefusal,
           grossProfit: num(inc0.grossProfit),
           taxEvidenceBasis: filedTaxOperands(inc0) ? undefined : "Tax rate operands: vendor data, not checked against a filing",
-          incomeBeforeTax: effectiveTaxPretaxIncome(inc0),
-          incomeTaxExpense: num(inc0.incomeTaxExpense),
+          incomeBeforeTax: effectiveTaxOperands(inc0).pretax,
+          incomeTaxExpense: effectiveTaxOperands(inc0).tax,
         }
       : null;
 
@@ -4454,8 +4462,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     grossProfitBasis: r.fieldConflicts?.grossProfit?.usable===false ? r.fieldConflicts.grossProfit.reason : undefined,
     unusualOperatingItems: guardedAnnualUnusual.byYear.get(rowDate(r))?.value ?? null,
     grossProfit: num(r.grossProfit),
-    incomeBeforeTax: effectiveTaxPretaxIncome(r),
-    incomeTaxExpense: num(r.incomeTaxExpense),
+    incomeBeforeTax: effectiveTaxOperands(r).pretax,
+    incomeTaxExpense: effectiveTaxOperands(r).tax,
   }));
 
   const toDcfBalance = (row: FmpBalanceSheetRow, basis: DcfBalanceRow["basis"]): DcfBalanceRow => ({

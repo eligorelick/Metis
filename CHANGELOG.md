@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.99.0** and
-payload **1.112.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.100.0** and
+payload **1.113.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Filed effective tax-rate operands (P8, P13, P27, D-307)
+
+Once the complete filed tax pair establishes a window, WACC, DCF and historical effective-rate consumers compute from the filed amounts. Exact filed TTM bridges supersede rounded quarter sums inside the existing P8 allowance. Missing proof keeps the prior vendor pair and qualification. Stored reports remain unchanged. Report 1.100.0, payload 1.113.0, pipeline stage-c-1.6.54 and Stage B STAGE_B_2026_11_FILED_TAX_86 identify the new convention.
+
 ## Unreleased - D-304-D-306
 
 - R6 review thread: compare both numeric values at one displayed precision and scale; hidden trailing zeros and alternate compact spelling cannot alone remove a checkmark. Existing rounding-boundary refusals remain.
@@ -26,7 +30,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Refuse a numeric checkmark when intermediate rounding disagrees with the exact record at reader precision (R6).
 - Carry the model tangible-equity definition beside moat ROTE summaries, cards and app signals (R18).
 - State SBC deductions only where disclosed; name scoring and forensic thresholds in words (R22/R28).
-- Report 1.99.0 / payload 1.112.0, Stage B `STAGE_B_2026_11_RELEASE_LEFTOVERS_85`, pipeline `stage-c-1.6.53`; review-round corrections include withholding unproved negative SBC and its dependants.
+- Report 1.99.0 / payload 1.112.0, Stage B `STAGE_B_2026_11_FILED_TAX_86`, pipeline `stage-c-1.6.53`; review-round corrections include withholding unproved negative SBC and its dependants.
 ## Unreleased - Support level and confirmed share at the top; one figure shown once; company-record wording; brief absence wording (P12, P13, P18, P19, P22, P27, D-300..D-303) (2026-11-15)
 
 - Near the top of every report (app, Markdown, print) a short block states the support level ("Full support", or "Limited support" with what was not checked against filings or is not covered) and "N of M statements were confirmed against their records by code (P%)"; data-only reports say they hold no AI-written statements. Code sets both from typed evidence; README gains a "Support levels" section with the same definitions and a per-company-kind table (D-300).

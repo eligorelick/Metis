@@ -125,7 +125,7 @@ export function withFiledIncomeWindow(bundle: DataBundle, ttm: TtmIncome | null,
   const fields = ["revenue", "operatingIncome", "ebit", "depreciationAndAmortization", "interestExpense", "incomeBeforeTax", "incomeTaxExpense", "grossProfit", "netIncomeConsolidated"] as const;
   const q = quarters.slice(0, 4);
   const reconciledSum = q.every(r => r.fieldProvenance?.operatingIncome?.calculation === "complete-operating-reconciliation");
-  if (!fields.some(f => !finite(ttm[f])) && !reconciledSum) return ttm;
+  if (!fields.some(f => !finite(ttm[f])) && !reconciledSum && !ttm.taxRateOperandsFiled) return ttm;
   const built = buildIncomeWindowFromCompanyFacts(facts, { symbol: bundle.symbol, cik: String(facts.cik), asOf: bundle.builtAt.slice(0, 10), factsObservedAt: acquired,
     annualPeriods: 0, quarterlyPeriods: 0, bankRevenue, vendorSplits: { status: "unavailable", source: "income-window", reason: "Additive monetary flows only" } },
     ttm.reportedCurrency, ttm.periodStart, ttm.date);
@@ -145,7 +145,7 @@ export function withFiledIncomeWindow(bundle: DataBundle, ttm: TtmIncome | null,
   const recoveredTax: Partial<Record<"incomeBeforeTax" | "incomeTaxExpense", { value: number; proof: NonNullable<FmpIncomeStatementRow["fieldProvenance"]>[string]; reason: string }>> = {};
   for (const field of fields) {
     const taxField = field === "incomeBeforeTax" || field === "incomeTaxExpense";
-    if (taxField && !needsTaxPair) continue;
+    if (taxField && !needsTaxPair && !ttm.taxRateOperandsFiled) continue;
     const operating = field === "operatingIncome" || field === "ebit";
     const value = operating ? sec.operatingIncome : sec[field];
     const proof = sec.fieldProvenance?.[operating ? "operatingIncome" : field];
@@ -174,21 +174,25 @@ export function withFiledIncomeWindow(bundle: DataBundle, ttm: TtmIncome | null,
     gaps.splice(0, gaps.length, ...gaps.filter(g => g.field !== `compute.ttmIncome.${field}`));
     gaps.push({ field: `compute.ttmIncome.${field}`, severity: "info", expected: true, reason });
   }
-  if (needsTaxPair) {
+  if (needsTaxPair || ttm.taxRateOperandsFiled) {
     const pre = recoveredTax.incomeBeforeTax, tax = recoveredTax.incomeTaxExpense;
     const base = effectiveTaxPretaxIncome(sec);
-    if (pre && tax && sameBasis(pre.proof, tax.proof) && finite(base)) {
+    if (pre && tax && sameBasis(pre.proof, tax.proof) && finite(base) &&
+        (needsTaxPair || vendorAgreesWithDerived(ttm.taxRatePretaxIncome!, base, pre.proof.flowOperands?.flatMap(o => o.points.map(p => p.val)) ?? []) &&
+          vendorAgreesWithDerived(ttm.taxRateIncomeTaxExpense ?? ttm.incomeTaxExpense!, tax.value, tax.proof.flowOperands?.flatMap(o => o.points.map(p => p.val)) ?? []))) {
+      if (!needsTaxPair && base === ttm.taxRatePretaxIncome && tax.value === ttm.taxRateIncomeTaxExpense) return out;
       const basis = `TTM effective tax rate uses the recovered filed tax pair for ${ttm.periodStart} through ${ttm.date}; ` +
         `provision ${tax.value} / filed pre-tax denominator ${base} ${pre.proof.unit}, retaining the before-equity-method base where applicable. ` +
         `${pre.proof.tags.join(", ")}; ${pre.reason}; ${tax.reason}`;
-      out = { ...out, incomeBeforeTax: pre.value, incomeTaxExpense: tax.value, taxRatePretaxIncome: base, taxRatePretaxBasis: basis,
+      out = { ...out, ...(needsTaxPair ? { incomeBeforeTax: pre.value, incomeTaxExpense: tax.value } : {}),
+        taxRatePretaxIncome: base, taxRateIncomeTaxExpense: tax.value, taxRateOperandsFiled: true, taxRatePretaxBasis: basis,
         filedIncomeFlows: { ...out.filedIncomeFlows, incomeBeforeTax: pre.proof, incomeTaxExpense: tax.proof } };
       const cleared = new Set(["compute.ttmIncome.incomeBeforeTax", "compute.ttmIncome.incomeTaxExpense", "compute.ttmIncome.taxPair", "compute.ttmIncome.taxRatePretaxIncome"]);
       gaps.splice(0, gaps.length, ...gaps.filter(g => !cleared.has(g.field)));
       for (const [field, item] of [["incomeBeforeTax", pre], ["incomeTaxExpense", tax]] as const)
         gaps.push({ field: `compute.ttmIncome.${field}`, severity: "info", expected: true, reason: item.reason });
       gaps.push({ field: "compute.ttmIncome.taxRatePretaxIncome", severity: "info", expected: true, reason: basis });
-    } else out = { ...out, incomeBeforeTax: null, incomeTaxExpense: null, taxRatePretaxIncome: null, taxRatePretaxBasis: null };
+    } else if (needsTaxPair) out = { ...out, incomeBeforeTax: null, incomeTaxExpense: null, taxRatePretaxIncome: null, taxRateIncomeTaxExpense: null, taxRatePretaxBasis: null };
   }
   return out;
 }
