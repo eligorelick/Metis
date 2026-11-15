@@ -71,7 +71,7 @@ export function reservedProviderGap(field: string, symbol: string, attemptedSour
   const sym = symbol.trim().toUpperCase();
   const gap: ManifestEntry = {
     field,
-    reason: `${sym} is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent`,
+    reason: `${sym} is a reserved fixture symbol — no provider request was made; this member has no fixture, so it is disclosed absent`,
     severity: "info",
     expected: true,
   };

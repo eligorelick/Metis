@@ -478,7 +478,8 @@ describe("judge case order (METIS_JUDGE_ORDER)", () => {
     // The additive field is not enough on its own — a reader has to be able to
     // read the fact in prose.
     expect(protocol?.note).toContain("read the bear case first");
-    expect(protocol?.note).toContain("THESIS_JUDGE_ORDER=bear-first");
+    expect(protocol?.note).toContain("METIS_JUDGE_ORDER=bear-first");
+    expect(protocol?.note).not.toContain("THESIS_");
     // A pinned order is fixed by configuration; the note must not claim it was
     // drawn from the seed or that first position floated (audit 2026-09-06, F174).
     expect(protocol?.note).toContain("pins that order");

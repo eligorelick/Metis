@@ -1,3 +1,4 @@
+import { applyFigureDefinitions } from "@/report/financialDiagnostics";
 /**
  * Stage C wiring — the concrete {@link PipelinePasses} the job runner injects.
  *
@@ -792,6 +793,8 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
     // Stamp the metrics produced from that full object, then parse the final
     // persisted shape once more so no post-verification mutation can bypass the
     // report contract.
+    // D-295: decorate code-owned definitions only after numeric verification.
+    if (ctx?.bundle) applyFigureDefinitions(verify.verifiedReport, ctx.bundle, ctx.computed);
       const verifiedReport = applyReportAssessmentStatus(applyGradeOverrideContract(ReportSchema.parse({
       ...verify.verifiedReport,
       meta: {

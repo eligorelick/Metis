@@ -203,7 +203,7 @@ describe("D-237: the TTM tax pair divides by the four quarters' own bases", () =
     expect(ttm.taxRatePretaxBasis).toBeNull();
     expect(gaps.some(gap => gap.field === "compute.ttmIncome.taxRatePretaxIncome")).toBe(false);
     expect(effectiveTaxRateFromTtm(ttm)! * 100).toBeCloseTo(17.41883696, 8);
-    expect(waccTaxRateFromStatements(ttm, undefined).basis).toBe("TTM incomeTaxExpense / incomeBeforeTax from the statements (observed effective rate)");
+    expect(waccTaxRateFromStatements(ttm, undefined).basis).toBe("TTM income tax expense / pre-tax income from the statements (observed effective rate)");
   });
 
   it("an incomplete pair has no base either", () => {

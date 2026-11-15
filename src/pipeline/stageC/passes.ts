@@ -1,3 +1,4 @@
+import { withRetiredGapWording } from "@/report/retiredReaderWording";
 import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { withComputationContext } from "@/edgar/computationContext";
 import { supplementalNumericAudit } from "@/report/supplementalNumericAudit";
@@ -47,7 +48,7 @@ import { returnPathLanguageManifestEntries } from "@/pipeline/stageC/returnPathL
 import { parseSubscriptionModel, subscriptionModel } from "@/ai/contracts";
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
-import { admittedGeography } from "@/edgar/segmentFacts";
+import { admittedGeography, withoutMemberMarker } from "@/edgar/segmentFacts";
 import { routeMetricsBlock, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
 import { EV_LEASE_SETTING_TEXT, isStartingGrowthFamily, type MultipleKey, type MultipleStat } from "@/pipeline/stageB/valuation";
@@ -102,6 +103,8 @@ import {
 } from "@/report/schema";
 import {
   assembleContextPayload,
+  segmentRecordCitations,
+  type SegmentRecordCitation,
   degradationDisclosures,
   serializePayloadForPrompt,
   payloadFingerprint,
@@ -1402,6 +1405,8 @@ function normalizeCitationFields(raw: unknown): unknown {
     if (key === "sourceId" && (value === null || (typeof value === "string" && value.trim().length === 0))) continue;
     next[key] = normalizeCitationFields(value);
   }
+  // D-295 review (P18): a figure definition is written only by deterministic code.
+  if (typeof next.value === "number" && typeof next.unit === "string") delete next.definition;
   // FIG / Sonnet 5.5: a canonical sourceId with source:"" is already a
   // citation, but the required legacy field rejected the whole paid answer.
   // Copy only a syntactically valid ID on a claim/number; provenance and truth
@@ -3607,7 +3612,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     ...recitation.removed.map(({ path, claim, candidates }): VerificationLogEntry => ({
       claim: claim.text,
       outcome: "removed",
-      note: `Removed: the statement cites the whole news feed on ${citationAsOf(claim) ?? "an undated day"}, and the payload holds ${candidates === 0 ? "no article" : candidates === 1 ? "one article without a link" : `${candidates} articles`} of that feed and date, so no single article can be named (D-285).`,
+      note: `Removed: the statement cites the whole news feed on ${citationAsOf(claim) ?? "an undated day"}, and the payload holds ${candidates === 0 ? "no article" : candidates === 1 ? "one article without a link" : `${candidates} articles`} of that feed and date, so no single article can be named.`,
       traceKind: "untraced",
       path,
       evidenceKind: claim.label === "JUDGMENT" ? "judgment" : "factual-claim",
@@ -4528,9 +4533,43 @@ function latestSegmentationTotal(
 /** D-280: shares use same-period consolidated revenue only after the full split reconciles (P8).
  * Missing, partial or overlapping splits withhold every share; model percentages are discarded.
  */
+/** D-299 (P18): the name a segment row carries when its cited record does not establish one. */
+export const UNBOUND_SEGMENT_NAME = "Segment (name not established)";
+
+/**
+ * D-299 (P18, P19): a segment row's name is code-owned. The row's revenue must
+ * cite one segment record of this bundle by its exact payload id (member
+ * identity), of the row's own kind (product or geographic), and the row must
+ * state that record's date (its period, else its as-of date), currency and monetary unit, with an amount that is
+ * the same observation (P8 allowance; both are in the record's own units, so no
+ * scale is assumed). The record's own name then replaces the model's text;
+ * otherwise the name is withheld.
+ */
+export function boundSegmentName(
+  row: { name: string; revenue: { value: number; unit?: string; period?: string | null; asOf?: string | null; currency?: string | null; source?: string; sourceId?: string } },
+  records: readonly SegmentRecordCitation[],
+  kind: "product" | "geographic",
+): string {
+  const cited = row.revenue.sourceId ?? row.revenue.source;
+  const value = row.revenue.value;
+  if (typeof cited !== "string" || typeof value !== "number" || !Number.isFinite(value)) return UNBOUND_SEGMENT_NAME;
+  const matches = records.filter(record => record.id === cited && record.kind === kind);
+  if (matches.length !== 1) return UNBOUND_SEGMENT_NAME;
+  const record = matches[0]!;
+  // The row's stated date: its period, else its as-of date (an annual segmentation row's date is its period end).
+  const stated = row.revenue.period ?? row.revenue.asOf ?? null;
+  const period = stated === null ? null : stated.slice(0, 10);
+  if (period === null || record.period === null || period !== record.period) return UNBOUND_SEGMENT_NAME;
+  if (row.revenue.currency == null || record.currency === null || row.revenue.currency !== record.currency) return UNBOUND_SEGMENT_NAME;
+  if (row.revenue.unit !== record.unit) return UNBOUND_SEGMENT_NAME;
+  return vendorAgreesWithFiled(record.value, value) ? record.name : UNBOUND_SEGMENT_NAME;
+}
+
 export function applySegmentShares(
   business: JudgeOutput["business"],
   bundle: DataBundle | undefined,
+  /** D-299: assembly binds model-written row names to their cited records; code-built rows are already the record's. */
+  options: { bindModelNames?: boolean } = {},
 ): JudgeOutput["business"] {
   const share = (revenueValue: number, total: number | null): number | null => {
     if (total === null) return null;
@@ -4538,6 +4577,9 @@ export function applySegmentShares(
     return Number.isFinite(pct) ? Math.round(pct * 10) / 10 : null;
   };
   const productTotal = latestSegmentationTotal(bundle?.segmentation?.product, bundle);
+  const segmentRecords = options.bindModelNames !== true || bundle?.segmentation === undefined ? [] : segmentRecordCitations(bundle);
+  const named = <R extends Parameters<typeof boundSegmentName>[0]>(row: R, kind: "product" | "geographic"): string =>
+    options.bindModelNames === true ? boundSegmentName(row, segmentRecords, kind) : row.name;
   // AI-509: the share basis follows the same admission as the payload and the data-only report.
   const primary = bundle?.segmentation?.geographic === undefined ? undefined
     : admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments);
@@ -4551,12 +4593,13 @@ export function applySegmentShares(
       sharePct: share(value, geographicTotal.total),
       shareWithheldReason: geographicTotal.reason,
     }))
-    : business.segments.geographic.map(row => ({ ...row, sharePct: share(row.revenue.value, geographicTotal.total), shareWithheldReason: geographicTotal.reason }));
+    : business.segments.geographic.map(row => ({ ...row, name: named(row, "geographic"), sharePct: share(row.revenue.value, geographicTotal.total), shareWithheldReason: geographicTotal.reason }));
   return {
     ...business,
     segments: {
       product: business.segments.product.map((row) => ({
         ...row,
+        name: named(row, "product"),
         sharePct: share(row.revenue.value, productTotal.total),
         shareWithheldReason: productTotal.reason,
       })),
@@ -4578,7 +4621,7 @@ export function bundleSegmentNameKeys(bundle: DataBundle | undefined): Set<strin
     for (const row of res.value.data.rows ?? []) {
       const data = row?.data;
       if (data === undefined || data === null || typeof data !== "object") continue;
-      for (const name of Object.keys(data)) { const key = productLineHeadingKey(name); if (key) keys.add(key); }
+      for (const name of Object.keys(data)) { const key = productLineHeadingKey(withoutMemberMarker(name)); if (key) keys.add(key); }
     }
   }
   // D-277 (P18): the same code-built filed member labels used by the quarterly
@@ -4650,7 +4693,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
       : completeJudgeProtocol(args.judgeProtocol, sharedModelFamilyOf(execution));
 
   const missingData = attributeJudgeProtocolDisclosures(bankRevenueManifest(originalBundle, primaryCapitalManifest(originalBundle, dedupManifest([
-    ...args.bundle.gaps,
+    ...withRetiredGapWording(args.bundle.gaps),
     ...args.computed.gaps,
     ...(args.validationGaps ?? []),
     ...degradationDisclosures(args.computed.degradation),
@@ -4732,7 +4775,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
   ), args.computed);
   const quality = applyForensicScores(args.judgeOutput.quality, args.computed.forensics);
   const segmentNames = bundleSegmentNameKeys(args.bundle);
-  const sharedBusiness = applySegmentShares(args.judgeOutput.business, args.bundle);
+  const sharedBusiness = applySegmentShares(args.judgeOutput.business, args.bundle, { bindModelNames: true });
   const business = sharedBusiness.products === undefined ? sharedBusiness
     : { ...sharedBusiness, products: gateProductLineHeadings(sharedBusiness.products, segmentNames) };
   const competitive = args.judgeOutput.competitive.competitorsByProductLine === undefined ? args.judgeOutput.competitive

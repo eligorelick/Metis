@@ -24,6 +24,7 @@ vi.mock("@/report/legacyBridgeMethod", async (importOriginal) => recorded(await 
 vi.mock("@/report/legacyValuationNotes", async (importOriginal) => recorded(await importOriginal<Record<string, unknown>>(), "withLegacyValuationNotes"));
 vi.mock("@/report/legacyImpliedReturnShareBasis", async (importOriginal) => recorded(await importOriginal<Record<string, unknown>>(), "withLegacyImpliedReturnShareBasis"));
 vi.mock("@/report/legacyScopeQualifications", async (importOriginal) => recorded(await importOriginal<Record<string, unknown>>(), "withLegacyScopeQualifications"));
+vi.mock("@/report/retiredReaderWording", async (importOriginal) => recorded(await importOriginal<Record<string, unknown>>(), "withRetiredReaderWording"));
 vi.mock("@/report/valuationUseSafety", async (importOriginal) => recorded(await importOriginal<Record<string, unknown>>(), "withValuationUseSafety"));
 
 const { STORED_REPORT_VIEW_READERS, withSafeStoredReportView, withStoredReportView } = await import("@/report/storedReportView");
@@ -38,6 +39,7 @@ const ORDER = [
   "withLegacyValuationNotes",
   "withLegacyImpliedReturnShareBasis",
   "withLegacyScopeQualifications",
+  "withRetiredReaderWording",
 ] as const;
 
 function loadReport(): Report {

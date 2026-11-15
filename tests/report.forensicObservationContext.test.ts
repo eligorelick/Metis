@@ -1,4 +1,5 @@
 import releaseW3Deltas from "./fixtures/release-w3-forensic-deltas.json";
+import releaseW4aDeltas from "./fixtures/release-w4a-wording-deltas.json";
 import { restorePublicPolishGolden } from "./helpers/publicPolishGolden";
 import { restoreP2ComputedGolden } from "./helpers/p2DcfInputsGolden";
 import { createHash } from "node:crypto";
@@ -53,6 +54,9 @@ function invariantHash(c: ComputedMetrics) {
   // calculation pin; producer-proof behavior is covered in currentCapital tests.
   delete pinned.capital.netDebtToEbitda.ebitdaComputed;
   if (pinned.capital.current) delete pinned.capital.current.ebitdaComputed;
+  // D-295: assert the added composition metadata, then retain every preceding byte in both historical pins.
+  expect(pinned.capital.current?.debtBridge.debtDefinition).toBe("lease treatment not established from the filing");
+  delete pinned.capital.current!.debtBridge.debtDefinition;
   // N2 P/TBV review changes only this deduction disclosure in the control.
   // Pin its exact text once, then preserve the complete historical hash.
   const tbv = pinned.valuation.multiples!.multiples.find(row => row.key === "priceToTbv")!;
@@ -181,6 +185,15 @@ describe("retained forensic observation context on real data-only exports", () =
     // observed at the balance date, so every value is unchanged; the four leaves the dated history adds are asserted
     // exactly below and restored, and the pin keeps checking every other byte.
     const computed = runStageB(fixture(undefined, BALANCE_DATE_CAP), { evIncludeLeases: false });
+    // D-296: the reader-wording change moves only these text leaves (no number). Assert each new text, then
+    // restore the preceding bytes before the earlier release deltas below.
+    for (const delta of releaseW4aDeltas) {
+      let parent = computed as unknown as Record<string | number, unknown>;
+      for (const key of delta.path.slice(0, -1)) parent = parent[key] as Record<string | number, unknown>;
+      const key = delta.path.at(-1)!;
+      expect(parent[key], delta.path.join(".")).toEqual(delta.after);
+      parent[key] = delta.before;
+    }
     // D-288/D-290: assert every release delta before restoring this historical whole-output pin.
     for (const delta of releaseW3Deltas) {
       let parent = computed as unknown as Record<string, unknown>;

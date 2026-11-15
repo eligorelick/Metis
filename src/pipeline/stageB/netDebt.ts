@@ -384,3 +384,12 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
       (vendorNetDebt !== null ? "; the row's cash-only net debt is not used" : ""),
   };
 }
+
+/** D-293: an extension of the issuer subtotal must be named beside the model amount. */
+export function liquidityDefinition(tags: readonly string[]): string | null {
+  return tags.some(t => /(?:^|\/)CashCashEquivalentsAndShortTermInvestments$/.test(t)) &&
+    tags.some(t => /(?:^|\/)MarketableSecurities$/.test(t))
+    ? "cash, cash equivalents and short-term investments subtotal plus marketable securities" : null;
+}
+
+export const LIQUIDITY_DEFINITION_FAMILIES = [["us-gaap/CashCashEquivalentsAndShortTermInvestments", "us-gaap/MarketableSecurities"]] as const;

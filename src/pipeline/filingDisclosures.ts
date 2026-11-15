@@ -5,7 +5,7 @@ import { outlookPeriodLabels } from "@/edgar/currentReports";
 import { withReleaseQuarterEarnings } from "./releaseQuarterEarnings";
 import { withholdContradictedReleaseLabels, fiscalLabelContradicted, fiscalLabelEndedBy, fiscalOutlookLabelContradicted, type FiscalLabelledPeriod } from "@/report/filingDisclosurePresentation";
 import {isTableOfContentsStub} from "@/edgar/currentReports";
-import {latestResultsRelease} from "@/providers/currentReports";
+import {foreignResultsNote, isForeignAnnualForm, isNoResultsEightKNote, latestResultsRelease} from "@/providers/currentReports";
 import {isoFromMonthDate} from "@/edgar/currentReports";
 import { dividendFrequencyFromFacts, dividendFrequencyEvidenceFromFacts } from "@/edgar/dividendFrequency";
 /**
@@ -622,8 +622,10 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
     for (const row of rowsOf<FmpIncomeStatementRow>(operatingBasis.statements?.incomeQuarterly)) {
       const d = day(row.date), prior = before.get(`${d}|${row.reportedCurrency}`);
       if (d === null || prior === undefined) continue;
+      // D-297: a note stands only while the field's typed conflict is still a
+      // refusal; a later admission of the same field (usable) supersedes it.
       const reasons = (["operatingIncome", "operatingExpenses"] as const)
-        .filter(field => num(prior[field]) !== null && num(row[field]) === null)
+        .filter(field => num(prior[field]) !== null && num(row[field]) === null && row.fieldConflicts?.[field]?.usable === false)
         .map(field => row.fieldConflicts?.[field]?.reason)
         .filter((reason): reason is string => typeof reason === "string");
       if (reasons.length > 0) withheldOperating.set(d, reasons);
@@ -982,7 +984,12 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
         notes.push(`${release === newestOutlook ? "Current issuer" : releases.some(newer => newer.filingDate > release.filingDate && outlookPeriodLabels(newer.guidance).some(label => outlookPeriodLabels(release.guidance).includes(label))) ? "Earlier, superseded issuer" : "Earlier issuer"} outlook statement not read as structured guidance (8-K ${release.accession}, filed ${release.filingDate}${period === null ? "" : `; release for ${period}`}): "${sentence}"`);
       }
     }
-    notes.push(...reports.notes.filter((note) => !/: outlook sentence not read as guidance: /.test(note)).slice(0, 6));
+    // D-298: a collection that predates the foreign-filer note wrote the
+    // domestic 8-K note for a 20-F/40-F filer; the retained annual form says
+    // which note applies.
+    const annualForm = bundle.edgar?.latestTenK?.ok ? bundle.edgar.latestTenK.value.data.form : null;
+    notes.push(...reports.notes.filter((note) => !/: outlook sentence not read as guidance: /.test(note)).slice(0, 6)
+      .map((note) => isForeignAnnualForm(annualForm) && isNoResultsEightKNote(note) ? foreignResultsNote(annualForm) : note));
   }
 
   // D-63: the latest release's reconciliation rows and the commitments and

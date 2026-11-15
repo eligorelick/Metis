@@ -131,7 +131,13 @@ export function sanitizeLegacyEntityConflicts(
       return structuredClone(value);
     }
     const carrier = value as CitationCarrier;
-    const hasCitationShape = !scoreOperands.has(value) && typeof carrier.source === "string" && "asOf" in value;
+    // D-297: a withheld figure (null value, recorded reason, no source written)
+    // is a disclosed gap, not a citation: it cites nothing, so there is no
+    // legacy citation to find ambiguous. Judged by the record's typed shape.
+    const gapRecord = value as { value?: unknown; reason?: unknown };
+    const withheldWithoutCitation = typeof carrier.source === "string" && carrier.source.trim() === "" &&
+      "value" in value && gapRecord.value === null && typeof gapRecord.reason === "string" && gapRecord.reason.trim() !== "";
+    const hasCitationShape = !scoreOperands.has(value) && !withheldWithoutCitation && typeof carrier.source === "string" && "asOf" in value;
     const normalizedSource = hasCitationShape ? citationSourceId(carrier) : null;
     const normalizedAsOf = hasCitationShape ? citationAsOf(carrier) : null;
     const output: Record<string, unknown> = {};

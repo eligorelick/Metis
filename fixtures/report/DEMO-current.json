@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Larkspur Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.95.0",
+    "specVersion": "1.97.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.95.0",
+    "pipelineVersion": "1.97.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8506944444444444,
@@ -826,7 +826,7 @@
     ],
     "products": [
       {
-        "productLine": "Product line (its name is not in the cited claims)",
+        "productLine": "Product line",
         "claims": [
           {
             "text": "Hardware and installation revenue is recognized on customer acceptance; installation bids compete on price.",
@@ -838,7 +838,7 @@
         ]
       },
       {
-        "productLine": "Product line (its name is not in the cited claims)",
+        "productLine": "Product line",
         "claims": [
           {
             "text": "Annual support subscriptions are recognized over the service term and compete on uptime.",
@@ -912,7 +912,7 @@
     "segments": {
       "product": [
         {
-          "name": "Hardware and installation",
+          "name": "Segment (name not established)",
           "revenue": {
             "value": 650000000,
             "unit": "currency",
@@ -927,7 +927,7 @@
           "sharePct": null
         },
         {
-          "name": "Support",
+          "name": "Segment (name not established)",
           "revenue": {
             "value": 350000000,
             "unit": "currency",
@@ -944,7 +944,7 @@
       ],
       "geographic": [
         {
-          "name": "Domestic",
+          "name": "Segment (name not established)",
           "revenue": {
             "value": 1000000000,
             "unit": "currency",
@@ -1172,7 +1172,8 @@
               "source": "computed.growth.fcfCagrs",
               "asOf": "2025-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for every period in this measure."
             }
           }
         ]
@@ -1482,7 +1483,8 @@
               "source": "computed.returns.rote",
               "asOf": "2024-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Model tangible equity = parent equity minus the provider's goodwill and intangible-asset fields and preferred stock; what those fields contain is not checked against the filing."
             }
           },
           {
@@ -1495,7 +1497,8 @@
               "source": "computed.returns.rote",
               "asOf": "2025-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Model tangible equity = parent equity minus the provider's goodwill and intangible-asset fields and preferred stock; what those fields contain is not checked against the filing."
             }
           }
         ]
@@ -1616,7 +1619,8 @@
               "source": "computed.capital.fcf",
               "asOf": "2023-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1630,7 +1634,8 @@
               "source": "computed.capital.fcf",
               "asOf": "2024-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1643,7 +1648,8 @@
               "sourceId": "computed.capital-cash.latest-fcf-after-sbc-house-default",
               "source": "computed.capital-cash.latest-fcf-after-sbc-house-default",
               "asOf": "2025-12-31",
-              "verified": true
+              "verified": true,
+              "definition": "Cash-spending definition is not established for this period."
             }
           }
         ]
@@ -1662,7 +1668,8 @@
               "source": "computed.capital.fcf.beforeSbc",
               "asOf": "2023-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1676,7 +1683,8 @@
               "source": "computed.capital.fcf.beforeSbc",
               "asOf": "2024-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1707,7 +1715,8 @@
               "source": "computed.capital.fcf.conversion",
               "asOf": "2023-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1720,7 +1729,8 @@
               "source": "computed.capital.fcf.conversion",
               "asOf": "2024-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1750,7 +1760,8 @@
               "source": "computed.capital.fcf.conversionBeforeSbc",
               "asOf": "2023-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1763,7 +1774,8 @@
               "source": "computed.capital.fcf.conversionBeforeSbc",
               "asOf": "2024-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1793,7 +1805,8 @@
               "source": "computed.capital.capexIntensity",
               "asOf": "2023-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1806,7 +1819,8 @@
               "source": "computed.capital.capexIntensity",
               "asOf": "2024-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1818,7 +1832,8 @@
               "sourceId": "computed.capital-cash.capex-revenue-latest",
               "source": "computed.capital-cash.capex-revenue-latest",
               "asOf": "2025-12-31",
-              "verified": true
+              "verified": true,
+              "definition": "Cash-spending definition is not established for this period."
             }
           }
         ]
@@ -1970,7 +1985,8 @@
           "sourceId": "computed.capital.current.debtBridge.totalDebtIncludingLeases",
           "source": "computed.capital.current.debtBridge.totalDebtIncludingLeases",
           "asOf": "2026-03-31",
-          "verified": true
+          "verified": true,
+          "definition": "lease treatment not established from the filing"
         },
         {
           "value": 120000000,
@@ -2011,14 +2027,14 @@
           "asOf": "2025-12-31"
         },
         {
-          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
+          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. TTM flows admitted for this window: operating cash flow, cash capital expenditure and EBITDA. Not established for this window: consolidated net income and stock-based compensation, so FCF after SBC, SBC share of FCF and FCF conversion are withheld. Annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
           "label": "JUDGMENT",
           "sourceId": "computed.capital.current",
           "source": "computed.capital.current",
           "asOf": "2026-03-31"
         },
         {
-          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
+          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. TTM flows admitted for this window: operating cash flow, cash capital expenditure and EBITDA. Not established for this window: consolidated net income and stock-based compensation, so FCF after SBC, SBC share of FCF and FCF conversion are withheld. Annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
           "label": "JUDGMENT",
           "source": "computed.capital.current",
           "asOf": "2026-03-31"
@@ -2054,7 +2070,8 @@
           "sourceId": "computed.capital.current.cashBridge.cashCapitalExpenditure",
           "source": "computed.capital.current.cashBridge.cashCapitalExpenditure",
           "asOf": "2026-03-31",
-          "verified": true
+          "verified": true,
+          "definition": "Cash-spending definition is not established for every period in this measure."
         },
         {
           "value": 180000000,
@@ -2064,7 +2081,8 @@
           "sourceId": "computed.capital.current.cashBridge.standardizedFcf",
           "source": "computed.capital.current.cashBridge.standardizedFcf",
           "asOf": "2026-03-31",
-          "verified": true
+          "verified": true,
+          "definition": "Cash-spending definition is not established for every period in this measure."
         },
         {
           "value": -0.41379310344827586,
@@ -2104,7 +2122,8 @@
           "source": "computed.capital.capexIntensity",
           "asOf": "2025-12-31",
           "verified": false,
-          "verificationNote": "[unverified] unknown-source"
+          "verificationNote": "[unverified] unknown-source",
+          "definition": "Cash-spending definition is not established for this period."
         },
         {
           "value": -0.187356,
@@ -2114,7 +2133,8 @@
           "source": "computed.capital.capexIntensity",
           "asOf": "2025-12-31",
           "verified": false,
-          "verificationNote": "[unverified] unknown-source"
+          "verificationNote": "[unverified] unknown-source",
+          "definition": "Cash-spending definition is not established for every period in this measure."
         },
         {
           "value": 0.8,
@@ -2124,7 +2144,8 @@
           "source": "computed.capital.maintenanceVsGrowthCapex",
           "asOf": "2025-12-31",
           "verified": false,
-          "verificationNote": "[unverified] unknown-source"
+          "verificationNote": "[unverified] unknown-source",
+          "definition": "Cash-spending definition is not established for this period."
         },
         {
           "value": 0.839815,
@@ -2134,7 +2155,8 @@
           "source": "computed.capital.maintenanceVsGrowthCapex",
           "asOf": "2025-12-31",
           "verified": false,
-          "verificationNote": "[unverified] unknown-source"
+          "verificationNote": "[unverified] unknown-source",
+          "definition": "Cash-spending definition is not established for every period in this measure."
         }
       ]
     },
@@ -2215,22 +2237,22 @@
         {
           "name": "year-one revenue anchor",
           "value": "1.31B (consensus)",
-          "basis": "year-one revenue 1.31B (8.77% over TTM 1.2B) from analyst consensus calendarized to 12M ending 2027-03-31 (fiscal-year estimates spread by the quarterly shape of the fiscal year ending 2025-12-31 (21.05%, 26.32%, 26.32% and 26.32% of its reported revenue, each quarter's share over its three months); the fiscal year ending 2026-12-31 contributes its consensus less the 300M already reported through 2026-03-31 (1 quarter), spread over its unreported days); measured against the seasonally neutral run-rate 1.2B (latest quarter ending 2026-03-31 × 4 = 1.2B; TTM 1.2B carried 4.5 months at the quarter's 25% year-over-year growth = 1.3B; bounded by the two); year two is not anchored: 12M ending 2028-03-31 is not covered by the fiscal-year estimates (the estimates cover through 12M ending 2027-03-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
+          "basis": "year-one revenue 1.31B (8.77% over TTM 1.2B) from analyst consensus calendarized to 12M ending 2027-03-31 (fiscal-year estimates spread by the quarterly shape of the fiscal year ending 2025-12-31 (21.05%, 26.32%, 26.32% and 26.32% of its reported revenue, each quarter's share over its three months); the fiscal year ending 2026-12-31 contributes its consensus less the 300M already reported through 2026-03-31 (1 quarter), spread over its unreported days); measured against the seasonally neutral run-rate 1.2B (latest quarter ending 2026-03-31 × 4 = 1.2B; TTM 1.2B carried 4.5 months at the quarter's 25% year-over-year growth = 1.3B; bounded by the two); year two is not anchored: 12M ending 2028-03-31 is not covered by the fiscal-year estimates (the estimates cover through 12M ending 2027-03-31) (house rule: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
         },
         {
           "name": "consensus-anchored years",
           "value": "year one of 10",
-          "basis": "year one take their revenue from calendarized analyst consensus; years 2–10 follow the convergent fade. A year is anchored only while its fiscal-year estimates have at least 3 analysts, an implied dispersion of at most 25% ((high − low) ÷ (d2(n) × mean)) and growth within the house band (house rule D-65); the DCF path vs consensus table shows every window"
+          "basis": "year one take their revenue from calendarized analyst consensus; years 2–10 follow the convergent fade. A year is anchored only while its fiscal-year estimates have at least 3 analysts, an implied dispersion of at most 25% ((high − low) ÷ (d2(n) × mean)) and growth within the house band (house rule); the DCF path vs consensus table shows every window"
         },
         {
           "name": "WACC (discount rate)",
           "value": "8.2%",
-          "basis": "WACC 8.18%: risk-free 4% (fred:DGS10, observation 2026-07-02); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2026-03-31), the one the EV bridge nets (lease evidence: 2026-03-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+          "basis": "WACC 8.18%: risk-free 4% (fred:DGS10, observation 2026-07-02); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book total debt on the retained calculation basis, the latest balance (2026-03-31), the one the EV bridge nets (lease evidence: 2026-03-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book total debt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
         },
         {
           "name": "revenue growth (yr1 → yrN)",
           "value": "8.8% → 2.5%",
-          "basis": "year one 8.77% from the revenue anchor (analyst consensus) (consensus anchors year one only); later years follow a convergent fade from year 1's 8.77% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule D-58; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
+          "basis": "year one 8.77% from the revenue anchor (analyst consensus) (consensus anchors year one only); later years follow a convergent fade from year 1's 8.77% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
         },
         {
           "name": "EBIT margin (yr1 → yrN)",
@@ -2240,12 +2262,12 @@
         {
           "name": "forecast tax rate (yr1 → yrN)",
           "value": "21.1% → 21.0%",
-          "basis": "TTM effective rate 21.05% fading to 21% by year 10: the company historical median 19.26% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule D-58: the terminal rate converges toward the marginal rate); Tax rate operands: vendor data, not checked against a filing; actual year-row tax rates include modeled loss carryforwards and can differ from this assumption path."
+          "basis": "TTM effective rate 21.05% fading to 21% by year 10: the company historical median 19.26% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule: the terminal rate converges toward the marginal rate); Tax rate operands: vendor data, not checked against a filing; actual year-row tax rates include modeled loss carryforwards and can differ from this assumption path."
         },
         {
           "name": "sales-to-capital",
           "value": "3.00",
-          "basis": "TTM revenue / invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments, quarter balance as of 2026-03-31; consolidated total equity including NCI; NCI is not added again)"
+          "basis": "TTM revenue / invested capital (total debt + consolidated equity [total equity] - cash and short-term investments, quarter balance as of 2026-03-31; consolidated total equity including NCI; NCI is not added again)"
         },
         {
           "name": "terminal growth",
@@ -2260,17 +2282,17 @@
         {
           "name": "terminal reinvestment (terminal growth / terminal ROIC)",
           "value": "30.6%",
-          "basis": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 285.09M in year 10 becomes 213.92M in year 11 (-24.97%): reinvestment moves from 5.15% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 47.4%) to 30.56% (terminal growth 2.5% / terminal ROIC 8.18%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure)"
+          "basis": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 285.09M in year 10 becomes 213.92M in year 11 (-24.97%): reinvestment moves from 5.15% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 47.4%) to 30.56% (terminal growth 2.5% / terminal ROIC 8.18%). The step is where the two reinvestment conventions meet, not a forecast"
         },
         {
           "name": "discounting convention",
           "value": "mid-year (terminal value at N − 0.5)",
-          "basis": "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule D-60)"
+          "basis": "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule)"
         },
         {
           "name": "valuation date",
           "value": "2026-07-02",
-          "basis": "cash flows are discounted from the statement date 2026-03-31 and rolled forward 93 days to the quote date 2026-07-02 at the WACC (× 1.0202), so the per-share value and the price it is compared with share a date; the equity bridge stays at the 2026-03-31 balance, whose later cash generation is inside the first window's flows (house rule D-65)"
+          "basis": "cash flows are discounted from the statement date 2026-03-31 and rolled forward 93 days to the quote date 2026-07-02 at the WACC (× 1.0202), so the per-share value and the price it is compared with share a date; the equity bridge stays at the 2026-03-31 balance, whose later cash generation is inside the first window's flows (house rule)"
         },
         {
           "name": "free cash flow, SBC treatment",
@@ -2752,7 +2774,7 @@
     "multiples": [
       {
         "name": "P/E (TTM)",
-        "basis": "price / epsDiluted (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum. Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 100M); the market-cap multiples sit on the 100M shares the quoted market cap implies, and the diluted count is within 0.1% of that count.",
+        "basis": "price / diluted EPS (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum. Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 100M); the market-cap multiples sit on the 100M shares the quoted market cap implies, and the diluted count is within 0.1% of that count.",
         "current": 17.77777777777778,
         "peerMedian": null,
         "peerCount": null,
@@ -2762,7 +2784,7 @@
       },
       {
         "name": "EV/EBITDA",
-        "basis": "EV / (operatingIncome + D&A), TTM-computed — vendor ebitda field not trusted. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2026-03-31. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+        "basis": "EV / (operating income + D&A), TTM-computed — the vendor EBITDA field is not used. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2026-03-31. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 10.620689655172415,
         "peerMedian": null,
         "peerCount": null,
@@ -2782,7 +2804,7 @@
       },
       {
         "name": "P/FCF (before SBC)",
-        "basis": "marketCap / (operatingCashFlow + capitalExpenditure) (TTM; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+        "basis": "market cap / (operating cash flow + capital expenditure) (TTM; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 17.77777777777778,
         "peerMedian": null,
         "peerCount": null,
@@ -2792,7 +2814,7 @@
       },
       {
         "name": "P/B",
-        "basis": "marketCap / common equity (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+        "basis": "market cap / common equity (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 6.153846153846154,
         "peerMedian": null,
         "peerCount": null,
@@ -2802,7 +2824,7 @@
       },
       {
         "name": "P/TBV",
-        "basis": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 40000000 and intangibleAssets 10000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known). Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+        "basis": "market cap / (common equity - goodwill - intangible assets); deducts goodwill 40000000 and intangible assets 10000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known). Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 6.808510638297872,
         "peerMedian": null,
         "peerCount": null,
@@ -2921,7 +2943,7 @@
         "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route or held-for-sale lender cash-flow applicability the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
         "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
         "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
-        "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+        "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
         "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
         "Peer fundamentals not collected on this report."
       ],
@@ -3632,7 +3654,7 @@
     ],
     "competitorsByProductLine": [
       {
-        "productLine": "Product line (its name is not in the cited claims)",
+        "productLine": "Product line",
         "claims": [
           {
             "text": "In hardware and installation, Lantern Quay Automation bids lower installation prices but offers less local support.",
@@ -3644,7 +3666,7 @@
         ]
       },
       {
-        "productLine": "Product line (its name is not in the cited claims)",
+        "productLine": "Product line",
         "claims": [
           {
             "text": "In support subscriptions, Bramble Circuit Works has broader support coverage but slower custom deployments.",
@@ -3898,7 +3920,7 @@
     "missingData": [
       {
         "field": "forensics.altman.marketCapDate",
-        "reason": "no market value of equity observed on or before the balance-sheet date 2025-12-31 within 45 days (no dated market-cap history); the current market cap is not set against an older balance sheet, so original-variant X4 and Z are withheld (D-267)",
+        "reason": "no market value of equity observed on or before the balance-sheet date 2025-12-31 within 45 days (no dated market-cap history); the current market cap is not set against an older balance sheet, so original-variant X4 and Z are withheld",
         "severity": "warn"
       },
       {
@@ -3928,7 +3950,7 @@
       },
       {
         "field": "capital.interestCoverage",
-        "reason": "interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m",
+        "reason": "interest expense = 0 treated as undisclosed (the provider writes zero for undisclosed) — coverage n/m",
         "severity": "info"
       },
       {
@@ -3968,7 +3990,7 @@
       },
       {
         "field": "scores.balanceSheet.interestCoverage",
-        "reason": "interestCoverage withheld: interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m. EBIT / interest expense (computed.capital.current.interestCoverage) is missing or refused; interest expense (computed.capital.current.interestExpense) is missing or refused.",
+        "reason": "interestCoverage withheld: interest expense = 0 treated as undisclosed (the provider writes zero for undisclosed) — coverage n/m. EBIT / interest expense (computed.capital.current.interestCoverage) is missing or refused; interest expense (computed.capital.current.interestExpense) is missing or refused.",
         "severity": "info"
       },
       {
@@ -3983,7 +4005,7 @@
       },
       {
         "field": "scores.quality.altmanZOriginalScale",
-        "reason": "altmanZOriginalScale withheld: totalCurrentAssets/totalCurrentLiabilities missing (unclassified balance sheet) — Z-score unavailable; retainedEarnings missing — X2 not computable; Z-score suppressed rather than assuming zero retained earnings; no market value of equity observed on or before the balance-sheet date 2025-12-31 within 45 days (no dated market-cap history); the current market cap is not set against an older balance sheet, so original-variant X4 and Z are withheld (D-267). Altman Z-score (computed.forensics.altman.score) is missing or refused.",
+        "reason": "altmanZOriginalScale withheld: totalCurrentAssets/totalCurrentLiabilities missing (unclassified balance sheet) — Z-score unavailable; retainedEarnings missing — X2 not computable; Z-score suppressed rather than assuming zero retained earnings; no market value of equity observed on or before the balance-sheet date 2025-12-31 within 45 days (no dated market-cap history); the current market cap is not set against an older balance sheet, so original-variant X4 and Z are withheld. Altman Z-score (computed.forensics.altman.score) is missing or refused.",
         "severity": "info"
       },
       {
@@ -7953,7 +7975,7 @@
         "traceKind": "source-cited"
       },
       {
-        "claim": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
+        "claim": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. TTM flows admitted for this window: operating cash flow, cash capital expenditure and EBITDA. Not established for this window: consolidated net income and stock-based compensation, so FCF after SBC, SBC share of FCF and FCF conversion are withheld. Annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
         "outcome": "unverified",
         "validationStatus": "cited",
         "numericSupportStatus": "cited",
@@ -10071,7 +10093,7 @@
           }
         ],
         "notApplicableReason": null,
-        "note": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
+        "note": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
       },
       "leadership": {
         "score": 63.88,
@@ -10724,7 +10746,7 @@
         "assumptions": [
           "Base path is the DCF forward trajectory (year-one revenue from consensus, 8.77% growth; consensus sets year one of 10; then a convergent fade to 2.5% terminal growth).",
           "Bull/bear shift year-one growth by ±1.59pp and the year-one margin by ±0pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (unavailable), applied only when it moves with the scenario.",
-          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact period start and end dates are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
           "Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta 1.59pp; margin delta 0pp. Revenue or FCF paths may cross.",
           "Weighted path = 0.25·bull + 0.5·base + 0.25·bear, the fixed display prior."
         ],
@@ -11100,7 +11122,7 @@
         "assumptions": [
           "Base path is the DCF forward trajectory (year-one revenue from consensus, 8.77% growth; consensus sets year one of 10; then a convergent fade to 2.5% terminal growth).",
           "Bull/bear shift year-one growth by ±1.59pp and the year-one margin by ±0pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (unavailable), applied only when it moves with the scenario.",
-          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact period start and end dates are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
           "Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta 1.59pp; margin delta 0pp. Revenue or FCF paths may cross.",
           "Weighted path = 0.25·bull + 0.5·base + 0.25·bear, the fixed display prior."
         ],
@@ -11464,7 +11486,7 @@
         "assumptions": [
           "Base path is the DCF forward trajectory (year-one revenue from consensus, 8.77% growth; consensus sets year one of 10; then a convergent fade to 2.5% terminal growth).",
           "Bull/bear shift year-one growth by ±1.59pp and the year-one margin by ±0pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (unavailable), applied only when it moves with the scenario.",
-          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact period start and end dates are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
           "Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta 1.59pp; margin delta 0pp. Revenue or FCF paths may cross.",
           "Weighted path = 0.25·bull + 0.5·base + 0.25·bear, the fixed display prior.",
           "PROJECTED FCF is unlevered free cash flow (FCFF), consistent with the DCF (NOPAT − reinvestment); stock-based compensation is an expense inside that EBIT, so FCFF is after stock-based compensation.",
@@ -12475,7 +12497,7 @@
         "assumptions": [
           "Base path is the DCF forward trajectory (year-one revenue from consensus, 8.77% growth; consensus sets year one of 10; then a convergent fade to 2.5% terminal growth).",
           "Bull/bear shift year-one growth by ±1.59pp and the year-one margin by ±0pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (unavailable), applied only when it moves with the scenario.",
-          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact period start and end dates are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
           "Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta 1.59pp; margin delta 0pp. Revenue or FCF paths may cross.",
           "Weighted path = 0.25·bull + 0.5·base + 0.25·bear, the fixed display prior.",
           "Operating EPS = (forward operating EBIT − zero interest expense from the evidenced debt-free balance as of 2026-03-31, held flat) × (1 − that year's DCF tax rate) ÷ diluted shares with applied change 0%/yr (year-one net income / EBIT 0.79). Interest income, investment gains and other non-operating items are excluded, so this is operating EPS, not a forecast of GAAP diluted EPS."

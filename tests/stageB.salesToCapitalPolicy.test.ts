@@ -37,7 +37,7 @@ describe("sales-to-capital policy disclosure", () => {
     const a = assumptions(2.5, 200);
     expect(a.salesToCapital.value).toBe(2.5);
     expect(a.salesToCapital.basis).toContain("operating invested capital");
-    expect(a.salesToCapital.basis).toContain("longTermInvestments");
+    expect(a.salesToCapital.basis).toContain("long-term investments");
     expect(a.salesToCapital.basis).not.toMatch(/upper cap|lower floor/);
   });
 

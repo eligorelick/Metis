@@ -81,6 +81,6 @@ describe("L2 filed aggregate common-earnings P/E", () => {
     const b = fixture();
     if (b.statements.incomeQuarterly.ok) b.statements.incomeQuarterly.value.data.rows[2]!.epsDiluted = 0.1;
     expect(pe(b).current).toBeCloseTo(22.2474226804, 8);
-    expect(pe(b).basis).toContain("price / epsDiluted");
+    expect(pe(b).basis).toContain("price / diluted EPS");
   });
 });

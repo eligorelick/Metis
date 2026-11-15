@@ -24,6 +24,13 @@ it("D-274 binds trailing diluted EPS wording only to its P/E producer", () => {
     expect(check("Price to trailing diluted EPS multiple was 23.45x.", { ...pe, componentDefinitions })).not.toBe("validated");
     expect(check("Market capitalization to trailing common earnings was 23.45x.", { ...pe, componentDefinitions })).not.toBe("validated");
   }
+  // D-296: the current wording of each basis reads the same way; the stored wording above still does.
+  const current = { ...pe, componentDefinitions: ["price / diluted EPS"] };
+  const currentAggregate = { ...pe, componentDefinitions: ["market cap / common income"] };
+  expect(check("Price to trailing diluted EPS multiple was 23.45x.", current)).toBe("validated");
+  expect(check("Market capitalization to trailing common earnings was 23.45x.", current)).not.toBe("validated");
+  expect(check("Market capitalization to trailing common earnings was 23.45x.", currentAggregate)).toBe("validated");
+  expect(check("Price to trailing diluted EPS multiple was 23.45x.", currentAggregate)).not.toBe("validated");
 });
 it.each([inc.id, "computed.forensics.accruals.acquiredGoodwillAndIntangibles"])("AI-501 refuses a level citing increase %s", id => {
   expect(check("Goodwill and other intangible assets as of 2026-01-25 were USD 18.14 billion.", { ...inc, id })).toBe("unchecked");

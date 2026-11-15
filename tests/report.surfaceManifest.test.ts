@@ -150,6 +150,7 @@ const TRACE_ORDER = [
   "verified",
   "verificationNote",
   "periodContext",
+  "definition",
 ] as const;
 
 const SCORING_ORDER = ["aspects", "composite", "bandsVersion", "assessments", "factorExposure", "qualification"] as const;
@@ -330,6 +331,7 @@ describe("shared report surface manifest", () => {
       { id: "traced-number-field:verified", key: "verified", label: "Citation traced", optional: false },
       { id: "traced-number-field:verificationNote", key: "verificationNote", label: "Citation note", optional: true },
       { id: "traced-number-field:periodContext", key: "periodContext", label: "Structured period", optional: true },
+      { id: "traced-number-field:definition", key: "definition", label: "Figure definition", optional: true },
     ]);
     expect(GRADE_SURFACE_BY_KEY).toEqual(
       Object.fromEntries(GRADE_SURFACES.map((entry) => [entry.key, entry])),
