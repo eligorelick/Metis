@@ -26,6 +26,8 @@ type SbcRow = { date?: unknown; reportedCurrency?: unknown; stockBasedCompensati
 
 /** D-306 review: a vendor negative is not proof of an issuer compensation credit. */
 export function negativeSbcRefusal(row: SbcRow | null | undefined): string | null {
+  const refused = row?.fieldConflicts?.stockBasedCompensation;
+  if (refused?.usable === false && typeof refused.vendorValue === "number" && refused.vendorValue < 0) return refused.reason;
   const value = row?.stockBasedCompensation;
   if (typeof value !== "number" || !Number.isFinite(value) || value >= 0) return null;
   const proof = row?.fieldProvenance?.stockBasedCompensation;

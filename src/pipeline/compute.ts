@@ -1,4 +1,4 @@
-import { admittedSbc, negativeSbcRefusal } from "@/pipeline/stageB/financialValues";
+import { admittedSbc } from "@/pipeline/stageB/financialValues";
 import { MODEL_TANGIBLE_COMMON_BASIS } from "@/pipeline/stageB/returns";
 import { withReleaseQuarterEarnings } from "./releaseQuarterEarnings";
 import { forwardAnnualEstimates } from "./forwardEstimates";
@@ -2794,10 +2794,6 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     const values = cashflowQuarterly.slice(0,4).map(row => field === "stockBasedCompensation" ? admittedSbc(row) : num(row[field]));
     return values.every((v): v is number => v !== null) ? values.reduce((sum,v)=>sum+v,0) : null;
   };
-  if (!filedSbc) for (const row of cashflowQuarterly.slice(0,4)) {
-    const reason = negativeSbcRefusal(row);
-    if (reason) ttmGaps.push({field:"compute.ttmCashFlow.stockBasedCompensation",reason,severity:"warn"});
-  }
   const currentBalance = [balanceQuarterly[0], balanceAnnual[0]].filter((r): r is FmpBalanceSheetRow => r !== undefined)
     .sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
   // Consolidated cash cannot be divided by a mixture of parent and total profit.

@@ -633,7 +633,8 @@ export function computeCapital(
       // Its cause is not inferred from the sign alone.
       const sbcExpense =
         admittedSbc(r) === 0 ? null : admittedSbc(r);
-      let fcf = fcfBeforeSbc;
+      const sbcRefusal = negativeSbcRefusal(r);
+      let fcf = sbcRefusal ? null : fcfBeforeSbc;
       if (fcfBeforeSbc !== null && sbcExpense !== null) {
         fcf = fcfBeforeSbc - sbcExpense;
         rowNotes.push(
@@ -642,7 +643,7 @@ export function computeCapital(
             : `SBC ${fmt(sbcExpense)} subtracted from FCF (house default): ${fmt(fcfBeforeSbc)} → ${fmt(fcf)}`,
         );
       } else if (fcfBeforeSbc !== null) {
-        rowNotes.push(negativeSbcRefusal(r) ?? "stock-based compensation not disclosed for this year — FCF is unadjusted (before SBC)");
+        rowNotes.push(sbcRefusal ?? "stock-based compensation not disclosed for this year — FCF is unadjusted (before SBC)");
       }
       // D-238 (P5): the conversion divides consolidated cash flow, so its net income is consolidated profit: the
       // cash-flow statement's own starting line, else the income statement's profit on that scope.
@@ -657,11 +658,11 @@ export function computeCapital(
       }
       let conversion: number | null = null;
       let conversionBeforeSbc: number | null = null;
-      if (fcf !== null && ni !== null) {
+      if (ni !== null && (fcf !== null || sbcRefusal !== null)) {
         if (ni <= 0) {
           rowNotes.push("net income ≤ 0 — FCF conversion not meaningful");
         } else {
-          conversion = fcf / ni;
+          conversion = fcf !== null ? fcf / ni : null;
           // WS6 review (SHOULD-FIX 2): the before-SBC ratio is kept beside it.
           // It is the definition the grading band was calibrated on, and grading
           // the after-SBC ratio against that band charged the same expense twice

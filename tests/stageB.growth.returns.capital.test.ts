@@ -1003,16 +1003,27 @@ describe("computeCapital — core ratios", () => {
     expect(res.fcf.basis).toContain("would charge the same expense twice");
   });
 
-  // N4: a NEGATIVE stockBasedCompensation is a net credit — forfeiture reversals
-  // exceeding the period's awards. Taking its magnitude turned that credit into
-  // a charge and subtracted where it should add.
-  it("adds a negative (net forfeiture credit) SBC back to FCF instead of charging it", () => {
+  // A proved negative retains its sign; a sign alone does not establish its cause.
+  it("adds a filed negative SBC credit to FCF instead of charging it", () => {
     const cf = capCashflow.map((r, i) => (i === 0 ? { ...r, ...filedSbcProof(r.date), stockBasedCompensation: -10 } : r));
     const res2 = computeCapital(capIncome, cf, capBalance, capMcapHistory, { price: 20 }, USD_QUOTE);
     expect(res2.fcf.latestFcfBeforeSbc).toBe(80);
     expect(res2.fcf.latestSbc).toBe(-10);
     expect(res2.fcf.latestFcf).toBe(90);
     expect(res2.fcf.series[res2.fcf.series.length - 1].note).toContain("reported as a net CREDIT of 10");
+  });
+
+  it.each([false, true])("withholds annual after-SBC dependencies for an unproved negative (refused view: %s)", (refused) => {
+    const cf = capCashflow.map((r, i) => i === 0 ? { ...r, stockBasedCompensation: refused ? null : -10,
+      ...(refused ? { fieldConflicts: { stockBasedCompensation: { usable: false as const, vendorValue: -10, secValue: null,
+        reason: "Negative stock-based compensation withheld: exact-period filed proof is not established." } } } : {}) } : r);
+    const result = computeCapital(capIncome, cf, capBalance, capMcapHistory, { price: 20 }, USD_QUOTE);
+    expect(result.fcf.latestFcfBeforeSbc).toBe(80);
+    expect(result.fcf.latestSbc).toBeNull();
+    expect(result.fcf.latestFcf).toBeNull();
+    expect(result.fcf.series.at(-1)?.fcfConversion).toBeNull();
+    expect(result.fcf.series.at(-1)?.fcfConversionBeforeSbc).toBeCloseTo(80 / capIncome[0]!.netIncome!);
+    expect(result.fcf.series.at(-1)?.note).toMatch(/exact-period filed proof/);
   });
 
   it("leaves FCF unadjusted, and says so, when SBC is not disclosed", () => {
