@@ -18,7 +18,7 @@ import type { PassDeps, RunPassArgs, RunPassContentBlock } from "./passTypes";
 export const ANALYST_MAX_WEB_SEARCHES = 8;
 /**
  * maxTokens for the analyst passes (adaptive thinking billed as output).
- * 64K, not 32K: live sonnet-5 runs (cost_log, 2026-07-09) averaged ~29K output
+ * 64K, not 32K: measured runs (cost_log) averaged ~29K output
  * tokens per bear pass against the old 32K cap — thinking is ~80% of that, the
  * case JSON only ~4–6K. A clipped pass fails typed (`max_tokens`), discarding
  * the pass's full sunk cost (cache write + searches + thinking). max_tokens is
@@ -42,8 +42,8 @@ export const JUDGE_MAX_TOKENS = 96_000;
  * Cheapest model that reliably emits the judge's ~13KB strict-keyed JSON.
  * The judge schema exceeds the API's compiled-grammar ceiling on EVERY model
  * (no `output_config.format` enforcement possible), so schema fidelity is
- * pure model capability. Haiku 4.5 structurally cannot do it — live runs
- * (2026-07-09) showed misplaced sections, invented keys, and dropped required
+ * pure model capability. Haiku 4.5 structurally cannot do it — measured runs
+ * showed misplaced sections, invented keys, and dropped required
  * objects across every repair retry. Bull/bear stay on the selected model
  * (that is where the web-search/token bulk is); only the judge is floored.
  * Per-pass cost logging and the pipeline UI report the ACTUAL serving model,
@@ -63,7 +63,7 @@ export function judgeModelFor(analysisModel: string): string {
 /**
  * Cap on how much of a failed judge output is echoed back on retry. Sized
  * from MEASURED output: 1.1.0 judge JSON runs ~100–120K chars on sonnet-5
- * (reports table, 2026-07-09) — the previous 60K cap, premised on a stale
+ * (reports table) — the previous 60K cap, premised on a stale
  * "~15–25K chars" estimate, truncated every realistic echo mid-document while
  * telling the model to "repair this JSON in place", which forces it to
  * regenerate the missing half from scratch (the exact failure mode the echo
@@ -175,7 +175,7 @@ export function buildAnalystRunPassArgs(
  * turn, exactly as the judge's repair turn does.
  */
 export function analystRepairFeedback(validationFeedback: string): string {
-  // D-185 (ASML Opus 5.5 paid run, 2026-11-03): a skeleton case (one thesis
+  // D-185: a skeleton case (one thesis
   // claim, every other section empty) was repaired under "same evidence, same
   // citations, corrected fields only" and came back as the same skeleton. An
   // empty section cannot be fixed without new claims, so an incomplete case is

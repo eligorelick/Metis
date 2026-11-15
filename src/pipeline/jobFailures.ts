@@ -149,8 +149,8 @@ export function capRawOutput(raw: string): string {
 /** Raw text of a received-but-invalid pass output, when the error carries it. */
 /**
  * A dropped response this long ran into the ChatGPT plan endpoint's 15-minute
- * response limit: every long judge failure on record ended at exactly 15.0
- * minutes, and every success finished under 13 (2026-10-12).
+ * response limit: long judge failures end at exactly 15.0 minutes, and
+ * successes finish under 13 (P24).
  */
 export const SUBSCRIPTION_TIME_LIMIT_NEAR_MS = 14 * 60_000;
 

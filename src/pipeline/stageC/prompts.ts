@@ -75,7 +75,7 @@ export const SHARED_RULES_BLOCK = [
   "`asOf` is a calendar date written YYYY-MM-DD (never a time component, a month, a quarter or a year alone); use null when no date is known.",
   "`period` is the period exactly as the payload renders it (a statement column's ISO period end, a projection's FY label); omit it when the figure shows none.",
   "Never paste a rendered `[source · as-of]` token into a source field or duplicate its date.",
-  // D-43 (2026-10-13): the old line here ("preserve an explicit unsupported
+  // D-43: the old line here ("preserve an explicit unsupported
   // state") was followed literally — data-gap statements were written with the
   // source "unsupported" and all failed. Gaps now have tags to cite.
   "A statement that a figure is unavailable, withheld, suppressed or not applicable cites the row that discloses it:",
@@ -109,7 +109,7 @@ export const SHARED_RULES_BLOCK = [
   "quarter ended 2026-07-26 was USD 96.2 billion.\" The verifier validates such a sentence against its record; a FACT",
   "that leaves the figure out cannot be validated.",
   "A figure shown with \"(currency unknown)\" has no established currency: never write a currency symbol or code beside it.",
-  // D-57 (2026-10-15): estimates, targets and pay rows carry no currency of
+  // D-57: estimates, targets and pay rows carry no currency of
   // their own; when the issuer's reporting and listing currencies agree they
   // inherit it and are registered money in that currency. Peer caps do not
   // inherit (D-124): they take only a currency their own data states.
@@ -119,7 +119,7 @@ export const SHARED_RULES_BLOCK = [
   // are established; only the caps are not.
   "Peer table: list every provider peer by the name and symbol shown in the Peers rows. Give a peer a metric only",
   "when it cites a registered record; a peer market cap shown \"(currency unknown)\" is not one, so leave that peer's metrics empty.",
-  // D-45 (2026-10-13): numbers cited to an excerpt are now read against the
+  // D-45: numbers cited to an excerpt are read against the
   // cited excerpt's own text. In system so the judge, which writes the final
   // key numbers, sees it (the analysts' WRITING NUMBERS block never reaches it).
   "EXCERPT NUMBERS: a TracedNumber citing a filing or transcript excerpt is checked against that excerpt's text.",
@@ -316,8 +316,8 @@ export const CASE_STRENGTH_RUBRIC = [
 /**
  * The TracedNumber unit rule, shared by the analysts and the judge. It sat only
  * in the analysts' WRITING NUMBERS block, but the judge writes every graded
- * key number and technical indicator in the final report, and in reports 25/26
- * (2026-10-13) it wrote "RSI", "RSI index" and "MACD histogram" as units (D-44).
+ * key number and technical indicator in the final report, and it can write
+ * "RSI", "RSI index" and "MACD histogram" as units (D-44).
  */
 export const TRACED_NUMBER_UNIT_RULE = [
   "- A TracedNumber `unit` is the bare registered unit exactly as the payload shows it (\"x\", \"%\",",
@@ -756,7 +756,7 @@ export function buildJudgeFraming(
     "  from a price / provider-EPS multiple whose accounting basis is unverified. An unscored valuation does not erase them.",
     "  State once which anchor is missing, without treating its absence as evidence that the price is about right.",
     "  Say 'the price cannot be judged' only when no multiple is meaningful, and state the evidence that would decide it.",
-  // Q1 (owner request 2026-11-02): a sell-side note opens on what changed, not only on the numbers.
+  // Owner rule (P18): a sell-side note opens on what changed, not only on the numbers.
   "  The synthesis and the executive summary weigh the most important recent development and the top catalyst and risk alongside the numbers.",
   // D-175: a provider's first rows for a new filing are the least reliable.
   "  When the manifest carries `manifest.validation.freshFiling`, the executive summary says once, citing that row, that figures from the",

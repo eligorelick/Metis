@@ -499,7 +499,7 @@ const REL_STRENGTH_12M1M_BAND: readonly BandPoint[] = [
 // holding-company GAAP ratio, NOT the regulatory leverage ratio: TCE excludes
 // preferred stock (which counts in Tier 1) and is read over period-end
 // tangible assets, so it runs structurally below Tier 1 leverage, and a bank at
-// a cut point is not at a regulatory minimum (review of D-46, 2026-10-13). The
+// a cut point is not at a regulatory minimum (D-46). The
 // numbers echo the PCA and Basel leverage lines in scale only.
 const TCE_TO_TANGIBLE_ASSETS_BAND: readonly BandPoint[] = [
   [4, 20],

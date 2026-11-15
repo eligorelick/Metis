@@ -230,8 +230,8 @@ export const DEFAULT_MODEL_STAGE_DEADLINE_MS = MODEL_STAGE_DEADLINE_MS;
 /**
  * Subscription (plan) connections produce each response in parts to stay
  * under the provider's 15-minute response limit, and back off when the
- * provider reports overload. A max-effort run measured ~35 minutes for the
- * analysts alone (2026-10-13), so the general 90/45-minute bounds would
+ * provider reports overload. A max-effort run can take ~35 minutes for the
+ * analysts alone, so the general 90/45-minute bounds would
  * truncate legitimate work that costs nothing per request. Hangs stay bounded.
  */
 export const SUBSCRIPTION_JOB_DEADLINE_MS = 180 * 60 * 1000;
@@ -405,7 +405,7 @@ export function isSymbolJobActive(symbol: string): boolean {
 
 /**
  * Persisted analyst snapshots plus the fingerprint they were built on.
- * PER-SIDE nullable (2026-07-10): a run where one analyst pass succeeded and
+ * PER-SIDE nullable (P23): a run where one analyst pass succeeded and
  * the other failed persists the successful side alone, so its paid output is
  * never discarded — resume reuses it and re-bills only the missing side.
  */

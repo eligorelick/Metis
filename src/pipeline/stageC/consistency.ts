@@ -21,7 +21,7 @@
  *    quarter of fiscal 2027") is read as the citation check reads it
  *    ({@link fiscalPhrase}), and an issuer fiscal label is compared through
  *    `periodsAgree` first, then by calendar-year sets (D-128). A failure demotes
- *    a validated claim to unverified (F-22, D-110) and adds a missing-data
+ *    a validated claim to unverified (D-110) and adds a missing-data
  *    manifest entry. A phrase that follows
  *    a comparison word ("compared with ... second quarter 2025") is the
  *    comparison's base, compared with the period the cited growth figure is
@@ -363,7 +363,7 @@ const DATE_PATTERNS: readonly { pattern: RegExp; read: (m: RegExpMatchArray) => 
  * text row whose whole content is a date (the next-earnings note): every
  * date the sentence writes — ISO, "January 14, 2027", "14 Jan", "January
  * 2027" — must agree with an allowed ISO day at the precision written, and
- * nothing else may be a number (review, 2026-10-13). A sentence that states
+ * nothing else may be a number (D-43). A sentence that states
  * no date at all passes: it asserts nothing the row would have to show.
  */
 export function statesOnlyAllowedDates(text: string, allowedIsoDates: readonly string[]): boolean {
@@ -388,7 +388,7 @@ function stripTags(text: string): string {
 /**
  * Does the sentence write a number in words? A gap or unestablished citation
  * supports no number, and "Net debt/EBITDA is two times" citing an n/a row
- * stated one that proseNumbers cannot see (review, 2026-10-13). "One" and
+ * states one that proseNumbers cannot see (D-43). "One" and
  * "half" are left out: "one of the" and "the first half" are how a gap is
  * written, not quantities.
  */
@@ -565,7 +565,7 @@ function admissibleFamilies(unit: CanonicalUnit): ReadonlySet<UnitFamily> {
  *    IN a rate, so "growth slowed to 4%" is consistent with a +4 record;
  *  - sign-by-context words — "widened"/"narrowed"/"reversed"/"recovered" carry
  *    the opposite sign depending on whether the metric is a good or a bad thing;
- *  - EVALUATIVE words, removed 2026-09 for exactly the same reason as the group
+ *  - EVALUATIVE words, removed for exactly the same reason as the group
  *    above: "improved"/"improvement"/"improves"/"improving"/"strengthened" and
  *    "weakened"/"deteriorated"/"deterioration"/"worsened" say the metric got
  *    better or worse, and for a lower-is-better metric (net leverage, churn,
@@ -1070,9 +1070,8 @@ export function namedIndividuals(
   const found: NamedIndividual[] = [];
   const spans: [number, number][] = [];
   // A pattern hit that overlaps a name already found is that person, not a
-  // second one: "Under Jeremy Barnum, the CFO" matched the comma pattern as
-  // "Under Jeremy Barnum" around the known "Jeremy Barnum" (review,
-  // 2026-10-13).
+  // second one: "Under Jane Roe, the CFO" would match the comma pattern as
+  // "Under Jane Roe" around the known "Jane Roe" (D-43).
   const overlaps = (start: number, end: number): boolean =>
     spans.some(([s, e]) => start < e && end > s);
   const known = knownNames
@@ -1103,8 +1102,8 @@ export function namedIndividuals(
       const candidate = match[0].trim();
       if (isOrganisation(candidate)) continue;
       const groups = match.groups ?? {};
-      // A clause-opening word the name pattern swept in ("Under Jeremy
-      // Barnum, the CFO") is not part of the name.
+      // A clause-opening word the name pattern swept in ("Under Jane
+      // Roe, the CFO") is not part of the name.
       const swept = (groups.name ?? groups.surname ?? candidate).trim().split(/\s+/);
       while (swept.length > 1 && NOT_A_NAME_WORDS.has(swept[0].toLowerCase())) swept.shift();
       // A compound title can match the comma-name pattern ("Chief Executive
@@ -1372,9 +1371,9 @@ function nameTokens(name: string): string[] {
 /**
  * Does the name a sentence writes name the row's person? The first and last
  * names must be the row's, and every token written must be in the row in
- * order: "Mark Zuckerberg" names "Mark Elliot Zuckerberg", while "Chris Cox"
- * (a nickname), "Susan J. Li" (an initial the row lacks) and "Mary Callahan"
- * (a dropped surname) do not. An insider row's name is surname first, so its
+ * order: "Jane Roe" names "Jane Ann Roe", while "Janie Roe" (a nickname),
+ * "Jane B. Roe" (an initial the row lacks) and "Jane Ann" (a dropped surname)
+ * do not. An insider row's name is surname first, so its
  * tokens match in any order. A surname alone (after an honorific) must be the
  * row's surname.
  */
@@ -1496,9 +1495,9 @@ const TITLE_STOP =
  * "<name>, the <title>", "<name> (<title>)" or "<name> is/was/serves as
  * <title>". Null when what follows is not a title (it opens with no role
  * word) — the claim then gets a name-only check, which is all it asserts
- * about the row. The copular forms were added in review (2026-10-13): without
- * them "Jeremy Barnum is the CEO" citing his "CFO" compensation row was read
- * as naming him only, and passed.
+ * about the row. The copular forms are read too (D-43): without them "Jane Roe
+ * is the CEO" citing her "CFO" compensation row would be read as naming her
+ * only, and pass.
  */
 /** The title a sentence gives a name (after it, else before it), with its comma-scoped readings. */
 function titleOf(sentence: string, start: number, end: number): Pick<NamedIndividual, "title" | "titleAlternatives"> {
@@ -1542,17 +1541,17 @@ function titlesAfterName(sentence: string, end: number): string[] {
   return out;
 }
 
-// A role written right before a name ("CFO James Dimon", "its Co-CEO, Troy
-// Rohrbaugh"), with the modifiers a row's title keeps.
+// A role written right before a name ("CFO John Doe", "its Co-CEO, Jane
+// Roe"), with the modifiers a row's title keeps.
 const ROLE_BEFORE_NAME = new RegExp(
   String.raw`(?:^|[^A-Za-z-])(?<role>(?:(?:[Cc]o-|[Ff]ormer\s+|[Vv]ice\s+|[Ee]xecutive\s+|[Ss]enior\s+|[Dd]eputy\s+|[Ii]nterim\s+|[Aa]cting\s+))*${ROLE_WORDS})\s*,?\s*$`,
 );
 
 /**
- * The title a sentence writes right before a name. Read in review
- * (2026-10-13) for names found by exact match, whose role-before-name pattern
- * hit was dropped as lying inside the known name's span: "CFO James Dimon"
- * citing Dimon's "Chairman and CEO" row passed as a name-only claim.
+ * The title a sentence writes right before a name, read for names found by
+ * exact match (D-43), whose role-before-name pattern hit would otherwise be
+ * dropped as lying inside the known name's span: "CFO John Doe" citing Doe's
+ * "Chairman and CEO" row would pass as a name-only claim.
  */
 function titleBeforeName(sentence: string, start: number): string | null {
   return ROLE_BEFORE_NAME.exec(sentence.slice(0, start))?.groups?.role ?? null;
@@ -1680,7 +1679,7 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
       : rowsForTag.filter((row) => row.asOf === null || row.asOf === claimAsOf);
     // A claim citing a person row is also read for names the payload never
     // listed: the rows are its only support, so every name in it must be
-    // theirs (review, 2026-10-13).
+    // theirs (D-43).
     const people = namedIndividuals(
       sentence,
       input.personNames,

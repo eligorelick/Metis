@@ -802,9 +802,9 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
         verificationRate: verify.verificationRate,
         provenanceCoverage: verify.coverage,
         consistencyChecks: verify.checks, // WS7 (D-20)
-        // 2026-09 review: meta.dataCompleteness was computed inside
-        // assembleReport from the UNMERGED manifest and never recomputed, so
-        // every added verify.check.* warn left the persisted counts one short of
+        // P20: meta.dataCompleteness computed inside assembleReport from the
+        // UNMERGED manifest and never recomputed would leave every added
+        // verify.check.* warn out of the persisted counts, one short of
         // the manifest they summarize. deriveReportCompletenessPresentation
         // recomputes from the manifest, disagrees, and reports
         // metadataStatus:"inconsistent" — which forces state, critical count,

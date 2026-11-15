@@ -158,8 +158,8 @@ export const EARNING_ASSETS_TAGS = [
 /**
  * Total loans, gross of the allowance first: the FDIC Quarterly Banking Profile
  * coverage and net charge-off rates divide by gross loans, and ACL / net loans
- * would divide the allowance by loans it was already taken out of (review of
- * D-46/D-47, 2026-10-13). Net loans are the fallback; the basis names the tag.
+ * would divide the allowance by loans it was already taken out of (D-46,
+ * D-47). Net loans are the fallback; the basis names the tag.
  */
 export const LOANS_TAGS = [
   "FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss",

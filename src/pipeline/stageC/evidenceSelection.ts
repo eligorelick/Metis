@@ -285,8 +285,8 @@ interface Passage extends EvidenceSpan { categories: EvidenceCategory[]; score: 
 const ENTITY = /\b(?:Inc|Ltd|Limited|Corp|Corporation|Co|LLC|PLC|plc|N\.V|S\.A|AG|SE|PBC|Group)\b\.?/g;
 const FINANCIAL_BOUNDARY = /\n+|(?<=[.!?])\s+(?=[A-Z“"(])/g;
 /**
- * Prose splits: a sentence end that is not an abbreviation ("Colette M.
- * Kress", "Co. Ltd."), a table footnote marker ("(1) Included $36.9 billion of
+ * Prose splits: a sentence end that is not an abbreviation ("Jane M.
+ * Roe", "Co. Ltd."), a table footnote marker ("(1) Included $36.9 billion of
  * investments that are subject to … lock-up …", which otherwise rides at the
  * end of a flattened table), a note heading ("Note 9 - Debt"), and the first
  * sentence after a flattened table ("… $ 7,469 In June 2026, we issued …").

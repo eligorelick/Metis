@@ -93,7 +93,7 @@ export interface NumericProvenanceRecord {
 /**
  * Exact non-numeric payload citation shown to the model.
  *
- * `kind` says what a claim citing the tag can rest on (D-43, 2026-10-13):
+ * `kind` says what a claim citing the tag can rest on (D-43):
  *  - `payload-text`: text the payload shows (a filing excerpt, a string row).
  *  - `payload-gap`: a disclosed absence — an n/a row, a missing-data manifest
  *    entry. It supports a statement that the figure is absent, never a number.
@@ -102,9 +102,8 @@ export interface NumericProvenanceRecord {
  *    compensation total, an analyst target). Prose may cite the row, but no
  *    number in that prose can verify against it.
  * Before D-43 only `payload-text` existed and the other two printed a tag the
- * model was told to cite while the verifier knew nothing of it: in reports
- * 25/26 (2026-10-13) every claim citing a compensation, peer, price-target or
- * n/a row failed as unknown-source.
+ * model was told to cite while the verifier knew nothing of it, so every claim
+ * citing a compensation, peer, price-target or n/a row failed as unknown-source.
  */
 export interface CitationProvenanceRecord {
   id: string;
@@ -126,8 +125,8 @@ export interface CitationProvenanceRecord {
   /**
    * The only dates prose citing this text row may state, as ISO days: set on
    * the next-earnings note, whose whole content is one date. Without it a
-   * sentence giving any other date verified on the row's tag (review,
-   * 2026-10-13). Prose citing such a row may state no other number.
+   * sentence giving any other date verified on the row's tag (D-43). Prose
+   * citing such a row may state no other number.
    */
   allowedDates?: string[];
 }
@@ -188,8 +187,8 @@ const CANONICAL_UNITS = new Set<CanonicalUnit>([
 /**
  * Dimensionless indicator spellings read as the `index` bucket. Grading emits
  * rank/pctile/z/m/rsi on scores.aspects[*].drivers; "RSI" and "RSI index"
- * are what the judge wrote for the payload's technicals rows
- * in reports 25/26 (2026-10-13). They are tested BEFORE the bare-ISO-code
+ * are what the judge writes for the payload's technicals rows (D-44). They
+ * are tested BEFORE the bare-ISO-code
  * branch: "RSI" is three capitals and used to be read as a currency code,
  * failing every RSI key number as unit-mismatch while id, value and as-of
  * matched (D-44).
@@ -228,9 +227,9 @@ export function canonicalizeTracedUnit(
   explicitCurrency: string | null | undefined,
 ): CanonicalizedTracedUnit | null {
   // A trailing parenthetical is a qualifier, not a unit: the payload renders
-  // aspect scores as "0-100 (grade B, completeness 0.9)" and a live haiku run
-  // (2026-09-02) echoed RSI as "index (0-100)" and scores as "0-100 score",
-  // failing every grade-strip key number as unit-mismatch while id, value and
+  // aspect scores as "0-100 (grade B, completeness 0.9)", and a model can echo
+  // RSI as "index (0-100)" and scores as "0-100 score", failing every
+  // grade-strip key number as unit-mismatch while id, value and
   // as-of matched exactly. A qualifier that names a scale ("USD (millions)")
   // is still caught, by the value match.
   const raw = displayUnit.trim().replace(/\s*\(.*\)$/, "");

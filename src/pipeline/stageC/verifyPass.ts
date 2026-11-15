@@ -114,7 +114,7 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
     const ownRowLabel = typeof obj.label === "string" && Array.isArray(obj.values) ? obj.label : undefined;
     // A named row (a segment {name, revenue}, a peer {name, metrics[]}, a
     // macro series {name, latest}) is rendered under its name, so its numbers
-    // are described by it too (review, 2026-10-13): without it a segment's
+    // are described by it too (P19): without it a segment's
     // revenue verified on the unit text alone, against another segment's
     // figure, while the report printed it under this segment's name.
     const ownName = ownRowLabel === undefined && typeof obj.name === "string" ? obj.name : undefined;
@@ -225,7 +225,7 @@ function claimSourceMatch(
     // that states no number. Registering those printed tags is what lets
     // "EBIT interest coverage is not meaningful for this bank" verify; without
     // this guard "Net debt/EBITDA is 1.2x" citing the same n/a row verified too
-    // (simulated 2026-10-13). Every record the claim could mean is read, so a
+    // (D-43). Every record the claim could mean is read, so a
     // judgment citing an id with a gap row at any date is held to it.
     if (numericMatches.length === 0) {
       const cited = claim.label === "JUDGMENT"
@@ -243,7 +243,7 @@ function claimSourceMatch(
       // A text row that shows numbers ("25/50/25") supports exactly that
       // sequence: the numbers in the row's order, all of them. Membership
       // alone let "the bull case carries a 50% weight" verify against
-      // bull/base/bear 25/50/25 (review, 2026-10-13); prose that states the
+      // bull/base/bear 25/50/25 (P19); prose that states the
       // numbers some other way fails closed.
       const allowed = cited.flatMap((record) => record.allowedNumbers ?? []);
       // A full officer filing may share a tag with a restricted transition
@@ -266,7 +266,7 @@ function claimSourceMatch(
         return { supported: false, reason: "value-mismatch" };
       }
       // A row whose content is a date (the next-earnings note) supports that
-      // date only, and no other number (review, 2026-10-13).
+      // date only, and no other number (D-43).
       if (
         cited.some((record) => record.allowedDates !== undefined) &&
         !statesOnlyAllowedDates(claim.text, cited.flatMap((record) => record.allowedDates ?? []))

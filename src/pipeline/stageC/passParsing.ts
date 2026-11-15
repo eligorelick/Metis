@@ -35,7 +35,7 @@ export function extractText(message: PassMessage): string {
  * Parse pass output as JSON, salvaging the first balanced top-level JSON
  * value when the raw text doesn't parse whole. `output_config.format` should
  * guarantee pure JSON, but with web-search tools in the turn some models
- * (observed live on haiku-4-5, 2026-07-08) append prose or a second copy
+ * append prose or a second copy
  * after the JSON — discarding the whole multi-dollar pass over trailing text
  * is worse than salvaging the value and letting Zod validate it as usual.
  * Throws (JSON.parse's error) when no parseable JSON value is found.

@@ -438,7 +438,7 @@ export function reconcileMeta(
   presumed: PresumedSpendDisclosure | null = null,
   discarded: ManifestEntry[] = [],
 ): Report {
-  // WS7 (D-20), 2026-09 review: the shared-model-family disclosure has to be
+  // D-20: the shared-model-family disclosure has to be
   // computed HERE, from the runner's execution list, because this is the only
   // place the effective models per step are known for certain.
   //

@@ -287,7 +287,7 @@ export function multipleLabel(stat: Pick<MultipleStat, "key" | "period" | "owner
 
 /**
  * Replace the judge's valuation.multiples rows WHOLESALE with rows derived from
- * the DETERMINISTIC Stage B multiples framework (2026-07 invariant-1 hardening):
+ * the DETERMINISTIC Stage B multiples framework (P18):
  * current / peer median / own-5y percentile / sector-appropriate flag all come
  * from computed numbers, never from LLM transcription. Pre-revenue routes
  * (multiples === null) or an absent computed valuation (verify stand-in) yield
@@ -360,7 +360,7 @@ export function applyMultiples(
 
 /**
  * Overwrite reverseDcf.impliedMetric + impliedValue with the DETERMINISTIC
- * Stage B reverse-DCF solve (2026-07 invariant-1 hardening). The metric label
+ * Stage B reverse-DCF solve (P18). The metric label
  * names exactly what the solver inverted: method "growth" solved the constant
  * explicit-horizon revenue growth that justifies the price; method "margin"
  * solved the terminal EBIT margin (fallback mode). Method "none", a non-DCF
@@ -398,7 +398,7 @@ export function applyReverseDcf(
 
 /**
  * Overwrite the four quality.forensicScores blocks with the DETERMINISTIC Stage
- * B forensics (2026-07 invariant-1 hardening): Altman variant/score/zone,
+ * B forensics (P18): Altman variant/score/zone,
  * Beneish M + verdict, Piotroski F out-of-N, and the cash-flow accruals ratio +
  * house-rule band. The judge's `notApplicableReason` prose is PRESERVED exactly
  * when the computed counterpart is null (it explains why the score is missing/

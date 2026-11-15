@@ -576,7 +576,7 @@ function mergeJudgeBilling(
         primary.usage.cache_read_input_tokens,
         usage?.cache_read_input_tokens,
       ),
-      // N13 (2026-09 review): `webSearches` above sums both requests, so
+      // P24: `webSearches` above sums both requests, so
       // keeping only the primary's server-tool-use block contradicted the
       // provider's own aggregation (aggregateUsage in providers/anthropic.ts
       // rewrites these two counters from the summed totals). Nothing
