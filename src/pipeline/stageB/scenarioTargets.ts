@@ -2,8 +2,8 @@
  * Stage B — deterministic bull/base/bear scenario price targets.
  *
  * PURE, deterministic TypeScript: no network, no DB, no LLM. This is the
- * authority for the headline scenario targets, which used to be authored by the
- * judge/LLM (2026-07-11 scenario-credibility checkpoint). The construction:
+ * authority for the headline scenario targets, which the judge/LLM never authors
+ * (P18). The construction:
  *
  *  - base target = the deterministic FCFF-DCF fair value per share
  *    (valuation.dcf.perShare) — reused, never recomputed, so it can never
@@ -255,14 +255,14 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
 
   const assumptions = valuation.assumptions;
   const baseDcf = valuation.dcf;
-  // Audit 2026-10-22 B-29: no fan around a DCF outside its domain.
+  // D-102: no fan around a DCF outside its domain.
   if (baseDcf?.domain !== undefined) {
     return suppressed(
       [{ field: "valuation.scenarioTargets", reason: `Scenario price targets withheld: ${baseDcf.domain.reason}`, severity: "warn" }],
       ["Scenario price targets unavailable: the base DCF is outside its domain."],
     );
   }
-  // Audit 2026-10-22 E-5: withheld because the NCI claim could not be sized.
+  // D-102: withheld because the NCI claim could not be sized.
   if (baseDcf?.noncontrollingKeyWithheld !== undefined) {
     return suppressed(
       [{ field: "valuation.scenarioTargets", reason: `Scenario price targets withheld: ${baseDcf.noncontrollingKeyWithheld}`, severity: "warn" }],
@@ -270,7 +270,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     );
   }
   if (assumptions === null || baseDcf === null || !isNum(baseDcf.perShare)) {
-    // FIN-119-V1: a refused temporary-equity operand that withheld the DCF is named, as in the fair value.
+    // D-135: a refused temporary-equity operand that withheld the DCF is named, as in the fair value.
     const refusedClaim = dcfWithheldWarnGap(valuation.gaps);
     return suppressed(
       [
@@ -399,8 +399,8 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
   // Where growth earns less than the reinvestment it needs, the +growth run lands
   // BELOW the −growth run, which would publish "bull" beneath "bear" and hand a
   // reader the risk direction backwards. buildScenarioPaths gives the bull the
-  // growth shift that raises value and a margin shift that never cuts it (AMZN
-  // audit 2026-10-20 finding 11), so the higher value is always labelled bull;
+  // growth shift that raises value and a margin shift that never cuts it (D-99,
+  // scenario margins), so the higher value is always labelled bull;
   // each scenario keeps the growth/margin deltas of the path that produced it.
   // base (the DCF fair value) is untouched, so it can never disagree with the
   // DCF page.
@@ -417,7 +417,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
 
   // A ±σ run whose equity value is at or below zero, or whose terminal value
   // exceeds the whole enterprise value, is outside the DCF's domain, the test the
-  // base DCF itself must pass (B-29). Flooring such a run at 0 published a
+  // base DCF itself must pass (D-102). Flooring such a run at 0 published a
   // bear target the base DCF would have withheld, so the fan is withheld instead.
   const outside = (["bull", "bear"] as const)
     .map((name) => ({ name, failure: dcfDomainFailure(shared[name].result) }))
@@ -441,8 +441,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
   // at the base path, both ±σ runs land on one side of it, and a "bear – bull"
   // range would exclude the fair value it is meant to bracket. Faster growth
   // that earns less than its reinvestment, with slower growth releasing no
-  // capital (reinvestment is floored at zero), gives that peak; Duke Energy's
-  // merged second quarter reached it in the 2026-10-22 audit panel.
+  // capital (reinvestment is floored at zero), gives that peak (P16).
   const base = baseDcf.perShare;
   const side = isNum(base) && isNum(optimistic.value) && isNum(pessimistic.value) ? fanOutsideBase(base, optimistic.value, pessimistic.value) : null;
   if (side !== null) {
@@ -461,7 +460,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     );
   }
 
-  // FIN-119: a path whose deduction takes the profit share while an unsplit temporary-equity total is deducted is withheld, and says why.
+  // D-135: a path whose deduction takes the profit share while an unsplit temporary-equity total is deducted is withheld, and says why.
   const unsplitPath = baseDcf.bridge.temporaryEquity !== undefined && baseDcf.bridge.temporaryEquity.unsplit !== 0 &&
     (shared.bull.result.temporaryEquityWithheld !== undefined || shared.bear.result.temporaryEquityWithheld !== undefined);
   if (unsplitPath) {

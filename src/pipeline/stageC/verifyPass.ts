@@ -65,14 +65,14 @@ interface TracedNumberRef {
   /**
    * The label of the metric row the number sits in ({label, values[]}), the
    * only description a TracedNumber has besides its unit. Read by the
-   * excerpt-text match (D-45) and registry description conflict check (AI-407).
+   * excerpt-text match (D-45) and registry description conflict check (D-144).
    */
   rowLabel?: string;
   rowKind?: "metric-row" | "named-row";
   cellPeriod?: string;
 }
 
-/** OD-3: null means the spelling/window is outside this cell check. */
+/** D-144: null means the spelling/window is outside this cell check. */
 function recordPeriodAgreement(label: string, record: NumericProvenanceRecord): boolean | null {
   if (/\b(?:ttm|12m|ending|ended|to)\b/i.test(label)) return null;
   const date = label.match(/\b\d{4}-\d{2}-\d{2}\b/)?.[0];
@@ -232,8 +232,8 @@ function claimSourceMatch(
         ? textMatches
         : textMatches.filter((record) => record.asOf === asOf);
       const stated = proseNumbers(claim.text);
-      // A number written in words is a number too (review, 2026-10-13: "Net
-      // debt/EBITDA is two times" citing the n/a row verified).
+      // A number written in words is a number too (D-43: "Net debt/EBITDA is
+      // two times" citing the n/a row must not verify).
       if (
         (stated.length > 0 || statesNumberWord(claim.text)) &&
         cited.some((record) => record.kind !== "payload-text")
@@ -560,7 +560,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         // drops one, adopt the record's value — the registry id already pins the
         // exact record (and hence its period/currency). A SUPPLIED-but-wrong
         // period or currency still mismatches, so a genuine error is not masked.
-        // AI-408 / OD-3: retain decidable conflicts before erasing the
+        // D-144: retain decidable conflicts before erasing the
         // period-less as-of decoration used by the historical haiku output.
         const periodStated = number.period != null && number.period.trim() !== "";
         const suppliedPeriodConflict = record.period === null && number.period != null &&
@@ -685,7 +685,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         evidenceKind: "number",
         source: sourceId ?? number.source,
         reason,
-        // F-22: only a value conflict contradicts; a period, unit or currency
+        // D-110: only a value conflict contradicts; a period, unit or currency
         // the record does not establish leaves the figure unverified.
         validationStatus: reason === "value-mismatch" ? "contradicted" : "unchecked",
         ...(numberSourceSpans.length === 0 ? {} : { sourceSpans: numberSourceSpans }),
@@ -739,7 +739,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     const semanticFailures = supported ? consistency.findings.filter((finding) => finding.path === path &&
       (finding.check === "direction" || finding.check === "period" || finding.check === "unit")) : [];
     const semanticFailure = semanticFailures.find((finding) => finding.check === "direction") ?? semanticFailures[0];
-    // F-22: a direction word against the sign of its cited change is a value
+    // D-110: a direction word against the sign of its cited change is a value
     // conflict, and it outranks a period or unit finding on the same claim.
     // A period or unit word the check could not establish against the cited
     // record is a metadata gap: the claim is unverified, never validated, and
