@@ -88,7 +88,7 @@ interface ValuationCtx {
   dupont: DupontResult;
   /** WS5: return on tangible common equity — the return P/TBV is read against. */
   rote: RoteResult;
-  /** C-10: the trailing-four-quarter common return (financial routes). */
+  /** D-102: the trailing-four-quarter common return (financial routes). */
   commonReturnTtm: TtmCommonReturn | null;
   operatingDispositions: OperatingDispositionRead;
   /** METIS_EV_INCLUDE_LEASES, read once in runStageB and shared with the returns block. */
@@ -128,7 +128,7 @@ export function dcfGuidance(bundle: DataBundle, modelCurrency: string | null): D
 
 /**
  * The `MultiplesBalance` view of one balance row: the market EV reads the
- * newest row, and (FIN-103) the DCF equity bridge reads the row dated at the
+ * newest row, and (D-135) the DCF equity bridge reads the row dated at the
  * statement date. One mapping, so the two cannot drift.
  */
 function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual" | null | undefined, leaseEvidenceContext: LeaseEvidenceContext): MultiplesBalance {
@@ -152,12 +152,12 @@ function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual"
     preferredStock: num(row.preferredStock),
     preferredCapitalWithheldReason: row.preferredCapitalWithheldReason,
     preferredCapitalBasis: row.preferredCapitalBasis,
-    // FIN-119: redeemable preferred and redeemable NCI (temporary equity), read through `temporaryEquityClaims`.
+    // D-135: redeemable preferred and redeemable NCI (temporary equity), read through `temporaryEquityClaims`.
     ...temporaryEquityOperands(row),
     equityOwnershipBasis: statementEquityOwnershipBasis(row),
-    // WS6 (D-19): lease liabilities for the EV bridge. The TOTAL is
-    // disclosure context; only the OPERATING slice is netted out of EV
-    // (WS6 review, BLOCKER 1), and the EDGAR route is the only one that
+    // D-19: lease liabilities for the EV bridge. The TOTAL is
+    // disclosure context; only the OPERATING slice is netted out of EV,
+    // and the EDGAR route is the only one that
     // resolves the split — on the FMP route it is absent and EV is
     // reported as-is with the leases gap raised.
     capitalLeaseObligations: num(row.capitalLeaseObligations),
@@ -170,7 +170,7 @@ function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual"
 }
 
 /**
- * FIN-404: the per-share divisor of the newest quarterly and the newest annual
+ * D-135: the per-share divisor of the newest quarterly and the newest annual
  * income row, each through `awardDilutedDivisor` (a loss period keeps the award
  * dilution its filed count dropped). The four latest quarters and the latest
  * year are the donor pool, so the DCF, the excess-return route, the REIT block
@@ -186,7 +186,7 @@ export function incomeDivisors(
   const pos = (v: unknown): number | null => { const n = num(v); return n !== null && n > 0 ? n : null; };
   const divisorRow = (r: FmpIncomeStatementRow, period: "quarter" | "fiscal year"): DivisorRow => {
     const date = typeof r.date === "string" ? r.date : "";
-    // The filed if-converted increment for this exact period is not award dilution (FIN-404; the bridge deducts the instrument).
+    // The filed if-converted increment for this exact period is not award dilution (D-135; the bridge deducts the instrument).
     const conversionShares = date === "" ? null : conversionSharesFiled(facts, date, period);
     return {
       date, period, basic: pos(r.weightedAverageShsOut), diluted: pos(r.weightedAverageShsOutDil),
@@ -204,7 +204,7 @@ export function incomeDivisors(
   return { quarter: one(incomeQuarterly[0], "quarter"), annual: one(inc0, "fiscal year") };
 }
 
-/** The valuation input that discloses a non-filed divisor (FIN-404); callers pass only a result whose basis is not "filed". */
+/** The valuation input that discloses a non-filed divisor (D-135); callers pass only a result whose basis is not "filed". */
 function divisorDisclosure(d: DivisorResult): NonNullable<ValuationBundleInputs["dilutedShareDivisor"]> {
   const note = d.note ?? "";
   if (d.basis === "loss-period-substituted") return { basis: d.basis, donorDate: d.donorDate ?? "", donorPeriod: d.donorPeriod ?? "quarter", note,
@@ -212,10 +212,10 @@ function divisorDisclosure(d: DivisorResult): NonNullable<ValuationBundleInputs[
   return { basis: d.basis === "loss-period-withheld" ? "loss-period-withheld" : "loss-period-basic", note };
 }
 
-/** FIN-401 / OD-5: only a complete measured window permits an income subtraction. */
+/** D-147: only a complete measured window permits an income subtraction. */
 function equityMethodWindow(rows: readonly FmpIncomeStatementRow[]): { placement: "in-operating-income" | "below-operating-income" | "undetermined" | null; income: number | null } {
   const placements = rows.map(row => row.equityMethodIncomePlacement);
-  // FIN-401 review R-5: no filed placement is distinct from ambiguous evidence.
+  // D-147: no filed placement is distinct from ambiguous evidence.
   if (placements.every(p => p === undefined)) return { placement: null, income: null };
   if (placements.some(p => p?.placement === "in-operating-income" && p.income === null)) return { placement: "in-operating-income", income: null };
   if (placements.length > 0 && placements.every(p => p !== undefined && (p.placement === "in-operating-income" || p.placement === "immaterial") && p.income !== null)
@@ -238,7 +238,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
   const inc0 = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows[0];
   const rowDate = (r: { date?: unknown } | null | undefined): string =>
     typeof r?.date === "string" ? r.date : "";
-  // Point-in-time balance anchor (2026-07-09 audit M4): whole-row preference
+  // Point-in-time balance anchor (P1, P2): whole-row preference
   // for the NEWER of the latest quarterly vs latest annual balance row — a
   // lagging quarterly feed must not beat a fresher annual row, and fields are
   // never mixed across periods. Same pattern runway already uses.
@@ -250,7 +250,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
 
   const currentPrice = num(quote?.price);
   const marketCap = num(quote?.marketCap ?? profile?.marketCap);
-  // 2026-07-09 audit M3: per-share values against a current price use the
+  // P3: per-share values against a current price use the
   // weighted-average diluted share count from the NEWER of the latest quarterly
   // vs annual income statement (domain-valuation.md §"per-share"); annual can be
   // up to ~18 months stale on buybacks/dilution, but a lagging quarterly feed
@@ -261,7 +261,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
   // Financial opening book and its diluted count share one instant, including an ordinary feed lag.
   const shareIncomeQuarterly = financialRoute && balQ
     ? incomeQuarterly.filter(row => rowDate(row) <= rowDate(balQ)) : incomeQuarterly;
-  // FIN-404: a loss period's count is its basic count; `incomeDivisors` restores the award dilution.
+  // D-135: a loss period's count is its basic count; `incomeDivisors` restores the award dilution.
   const divisors = incomeDivisors(shareIncomeQuarterly, inc0, confirmedIssuerFacts(bundle.symbol, bundle.edgar));
   const sharesQuarterly = divisors.quarter.shares;
   const sharesAnnual = divisors.annual.shares;
@@ -334,7 +334,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
   const equityWindowRows = dcfUsesTtm && ttmInc ? normalizeQuarterRows(incomeQuarterly).rows.filter(row => String(row.date) <= ttmInc.date).slice(0, 4) : inc0 ? [inc0] : [];
   const equityWindow = equityMethodWindow(equityWindowRows);
 
-  // FIN-103: the DCF equity bridge reads the balance dated at the DCF statement
+  // D-135: the DCF equity bridge reads the balance dated at the DCF statement
   // date (D-65), not the newest row the market EV uses.
   const bridge = dcfBridgeRow(isoDay(dcfUsesTtm ? ttmInc?.date : inc0?.date), dcfUsesTtm ? "ttm" : inc0 ? "annual" : null, balanceQuarterly, balanceAnnual, { row: balPoint ?? null, basis: balPointBasis ?? null }, evIncludeLeases);
   const bridgePoint = bridge.row;
@@ -351,7 +351,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     return stake === null ? 0 : Math.min(lti, Math.max(0, stake.val));
   };
   const equityMethodStakeValue = bridgePoint === null ? 0 : equityMethodStakeAt(bridgePoint);
-  // FIN-401-V1 / review R-2: a recent breakout can establish placement inside
+  // D-147: a recent breakout can establish placement inside
   // the added-back LTI, but cannot supply a bridge-date stake amount.
   const priorStakePlacement = (() => {
     const date = isoDay(bridgePoint?.date), lti = num(bridgePoint?.longTermInvestments);
@@ -390,11 +390,11 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
           : "equity-method income is assumed below operating income under Regulation S-X Rule 5-03; placement is undetermined and the existing stake treatment is retained",
   };
 
-  // FIN-401 review R-1/R-6: the window's treatment also governs its quarters
+  // D-147: the window's treatment also governs its quarters
   // and all history years. Restore only income already removed from EBIT.
   const adjustEbit = (value: number | null, rows: readonly FmpIncomeStatementRow[]): number | null => {
-    // R-2 needs evidence that added-back LTI holds the measured-income stake.
-    // R-4's operating capital split still requires a same-date stake amount.
+    // Placement needs evidence that added-back LTI holds the measured-income stake;
+    // the operating capital split still requires a same-date stake amount (D-147).
     if (value === null || (equityMethodStakeValue <= 0 && !incomeExcludedFromEbit)) return value;
     if (equityMethodStake?.treatment === "operating") return value + rows.reduce((sum, row) => {
       const p = row.equityMethodIncomePlacement;
@@ -471,9 +471,9 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     totalStockholdersEquity: statementParentEquity(row),
     totalEquity: num(row.totalEquity),
     minorityInterest: num(row.minorityInterest),
-    // FIN-119-V1: temporary equity (and any refusal of it, in `fieldConflicts`) is financing capital in sales-to-capital.
+    // D-135: temporary equity (and any refusal of it, in `fieldConflicts`) is financing capital in sales-to-capital.
     ...temporaryEquityFields(row),
-    // The preferred line as filed: `temporaryEquityClaims` reads it to see one mezzanine series filed twice (M-9).
+    // The preferred line as filed: `temporaryEquityClaims` reads it to see one mezzanine series filed twice (D-135).
     preferredStock: num(row.preferredStock),
     ...(row.fieldConflicts !== undefined ? { fieldConflicts: row.fieldConflicts } : {}),
     cashBasis: row.cashBasis,
@@ -483,7 +483,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     longTermInvestments: num(row.longTermInvestments),
   });
   const dcfBalance: DcfBalanceRow | null = bridgePoint && bridgePointBasis ? toDcfBalance(bridgePoint, bridgePointBasis) : null;
-  // Audit 2026-10-22 A-2: the annual rows behind the issuer's own sales-to-capital.
+  // D-104: the annual rows behind the issuer's own sales-to-capital.
   const dcfCapitalHistory: DcfBalanceRow[] = balanceAnnual.map((row) => {
     const result = toDcfBalance(row, "annual");
     if (equityMethodStake?.treatment === "operating" && result.longTermInvestments != null) result.longTermInvestments -= equityMethodStakeAt(row);
@@ -500,7 +500,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     return days >= 350 && days <= 380;
   });
   const yearAgoDate = yearAgoQuarter === undefined ? null : isoDay(yearAgoQuarter.date);
-  // AMZN audit 2026-10-20: the same fiscal quarter a year before the guided
+  // D-98 (guided year-over-year pace): the same fiscal quarter a year before the guided
   // quarter, so the guidance carries at its year-over-year pace, under the
   // same currency rule.
   const guidance = dcfGuidance(bundle, ctx.modelCurrency);
@@ -561,7 +561,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     return { priorFiscalYearEnd, through: ttmInc.date, revenue, quarters: quarters.length };
   })();
 
-  // AMZN audit 2026-10-20, finding 19: the last complete fiscal year's four
+  // D-99 (seasonal consensus): the last complete fiscal year's four
   // reported quarters (the quarter ends inside the 330 days to its year end,
   // which leaves out the year before's), each in the model currency, give
   // consensus its seasonal shape; valuation.ts checks they are consecutive
@@ -599,17 +599,17 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
           // WS6 (D-18): the log-linear regression method of the growth anchor.
           revenueLogLinear: growth.revenueLogLinear,
           analystEstimates,
-          // AMZN audit 2026-10-20, finding 2: a rate-limit refusal is named, not shown as "uncovered".
+          // D-98 (rate limits): a rate-limit refusal is named, not shown as "uncovered".
           ...(!bundle.analystEstimates.ok && isFmpQuotaGap(bundle.analystEstimates.gap)
             ? { analystEstimatesRefusal: bundle.analystEstimates.gap.reason }
             : {}),
           waccPct: wacc.waccPct ?? 0,
           // WS6 (D-19): every WACC input named in the assumption block.
           waccBasis: ctx.waccInputs.summary,
-          // WS6 (D-19): the reported FCF before and after the SBC deduction.
+          // D-19: the reported FCF before and after the SBC deduction.
           // D-60: the trailing twelve months when the current-capital cash
           // bridge has a complete TTM window (the DCF starts from the TTM), else
-          // the latest fiscal year. NVDA's row showed FY2026 $96.68B beside a
+          // the latest fiscal year, so a fiscal-year FCF never sits beside a
           // TTM start revenue.
           fcfSbc: ctx.capital.current?.basis === "ttm" && ctx.capital.current.cashBridge.standardizedFcf !== null
             ? {
@@ -637,7 +637,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
           operatingNormalizationRefusal: ctx.operatingDispositions.refusal,
           equityBridgePreferredRefusal: preferredCapitalRefusal(bridgePoint),
           equityMethodStake,
-          // Audit item 15 (FCX-9): tagged one-offs inside that operating income.
+          // D-98: tagged one-offs inside that operating income.
           unusualOperatingItems: dcfIncomeTtm === null ? null : unusualOperatingItemsTtm(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
             ttmEnd: dcfIncomeTtm.date,
             fiscalYearEnd: incomeAnnual.map((r) => rowDate(r)).find((d) => d !== "" && d <= dcfIncomeTtm.date) ?? null,
@@ -649,7 +649,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
           recurringOperatingItemsBasis: recurringOperatingItemsBasis(guardedAnnualUnusual.recurring),
           fiscalCalendar: fiscalYearRule(normalizeQuarterRows(incomeAnnual).rows.map(row => String(row.date))),
           balance: dcfBalance,
-          // FIN-303: the existing lease switch (no new config read) reaches sales-to-capital and its A-2 history.
+          // D-135: the existing lease switch (no new config read) reaches sales-to-capital and its D-104 history.
           includeLeasesInEv: evIncludeLeases,
           bridgeCause: { cause: bridge.cause, detail: bridge.detail },
           capitalHistory: dcfCapitalHistory,
@@ -668,7 +668,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
               waccAsOf: point?.riskFreeAsOf ?? null,
             };
           }),
-          // ADR guard (audit H3): same currency pair the multiples framework
+          // ADR guard (P4): same currency pair the multiples framework
           // already flags — valueCompany suppresses the DCF on mismatch.
           reportedCurrency: ctx.modelCurrency,
           quoteCurrency: str(profile?.currency),
@@ -798,7 +798,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     return foldConvertiblePreferred(num(row?.preferredStock), read.convertiblePreferredClaim, read.preferredSeriesDistinct).preferred;
   };
   const multiplesBalance: MultiplesBalance | null = balPoint ? toMultiplesBalance(balPoint, balPointBasis, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null;
-  // FIN-103: the DCF bridge's own row, mapped the same way.
+  // D-135: the DCF bridge's own row, mapped the same way.
   const bridgeBalance: MultiplesBalance | null = bridgePoint ? toMultiplesBalance(bridgePoint, bridgePointBasis, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null;
 
   // The latest TTM gate does not establish the currency of older quarters.
@@ -951,10 +951,10 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
   });
   ctx.capital.cashDividendPayout = fiscalCashDividendPayout(payoutRows,payoutIncome,bundle.builtAt.slice(0,10));
 
-  // Audit 2026-10-22 C-10: start from the trailing four quarters when that
+  // D-102: start from the trailing four quarters when that
   // return is complete and newer than the latest fiscal year, from the book
   // value at the window's end; the fiscal-year start is valued beside it.
-  // Audit 2026-10-22 B-37: with more than one common class, the diluted count
+  // D-105: with more than one common class, the diluted count
   // is the per-share denominator only when the basic count from the same row
   // spans every class (`issuerEconomicDilutedShares`); it is then restated in
   // quoted-share units.
@@ -963,7 +963,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     economicScope,
     bundle.economicShareEvidence ?? [],
     { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) },
-    // FIN-404: a substituted count, or a loss period's basic count, is not the filed diluted count; the not-restored case divides by the filed count.
+    // D-135: a substituted count, or a loss period's basic count, is not the filed diluted count; the not-restored case divides by the filed count.
     { countNotFiled: dilutedShareDivisor !== null && (dilutedShareDivisor.basis === "loss-period-substituted" || dilutedShareDivisor.basis === "loss-period-basic"),
       combinedClassEps: retainedCombinedClassEpsBasis(bundle, { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) }) },
   );
@@ -1045,10 +1045,10 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
               convertiblePreferredClaim: fiscalYearConvertibles.convertiblePreferredClaim,
               permanentPreferred: num(fiscalYearBalance?.preferredStock), preferredSeriesDistinct: fiscalYearConvertibles.preferredSeriesDistinct }
             : null,
-          // Audit M5: null CoE SUPPRESSES the model inside excessReturnModel
+          // P10: null CoE SUPPRESSES the model inside excessReturnModel
           // (critical gap) — never a silent 10% default.
           costOfEquityPct: wacc.costOfEquityPct,
-          // Audit L4: (dividends + net buybacks) / net income, 3y average, from
+          // Payout: (dividends + net buybacks) / net income, 3y average, from
           // the annual cash-flow statements; null suppresses the valuation.
           payoutRatioPct: payoutRatioPct3y(commonPayoutRows),
           dilutedShares: valuationDilutedShares,
@@ -1061,9 +1061,9 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
           price: currentPrice,
           asOf: quarterlyBook?.asOf ?? ttmStart?.asOf ?? commonReturns.asOf,
           valuationDate: quotePriceObservationDay(quote),
-          // WS5: P/TBV is read against ROTE, both on the tangible base the
+          // D-17: P/TBV is read against ROTE, both on the tangible base the
           // returns block already computes — never against plain book equity.
-          // A bank's trailing ROTE and the tangible equity at its end pair the same way (C-10).
+          // A bank's trailing ROTE and the tangible equity at its end pair the same way (D-102).
           tangibleCommonEquity: route.base === "bank" && quarterlyBook ? quarterlyBook.bookValue : route.base === "bank" && ttmStart !== null ? ttmStart.bookValue : ctx.rote?.latestTangibleCommonEquity ?? null,
           tangibleCommonEquityAsOf: route.base === "bank" && quarterlyBook ? quarterlyBook.asOf : route.base === "bank" && ttmStart !== null ? ttmStart.asOf : ctx.rote?.asOf ?? null,
           rotePct: route.base === "bank" && ttmStart !== null ? ttmStart.roePct : ctx.rote?.latestRotePct ?? null,
@@ -1077,7 +1077,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
           // The same return, year by year — the evidence the terminal
           // excess-return convention reads. A financial route has no ROIC
           // series, so no year has a cost of equity of its own and each is
-          // compared with the current one (audit 2026-10-22 B-31).
+          // compared with the current one (D-104).
           roeHistory: commonReturns.series.map((y) => {
             const point = waccByYear.get(y.date);
             return {
@@ -1100,7 +1100,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
       : null;
   // D-233 (P13, P1, P3, P10): FFO and AFFO are flows of the latest fiscal year (`computeNareitFfo`), so their
   // per-share divisor is that same fiscal year's weighted diluted count: the annual income row at FFO's period end,
-  // through the one divisor owner (`incomeDivisors`, FIN-404) and the one class-basis rule (B-37). The latest
+  // through the one divisor owner (`incomeDivisors`, D-135) and the one class-basis rule (D-105). The latest
   // quarter's count divides a value per share (the DCF and the excess-return model), never a flow of another
   // period. With no count established for FFO's own year the per-share figures are withheld with the reason.
   const ffoPeriodEnd = nareitFfo.asOf ?? isoDay(inc0?.date);
@@ -1121,7 +1121,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     if (economic !== null && economic.shares === null) return { shares: null, divisor: null, withheld: economic.reason.replace(/\.$/, "") };
     return { shares: economic?.shares ?? annual.shares, divisor: annual, withheld: null };
   })();
-  // FIN-404: the divisor a published per-share figure divides by. On the equity-REIT route that is the fiscal-year row above.
+  // D-135: the divisor a published per-share figure divides by. On the equity-REIT route that is the fiscal-year row above.
   const disclosedDivisor = route.base === "reit" ? reitDivisor.divisor : dilutedShareDivisor;
   const reit: ReitInputs | null =
     route.base === "reit"
@@ -1145,14 +1145,14 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
           affoApproximate: nareitFfo.affoApproximate,
           submap: route.reitSubmap ?? null,
           submapReason: reitSubmapReason,
-          // FIN-311, FIN-108: the market cap and the house EV come from the
+          // D-135: the market cap and the house EV come from the
           // multiples framework (`valueCompany`), never rebuilt here.
         }
       : null;
 
-  // FIN-403: a successor registrant with no annual report of its own bears its predecessor's filed obligations, when its
-  // filings re-present the predecessor's periods unchanged (B-36); without that continuity nothing is read from it.
-  // An FMP-supplied CIK that SEC answers for another registrant must not drive the successor read (PR #76 Codex review).
+  // D-135: a successor registrant with no annual report of its own bears its predecessor's filed obligations, when its
+  // filings re-present the predecessor's periods unchanged (D-112); without that continuity nothing is read from it.
+  // An FMP-supplied CIK that SEC answers for another registrant must not drive the successor read.
   const ownCompanyFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   const predecessorEntry = bundle.edgar?.predecessor ?? null;
   const successorPredecessor = predecessorEntry === null || ownCompanyFacts === null ? null : {
@@ -1161,10 +1161,10 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
   const bundleInputs: ValuationBundleInputs = {
     currentPrice,
     waccPct: wacc.waccPct,
-    // VAL-10: the DCF gap quotes why the WACC is unavailable.
+    // D-133: the DCF gap quotes why the WACC is unavailable.
     waccUnavailableReason: wacc.waccPct !== null ? null
       : (wacc.gaps.find((g) => g.severity === "critical") ?? wacc.gaps.find((g) => g.severity === "warn"))?.reason ?? null,
-    // FIN-103: every DCF-bridge operand below reads the bridge row (`bridgePoint`: the
+    // D-135: every DCF-bridge operand below reads the bridge row (`bridgePoint`: the
     // statement-date row, else the anchor); `multiples.balance`, `reit` and
     // `excessReturn` keep the anchor (`balPoint`).
     bridgeBalance,
@@ -1175,14 +1175,14 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     preferredSeriesDistinct: bridgeConvertibles.preferredSeriesDistinct,
     ...(economicDiluted?.shares != null ? { dilutedShareSecurityBasis: "issuer-economic" as const } : {}),
     ...(economicDiluted ? { dilutedShareEconomicBasis: economicDiluted.shares === null ? economicDiluted.reason : economicDiluted.basis } : {}),
-    // FIN-404: how the divisor row's count was formed, so a loss period's substitution is disclosed.
+    // D-135: how the divisor row's count was formed, so a loss period's substitution is disclosed.
     ...(disclosedDivisor !== null && disclosedDivisor.basis !== "filed" ? { dilutedShareDivisor: divisorDisclosure(disclosedDivisor) } : {}),
     // D-265 (P3, P2): filed held-share evidence beside a share-basis difference; disclosure only.
     ...(employeeTrustShares !== null ? { employeeTrustShares } : {}),
     noncontrollingOwnershipUnresolved: noncontrollingOwnershipUnresolvedAt(bridgePoint),
     minorityInterest: bridgePoint ? num(bridgePoint.minorityInterest) : null,
     preferred: bridgePoint ? num(bridgePoint.preferredStock) : null,
-    // FIN-119: temporary equity at the bridge date (redeemable preferred and redeemable NCI), folded into the two above by `valueCompany`.
+    // D-135: temporary equity at the bridge date (redeemable preferred and redeemable NCI), folded into the two above by `valueCompany`.
     temporaryEquity: bridgePoint ? temporaryEquityClaims({ ...temporaryEquityOperands(bridgePoint), preferredStock: num(bridgePoint.preferredStock) }) : null,
     // The DCF bridge reads the statement-date row and the enterprise values the anchor row, so each is matched on its own date.
     temporaryEquityUnknown: (() => {
@@ -1190,7 +1190,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
       const bridge = unknownAt(bridgePoint), market = unknownAt(balPoint);
       return bridge === null && market === null ? null : { bridge, market };
     })(),
-    // Audit 2026-10-22 E-5: the trailing profit key for the DCF's NCI deduction.
+    // D-102: the trailing profit key for the DCF's NCI deduction.
     // Consolidated profit is the filed ProfitLoss, else net income on a
     // consolidated basis, else parent plus NCI income (as forensics does).
     noncontrollingEarnings: noncontrollingEarningsInput(
@@ -1224,7 +1224,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
       const date = bridgePoint ? isoDay(bridgePoint.date) : null;
       if (lti === null || lti <= 0 || date === null) return null;
       const filed = isoDay(bridgePoint?.filingDate) ?? (typeof bridgePoint?.acceptedDate === "string" ? isoDay(bridgePoint.acceptedDate.slice(0, 10)) : null);
-      // FIN-403: a successor with no annual report of its own cites its predecessor's filed stakes (same rule as the obligations).
+      // D-135: a successor with no annual report of its own cites its predecessor's filed stakes (same rule as the obligations).
       // It is read at the bridge date only, and the citation names the predecessor's CIK.
       const ownStakes = nonMarketableEquityCarrying(ownCompanyFacts, date, ctx.modelCurrency, bundle.builtAt);
       const predecessorStakes = ownStakes !== null || successorPredecessor === null ? null
@@ -1235,11 +1235,11 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
         (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${predecessorStakes === null || successorPredecessor === null ? "" : `predecessor CIK ${successorPredecessor.cik10}, `}${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
         "; a stake the statements do not break out of other assets stays in operating capital";
     })(),
-    // Audit 2026-10-22 E-7 and audit 2026-10-27 FIN-305: the retirement, environmental, pension and OPEB, loss-contingency
+    // D-104 and D-135: the retirement, environmental, pension and OPEB, loss-contingency
     // and contingent-consideration obligations filed at the bridge's balance date, or in the year before it.
     debtLikeObligations: bridgePoint === null ? null : successorObligationsAt(
       ownCompanyFacts, successorPredecessor, isoDay(bridgePoint.date), ctx.modelCurrency, bundle.builtAt),
-    // FIN-305 (pre-flight I7): the one SIC fact; valueCompany derives "rate-regulated utility" and "established" from it.
+    // D-135: the one SIC fact; valueCompany derives "rate-regulated utility" and "established" from it.
     sicCode: parseSicCode(bundle.edgar?.sic),
     dcfInputs,
     multiples,
@@ -1259,7 +1259,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
       for (const row of result.multiples.multiples) row.basis += ` ${ctx.foreignBasis.note}`;
     }
   }
-  // F8 / VAL-14: disclosure only. C2 does not admit filing-note text as placement evidence.
+  // D-147: disclosure only. Filing-note text is not admitted as placement evidence.
   if (!financialRoute && ownCompanyFacts !== null && bridgePoint && ctx.modelCurrency !== null) {
     const tag = "AvailableForSaleSecuritiesDebtSecurities";
     const date = isoDay(bridgePoint.date);
@@ -1277,7 +1277,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     }
   }
   result.gaps.push(...(financialRoute ? financialConvertibles.gaps : bridgeConvertibles.gaps));
-  // FIN-121 pre-flight ruling: a newly applicable DCF must not newly Block a
+  // D-137: a newly applicable DCF must not newly Block a
   // report main published. Retain its prior withheld valuation only when the
   // new attempt fails critically and the actual prior treatment did not.
   // Existing model-eligibility holds and every ordinary DCF check still run.
@@ -1304,7 +1304,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
   result.gaps.push(...estimateGaps);
   result.notes.push(...bundle.gaps.filter(g => g.field.endsWith(".shareUnitRepair")).map(g => g.reason));
   if (estimatesInModelCurrency && revenueCalibration.code !== null) result.notes.push(revenueCalibration.basis);
-  // M-9: one info gap per date the bridge or the market EV reads a mezzanine preferred filed twice (the bridge and the anchor often share a row).
+  // D-135: one info gap per date the bridge or the market EV reads a mezzanine preferred filed twice (the bridge and the anchor often share a row).
   const overlapDates = new Set<string>();
   for (const row of [bridgePoint, balPoint]) {
     const overlap = row ? temporaryEquityClaims({ ...temporaryEquityOperands(row), preferredStock: num(row.preferredStock) })?.overlap ?? null : null;
@@ -1314,7 +1314,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
       result.gaps.push({ field: "valuation.preferredOverlap", reason: `balance ${date}: ${overlap}`, severity: "info" });
     }
   }
-  // FIN-403: on the DCF route, say when a predecessor would have supplied an obligation but continuity is not established.
+  // D-135: on the DCF route, say when a predecessor would have supplied an obligation but continuity is not established.
   if (result.kind === "dcf" && successorPredecessor !== null && !successorPredecessor.continuity && bridgePoint !== null) {
     const bridgeDate = isoDay(bridgePoint.date);
     const withheld = successorObligationsAt(ownCompanyFacts, { ...successorPredecessor, continuity: true }, bridgeDate, ctx.modelCurrency, bundle.builtAt);
@@ -1345,7 +1345,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
         "REIT compounding FFO the multiple is measured against a figure up to three quarters old.",
     );
   }
-  // Basis disclosures for the point-in-time anchors chosen above (audit H2/M3).
+  // Basis disclosures for the point-in-time anchors chosen above (P20).
   if (balanceAnchor.fallback !== null) {
     result.notes.push(balanceAnchor.fallback);
     result.gaps.push({ field: "valuation.balanceAnchor", reason: balanceAnchor.fallback, severity: "info" });
@@ -1354,7 +1354,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
     result.notes.push(
       `House net-debt basis: net debt unavailable — ${netDebtInfo.reason}`,
     );
-    // Review m5: only a provider balance has an FMP netDebt field to set aside; a keyless report names none.
+    // P20: only a provider balance has an FMP netDebt field to set aside; a keyless report names none.
     const balPointFamily = balPointBasis === "quarter" ? bundle.statements.balanceQuarterly : bundle.statements.balanceAnnual;
     const fmpBalance = balPointFamily.ok && balPointFamily.value.source === "fmp";
     result.gaps.push({
@@ -1423,7 +1423,7 @@ export function computeValuation(bundle: DataBundle, ctx: ValuationCtx): Valuati
 }
 
 /**
- * Point-in-time net debt (2026-07-09 audit H2). House convention — matching the
+ * Point-in-time net debt (D-60: one net-cash figure). House convention — matching the
  * multiples-EV and invested-capital definitions — is
  * totalDebt minus cash and short-term investments, resolved from the combined
  * field or both explicitly disclosed components. FMP's vendor `netDebt` nets cash ONLY
@@ -1482,7 +1482,7 @@ export function fiscalCashDividendPayout(rows: readonly FmpCashFlowRow[], income
     // proven field of the income row; a parent or consolidated figure the common-income owner withheld never stands in.
     const admittedIncome=num(row.netIncome), provenIncome=num(income?.[incomeField]);
     const commonIncome=admittedIncome!==null && admittedIncome===provenIncome ? admittedIncome : null, cash=num(row.commonDividendsPaid);
-    // P7/P13 (D-272 review round 2): both operands must be read from one filing (a shared accession).
+    // P7/P13 (D-272): both operands must be read from one filing (a shared accession).
     const oneFiling=!!dividendProof && !!incomeProof && dividendProof.filings.some(d=>incomeProof.filings.some(i=>i.accn===d.accn));
     const reason=!start || !end || !incomeProof?.periodStart || start!==incomeProof.periodStart || end!==incomeProof.periodEnd || end!==dividendProof?.periodEnd
       ? "Exact matching filed fiscal-year windows for common dividends and common income are not established."
@@ -1573,9 +1573,9 @@ function mergeQuarterly(
       preferredCapitalWithheldReason: bal?.preferredCapitalWithheldReason,
       preferredCapitalBasis: bal?.preferredCapitalBasis,
       minorityInterest: bal ? num(bal.minorityInterest) : null,
-      // FIN-119: each quarter's own redeemable claims, so the own-history EV and the P/FCF guard read them.
+      // D-135: each quarter's own redeemable claims, so the own-history EV and the P/FCF guard read them.
       ...(bal ? temporaryEquityOperands(bal) : {}),
-      // WS6 review (BLOCKER 2): the lease slice too, so a lease-adjusted current
+      // D-19: the lease slice too, so a lease-adjusted current
       // EV is ranked against a lease-adjusted history.
       operatingLeaseLiability: bal ? num(bal.operatingLeaseLiability) : null,
     };
