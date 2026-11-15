@@ -59,7 +59,7 @@ export interface ReturnsBlock {
   roic: RoicResult;
   rote: RoteResult;
   /**
-   * Audit 2026-10-22 C-10/C-11: the trailing-four-quarter return on common
+   * D-102: the trailing-four-quarter return on common
    * equity on the financial routes (tangible for banks, book common equity for
    * insurers and mortgage REITs); null on every other route.
    */
@@ -72,7 +72,7 @@ export interface ReturnsBlock {
 
 /**
  * Latest risk-free rate (10y): FRED DGS10 (pct) → FMP treasury.year10 (pct)
- * → the last good cached DGS10 observation → the Treasury par curve (B-4).
+ * → the last good cached DGS10 observation → the Treasury par curve (D-111).
  * D-60: DGS10 first, because every per-fiscal-year WACC is recomputed from
  * DGS10; the vendor endpoint is only the fallback, and the returns notes say so
  * when it is used.
@@ -92,7 +92,7 @@ export function riskFreePct(
   if (fromTreasury !== null) {
     return { pct: fromTreasury, asOf: isoDay(t?.date), seriesId: "fmp:treasury-rates.year10" };
   }
-  // B-4: the last good cached DGS10 observation, then the Treasury par curve
+  // D-111: the last good cached DGS10 observation, then the Treasury par curve
   // (riskFreeFallback.ts), each with its own series id and date.
   const fallback = bundle.riskFreeFallback;
   if (fallback?.ok && Number.isFinite(fallback.value.data.value)) {
@@ -144,7 +144,7 @@ export function bookDebtOnLeaseBasis(
   if (total === null) return { value: null, leaseRemoved: false };
   if (leaseDebtConflict(row ?? {}) !== null) return { value: null, leaseRemoved: false };
   if (leaseDebtScopeRefusal(row, includeOperatingLeases) !== null) return { value: null, leaseRemoved: false };
-  // FIN-303 (D-25, D-97 item 3): the shared predicate, the same proof sales-to-capital and ROIC apply.
+  // D-135 (D-25, D-97 item 3): the shared predicate, the same proof sales-to-capital and ROIC apply.
   const leaseOut = operatingLeaseOutOfDebt(row ?? {}, includeOperatingLeases);
   if (leaseOut.amount > 0) return { value: total - leaseOut.amount, leaseRemoved: true };
   return { value: total, leaseRemoved: false };
@@ -238,11 +238,11 @@ function totalDebtSnapshot(
   /** D-60: the newer balance of the pair on the same lease basis, and what it is. */
   latest?: number | null;
   latestBasis?: string;
-  /** Audit 2026-10-22 C-1: why no average was established, naming the balance date. */
+  /** D-105: why no average was established, naming the balance date. */
   unavailable?: string;
-  /** Audit 2026-10-29 (AMZN #51, VAL-4): `unavailable` is a refusal of debt the balance carries, not an absent balance. */
+  /** D-133: `unavailable` is a refusal of debt the balance carries, not an absent balance. */
   refused?: true;
-  /** The date of the balance whose debt refusal (or invalid negative debt) withheld the average (fix round 1, I-1). */
+  /** The date of the balance whose debt refusal (or invalid negative debt) withheld the average (D-133). */
   refusedBalanceDate?: string;
 } {
   const quarterEnd = balancesQuarterly[0];
@@ -347,12 +347,12 @@ export function computeReturns(
 
   const isFinancial = route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage";
 
-  // 2026-07-09 audit M2: key the annual fallback on FIELD nullness, not on
+  // P13: key the annual fallback on FIELD nullness, not on
   // ttmInc existence — when the completeness gate nulls a TTM field the annual
   // figure must still be consulted. Missing interest with debt now suppresses
   // WACC, but using a complete annual observation preserves more valid output.
   //
-  // Audit 2026-09-06: ONE statement basis for both legs of the coverage
+  // D-25: ONE statement basis for both legs of the coverage
   // ratio. The two fallbacks used to be independent, so a TTM EBIT could be
   // scored against a fiscal-year interest expense (a notch of rating from the
   // mix) under a note that said "on TTM". When the TTM pair is incomplete
@@ -502,8 +502,8 @@ export function computeReturns(
     // deposits, policy reserves and repo are the liabilities that fund them,
     // and repo is tagged `SecuritiesSoldUnderAgreementsToRepurchase`, which is
     // outside the debt chains — so the inference is wrong for a mortgage REIT
-    // for the same reason it is wrong for a bank (JPM's keyless run produced
-    // 183.28%). Financials keep the existing "cost of debt unavailable, cost of
+    // for the same reason it is wrong for a bank (the ratio can read far above
+    // any borrowing rate). Financials keep the existing "cost of debt unavailable, cost of
     // equity carried" outcome.
     priorYearCostOfDebt:
       !isFinancial && (interestExpenseForWacc === null || interestExpenseForWacc <= 0)
@@ -520,7 +520,7 @@ export function computeReturns(
     currentCoverageBasis: coverageBasis,
     negativeTotalDebtObservation: usdMoney(debtSnapshot.negativeObservation),
     marketCap: equityScope.marketCap,
-    // Review m5: a cap withheld on share scope is named as withheld, with the scope's reason.
+    // P20: a cap withheld on share scope is named as withheld, with the scope's reason.
     marketCapWithheld: equityScope.status === "unresolved" ? equityScope.basis : null,
     // FMP's ratios-ttm endpoint suffixes every metric name with "TTM"
     // (effectiveTaxRate -> effectiveTaxRateTTM); the annual ratios fallback row
@@ -549,7 +549,7 @@ export function computeReturns(
       ? operatingIncomeEvidenceForNonMargins(incomeAnnual[0], standaloneAnnualCoverage) : ttmInc?.operatingIncomeEvidence,
     analysisDate: isoDay(bundle.builtAt) ?? undefined,
     isFinancial,
-    // Audit 2026-10-22 B-31: these routes value equity at the cost of equity.
+    // D-104: these routes value equity at the cost of equity.
     equityOnlyRoute: isFinancial ? route.base : null,
     totalAssets: bal0 ? usdMoney(num(bal0.totalAssets)) : null,
     // ADR guard: market cap is quoted in the trading currency while totalDebt
@@ -585,7 +585,7 @@ export function computeReturns(
   if (equityScope.status === "unresolved") {
     wacc.gaps.push({ field: "returns.wacc.economicClassBasis", reason: equityScope.basis, severity: "warn", attemptedSources: equityScope.sourceIds });
   }
-  // FIN-307 pre-flight publication ruling: refusing this previously used cap
+  // D-137: refusing this previously used cap
   // would newly Block the DCF. Preserve the existing WACC, but disclose its
   // unproven ADR scope. Existing currency/class refusals remain dominant.
   if ((route.overlays.includes("adr") || profile?.isAdr === true)
@@ -624,19 +624,19 @@ export function computeReturns(
         notes: ["ROIC is not applicable to financial companies: funding liabilities and cash are operating inputs."], gaps: [] }
     : computeRoic(returnsIncome, returnsBalance, { includeOperatingLeases, domicileCountry: str(profile?.country),
         unusualByYear: new Map([...historyUnusual.byYear].map(([date, value]) => [date, value.value])),
-        // FIN-119-V1: the annual balance dates whose temporary-equity enrichment was withheld (the M11 matcher Task 2 uses for the bridge).
+        // D-135: the annual balance dates whose temporary-equity enrichment was withheld (the same matcher the bridge uses).
         temporaryEquityUnknownDates: balanceAnnual.flatMap((r) => {
           const unknown = temporaryEquityUnknownAt(r, isoDay(r.date), bundle.gaps);
           return unknown === null ? [] : [unknown.date];
         }),
-        // Fix round 1, I-1: the balance whose debt refusal withheld the WACC; ROIC's entry is critical only when
+        // D-133: the balance whose debt refusal withheld the WACC; ROIC's entry is critical only when
         // that same balance refusal withholds the latest fiscal year's ROIC.
         waccRefusal: wacc.waccPct === null && debtSnapshot.refusedBalanceDate !== undefined ? { date: debtSnapshot.refusedBalanceDate } : null });
   if (recurrenceBasis) roic.notes.push(recurrenceBasis);
   // Return on tangible common equity — the capital-return measure for
   // deposit-funded balance sheets, where invested capital is undefined.
   const rote = computeRote(returnsIncome, returnsBalance);
-  // C-10/C-11: the trailing four quarters on the fiscal-year return's basis,
+  // D-102: the trailing four quarters on the fiscal-year return's basis,
   // from the quarterly rows already fetched. A window in another currency than
   // the annual statement is withheld here as it is from the valuation: its
   // earnings cannot be set against balances in the model currency.

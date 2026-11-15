@@ -137,7 +137,7 @@ export interface XbrlSummary {
   usGaapTagCount: number;
   /** Most recent core-form fact period end across headline tags (freshness probe). */
   latestFactEnd: string | null;
-  /** True when the filer uses bank-style tagging (JPM/BAC/WFC/C pattern). */
+  /** True when the filer uses bank-style tagging (the large-bank pattern). */
   bankTagging: boolean;
 }
 
@@ -146,7 +146,7 @@ export interface XbrlSummary {
  * profile's only source of a company name, listing venue, jurisdiction and
  * filed form mix.
  */
-/** Audit 2026-10-22 B-23: the filings merged into companyfacts from their instances. */
+/** D-112: the filings merged into companyfacts from their instances. */
 export interface CompanyFactsInstances {
   /** Filing date of the newest periodic report whose statement facts companyfacts itself carried (D-236), before the merge. */
   companyFactsThrough: string | null;
@@ -176,7 +176,7 @@ export interface EdgarBundle {
   };
   /** Source-bound cash PPE/hardware scope; original filing observations retained. */
   cashInvestment?: import("@/edgar/cashInvestment").FilingCashInvestment[];
-  /** Audit 2026-10-22 C-15: NCI from the fetched 10-K/10-Q equity statements. */
+  /** D-105: NCI from the fetched 10-K/10-Q equity statements. */
   equityStatementNci?: import("@/edgar/equityStatementNci").FilingEquityStatementNci[];
   /** Matched primary annual geography; retained even when usable vendor data wins. */
   annualGeography?: FetchResult<AnnualGeography>;
@@ -225,16 +225,16 @@ export interface EdgarBundle {
   /**
    * The latest Item 2.02 8-Ks' EX-99.1 release / EX-99.2 commentary (guidance,
    * issuer FCF, capital return) and the last year's material-event 8-K items
-   * (NVDA report #34 audit, work package 3). Optional: absent on bundles built
+   * (D-63). Optional: absent on bundles built
    * before it existed and when EDGAR submissions were unavailable.
    */
   currentReports?: FetchResult<CurrentReports>;
-  /** Segment revenue by quarter from the latest periodic XBRL instances (audit P1-3). */
+  /** Segment revenue by quarter from the latest periodic XBRL instances (D-63). */
   quarterlySegments?: FetchResult<QuarterlySegmentRevenue>;
   /** Full companyfacts JSON — validation runs getConcept chains against this. */
   companyFacts: FetchResult<CompanyFacts>;
   /**
-   * Audit 2026-10-22 B-23: periodic filings companyfacts had not yet carried,
+   * D-112: periodic filings companyfacts had not yet carried,
    * whose XBRL instance facts were merged into `companyFacts`. Plain data, not
    * a FetchResult, for the same reason as `registrant`. Absent when nothing
    * was merged.
@@ -437,7 +437,7 @@ export interface DataBundle {
   valuationFx?: FetchResult<FredObservation[]>;
   treasury: FmpFetch<FmpTreasuryRatesRow>;
   /**
-   * Audit 2026-10-22 B-4: the risk-free rate from the last good cached DGS10
+   * D-111: the risk-free rate from the last good cached DGS10
    * observation or the U.S. Treasury par yield curve. Present only when DGS10
    * and FMP treasury both had no value; absent on every healthy run.
    */

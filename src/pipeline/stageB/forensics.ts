@@ -87,7 +87,7 @@ export interface ForensicsBalanceRow {
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
   /**
-   * Audit 2026-10-22 E-8: a long-term debt composed from instrument-class tags
+   * D-105: a long-term debt composed from instrument-class tags
    * that may hold current notes, with those tags. It stays out of
    * `longTermDebt`; the Piotroski leverage direction compares it year on year
    * when both years compose it from the same classes.
@@ -797,9 +797,10 @@ export function selectAltmanVariant(
     );
     return { variant: null, notes };
   }
-  // Audit 2026-10-22 A-3: a rate-regulated utility recovers its capital through
-  // the rate base; Z'' read DUK, NEE and SO as distressed on working capital
-  // and retained earnings the commission, not the market, determines.
+  // D-104 (regulated-utility overlay): a rate-regulated utility recovers its
+  // capital through the rate base; Z'' would read utilities as distressed on
+  // working capital and retained earnings the commission, not the market,
+  // determines.
   if (route.overlays.includes("regulated-utility")) {
     notes.push(
       "Altman Z not computed for a regulated utility: its rate base and regulatory assets are not the balance sheets the Z models were estimated on, and its leverage is scored on Moody's regulated-utility ranges instead.",
@@ -1434,7 +1435,7 @@ export interface PiotroskiSignal {
   value: 0 | 1 | null;
   detail: string;
   /**
-   * AMZN audit 2026-10-20 finding 20: on a failed signal, what the figures
+   * D-99 (report wording): on a failed signal, what the figures
    * did ("current ratio fell"). The signal names state the pass condition,
    * so printing them as the failures read as the opposite of the change.
    */
@@ -1455,7 +1456,7 @@ export const PIOTROSKI_SIGNAL_LABELS: Readonly<Record<PiotroskiSignalName, strin
 };
 
 /**
- * AMZN audit 2026-10-20 finding 20: what a failed signal establishes when it
+ * D-99 (report wording): what a failed signal establishes when it
  * records no direction (a result stored before `outcome` existed): the pass
  * condition did not hold, which is never the condition itself.
  */
@@ -1504,10 +1505,9 @@ export interface PiotroskiOptions {
    * unprofitable overlay off OCF on financial routes. Piotroski (2000) built
    * the score on non-financial firms, and scoring those four on a bank produced
    * coin-flips inside a 9-point score the report presents as a solvency read
-   * (JPMorgan graded 2/6 in the 2026-09-02 keyless sweep, both misses being the
-   * OCF tests).
+   * (a large bank could fail both OCF tests on funding flows alone).
    *
-   * WS5 (D-17) withholds two more, for the same reason stated one layer deeper:
+   * D-17 withholds two more, for the same reason stated one layer deeper:
    * ΔLEVER and ΔTURN do not merely fail on a financial balance sheet, they
    * measure the opposite of what the paper reads them as.
    *
@@ -1558,7 +1558,7 @@ export interface PiotroskiOptions {
 }
 
 export interface PiotroskiResult {
-  /** FIN-306: tests excluded by route design, independently of missing supported data. Absent on legacy results. */
+  /** D-137: tests excluded by route design, independently of missing supported data. Absent on legacy results. */
   routeWithheld?: number;
   score: number | null;
   /** Number of evaluable signals (9 with 3 fiscal years, 7 with 2, 3 on a financial route). */
@@ -1592,7 +1592,7 @@ export function computePiotroski(
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
   const na = (detail: string): PiotroskiSignal => ({ value: null, detail });
-  // `outcome` is what a failure's figures did (AMZN audit 2026-10-20 finding 20).
+  // `outcome` is what a failure's figures did (D-99, report wording).
   const sig = (pass: boolean, detail: string, outcome: string): PiotroskiSignal =>
     pass ? { value: 1, detail } : { value: 0, detail, outcome };
   /** A rise test failed: the ratio fell, or did not move. */
@@ -1660,7 +1660,7 @@ export function computePiotroski(
   if (balanceSheetFunded) {
     s5 = na(leverageWithheld);
   } else {
-    // Audit 2026-10-22 E-8: a composed long-term debt that may hold current
+    // D-105: a composed long-term debt that may hold current
     // notes still shows the direction of leverage when both years compose it
     // from the same classes.
     const debtBasis = (balance: ForensicsBalanceRow | null | undefined): { value: number; tags: readonly string[] | null } | null => {
@@ -2086,7 +2086,7 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
   } else if (definition === "financial-asset-adjusted") {
     notes.push(
       "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude " +
-        // FIG-4 (audit 2026-10-29, AMZN #51): the exclusion is claimed only when an investment was removed.
+        // D-133: the exclusion is claimed only when an investment was removed.
         (ltiT !== 0 || ltiP !== 0
           ? "cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. "
           : "cash and short-term investments. Long-term investments are 0 on both balance sheets, so none are removed from net operating assets. ") +
@@ -2531,7 +2531,7 @@ export function computeSupportFlags(
       });
     }
   } else if (lookback.some((row) => row !== null)) {
-    // FIN-509-V1: a rule that could not run says so (module convention above);
+    // D-134: a rule that could not run says so (module convention above);
     // no stand-in for the missing operand (docs/RESEARCH.md "5.3 One-time items").
     // The route is unknown here, so the wording names the SEC route neutrally.
     gaps.push(
