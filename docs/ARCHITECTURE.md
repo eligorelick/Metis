@@ -71,11 +71,10 @@ established dates. Verification refuses to call an unsupported claim verified.
 Saved report bytes are immutable; corrections use read-time views or labelled
 replays. App, Markdown and print consume one presentation layer.
 
-Before changing a rule, consult the P1–P27 principles and their **Owner** list in
-`CLAUDE.md` in the maintainer checkout; that local working file is not shipped
-in the public repository. Change the owning rule rather than adding another
-definition at its caller. [Methodology](METHODOLOGY.md) explains the conventions;
-[contributing](../CONTRIBUTING.md) describes change control.
+Before changing a rule, read [methodology](METHODOLOGY.md) for the evidence and
+calculation conventions and [contributing](../CONTRIBUTING.md) for change control.
+Record the decision and its rationale in [decisions](audit/DECISIONS.md). Change the
+module that owns the rule rather than adding another definition where it is used.
 
 The AI boundary is explicit. `src/ai/chatgpt.ts` handles plan OAuth sign-in;
 `src/ai/claude.ts` connects to the user's installed official CLI, which keeps
