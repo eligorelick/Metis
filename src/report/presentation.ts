@@ -82,6 +82,9 @@ export function withModelProseMarks(report: Report): Report {
   const read = next.technicals?.read as Record<string, unknown> | undefined;
   if (read) for (const key of ["momentum", "keyLevels", "relativeStrength"]) if (typeof read[key] === "string") read[key] = mark(read[key] as string);
   for (const series of next.macro?.relevantSeries ?? []) series.relevance = mark(series.relevance) as string;
+  // Review round 1: flags in a model-written report are the judge's (passes.ts
+  // assembly copies them from the judge output); code flags exist only in data-only reports.
+  for (const flag of [...(next.quality?.flags ?? []), ...(next.technicals?.flags ?? [])]) flag.text = mark(flag.text) as string;
   return next;
 }
 

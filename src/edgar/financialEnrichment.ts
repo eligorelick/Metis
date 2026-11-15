@@ -517,7 +517,8 @@ export function admitFiledInterestExpense<T extends FmpStatementRow>(row: T, fac
   const field = `statements.income.${row.date}.interestExpense`;
   const sec = filedRowFlow(row, facts, tagsFor("interestExpense"), scope, observedAt);
   if (!sec) return { row, gaps: [{ field, severity: vendor === 0 ? "info" : "warn", ...(vendor === 0 ? { expected: true } : {}), reason: `Vendor interest expense ${millions(vendor)} ${row.reportedCurrency} kept unverified for ${row.date}: no unambiguous exact-period expense in the compatible filed interest-expense family. Net interest income/expense, cash interest paid and costs including capitalized interest cannot establish interest expense.` }] };
-  if (agreesWithSec(vendor, sec.value, [sec])) return { row, gaps: [] };
+  // D-286 (P19): agreement is evidence too; coverage reads it as an established operand.
+  if (agreesWithSec(vendor, sec.value, [sec])) return { row: { ...row, interestExpenseAgreement: sec.evidence }, gaps: [] };
   const [vendorText, filedText] = millionsPair(vendor, sec.value);
   const reason = `Interest expense for ${sec.evidence.periodStart} through ${row.date} corrected from vendor ${vendorText} to ${filedText} ${row.reportedCurrency}: ${sec.evidence.tags.join(", ")}, ${sec.operands ? `derived ${derivedFrom(sec)}` : `directly filed in ${sec.evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join(" + ")}`}. The filed expense replaces the vendor observation, which is retained; no net-interest or capitalized-interest proxy used.`;
   return { row: { ...row, interestExpense: sec.value, fieldProvenance: { ...row.fieldProvenance, interestExpense: sec.evidence },

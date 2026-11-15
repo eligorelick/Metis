@@ -59,7 +59,13 @@ export interface CapitalIncomeRow extends FiscalDatedRow {
   weightedAverageShsOutDil?: number | null;
   /** Basic weighted-avg shares — matches marketCap's (undiluted) base for the buyback proxy. */
   weightedAverageShsOut?: number | null;
+  /** D-286 (P19): coverage operands that exact-period filed evidence establishes
+   * for this row's own window (set by the statement mapping). Absent = none. */
+  filedCoverageOperands?: readonly CoverageOperand[];
 }
+
+/** D-286: the two operands of EBIT interest coverage. */
+export type CoverageOperand = "ebit" | "interestExpense";
 
 export interface CapitalCashFlowRow {
   fieldConflicts?: FmpStatementRow["fieldConflicts"];
@@ -314,6 +320,10 @@ export interface CapitalResult {
     value: number | null;
     ebit: number | null;
     interestExpense: number | null;
+    /** D-286 (P12, P19): operands of the computed ratio that no exact-period
+     * filed evidence establishes. Present only on a computed value; the value
+     * is shown but no number citing it can verify. */
+    unverifiedOperands?: CoverageOperand[];
     note?: string;
   };
   sbc: {
@@ -538,6 +548,12 @@ function filedConversionInWindow(options: CapitalOptions, startDate: string, end
 
 // computeCapital
 // ---------------------------------------------------------------------------
+
+/** D-286 (P19): the operands of a computed coverage ratio that the row's own
+ * filed evidence does not establish, in a fixed order. */
+export function coverageOperandsUnverified(row: Pick<CapitalIncomeRow, "filedCoverageOperands">): CoverageOperand[] {
+  return (["ebit", "interestExpense"] as const).filter(operand => !row.filedCoverageOperands?.includes(operand));
+}
 
 export function computeCapital(
   income: ReadonlyArray<CapitalIncomeRow>,
@@ -877,7 +893,8 @@ export function computeCapital(
       } else if (ebit !== null) {
         value = ebit / intExp;
       }
-      interestCoverage = { value, ebit, interestExpense: intExp, note };
+      const unverifiedOperands = value === null ? [] : coverageOperandsUnverified(latestInc);
+      interestCoverage = { value, ebit, interestExpense: intExp, ...(unverifiedOperands.length ? { unverifiedOperands } : {}), note };
     }
   }
 

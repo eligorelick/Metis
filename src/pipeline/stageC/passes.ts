@@ -3741,6 +3741,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         // period or currency still mismatches, so a genuine error is not masked.
         // AI-408 / OD-3: retain decidable conflicts before erasing the
         // period-less as-of decoration used by the historical haiku output.
+        const periodStated = number.period != null && number.period.trim() !== "";
         const suppliedPeriodConflict = record.period === null && number.period != null &&
           recordPeriodAgreement(number.period, record) === false;
         if (record.period === null && number.period != null && !suppliedPeriodConflict) number.period = null;
@@ -3768,6 +3769,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
             ...(number.periodContext === undefined ? {} : { periodContext: number.periodContext }),
             asOf: sourceAsOf ?? "",
             source: sourceId ?? "",
+            periodStated,
           },
           registry,
         );

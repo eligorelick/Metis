@@ -30,17 +30,33 @@ const payload = (records: NumericProvenanceRecord[], extra: Partial<ContextPaylo
   companyName: "Example", symbol: "EX", leadership: { notes: [], figures: [] }, news: { title: "news", figures: [], notes: [] }, ...extra } as unknown as ContextPayload);
 
 describe("D-282: a value conflict is not hidden by a wrong cited date (P19, A1)", () => {
-  const candidate = (value: number, asOf: string, over: Partial<NumericProvenanceRecord> = {}) => ({
-    value, unit: over.unit ?? "currency-per-share", currency: over.currency === undefined ? "USD" : over.currency, period: null, asOf, source: over.id ?? "computed.valuation.dcf-per-share",
+  const candidate = (value: number, asOf: string, over: Partial<NumericProvenanceRecord> & { periodStated?: boolean } = {}) => ({
+    value, unit: over.unit ?? "currency-per-share", currency: over.currency === undefined ? "USD" : over.currency, period: over.period ?? null, asOf,
+    source: over.id ?? "computed.valuation.dcf-per-share", ...(over.periodStated === undefined ? {} : { periodStated: over.periodStated }),
+  });
+  // A trailing-twelve-month record that names its window, and an annual figure for an earlier fiscal year.
+  const ttmFcf = record({ id: "computed.capital.current.fcf-before-sbc", label: "FCF before SBC", value: 52_300_000_000, unit: "currency",
+    period: "ttm: 2025-01-01 to 2025-12-31", periodContext: { kind: "duration", start: "2025-01-01", end: "2025-12-31", basis: "rolling-12-month" }, asOf: "2025-12-31" });
+
+  it("keeps an annual figure stated without a period, against a newer TTM record, a date mismatch, never contradicted (review round 1)", () => {
+    // The verify pass gives an unstated period the record's own (passes.ts); that adopted window establishes nothing.
+    expect(matchProvenanceRecord(candidate(46_109_000_000, "2024-12-31", { id: ttmFcf.id, unit: "currency", period: ttmFcf.period, periodStated: false }), [ttmFcf])).toMatchObject({ ok: false, reason: "date-mismatch" });
+    expect(matchProvenanceRecord(candidate(46_109_000_000, "2024-12-31", { id: ttmFcf.id, unit: "currency", period: ttmFcf.period }), [ttmFcf])).toMatchObject({ ok: false, reason: "date-mismatch" });
   });
 
-  it("calls a per-share value that differs at its own rounding contradicted even with another date", () => {
-    expect(matchProvenanceRecord(candidate(116.1225, "2026-10-29"), [record()])).toMatchObject({ ok: false, reason: "value-mismatch" });
+  it("calls a conflict contradicted when the figure states its window and the record names one (control)", () => {
+    expect(matchProvenanceRecord(candidate(46_109_000_000, "2026-01-30", { id: ttmFcf.id, unit: "currency", period: ttmFcf.period, periodStated: true }), [ttmFcf])).toMatchObject({ ok: false, reason: "value-mismatch" });
+  });
+
+  it("never overrides a date mismatch when neither side establishes a window, even at a different value (review round 1)", () => {
+    expect(matchProvenanceRecord(candidate(116.1225, "2026-10-29"), [record()])).toMatchObject({ ok: false, reason: "date-mismatch" });
+    expect(matchProvenanceRecord(candidate(116.1225, "2026-10-29", { periodStated: true }), [record()])).toMatchObject({ ok: false, reason: "date-mismatch" });
   });
 
   it("keeps a percentage that is the record rounded, with another date, a date mismatch (control)", () => {
-    const wacc = record({ id: "computed.returns.wacc", value: 10.4683, unit: "percent", currency: null, label: "WACC" });
-    expect(matchProvenanceRecord(candidate(10.5, "2026-10-29", { id: "computed.returns.wacc", unit: "percent", currency: null }), [wacc])).toMatchObject({ ok: false, reason: "date-mismatch" });
+    const wacc = record({ id: "computed.returns.wacc", value: 10.4683, unit: "percent", currency: null, label: "WACC", period: "TTM",
+      periodContext: { kind: "duration", start: "2025-01-01", end: "2025-12-31", basis: "rolling-12-month" } });
+    expect(matchProvenanceRecord(candidate(10.5, "2026-10-29", { id: "computed.returns.wacc", unit: "percent", currency: null, period: "TTM", periodStated: true }), [wacc])).toMatchObject({ ok: false, reason: "date-mismatch" });
   });
 
   it("still matches an equal figure with the record's date, and still conflicts an unequal one on the same date (controls)", () => {
@@ -48,16 +64,23 @@ describe("D-282: a value conflict is not hidden by a wrong cited date (P19, A1)"
     expect(matchProvenanceRecord(candidate(124.18, "2026-10-28"), [record()])).toMatchObject({ ok: false, reason: "value-mismatch" });
   });
 
-  it("reads a claim with a wrong date against the one record its id names: a conflict is contradicted, a match stays unverified", async () => {
-    const growth = record({ id: "computed.valuation.reverse-dcf-implied-revenue-growth", value: 50.7275, unit: "percent", currency: null, label: "Reverse-DCF implied revenue growth" });
-    const claim = (text: string): SourcedClaim => ({ label: "ESTIMATE", text, source: growth.id, asOf: "2026-10-29" });
-    const result = await runVerifyPass({} as PassDeps, payload([growth]), { commentary: [
+  it("reads a claim with a wrong date against its record only when the claim states the record's window", async () => {
+    const growth = record({ id: "computed.valuation.reverse-dcf-implied-revenue-growth", value: 50.7275, unit: "percent", currency: null, label: "Reverse-DCF implied revenue growth", period: "FY2026",
+      periodContext: { kind: "duration", start: "2026-01-01", end: "2026-12-31", basis: "fiscal-year" } });
+    const undated = record({ ...growth, id: "computed.valuation.reverse-dcf-undated", period: null, periodContext: undefined });
+    const claim = (text: string, source = growth.id): SourcedClaim => ({ label: "ESTIMATE", text, source, asOf: "2026-10-29" });
+    const result = await runVerifyPass({} as PassDeps, payload([growth, undated]), { commentary: [
+      claim("The FY2026 reverse-DCF implied revenue growth is 58.9%."),
+      claim("The FY2026 reverse-DCF implied revenue growth is 50.7%."),
+      // Annual-vs-other-window controls: no period in the claim, or none on the record, stays not confirmed.
       claim("The reverse-DCF implied revenue growth is 58.9%."),
-      claim("The reverse-DCF implied revenue growth is 50.7%."),
+      claim("The FY2026 reverse-DCF implied revenue growth is 58.9%.", undated.id),
     ] });
     const status = (path: string) => result.log.find(e => e.path === path && e.evidenceKind === "factual-claim");
     expect(status("commentary[0]")).toMatchObject({ validationStatus: "contradicted", reason: "value-mismatch", claimSupportStatus: "contradicted" });
     expect(status("commentary[1]")).toMatchObject({ validationStatus: "unchecked", reason: "date-mismatch" });
+    expect(status("commentary[2]")).toMatchObject({ validationStatus: "unchecked", reason: "date-mismatch" });
+    expect(status("commentary[3]")).toMatchObject({ validationStatus: "unchecked", reason: "date-mismatch" });
     expect(result.coverage.factualValidation?.contradicted).toBe(1);
   });
 });
@@ -121,6 +144,23 @@ describe("D-282: plain marks on every surface (R1, R2, R3)", () => {
     expect(md).toContain(`${r.verdict.synthesis} ${MODEL_PROSE_MARK}`.replace(/\[/g, "\\[").replace(/\]/g, "\\]"));
   });
 
+  it("marks model-written quality and technicals flags on Markdown, print and the app; a data-only report's code flags stay unmarked (review round 1)", () => {
+    const flagged = (dataOnly: boolean) => {
+      const r = loadTask28Fixture();
+      r.quality.flags = [{ severity: "medium", text: "Accruals outpaced earnings this year.", source: "computed.forensics.accruals" }];
+      r.technicals.flags = [{ severity: "low", text: "Price sits below its 200-day average.", source: "computed.technicals.read.flags" }];
+      if (dataOnly) r.appendix.missingData.push({ field: "analysis.llm", severity: "critical", reason: "No analysis ran." });
+      return [reportToMarkdown(r).replace(/\\([[\]])/g, "$1"), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, { report: r }))];
+    };
+    const texts = ["Accruals outpaced earnings this year.", "Price sits below its 200-day average."];
+    for (const surface of flagged(false)) for (const text of texts) expect(surface).toContain(`${text} ${MODEL_PROSE_MARK}`);
+    for (const surface of flagged(true)) for (const text of texts) {
+      expect(surface).toContain(text);
+      expect(surface).not.toContain(`${text} ${MODEL_PROSE_MARK}`);
+    }
+    expect(FACT_STATUS_LEGEND).toContain("Titles, dates and ratings the AI chose (such as a risk's severity) carry no mark and are not checked by code.");
+  });
+
   it("marks a table figure not confirmed or contradicted in words, and a matched one with a check (control)", () => {
     const r = loadTask28Fixture();
     const n = r.fundamentals.graded.keyNumbers[0]!;
@@ -174,7 +214,7 @@ describe("D-285: a whole-feed news citation names one article or is removed (P20
     expect(root.catalystsRisks.catalysts[0]!.reasoning).toEqual([{ label: "FACT", text: "Filed fact.", source: "edgar:10-K", asOf: "2025-12-31" }]);
   });
 
-  it("keeps a development whose optional judgment goes, and removes a saved single-statement catalyst (review round 1)", () => {
+  it("keeps a development whose optional judgment goes, removes a saved single-statement catalyst, never restores (review round 1)", () => {
     const filed: SourcedClaim = { label: "FACT", text: "Filed event.", source: "edgar:8-K", asOf: "2026-11-12" };
     const root = {
       verdict: { recentDevelopments: { summary: [], items: [{ title: "kept", whatHappened: [filed], whyItMatters: [feed("2026-11-13", "JUDGMENT")] }] } },
@@ -184,9 +224,23 @@ describe("D-285: a whole-feed news citation names one article or is removed (P20
     const result = reciteFeedClaims(root, [article({ date: "2026-11-13" }), article({ date: "2026-11-13", url: "https://news.example/two" })]);
     expect(root.verdict.recentDevelopments.items).toEqual([{ title: "kept", whatHappened: [filed], whyItMatters: [] }]);
     expect(root.catalystsRisks.catalysts.map(c => c.title)).toEqual(["other"]);
-    // A required list owned by a section (not a list item) keeps its only statement; nothing is logged as removed for it.
-    expect(root.business.whatTheySell).toHaveLength(1);
-    expect(result.removed.map(r => r.path).sort()).toEqual(["catalystsRisks.catalysts[0].reasoning", "verdict.recentDevelopments.items[0].whyItMatters[0]"]);
+    // Review round 1 (lead decision): a removed statement is never restored; the brief's list is left empty and the
+    // reader shows its absence state.
+    expect(root.business.whatTheySell).toEqual([]);
+    expect(result.removed.map(r => r.path).sort()).toEqual(["business.whatTheySell[0]", "catalystsRisks.catalysts[0].reasoning", "verdict.recentDevelopments.items[0].whyItMatters[0]"]);
+  });
+
+  it("drops a product line or management action whose required statements all go, and keeps an item whose optional list empties (review round 1)", () => {
+    const filed: SourcedClaim = { label: "FACT", text: "Filed.", source: "edgar:10-K", asOf: "2025-12-31" };
+    const root = {
+      business: { products: [{ productLine: "Gone", claims: [feed("2026-11-13")] }, { productLine: "Kept", claims: [filed, feed("2026-11-13")] }] },
+      leadership: { managementActions: [{ action: [feed("2026-11-13")], assessment: [filed] }, { action: [filed], assessment: [feed("2026-11-13", "JUDGMENT")] }] },
+      competitive: { moatAssessment: [{ moat: "brand", reasoning: [feed("2026-11-13", "JUDGMENT")] }] },
+    };
+    reciteFeedClaims(root, [article({ date: "2026-11-13" }), article({ date: "2026-11-13", url: "https://news.example/two" })]);
+    expect(root.business.products).toEqual([{ productLine: "Kept", claims: [filed] }]);
+    expect(root.leadership.managementActions).toEqual([{ action: [filed], assessment: [] }]);
+    expect(root.competitive.moatAssessment).toEqual([{ moat: "brand", reasoning: [] }]);
   });
 
   it("leaves a filing, press-free or web citation untouched (control) and names a saved report's bare feed tag plainly", () => {

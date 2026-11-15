@@ -56,7 +56,7 @@ import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { debtFamilyAdmission, type DebtFamilyStatement } from "@/pipeline/admission/debtFamily";
-import { SHARE_TREND_WINDOW_YEARS } from "@/pipeline/stageB/capital";
+import { SHARE_TREND_WINDOW_YEARS, type CoverageOperand } from "@/pipeline/stageB/capital";
 import { operatingHistorySupport } from "@/pipeline/stageB/growth";
 import { incompleteLeaseCoverage, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 import { isAmbiguousDuplicateRejection, normalizeQuarterRows, normalizeQuarterRowsWithKinds } from "@/pipeline/stageB/quarterWindows";
@@ -219,6 +219,9 @@ export interface PayloadFigure {
   cashFlowDirection?: "outflow";
   /** Equivalent component definitions declared by the metric producer. */
   componentDefinitions?: readonly string[];
+  /** D-286 (P12, P19): operands of this computed ratio no exact-period filed
+   * evidence establishes. The value is shown; its tag registers unestablished. */
+  operandsUnestablished?: readonly CoverageOperand[];
   label: string;
   value: number | string | null;
   unit: string;
@@ -806,7 +809,8 @@ function computedSections(
     { label: "capex/revenue slope", value: cap.capexIntensity.slopePctPtsPerYear, unit: "pp/yr", source: "computed.capital.capexIntensity", asOf: cap.asOf },
     { label: "capex/D&A (latest)", value: cap.maintenanceVsGrowthCapex.capexToDALatest, unit: "x", source: "computed.capital.maintenanceVsGrowthCapex", asOf: cap.asOf, ...capexYear },
     { componentDefinitions: ["net debt divided by ebitda"], label: "net debt/EBITDA", value: cap.netDebtToEbitda.value, unit: "x", source: "computed.capital.netDebtToEbitda", asOf: cap.netDebtToEbitda.asOf },
-    { componentDefinitions: ["ebit divided by interest expense"], label: "interest coverage", value: cap.interestCoverage.value, unit: "x", source: "computed.capital.interestCoverage", asOf: cap.asOf },
+    { componentDefinitions: ["ebit divided by interest expense"], label: "interest coverage", value: cap.interestCoverage.value, unit: "x", source: "computed.capital.interestCoverage", asOf: cap.asOf,
+      ...(cap.interestCoverage.unverifiedOperands ? { operandsUnestablished: cap.interestCoverage.unverifiedOperands } : {}) },
     { label: "SBC, cash-flow add-back / revenue", value: cap.sbc.pctOfRevenue, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
     { label: "SBC, cash-flow add-back / FCF", value: cap.sbc.pctOfFcf, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
     // N3: the dilution overhang had no consumer in the payload, the data-only
@@ -1047,6 +1051,7 @@ function computedSections(
         ...(key === "ebitda" && currentCapital.ebitdaComputed === true ? { componentDefinitions: ["ebit plus depreciation and amortization", "earnings before interest, taxes, depreciation and amortization"] } : {}),
         ...(CURRENT_CAPITAL_DEFINITIONS[key] ? { componentDefinitions: CURRENT_CAPITAL_DEFINITIONS[key] } : {}),
         ...(key === "cashBridge.cashCapitalExpenditure" ? { cashFlowDirection: "outflow" as const } : {}),
+        ...(key === "interestCoverage" && currentCapital.interestCoverageUnverifiedOperands ? { operandsUnestablished: currentCapital.interestCoverageUnverifiedOperands } : {}),
         source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period,
         ...(construction ? {
           periodContext: { kind: "duration" as const, start: construction.start, end: construction.end, basis: "rolling-12-month" as const },
@@ -2403,13 +2408,15 @@ function newsSection(bundle: DataBundle): PayloadSection {
 const FEED_CITATION = /^(?:(?:fmp|finnhub):news|fmp:press-release)$/;
 const ARTICLE_CITATION_PREFIX = "news: ";
 /**
- * D-285: the statement lists the report schema requires to hold at least one
- * statement (a development's facts, a catalyst's or risk's reasoning, a
- * management action, a product-line item's claims, what the company sells).
- * Emptying one removes its list item; an optional list (a development's
- * why-it-matters, an action's assessment) may become empty.
+ * D-285: the statement lists the stored report schema requires to hold at
+ * least one statement, each inside a list item: a development's facts
+ * (`whatHappened`), a catalyst's or risk's `reasoning`, a management action's
+ * `action`, a product-line item's `claims`. Emptying one removes its list item.
+ * Every other statement list is optional (a development's why-it-matters, an
+ * action's assessment, a grade's reasoning, what the company sells) and may
+ * become empty; the reader renders its absence state.
  */
-const REQUIRED_CLAIM_LISTS: ReadonlySet<string> = new Set(["whatHappened", "reasoning", "action", "claims", "whatTheySell"]);
+const REQUIRED_CLAIM_LISTS = /^(?:catalystsRisks\.(?:catalysts|risks)\[\d+\]\.reasoning|verdict\.recentDevelopments\.items\[\d+\]\.whatHappened|leadership\.managementActions\[\d+\]\.action|(?:business\.products|competitive\.competitorsByProductLine)\[\d+\]\.claims)$/;
 
 /**
  * D-285: the citation id a statement re-cited to one article carries. It names
@@ -2484,37 +2491,32 @@ export function reciteFeedClaims(root: object, articles: readonly PayloadNewsArt
     }
   };
   /**
-   * Returns false when this list item must go: its required statement list
-   * emptied, or its required single statement could not be kept. A node that is
-   * not a list item is never removed; a required list or single statement it
-   * owns is then left as written (its reader label says no single article is
-   * named), so the report stays complete.
+   * Returns false when this list item must go: a statement list the stored
+   * report requires to hold one ({@link REQUIRED_CLAIM_LISTS}) emptied, or its
+   * single statement (a saved catalyst's or risk's reasoning) went. A removed
+   * statement is never restored (lead decision, review round 1): an optional
+   * list is left empty and the reader shows its existing absence state (for
+   * example "Not established from verified sources." in the brief).
    */
   const visit = (node: unknown, path: string, inList: boolean): boolean => {
     if (!node || typeof node !== "object") return true;
     if (Array.isArray(node)) { visitArray(node, path); return true; }
+    const record = node as Record<string, unknown>;
     let keep = true;
-    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(record)) {
       if (!path && (key === "meta" || key === "appendix")) continue;
       const childPath = path ? `${path}.${key}` : key;
       if (isClaim(value)) {
-        // A single statement (a saved catalyst's or risk's reasoning) goes only with its list item.
-        if (inList) { if (!visitClaim(value, childPath)) keep = false; }
-        else {
-          const logged = result.removed.length;
-          if (!visitClaim(value, childPath)) result.removed.length = logged;
-        }
+        if (visitClaim(value, childPath)) continue;
+        // The schema holds a single statement only as a list item's reasoning, which goes with its item.
+        if (inList) keep = false;
+        else delete record[key];
         continue;
       }
       if (Array.isArray(value)) {
-        const required = REQUIRED_CLAIM_LISTS.has(key) && value.some(isClaim);
-        const before = [...value];
-        const logged = result.removed.length;
+        const required = REQUIRED_CLAIM_LISTS.test(childPath) && value.some(isClaim);
         visitArray(value, childPath);
-        if (required && value.length === 0) {
-          if (inList) keep = false;
-          else { value.splice(0, 0, ...before); result.removed.length = logged; }
-        }
+        if (required && value.length === 0 && inList) keep = false;
         continue;
       }
       visit(value, childPath, false);
@@ -3476,6 +3478,11 @@ function attachProvenanceRegistry(
         currencyUnknown,
       });
     };
+    // D-286: a ratio whose operands are not established is shown, never verifiable.
+    if (figure.operandsUnestablished !== undefined && figure.operandsUnestablished.length > 0) {
+      unestablished(false);
+      return;
+    }
     const canonical = canonicalizeTracedUnit(figure.unit, figure.currency);
     if (canonical === null) {
       unestablished(false);

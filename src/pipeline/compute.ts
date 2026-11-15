@@ -104,6 +104,7 @@ import {
   computeCapital,
   type CapitalResult,
   type CapitalIncomeRow,
+  type CoverageOperand,
   type CapitalCashFlowRow,
   type CapitalBalanceRow,
   type MarketCapPoint,
@@ -644,8 +645,26 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
   };
 }
 
+/** D-286 (P19): interest expense established for the row's own period end:
+ * the filed amount replaced the vendor's, or the vendor's agrees with it. */
+function filedInterestOperand(row: FmpIncomeStatementRow): boolean {
+  const end = isoDay(row.date);
+  if (end === null || row.fieldConflicts?.interestExpense?.usable === false) return false;
+  const corrected = row.fieldProvenance?.interestExpense;
+  return corrected?.source === "edgar" && corrected.periodEnd === end || row.interestExpenseAgreement?.periodEnd === end;
+}
+
+/** D-286: EBIT is established only when the selected operating numerator is the filed or reconciled one. */
+function filedCoverageOperands(row: { operatingIncome?: number | null; operatingIncomeEvidence?: WaccOperatingEvidence },
+  selectedEbit: number | null, interestFiled: boolean): CoverageOperand[] {
+  const ebitFiled = selectedEbit !== null && selectedEbit === num(row.operatingIncome) && row.operatingIncomeEvidence?.status === "filed-or-reconciled";
+  return [...(ebitFiled ? ["ebit" as const] : []), ...(interestFiled ? ["interestExpense" as const] : [])];
+}
+
 function toCapitalIncome(r: FmpIncomeStatementRow): CapitalIncomeRow {
   return {
+    filedCoverageOperands: filedCoverageOperands({ operatingIncome: r.operatingIncome, operatingIncomeEvidence: operatingIncomeEvidenceForNonMargins(r) },
+      operatingIncomeForNonMargins(r), filedInterestOperand(r)),
     ...fiscalIdentity(r),
     date: String(r.date ?? ""),
     acceptedDate: str(r.acceptedDate),
@@ -873,6 +892,8 @@ export interface TtmIncome {
   nonMarginOperatingIncome?: number | null;
   operatingIncomeBasis?: string;
   operatingIncomeEvidence?: WaccOperatingEvidence;
+  /** D-286: every quarter's interest expense is established for its own period end. */
+  interestExpenseFiled?: true;
   depreciationAndAmortization: number | null;
   netIncome: number | null;
   netIncomeConsolidated?: number | null;
@@ -1480,6 +1501,7 @@ function ttmIncomeFromNormalized(
     epsDilutedBasis: epsDiluted === null ? null : "sum-quarterly-diluted-eps",
     ebit: gateComplete("ebit"),
     interestExpense: gateComplete("interestExpense"),
+    ...(q.every(filedInterestOperand) ? { interestExpenseFiled: true as const } : {}),
     incomeBeforeTax,
     incomeTaxExpense,
     taxRatePretaxIncome: taxBase?.value ?? null,
@@ -2767,7 +2789,9 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     evIncludeLeases,
     // D-31 / FIN-112: like the annual capital input, EBIT stays on operating income.
     // An incomplete trailing operating flow is unknown, never vendor EBIT or an annual substitute.
-    income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, netIncome: consolidatedConversionIncome, operatingIncome: operatingIncomeForNonMargins(ttmInc), ebit: operatingIncomeForNonMargins(ttmInc) } : null,
+    income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, netIncome: consolidatedConversionIncome, operatingIncome: operatingIncomeForNonMargins(ttmInc), ebit: operatingIncomeForNonMargins(ttmInc),
+      // D-286: a filed exact window or four established quarters establish the TTM interest.
+      filedCoverageOperands: filedCoverageOperands(ttmInc, operatingIncomeForNonMargins(ttmInc), ttmInc.interestExpenseFiled === true || ttmInc.filedIncomeFlows?.interestExpense !== undefined) } : null,
     preserveAnnualCashBasis: ttmInc?.nonMarginOperatingIncome !== undefined,
     cashFlow: ttmCf && currencies.ttmCashFlowUsable ? { ...ttmCf,
       netIncome: consolidatedConversionIncome, freeCashFlow: sumCurrentFlow("freeCashFlow"),

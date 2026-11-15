@@ -140,6 +140,12 @@ export interface ProvenanceCandidate {
   periodContext?: PeriodContext;
   asOf: string;
   source: string;
+  /**
+   * D-282 review: the figure itself stated its measurement window (it was not
+   * adopted from the record). Only then may a value conflict outrank a date
+   * mismatch; absent means not stated.
+   */
+  periodStated?: boolean;
 }
 
 export type ProvenanceMatch =
@@ -565,14 +571,18 @@ export function matchProvenanceRecord(
   const tolerance = 0.5 * 10 ** -record.displayPrecision;
   const slack = 1e-9 * Math.max(1, Math.abs(record.value), Math.abs(candidate.value));
   const differs = Math.abs(record.value - candidate.value) > tolerance + slack;
-  // D-282 (P19, A1): the id, unit, currency and period already pin the one
-  // record, so a wrong cited date no longer hides a value conflict with it. The
-  // figure is contradicted when it differs from the record even at its own
-  // stated rounding (P19's display-rounding rule: 116.12 against 124.18); a
-  // figure that is the record rounded (10.5 against 10.4683) with another date
-  // stays a date mismatch (unverified), as before.
+  // D-282 (P19, A1; review round 1): a wrong cited date no longer hides a value
+  // conflict, but only when the same measurement window is established on both
+  // sides: the record names its window and the figure stated that window itself
+  // (checked above). Then a figure that differs from the record even at its own
+  // stated rounding (P19's display-rounding rule) is contradicted. Without an
+  // established common window (a point-in-time value, or a window the figure
+  // only adopted from the record: an FY figure against a newer TTM record) the
+  // two may measure different things, so it stays a date mismatch (unverified),
+  // as does a figure that is the record rounded.
   if (record.asOf !== candidate.asOf) {
-    return { ok: false, reason: differs && differsAtStatedRounding(candidate.value, record.value) ? "value-mismatch" : "date-mismatch", record };
+    const sameWindow = candidate.periodStated === true && (record.period !== null || record.periodContext !== undefined);
+    return { ok: false, reason: sameWindow && differs && differsAtStatedRounding(candidate.value, record.value) ? "value-mismatch" : "date-mismatch", record };
   }
   if (differs) {
     return { ok: false, reason: "value-mismatch", record };

@@ -1847,6 +1847,10 @@ function annualProducerFiscalLabel(record: NumericProvenanceRecord, registry: re
 export function valueConflictAtRecordDate(claim: SourcedClaim, options: Parameters<typeof validateClaimNumericSupport>[1]): ClaimNumericSupport | null {
   const record = options.record;
   if (record === undefined) return null;
+  // Review round 1: only when the same measurement window is established: the record names its window and the
+  // claim states a period of its own (the reading below then checks that it is the record's).
+  if (record.period === null && record.periodContext === undefined) return null;
+  if (periodLabels(claim.text, { loose: true }).length === 0) return null;
   const result = validateClaimNumericSupport({ ...claim, asOf: record.asOf }, options);
   return result.status === "contradicted" && result.reason === "value-mismatch"
     ? { ...result, note: `cited date differs from the record's ${record.asOf}, and ${result.note}` }
