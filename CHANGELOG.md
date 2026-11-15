@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - D-304-D-306
 
+- R6 review thread: compare both numeric values at one displayed precision and scale; hidden trailing zeros and alternate compact spelling cannot alone remove a checkmark. Existing rounding-boundary refusals remain.
+
 - Review round 1: complete multiple, TATA, WACC and liquidity wording; attach the same model definition to ROTE sensitivity and P/TBV rows; name fallback own-history signals as valuation-multiple ranks. Unproved negative SBC is withheld with its dependent after-SBC amounts, while filed credits retain their sign.
 - Refuse a numeric checkmark when intermediate rounding disagrees with the exact record at reader precision (R6).
 - Carry the model tangible-equity definition beside moat ROTE summaries, cards and app signals (R18).

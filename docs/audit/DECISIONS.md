@@ -13,6 +13,14 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 
 
+## D-304 review thread - One numeric display precision and scale (2026-11-15)
+
+P19/P22; PR #216 thread PRRT_kwDOTemUIM63oYcQ. The original formatted-string comparison had already been replaced by numeric normalization before review round 1. Its reported trailing-zero case passes at lead head `3d1de2b4`; the remaining implementation still rounded each side independently. The shared formatter owner now selects the submitted figure's display unit and nominal decimal precision once, then rounds both numeric values on that basis with the existing decimal-rounding rule. Whole compact values retain the scale's nominal precision even when their trailing zeros are hidden. Explicit monetary scales, fractional percentages and the existing score-band display protection retain their conventions. No formatter strings are compared, no registry tolerance changes and no stored figure is rewritten.
+
+A failing-first synthetic control shows the distinction: a whole compact amount whose record agrees at its registered precision now confirms even when the record independently chooses ordinary money notation. The existing wrong-value monetary assertion remains unchanged. Controls cover the reported trailing-zero case, a compact-scale transition, the JPM-shaped double-rounding boundary, positive and negative values, percentages, multiples, per-share amounts, explicit monetary scales and very small scientific notation. The lead's history-rank labels are preserved.
+
+The full 33-case replay against `3d1de2b48fc6` has no artifact differences (231 files), no new verification statuses and no model-value moves. JPM's existing contradicted display remains unchanged. All 535 accuracy expectations remain expected; no expectation or frozen record is revised.
+
 ## D-306 review round 1 - Complete reader definitions and prove negative SBC (2026-11-15)
 
 P1/P8/P10/P11/P13/P17/P19/P22/P27; PR #216 review items 1-4 and 6-9. Main is pinned at `1d4fccfe156156bbacb0f7c24bd4aee3b5abdf3f`; its tax-operand evidence and support-level changes are retained. This branch advances report 1.99.0, payload 1.112.0, Stage B RELEASE_LEFTOVERS_85 and pipeline stage-c-1.6.53. D-296's historical stamps remain READER_WORDING_83 and stage-c-1.6.51.

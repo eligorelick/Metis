@@ -3805,7 +3805,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
           }
         }
         // D-304: a match at registry precision must also agree at the
-        // precision the shared reader formatter actually shows (P19/P22).
+        // submitted figure's displayed decimals and unit (P19/P22).
         // Otherwise double rounding can give an incorrect figure a checkmark.
         if (ok) {
           const scale = number.value === 0 ? 1 : amount.value / number.value;

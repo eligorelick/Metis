@@ -355,22 +355,31 @@ export function formatTracedValue(number: TracedNumber): string {
 }
 
 /**
- * D-304: compare the numeric quantities our formatter displays, after identity
- * matching. Whole-mantissa suppression and compact-scale choice can spell the
- * same displayed amount differently ($1M, $1.00M, $1,000,000.00).
- * This reads only this formatter's output, never issuer or analyst prose.
+ * D-304: after identity matching, round both values in the submitted figure's
+ * displayed unit and decimals. Only that figure selects the display precision;
+ * trailing-zero suppression and a different compact spelling of the record
+ * cannot change the comparison. No issuer or analyst prose is parsed.
  */
 export function sameTracedDisplayValue(left: TracedNumber, right: TracedNumber): boolean {
-  const displayed = (number: TracedNumber): number | null => {
-    const match = /^([\u2212+-]?)(?:\$)?([\d,]+(?:\.\d+)?(?:e[+-]?\d+)?)([KMBT]?)/.exec(formatTracedValue(number));
-    if (!match) return null;
-    const scales: Readonly<Record<string, number>> = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 };
-    const scale = scales[match[3]!] ?? 1;
-    const value = (match[1] === "-" || match[1] === "\u2212" ? -1 : 1) * Number(match[2]!.replaceAll(",", "")) * scale;
-    return Number.isFinite(value) ? value : null;
+  if (!Number.isFinite(left.value) || !Number.isFinite(right.value)) return false;
+  const match = /^[\u2212+-]?(?:\$)?[\d,]+(?:\.(\d+))?(?:e([+-]?\d+))?([KMBT]?)/.exec(formatTracedValue(left));
+  if (!match) return false;
+  const compact = LARGE_NUMBER_SCALES.find(([, suffix]) => suffix === match[3]);
+  // Whole compact amounts suppress trailing zeros, not the scale's normal
+  // precision: $1M and $1.00M both use two decimals in millions.
+  const digits = compact?.[2] ?? match[1]?.length ?? 0;
+  const displayScale = (compact?.[0] ?? 1) * 10 ** Number(match[2] ?? 0);
+  const unit = left.unit.trim();
+  const explicitScale = SCALED_MONEY_UNIT.exec(unit);
+  const sourceScale = explicitScale ? SCALE_MULTIPLIER[explicitScale[2]!.toLowerCase()]!
+    : /^(fraction|frac)$/i.test(unit) ? 100 : 1;
+  const rounded = (value: number): number => {
+    const displayed = value * sourceScale / displayScale;
+    // Preserve the score formatter's existing protection against rounding
+    // across a grade cutoff, at the same selected precision on both sides.
+    return unit.toLowerCase() === "0-100" ? Number(formatScore(displayed, digits)) : decimalRound(displayed, digits);
   };
-  const a = displayed(left), b = displayed(right);
-  return a !== null && b !== null && a === b;
+  return rounded(left.value) === rounded(right.value);
 }
 
 /** A failed match does not mean a citation was never supplied. */

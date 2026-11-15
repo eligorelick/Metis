@@ -385,3 +385,25 @@ it("D-306 keeps an unproved negative quarter out of statement evidence without m
  expect(payload.provenanceRegistry!.some(r=>r.id===`payload.statements.cash-flow-quarterly.${row.date}.sbc-cash-flow-add-back`)).toBe(false);
  expect(row.stockBasedCompensation).toBe(-2);
 });
+
+
+it.each([
+  { name: "whole compact unit", value: 1_000, record: 1_000.04, precision: 1, unit: "currency", canonical: "currency" as const, verified: true },
+  { name: "trailing zeros", value: 1_000_000, record: 1_000_000.00001, precision: 4, unit: "currency", canonical: "currency" as const, verified: true },
+  { name: "compact scale transition", value: 1_000_000, record: 999_999.99999, precision: 4, unit: "currency", canonical: "currency" as const, verified: true },
+  { name: "stated percent mismatch", value: 55.1, record: 55.049974, precision: 1, unit: "%", canonical: "percent" as const, verified: false },
+  { name: "stated percent control", value: 55.0, record: 55.049974, precision: 1, unit: "%", canonical: "percent" as const, verified: true },
+  { name: "percent boundary", value: 55.05, record: 55.049974, precision: 4, unit: "%", canonical: "percent" as const, verified: false },
+  { name: "percent control", value: 55.05, record: 55.050026, precision: 4, unit: "%", canonical: "percent" as const, verified: true },
+  { name: "multiple boundary", value: 12.05, record: 12.049974, precision: 4, unit: "x", canonical: "ratio" as const, verified: false },
+  { name: "multiple control", value: 12.05, record: 12.050026, precision: 4, unit: "x", canonical: "ratio" as const, verified: true },
+])("D-304 uses one displayed precision and scale: $name", async c => {
+  const currency = c.canonical === "currency" ? "USD" : null;
+  const rec: NumericProvenanceRecord = { id: "computed.test.amount", label: "amount", kind: "computed", value: c.record,
+    unit: c.canonical, currency, period: null, asOf: "2025-12-31", origin: "computed.test", formulaVersion: "test", displayPrecision: c.precision };
+  const n = { value: c.value, unit: c.unit, currency, source: rec.id, asOf: rec.asOf, verified: false };
+  const result = await runVerifyPass({ runPass: async () => { throw new Error("no model"); } } as unknown as PassDeps,
+    { provenanceRegistry: [rec], citationRegistry: [], filings: [] } as unknown as ContextPayload, { n });
+  expect((result.verifiedReport as { n: typeof n }).n.verified).toBe(c.verified);
+  expect((result.verifiedReport as { n: typeof n }).n.value).toBe(c.value);
+});

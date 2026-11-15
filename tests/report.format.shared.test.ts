@@ -619,3 +619,17 @@ it("D-304 compares displayed quantities independently of compact spelling and fa
   expect(sameTracedDisplayValue(n(1_000_000),n(1_010_000))).toBe(false);
   expect(sameTracedDisplayValue(n(Number.NaN),n(Number.NaN))).toBe(false);
 });
+
+
+it.each([
+  { unit: "fraction", left: 0.5505, right: 0.55049974, same: false },
+  { unit: "fraction", left: 0.5505, right: 0.55050026, same: true },
+  { unit: "USD millions: Cash flow", left: 1, right: 1.00000000001, same: true },
+  { unit: "USD millions: Cash flow", left: 1e-16, right: 1.004e-16, same: true },
+  { unit: "USD millions: Cash flow", left: 1e-16, right: 1.006e-16, same: false },
+  { unit: "currency", left: -1_000, right: -1_000.04, same: true },
+  { unit: "0-100", left: 54.9, right: 54.96, same: true },
+])("D-304 retains the formatter's unit conversion and rounding: $unit $right", c => {
+  const n = (value: number) => ({ value, unit: c.unit, currency: "USD", source: "computed.test", asOf: null, verified: false });
+  expect(sameTracedDisplayValue(n(c.left), n(c.right))).toBe(c.same);
+});
