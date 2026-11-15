@@ -642,7 +642,7 @@ describe("GET /api/report/view/[reportId]", () => {
     };
     expect(body.reportId).toBe(id);
     expect(body.symbol).toBe("DEMO");
-    expect(body.companyName).toBe("Thesis Example Systems");
+    expect(body.companyName).toBe("Larkspur Example Systems");
     expect(body.verificationRate).toBeCloseTo(0.94);
     expect(body.costUsd).toBeCloseTo(2.18);
     expect(body.grades.map((g) => g.key)).toEqual([

@@ -1,9 +1,9 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
-  "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "038791e7e9474f9385b212ca285bf462782b8089bf620e8d4312e6541dc787f9",
+  "fixtureIdentity": {"fmpTreeSha256": "e22ed45e43e38935d647e402a9175b0e66bb3589402e5447d61b4628f8647634", "reportSha256": "80b70a45819bab0eb03cd227efb889efe44694ac4d776153bfb164787db8a4e9"},
+  "projectionSha256": "9095ce05dc058ee880a5c276511cef18a41323d949e420d3a5a0b460a97daa16",
   "projection": {
-    "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
+    "fixtureControl": {"symbol": "DEMO", "companyName": "Larkspur Example Systems", "quotePrice": 40},
     "stageB": {
       "symbol": "DEMO",
       "builtAt": "2026-07-06T00:00:00.000Z",
@@ -2095,7 +2095,7 @@
       },
       "meta": {
         "symbol": "DEMO",
-        "companyName": "Thesis Example Systems",
+        "companyName": "Larkspur Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
         "specVersion": "1.95.0",
         "model": "synthetic-fixture",

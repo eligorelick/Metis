@@ -4491,5 +4491,28 @@
       "$.projection.stageB.capital.current.interestCoverageUnverifiedOperands[0]",
       "$.projection.stageB.capital.current.interestCoverageUnverifiedOperands[1]"
     ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "audit-fixture",
+    "decision": "D-301",
+    "reason": "R39: the fictional sample issuer is renamed from Thesis Example Systems to Larkspur Example Systems in its synthetic FMP fixtures; only the company name leaves and the input and projection digests change.",
+    "scope": [
+      "$.projection.fixtureControl.companyName",
+      "$.projection.report.meta.companyName",
+      "$.fixtureIdentity.fmpTreeSha256",
+      "$.fixtureIdentity.reportSha256",
+      "$.projectionSha256"
+    ],
+    "beforeSha256": "68f704a7f36830be4c722ec48778d4afcadcd2f29a3ff329454e5e79c5937a8a",
+    "afterSha256": "30d104158ee7ae112df6cbf99469b4db65b993cd186609c77d78d9a99f05a678",
+    "changedLeaves": 5,
+    "changedPaths": [
+      "$.fixtureIdentity.fmpTreeSha256",
+      "$.fixtureIdentity.reportSha256",
+      "$.projectionSha256",
+      "$.projection.fixtureControl.companyName",
+      "$.projection.report.meta.companyName"
+    ]
   }
 ]

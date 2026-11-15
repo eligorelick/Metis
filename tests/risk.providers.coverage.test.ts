@@ -1092,7 +1092,7 @@ describe("data-bundle provider boundaries", () => {
       });
       const submissionsBody = JSON.stringify({
         cik: "0000000000",
-        name: "Thesis Example Systems",
+        name: "Larkspur Example Systems",
         sic: "7372",
         sicDescription: "Prepackaged Software",
         fiscalYearEnd: "1231",
@@ -1117,7 +1117,7 @@ describe("data-bundle provider boundaries", () => {
             return Promise.resolve(
               response(
                 JSON.stringify({
-                  "0": { cik_str: 0, ticker: "EXMP", title: "Thesis Example Systems" },
+                  "0": { cik_str: 0, ticker: "EXMP", title: "Larkspur Example Systems" },
                 }),
               ),
             );
@@ -1128,7 +1128,7 @@ describe("data-bundle provider boundaries", () => {
           if (url.includes("companyfacts/CIK0000000000.json")) {
             return Promise.resolve(
               response(
-                JSON.stringify({ cik: 0, entityName: "Thesis Example Systems", facts: {} }),
+                JSON.stringify({ cik: 0, entityName: "Larkspur Example Systems", facts: {} }),
               ),
             );
           }

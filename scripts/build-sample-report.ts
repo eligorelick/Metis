@@ -15,7 +15,7 @@ const bundle = completeCurrencyBundle({ symbol: "DEMO", annualCurrency: "USD", s
 // Reuse only the synthetic helper's invented statements. All identity and quote
 // fields below belong to this fictional issuer. July is the frozen evidence date.
 if (!bundle.profile.ok || !bundle.quote.ok || !bundle.eodPrices.ok) throw new Error("Missing synthetic inputs");
-Object.assign(bundle.profile.value.data.rows[0]!, { companyName: "Thesis Example Systems", industry: "Workflow systems", description: "Fictional workflow hardware and support subscriptions for regional warehouses.", price: 32, marketCap: 3200 * M });
+Object.assign(bundle.profile.value.data.rows[0]!, { companyName: "Larkspur Example Systems", industry: "Workflow systems", description: "Fictional workflow hardware and support subscriptions for regional warehouses.", price: 32, marketCap: 3200 * M });
 Object.assign(bundle.quote.value.data.rows[0]!, { price: 32, marketCap: 3200 * M, timestamp: Date.parse("2026-07-02T21:00:00Z") / 1000 });
 bundle.quote.value.asOf = "2026-07-02";
 bundle.eodPrices.value.data.rows = bundle.eodPrices.value.data.rows.filter(row => {
@@ -31,7 +31,7 @@ bundle.gaps.push({ field: "fixture.reserved(DEMO)", reason: "Entirely fictional 
 bundle.sourceManifest = { synthetic: { provider: "fmp", endpoint: "synthetic/invented-inputs-no-retrieval", asOf: "2026-07-02", fetchedAt: bundle.builtAt, stale: false } };
 
 // Authored demonstration excerpts, shaped like filing evidence; never retrieved.
-const businessText = `SYNTHETIC FILING: Thesis Example Systems sells warehouse workflow controllers,
+const businessText = `SYNTHETIC FILING: Larkspur Example Systems sells warehouse workflow controllers,
 installation and annual support subscriptions to regional warehouse operators.
 Hardware and installation revenue is recognized on customer acceptance; support revenue
 is recognized over the service term. Customers include independent distributors and regional
@@ -80,7 +80,7 @@ const g = () => ({ grade: "B" as const, oneLineWhy: "Recurring support helps cus
 const num = (value: number) => ({ value, unit: "USD/share", currency: "USD", source: "computed", asOf: null, verified: null });
 const judge: JudgeOutput = {
   verdict: {
-    synthesis: "Thesis Example Systems combines a growing installation base with recurring support. Cash generation is encouraging, but the valuation depends on preserving margins as customers expand more slowly. This fictional case illustrates a sound business with execution risk rather than a recommendation.",
+    synthesis: "Larkspur Example Systems combines a growing installation base with recurring support. Cash generation is encouraging, but the valuation depends on preserving margins as customers expand more slowly. This fictional case illustrates a sound business with execution risk rather than a recommendation.",
     executiveSummary: [claim("The attractive feature is the support relationship after installation; the weak point is dependence on warehouse investment cycles."), claim("The model's fair value and scenario range are sensitivities to operating assumptions, not forecasts of a future share price.")],
     gradeStrip: { fundamentals: g(), valuation: g(), technicals: g(), quality: g(), leadership: g(), moat: g() },
   },
@@ -94,7 +94,7 @@ const judge: JudgeOutput = {
     { name: "Mira Vale", title: "Chief Executive Officer", tenureYears: 4, grade: "not-assessed", credibilityGrade: "not-assessed", assessmentReason: "The fictional case supplies a strategy action, but no guidance-versus-actual history sufficient to grade this executive.", reasoning: [claim("A focus on supporting installed systems is sensible; execution evidence remains limited.")], evidence: { capitalAllocation: [claim("The fictional plan favors service capacity over acquisitions.")] } },
     { name: "Jonas Pell", title: "Chief Financial Officer", tenureYears: 2, grade: "not-assessed", credibilityGrade: "not-assessed", assessmentReason: "No independently supported personal track record is supplied in this fictional case.", reasoning: [claim("Cash discipline matters most when customers delay installation payments.")], evidence: {} },
   ], managementActions: [{ occurredOn: "2026-06-15", actor: "board", category: "strategy", action: [claim("In this invented June strategy note, the board prioritized service capacity over acquisitions.", "FACT", "edgar:10-Q item2")], assessment: [claim("The plan appears consistent with protecting liquidity, but future delivery remains uncertain.")], shareholderAlignment: "aligned" }], insiderSummary: [claim("No insider transactions are supplied; absence of records does not establish absence of activity.")], governanceNotes: [claim("The invented strategy note does not establish board independence or compensation alignment.")] },
-  competitive: { moatGraded: g(), competitors: [claim("In this fictional market, Lantern Quay Automation competes on installation price and Bramble Circuit Works competes on support coverage.", "FACT", "edgar:10-K item1"), claim("Thesis Example Systems appears better placed in support continuity than in winning the cheapest installation bid.")], peerTable: [], moatAssessment: [{ source: "switchingCosts", strength: "narrow", reasoning: [claim("Replacement requires retraining and downtime, but does not prevent customers from switching.")] }], marketShareDirection: "Share direction is unmeasured; growth alone does not establish share gains." },
+  competitive: { moatGraded: g(), competitors: [claim("In this fictional market, Lantern Quay Automation competes on installation price and Bramble Circuit Works competes on support coverage.", "FACT", "edgar:10-K item1"), claim("Larkspur Example Systems appears better placed in support continuity than in winning the cheapest installation bid.")], peerTable: [], moatAssessment: [{ source: "switchingCosts", strength: "narrow", reasoning: [claim("Replacement requires retraining and downtime, but does not prevent customers from switching.")] }], marketShareDirection: "Share direction is unmeasured; growth alone does not establish share gains." },
   catalystsRisks: { catalysts: [{ title: "Support capacity expansion", expectedDate: "2027", direction: "mixed", significance: "medium", reasoning: [claim("More service capacity could improve renewals, while additional staff costs could arrive before revenue.", "ESTIMATE")] }], risks: [{ title: "Customer investment delays", severity: "high", probability: "unknown", source: "fmp:profile", reasoning: [claim("Delayed warehouse projects could reduce installations and weaken cash conversion.")] }] },
   outlook: { segmentTrajectories: [claim("Support should be steadier than installation demand, subject to renewals and service quality.", "ESTIMATE")], estimateRevisionTrend: [claim("Only a single invented estimate snapshot is supplied; a revision trend cannot be inferred.")], guidanceCredibility: [claim("There is no multi-period guidance scorecard, so management credibility remains unassessed.")], scenarioNarratives: { y1: [claim("Customer payment timing is the near-term test of earnings quality.", "ESTIMATE")], y3: [claim("Support relationships could deepen if service reliability holds.", "ESTIMATE")], y5: [claim("Longer-term returns depend on resisting price competition and funding maintenance.", "ESTIMATE")] } },
   macro: { relevantSeries: [], sensitivityNotes: [claim("Higher financing costs for customers could delay warehouse investments; no real macroeconomic observations are used.")], fredAttribution: FRED_ATTRIBUTION_TEXT }, disagreements: [],
@@ -152,10 +152,10 @@ function enrichNarrative(payload: ReturnType<typeof assembleContextPayload>) {
     { productLine: "Support subscriptions", claims: [fact("In support subscriptions, Bramble Circuit Works has broader support coverage but slower custom deployments.")] },
   ];
   judge.competitive.competitors = [
-    claim("Against Lantern Quay Automation, Thesis wins on local service continuity and loses on installation price."),
-    claim("Against Bramble Circuit Works, Thesis wins on custom deployment speed and loses on support-network breadth."),
-    claim("Against Aster Dock Software, Thesis wins where integrated controllers are necessary and loses on cost where software alone is sufficient."),
-    claim("Against Kestrel Bay Robotics, Thesis suits regional-site integration budgets but loses complex mega-site automation work."),
+    claim("Against Lantern Quay Automation, Larkspur wins on local service continuity and loses on installation price."),
+    claim("Against Bramble Circuit Works, Larkspur wins on custom deployment speed and loses on support-network breadth."),
+    claim("Against Aster Dock Software, Larkspur wins where integrated controllers are necessary and loses on cost where software alone is sufficient."),
+    claim("Against Kestrel Bay Robotics, Larkspur suits regional-site integration budgets but loses complex mega-site automation work."),
   ];
   judge.leadership.executives = [
     { name: "Mira Vale", title: "Chief Executive Officer", tenureYears: 4, grade: "B", credibilityGrade: "B", reasoning: [claim("Service investment fits the installed-base strategy; the acquisition still needs an operating result.", "JUDGMENT", "edgar:10-Q item2")], evidence: { capitalAllocation: [] } },
