@@ -175,6 +175,11 @@ bank, route-policy and 6-K shapes; P12 and critical-filing codes with wording an
 share (validated over shown, repeats once, judgments excluded, grade strip excluded, data-only line, citations not
 counted); README states both levels.
 
+**Review round 1 (Codex).** A fully not-assessed officer's ESTIMATEs are not printed (`executiveCardClaims`,
+`executiveGroups` show FACTs only), so they are not counted; a fair value with status `outside-domain` (the DCF result
+failed its domain test) reads as a model limit, not as an input that could not be established. Neither changes a panel
+case (none has a domain failure or a hidden estimate); tests added for both with controls.
+
 **Version.** No stamp moves: every change is read-time presentation or the synthetic sample; no figure, payload,
 Stage B or schema changes (D-301 to D-303 the same).
 

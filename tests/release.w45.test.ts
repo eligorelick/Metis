@@ -133,6 +133,27 @@ describe("support level (D-300, R40)", () => {
     expect(reportToMarkdown(ReportSchema.parse(report))).not.toContain("A statement only the grade strip holds.");
   });
 
+  it("does not count an ESTIMATE on a fully not-assessed officer, which no surface prints (review round 1)", () => {
+    const report = loadTask28Fixture();
+    for (const e of report.leadership.executives) { e.grade = "not-assessed"; e.credibilityGrade = "not-assessed"; }
+    const before = confirmedStatementShare(prepareReportForSurface(ReportSchema.parse(report), "markdown").report);
+    report.leadership.executives[0]!.reasoning = [...report.leadership.executives[0]!.reasoning, fact("Margins will likely widen next year.", "ESTIMATE")];
+    const parsed = ReportSchema.parse(report);
+    expect(confirmedStatementShare(prepareReportForSurface(parsed, "markdown").report).total).toBe(before.total);
+    expect(reportToMarkdown(parsed)).not.toContain("Margins will likely widen next year.");
+    // Control: a graded officer's ESTIMATE is printed and counted.
+    report.leadership.executives[0]!.grade = "B";
+    expect(confirmedStatementShare(prepareReportForSurface(ReportSchema.parse(report), "markdown").report).total).toBe(before.total + 1);
+  });
+
+  it("describes a model-domain failure as a model limit, not missing evidence (review round 1)", () => {
+    const domain = loadTask28Fixture();
+    domain.fairValue = fairValue({ status: "outside-domain", method: null, perShare: null, upsidePct: null });
+    const text = supportLevelText(supportLevel(ReportSchema.parse(domain)));
+    expect(text).toContain("falls outside the range it is valid for");
+    expect(text).not.toContain("an input could not be established");
+  });
+
   it("never counts a figure's citation as a confirmed statement", () => {
     const report = loadTask28Fixture();
     report.appendix.verificationLog = [];

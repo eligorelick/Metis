@@ -103,7 +103,9 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
     const use = fv.currentUse;
     if (use?.reason === "route-policy") add("route-no-per-share-value", "no per-share fair value: this company's route does not apply the cash-flow valuation model");
     else if (fv.status === "dated-reference" || use?.status === "dated-reference") add("fair-value-dated", `the fair value is a dated reference${use?.valueDate ? ` (valued at ${use.valueDate})` : ""}, not updated to the current price`);
-    else if (fv.status === "suppressed" || fv.status === "outside-domain") add("fair-value-withheld", "the per-share fair value is withheld because an input could not be established");
+    // Review round 1: a domain failure (non-positive equity value, negative explicit-period value) is a model limit, not missing evidence.
+    else if (fv.status === "outside-domain") add("fair-value-withheld", "the per-share fair value is withheld because the cash-flow model's result falls outside the range it is valid for");
+    else if (fv.status === "suppressed") add("fair-value-withheld", "the per-share fair value is withheld because an input could not be established");
   }
   // P12: the qualifications the grades already carry (assessment.ts financialEvidenceQualifications).
   for (const reason of report.scores?.qualification?.composite.reasons ?? []) {
@@ -157,17 +159,23 @@ function statementKey(claim: SourcedClaim): string {
  */
 export function confirmedStatementShare(report: Report): ConfirmedShare {
   const seen = new Map<string, boolean>();
-  const visit = (node: unknown): void => {
+  const visit = (node: unknown, factsOnly = false): void => {
     if (node === null || typeof node !== "object") return;
-    if (Array.isArray(node)) { for (const child of node) visit(child); return; }
+    if (Array.isArray(node)) { for (const child of node) visit(child, factsOnly); return; }
     if (isTaggedStatement(node)) {
+      // Review round 1: an officer with neither grade shows only FACTs (executiveCardClaims, executiveGroups).
+      if (factsOnly && node.label !== "FACT") return;
       const key = statementKey(node);
       seen.set(key, seen.get(key) === true || claimStatusMark(node) === "validated");
       return;
     }
-    for (const [key, value] of Object.entries(node)) if (!AUDIT_ONLY_KEYS.has(key)) visit(value);
+    for (const [key, value] of Object.entries(node)) if (!AUDIT_ONLY_KEYS.has(key)) visit(value, factsOnly);
   };
-  visit(report);
+  const { leadership, ...rest } = report;
+  visit(rest);
+  const { executives, ...otherLeadership } = leadership;
+  visit(otherLeadership);
+  for (const e of executives) visit(e, e.grade === "not-assessed" && e.credibilityGrade === "not-assessed");
   return { confirmed: [...seen.values()].filter(Boolean).length, total: seen.size };
 }
 
