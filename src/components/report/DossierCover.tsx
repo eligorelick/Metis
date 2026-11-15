@@ -2,7 +2,7 @@ import { withNeutral } from "@/report/assessment";
 import type { Report } from "@/report/schema";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
 import { scoreAuditTables } from "@/report/auditTables";
-import { businessQualityGraded, confidenceText, coverLedgerRows, displayProse, isFairValueKeyDataLabel, keyDataRows } from "@/report/presentation";
+import { businessQualityGraded, isModelWrittenReport, confidenceText, coverLedgerRows, displayProse, isFairValueKeyDataLabel, keyDataRows } from "@/report/presentation";
 import { evidencePercentText, hasLimitedEvidence, limitedEvidenceText } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { BusinessBriefBlock, CompositeScorecard, DisagreementsBlock, ExecutiveSummary, GradeStripBar, KeyDataBox, RecentDevelopmentsBlock, VerdictHeader } from "./sections";
@@ -44,12 +44,12 @@ export function DossierCover({ report, completeness }: { report: Report; complet
     <nav className="dossier-detail-links" aria-label="Supporting research"><a href="#report-research-detail">Executive evidence</a><a href="#report-score-detail">Scores &amp; attribution</a><a href="#report-debate-detail">Checkpoints &amp; debate</a></nav>
     <details id="report-research-detail" className="dossier-detail" open={!completeness.dataOnly}><summary>{completeness.dataOnly ? "Recorded supporting evidence" : "Executive evidence and full recorded assessment rationales"}</summary>
       {report.verdict.executiveSummary && report.verdict.executiveSummary.length > 0 && <ExecutiveSummary claims={report.verdict.executiveSummary} />}
-      {report.verdict.recentDevelopments && <RecentDevelopmentsBlock developments={report.verdict.recentDevelopments} />}
+      {report.verdict.recentDevelopments && <RecentDevelopmentsBlock developments={report.verdict.recentDevelopments} aiAuthored={isModelWrittenReport(report)} />}
       <div className="dossier-analyst-assessments"><h3>{completeness.dataOnly ? "Deterministic section summaries" : "Analyst section assessments"}</h3><p>{completeness.dataOnly ? "No analyst assessment was completed. Any available bands below describe deterministic results." : "Recorded section judgments are distinct from deterministic scores and may differ."}</p><GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} /></div>
     </details>
     <details id="report-score-detail" className="dossier-detail"><summary>Deterministic scorecard, methodology &amp; factor attribution</summary>
       {report.scores ? <><CompositeScorecard scores={report.scores} /><FactorAttribution scores={report.scores} /></> : <p>No deterministic scorecard was recorded in this snapshot.</p>}
     </details>
-    <details id="report-debate-detail" className="dossier-detail dossier-debate"><summary>Thesis review checkpoints &amp; bull/bear debate</summary><ThesisCheckpoints triggers={report.thesisTriggers} />{report.disagreements.length > 0 && <DisagreementsBlock disagreements={report.disagreements} />}</details>
+    <details id="report-debate-detail" className="dossier-detail dossier-debate"><summary>Thesis review checkpoints &amp; bull/bear debate</summary><ThesisCheckpoints triggers={report.thesisTriggers} />{report.disagreements.length > 0 && <DisagreementsBlock disagreements={report.disagreements} aiAuthored={isModelWrittenReport(report)} />}</details>
   </section>;
 }

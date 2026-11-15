@@ -42,7 +42,7 @@ import { DossierCover } from "./DossierCover";
 import { ReportContents } from "./ReportContents";
 import { EvidenceInspector } from "./EvidenceInspector";
 import { evidenceIdentity } from "./evidenceIdentity";
-import { dataStateText, plainFigureReaderNote, presentationReportId, projectionsNotRecordedNotice, routeMetricsForDisplay } from "@/report/presentation";
+import { dataStateText, isModelWrittenReport, plainFigureReaderNote, presentationReportId, projectionsNotRecordedNotice, routeMetricsForDisplay } from "@/report/presentation";
 import { SourceEvidenceCatalog } from "./SourceEvidenceCatalog";
 
 import type { Report } from "@/report/schema";
@@ -144,14 +144,14 @@ export function ReportView({
     fundamentals: <FundamentalsSection report={report} fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} grading={grading("fundamentals")} chart={fundamentalsChart} extraTables={[...filingDisclosureTables(report.filingDisclosures, "fundamentals"), ...lenderTables]} />,
     balanceSheet: <BalanceSheetSection report={report} grading={grading("balanceSheet")} balanceSheet={report.balanceSheet} index={reportSection("balanceSheet").index} />,
     valuation: <ValuationSection report={report} grading={grading("valuation")} valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={routeMetricsForDisplay(report)} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} index={reportSection("valuation").index} />,
-    quality: <QualityFlags quality={report.quality} grading={grading("quality")} index={reportSection("quality").index} />,
+    quality: <QualityFlags aiAuthored={isModelWrittenReport(report)} quality={report.quality} grading={grading("quality")} index={reportSection("quality").index} />,
     technicals: <TechnicalsSection report={report} grading={grading("technicals")} technicals={report.technicals} index={reportSection("technicals").index} chart={technicalsChart} />,
     leadership: <LeadershipSection report={report} grading={grading("leadership")} leadership={report.leadership} index={reportSection("leadership").index} />,
     competitive: <CompetitiveSection report={report} grading={grading("moat")} competitive={report.competitive} index={reportSection("competitive").index} />,
-    catalystsRisks: <CatalystsRisksPanel catalystsRisks={report.catalystsRisks} dataOnly={isDataOnlyReport(report)} index={reportSection("catalystsRisks").index} extraTables={filingDisclosureTables(report.filingDisclosures, "catalystsRisks")} />,
+    catalystsRisks: <CatalystsRisksPanel aiAuthored={isModelWrittenReport(report)} catalystsRisks={report.catalystsRisks} dataOnly={isDataOnlyReport(report)} index={reportSection("catalystsRisks").index} extraTables={filingDisclosureTables(report.filingDisclosures, "catalystsRisks")} />,
     outlook: <OutlookSection outlook={report.outlook} index={reportSection("outlook").index} extraTables={filingDisclosureTables(report.filingDisclosures, "outlook")} />,
     projections: report.projections && !unavailableCashFlowModel(report) ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : projectionsNotice ? <SectionFrame id="projections" index={reportSection("projections").index} title="Weighted Projections"><p className="text-muted">{projectionsNotice}</p></SectionFrame> : null,
-    macro: <MacroSection macro={report.macro} index={reportSection("macro").index} />,
+    macro: <MacroSection aiAuthored={isModelWrittenReport(report)} macro={report.macro} index={reportSection("macro").index} />,
     appendix: <AppendixSection report={report} selectedReportId={reportId} selectedReportStatus={selectedReportStatus} completeness={completeness} index={reportSection("appendix").index} />,
   };
 

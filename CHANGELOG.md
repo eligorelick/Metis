@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.95.0** and
-payload **1.108.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+payload **1.109.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,16 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Statement marks, value-first conflicts, feed citations and coverage operands (P12, P18, P19, P20, P22, D-282..D-285) (2026-11-14)
+
+- The legend at the top says plainly what each mark means; "[unverified]" and "[qualitative]" now read "[not confirmed]"; every model-written paragraph and table cell ends with "[not confirmed]"; a contradicted statement shows a CONTRADICTED tag, never a bold FACT (D-282).
+- A table figure that does not match its record reads "not confirmed" or "contradicted" in words; a wrong cited date no longer hides a value conflict with the one record the id names (D-282).
+- The value-only figure check reads only code-owned evidence, never the report's own claims or analyst notes (D-283, revises D-197); a grid parameter stated in a code record's label is not a conflict with the headline record (D-284).
+- A statement citing a whole news feed is re-cited to its one payload article (publisher, title, link) or removed (D-285).
+- Review round 2: every AI-authored table, card or row group (developments, disagreements, flags, executive cards, management actions, moat, peers, catalysts, risks, macro series) is captioned "Written by the AI; not checked by code." on the app, Markdown and print, covering its titles, dates and ratings; checked statements inside keep their own marks (D-282).
+- Review round 1: model-written quality and technical flags carry "[not confirmed]"; a wrong cited date is read as a value conflict only when the figure states the record's own window (an annual figure against a trailing-twelve-month record stays "not confirmed"); a removed feed statement is never restored, and a list item whose required statements all go is dropped; an interest coverage whose EBIT or interest expense filings do not establish is still shown but can never read "validated" (R10, D-282).
+- Report 1.95.0, payload 1.109.0, Stage B `STAGE_B_2026_11_COMPLETE_RATIO_INPUTS_82`, pipeline `stage-c-1.6.50`; score bands unchanged. Stage B adds only the coverage qualification field; no figure changes.
 
 ## Unreleased - W3 review corrections (D-286-D-290)
 

@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.95.0 / payload 1.108.0, Stage B `STAGE_B_2026_11_COMPLETE_RATIO_INPUTS_81` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.95.0 / payload 1.109.0, Stage B `STAGE_B_2026_11_COMPLETE_RATIO_INPUTS_82` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 D-280 (P1/P7/P8/P10/P13): the shared TTM interest gate requires all four quarters. A vendor zero without exact filed interest evidence is undisclosed; a filed zero with exact period end, matching currency, tags, filings and no recorded conflict is admitted using the projection owner's existing evidence test. Both current coverage and WACC read that admitted sum; WACC may fall back to a complete annual pair, explicitly naming its basis. Segment shares require the signed split to reconcile to same-period, same-currency revenue under P8. Typed causes distinguish no matching-period revenue, refused revenue and a nonreconciling split, and the table prints the actual cause. Both data-only and analyst reports use the same share owner.
 
@@ -5306,11 +5306,30 @@ the numeric validation row first and the provenance rows after it.
 Each factual claim (FACT or ESTIMATE) the verify pass logged carries its
 status after its citation, in the page, Markdown and print reports: `[validated]`
 when a figure it states matched the cited record, `[contradicted]` for a value
-conflict, `[qualitative]` when it is cited and states no figure to match, and
-`[unverified]` otherwise (audit 2026-10-22 F-21). The mark comes from the
-claim's own verification-log entry, matched by report path and text; a
-judgment, a data-only report and a note written after the verify pass carry
-none. The counts on the verification and provenance lines and in the
+conflict, and `[not confirmed]` otherwise (audit 2026-10-22 F-21; D-282 replaced
+the reader words `[unverified]` and `[qualitative]`, which both meant that code
+did not check the statement against a record, with `[not confirmed]`). The mark
+comes from the claim's own verification-log entry, matched by report path and
+text. A judgment carries its JUDGMENT tag and no mark; a data-only report's
+code-written text carries none. In a report the AI wrote, a FACT or ESTIMATE with
+no entry of its own reads `[not confirmed]` (D-282). A contradicted FACT or
+ESTIMATE is shown under a CONTRADICTED tag instead of its own label, so a
+statement in conflict with its record never reads as a fact (D-282, release
+item R2). The legend at the top of the report says in plain words what each mark
+and tag means.
+
+Model-written text that is not a tagged statement (the verdict paragraph, each
+grade's one-line reason and interpretation, the debate resolutions, the
+reverse-DCF and market-share narratives, the technical read, scenario commentary
+and model-written conditions, the macro relevance lines) ends with the
+`[not confirmed]` mark on every surface; a mark at the end of a paragraph or
+table cell covers all of it (D-282, read time). A figure in a table whose value
+the verify pass could not match to its record reads "not confirmed" in the Cited
+column, and one whose value conflicts with that record reads "contradicted".
+The record named by a figure's or claim's id is read for its value before its
+as-of date: a value that differs even at its own stated rounding is a value
+conflict when the cited date also differs, and only an equal (or correctly
+rounded) value with another date stays a date mismatch (D-282, P19). The counts on the verification and provenance lines and in the
 Verification table are counts of those marked claims. The grade strip prints
 each section's grade and one-line why, not its reasoning, so the verify pass's
 entries for grade-strip reasoning (often a copy of the section's own claims)
@@ -8093,7 +8112,14 @@ and period with a different recorded value gets a visible "Differs from the
 record" note, even if the stated value occurs elsewhere. If no eligible
 context binding exists and the value appears nowhere in the retained evidence
 in the same dimension, currency and displayed precision, it gets a visible
-"Not matched to a source" note. A value found with unconfirmed context gets
+"Not matched to a source" note. Since D-283 the retained evidence for this
+value-only lookup is code-owned only: the numeric records, retained filing and
+transcript text and the provider's news rows. The report's own claims and the
+analysts' retained cases and research notes are model-written, so a value found
+only there is "not matched" (it revised D-197, which also read them). A figure
+equal to a parameter a code record's own label states for the same metric (a
+sensitivity-grid cell's "cost of equity 8.6%") is that record's figure, not a
+conflict with the headline record of the metric (D-284). A value found with unconfirmed context gets
 only an exact-path audit entry, marked "Value matched; context not confirmed".
 It never counts as a verified fact or raises a verification rate, claim status
 or grade. Low-precision coincidences can produce this third result; they cannot
@@ -8852,7 +8878,14 @@ and alternative partitions overlap and must not be added. Broad vendor geography
 names beside named regions retain their original name with a scope qualification.
 Executive cards link to the shared company chronology and outlook guidance.
 Fact tags describe code's numerical matching; citation coverage describes tracing,
-not correctness. These rules never rewrite stored reports or recompute figures.
+not correctness. A statement citing a whole news feed (`fmp:news`,
+`finnhub:news` or `fmp:press-release` on a date) is re-cited before verification
+to the one payload article of that feed and date, by its publisher, title and
+link, when exactly one exists and has a link; otherwise the statement is removed
+and the removal is logged, and a list item left without statements (a catalyst's
+reasoning, a development's facts) goes with it. No title or wording is matched.
+A saved report's bare feed tag reads "News feed (no single article identified)"
+(D-285). These rules never rewrite stored reports or recompute figures.
 
 D-267 part 1 (P1/P13, revises D-65): a fiscal-year fallback DCF requires invested capital and the equity bridge at the fiscal-year statement date. An earlier or later admitted balance withholds the model with a typed date-mismatch cause and the missing or refused statement-date operand disclosed. An unparseable or missing date also withholds the fallback because the offset cannot be established. Existing critical capital and lease findings retain their severity and disclosure before or beside the date refusal. The trailing-window route retains its D-65 disclosure pending separate work.
 

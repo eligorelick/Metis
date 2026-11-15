@@ -1,4 +1,4 @@
-import { computeCapital, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult } from "./capital";
+import { computeCapital, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult, type CoverageOperand } from "./capital";
 import { deriveFcf } from "./financialValues";
 import { completedTotalOmission, leaseDebtConflict, millions, operatingLeaseScopeUnproven, resolveNetDebt } from "./netDebt";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, classifyLeaseEvidence, leaseEvidenceNote, type LeaseEvidenceClassification } from "./leaseScope";
@@ -56,6 +56,8 @@ export interface CurrentCapitalSnapshot {
   ebitdaComputed?: true;
   netDebtToEbitda: number | null; netDebt: number | null; ebitda: number | null;
   interestCoverage: number | null; fcfConversionBeforeSbc: number | null; sbcPctOfFcf: number | null;
+  /** D-282 (P12): the shown coverage's operands no exact-window filed evidence establishes. */
+  interestCoverageUnverifiedOperands?: CoverageOperand[];
   ebit?: number | null; interestExpense?: number | null; fcfBeforeSbc?: number | null; netIncome?: number | null;
   cashBridge: CashFlowBridge; debtBridge: DebtBridge;
 }
@@ -186,6 +188,7 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
     ...(snapshot.netDebtToEbitda.ebitdaComputed ? { ebitdaComputed: true as const } : {}),
     ebit: snapshot.interestCoverage.ebit, interestExpense: snapshot.interestCoverage.interestExpense, fcfBeforeSbc:fcf, netIncome,
     interestCoverage: snapshot.interestCoverage.value,
+    ...(snapshot.interestCoverage.unverifiedOperands ? { interestCoverageUnverifiedOperands: snapshot.interestCoverage.unverifiedOperands } : {}),
     fcfConversionBeforeSbc: fcf !== null && netIncome !== null && netIncome > 0 ? fcf/netIncome : null,
     sbcPctOfFcf: fcf !== null && fcf > 0 && sbc !== null ? sbc/fcf*100 : null,
     cashBridge: bridge, debtBridge: debtBridge(industrialMetricsApplicable ? bridgeBalance : null),

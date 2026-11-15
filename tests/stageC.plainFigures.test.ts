@@ -116,7 +116,8 @@ it("does not lose an accounting-parentheses sign when extracting a metric from p
   expect(result.log.filter(e => e.check === "plain-figure").map(e => e.path)).toEqual(["commentary[0]"]);
 });
 
-it("uses even an invalid source-bound claim only as value evidence, regardless of its prose label", async () => {
+// D-283 (revises D-197): a report claim, valid or not, is model-written and never supplies value-only evidence.
+it("never uses a report claim as value evidence, regardless of its prose label (D-283)", async () => {
   const source = "edgar:10-K:business", asOf = "2026-11-01";
   const p = { ...payload([]), citationRegistry: [{ id: source, asOf, kind: "payload-text" }],
     filings: [{ source, asOf, title: "Business", text: "Revenue for FY2025 was USD 10 billion.", truncated: false, originalChars: 44 }] } as ContextPayload;
@@ -125,7 +126,7 @@ it("uses even an invalid source-bound claim only as value evidence, regardless o
       { label: "FACT", source, asOf, text: "Revenue for FY2025 was USD 11 billion." }],
     commentary: ["Revenue for FY2025: USD 10 billion.", "Revenue for FY2025: USD 11 billion."],
   });
-  expect(result.log.filter(e => e.check === "plain-figure").map(e => [e.path, e.traceKind])).toEqual([["commentary[0]", "value-match"], ["commentary[1]", "value-match"]]);
+  expect(result.log.filter(e => e.check === "plain-figure").map(e => [e.path, e.traceKind])).toEqual([["commentary[0]", "value-match"], ["commentary[1]", "untraced"]]);
 });
 
 it("keeps a same-report value match separate from context confirmation", async () => {

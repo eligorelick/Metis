@@ -76,7 +76,10 @@ it("reads explanatory parentheses and an explicit shared money scale only as val
   for (const path of ["commentary[3]", "commentary[4]", "commentary[5]"]) expect(result.log).toContainEqual(expect.objectContaining({ path, traceKind: "untraced" }));
 });
 
-it.each(["filing", "transcript", "news", "research", "case", "claim"] as const)("finds value-only evidence in retained %s text without requiring claim validation", async kind => {
+// D-283 (revises D-197): code-owned retained text (filing, transcript, provider news) still supplies a value-only
+// match; the model's own text (a report claim, an analyst's case or research notes) never does, so a figure found only
+// there keeps a visible "Not matched to a source" note.
+async function retainedTextOutcome(kind: "filing" | "transcript" | "news" | "research" | "case" | "claim") {
   const p = payload(), text = "The company authorized USD 50 billion for repurchases.";
   const excerpt = { source: "edgar:10-K:test", asOf: "2026-11-01", title: "Retained", text, truncated: false, originalChars: text.length };
   const evidence = { fetchedUrls: [], retainedTexts: [] as { source: string; text: string }[] };
@@ -86,8 +89,16 @@ it.each(["filing", "transcript", "news", "research", "case", "claim"] as const)(
   if (kind === "research" || kind === "case") evidence.retainedTexts = [{ source: `analyst:bull.${kind}`, text }];
   const result = await runVerifyPass({} as PassDeps, p, { verdict: { synthesis: "The investment program was USD 50 billion." },
     commentary: kind === "claim" ? [{ label: "FACT", text, source: "unresolved:source", asOf: null }] : [] }, evidence);
-  expect(result.log).toContainEqual(expect.objectContaining({ check: "plain-figure", path: "verdict.synthesis", traceKind: "value-match" }));
   expect(result.log.find(e => e.path === "commentary[0]")?.validationStatus).not.toBe("validated");
+  return result.log.filter(e => e.check === "plain-figure" && e.path === "verdict.synthesis");
+}
+
+it.each(["filing", "transcript", "news"] as const)("finds value-only evidence in retained %s text without requiring claim validation", async kind => {
+  expect(await retainedTextOutcome(kind)).toEqual([expect.objectContaining({ traceKind: "value-match" })]);
+});
+
+it.each(["research", "case", "claim"] as const)("D-283: never finds value-only evidence in model-written %s text", async kind => {
+  expect(await retainedTextOutcome(kind)).toEqual([expect.objectContaining({ traceKind: "untraced", reason: "text-source", note: "Not matched to a source: USD 50 billion." })]);
 });
 
 it("keeps dimension, currency and printed precision restrictions on evidence-wide value matches", async () => {
@@ -107,7 +118,10 @@ it("does not promote low-precision value matches into rates, claim status or exe
   report.leadership.executives[0]!.grade = "A";
   const p = payload();
   const before = await runVerifyPass({} as PassDeps, p, report);
-  const after = await runVerifyPass({} as PassDeps, p, report, { fetchedUrls: [], retainedTexts: [{ source: "analyst:bear.research", text: "Operating margin was 8.3%." }] } as VerificationEvidence);
+  // D-283: the value now comes from code-owned retained text (a provider news row), as model-written research no longer counts.
+  const withNews = payload();
+  withNews.news.notes = ["Operating margin was 8.3%."];
+  const after = await runVerifyPass({} as PassDeps, withNews, report, { fetchedUrls: [], retainedTexts: [] } as VerificationEvidence);
   expect(after.log).toContainEqual(expect.objectContaining({ path: "verdict.synthesis", traceKind: "value-match", validationStatus: "unchecked", numericSupportStatus: "unchecked", claimSupportStatus: "unreviewed" }));
   expect(after.verificationRate).toEqual(before.verificationRate);
   expect(after.coverage).toEqual(before.coverage);

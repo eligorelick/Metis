@@ -218,6 +218,7 @@ import { pipelinePasses } from "@/pipeline/stageC/index";
 
 import {
   assembleContextPayload,
+  formatFigure,
   serializePayloadForPrompt,
   payloadFingerprint,
   fnv1a32,
@@ -1146,6 +1147,14 @@ describe("payload determinism + provenance", () => {
       // D-272: keep the preceding capital bytes pinned separately from the new disclosure.
       const priorCapital={...(written.capital as Record<string,unknown>)};
       delete priorCapital.cashDividendPayout;
+      // D-282 (R10): the coverage qualification is the only capital addition; every other byte stays pinned.
+      const coverage = { ...(priorCapital.interestCoverage as Record<string, unknown>) };
+      const current = { ...(priorCapital.current as Record<string, unknown>) };
+      expect([coverage.unverifiedOperands, current.interestCoverageUnverifiedOperands]).toEqual([["ebit", "interestExpense"], ["ebit", "interestExpense"]]);
+      delete coverage.unverifiedOperands;
+      delete current.interestCoverageUnverifiedOperands;
+      priorCapital.interestCoverage = coverage;
+      priorCapital.current = current;
       expect(sha256Text(JSON.stringify(priorCapital)).slice(0,16)).toBe("345abeca6e98de5e");
       // Every top-level key in its serialized order; finance keys are pinned leaf by leaf above.
       return Object.entries(written).map(([key, value]) =>
@@ -1158,7 +1167,7 @@ describe("payload determinism + provenance", () => {
       "degradation f591b71ec31aefa2",
       "growth 3b108cfa32943129",
       "returns 5837ec4162747280",
-      "capital 249342fbfd071cd5", // D-272: only cashDividendPayout is new; preceding capital hash asserted above.
+      "capital 345a2ead5990f0ce", // D-272 cashDividendPayout and D-282 coverage qualification are new; preceding capital hash asserted above.
       "forensics 0d59d3ffecb6f45c",
       "technicals 0d0c7b3f39a71e07",
       "valuation (frozen record)",
@@ -1296,7 +1305,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.108.0"); // D-286-D-290 review: fiscal WACC pairing and truthful evidence labels
+    expect(first.payloadVersion).toBe("1.109.0"); // D-282 (R10): coverage operand qualification
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1939,12 +1948,68 @@ describe("payload budget helpers", () => {
     const { payload, computed } = buildInputs();
     const current = computed.capital.current!;
     expect(current).toBeDefined();
+    // D-282: the fixture's vendor EBIT and interest have no filed evidence, so
+    // the shown coverage registers unestablished, never as a verifiable number.
+    expect(current.interestCoverageUnverifiedOperands).toEqual(["ebit", "interestExpense"]);
+    expect(payload.provenanceRegistry!.some((record) => record.id === "computed.capital.current.interestCoverage")).toBe(false);
+    expect(payload.citationRegistry).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "computed.capital.current.interestCoverage", kind: "payload-unestablished", asOf: current.asOf }),
+    ]));
     expect(payload.provenanceRegistry).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: "computed.capital.current.interestCoverage", value: current.interestCoverage, asOf: current.asOf }),
       expect.objectContaining({ id: "computed.capital.current.cashBridge.operatingCashFlow", value: current.cashBridge.operatingCashFlow, currency: current.currency }),
       expect.objectContaining({ id: "computed.forensics.accruals.cashFlowAccrualRatio", value: computed.forensics.accruals!.cashFlowAccrualRatio }),
       expect.objectContaining({ id: "computed.forensics.accruals.aggregateAccrualsCashFlow", value: computed.forensics.accruals!.aggregateAccrualsCashFlow }),
     ]));
+  });
+
+  it("D-282: coverage is a verifiable number only when filed evidence establishes both operands, annual and TTM", () => {
+    // Filed evidence for each row's own period: operating income (filed tag) and
+    // interest expense the vendor amount agrees with.
+    const proof = (end: string, start: string, tag: string) => ({ source: "edgar" as const, unit: "USD", periodStart: start, periodEnd: end, tags: [`us-gaap/${tag}`],
+      filings: [{ form: "10-Q", accn: `0000320193-${end}`, filed: end }], observedAt: "2026-07-01T00:00:00Z" });
+    const established = (interest: boolean) => {
+      const bundle = fixtureBundle();
+      for (const family of [bundle.statements.incomeAnnual, bundle.statements.incomeQuarterly]) {
+        if (!family.ok) throw new Error("fixture requires income statements");
+        for (const row of family.value.data.rows) {
+          const end = String(row.date), start = `${Number(end.slice(0, 4)) - 1}${end.slice(4)}`;
+          row.fieldProvenance = { ...row.fieldProvenance, revenue: proof(end, start, "Revenues"), operatingIncome: proof(end, start, "OperatingIncomeLoss") };
+          if (interest) row.interestExpenseAgreement = proof(end, start, "InterestExpense");
+        }
+      }
+      const computed = runStageB(bundle);
+      return { computed, payload: pipelinePasses.assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") })) };
+    };
+    // Control: both operands established, annual and TTM coverage are numbers.
+    const full = established(true);
+    expect(full.computed.capital.interestCoverage.unverifiedOperands).toBeUndefined();
+    expect(full.computed.capital.current?.basis).toBe("ttm");
+    expect(full.computed.capital.current?.interestCoverageUnverifiedOperands).toBeUndefined();
+    for (const id of ["computed.capital.interestCoverage", "computed.capital.current.interestCoverage"]) {
+      expect(full.payload.provenanceRegistry!.some((record) => record.origin === id)).toBe(true);
+      expect(full.payload.citationRegistry?.some((record) => record.id === id)).toBe(false);
+    }
+    // Partially established: filed EBIT, vendor-only interest. The value is
+    // unchanged and still shown, but no number citing it can verify.
+    const partial = established(false);
+    expect(partial.computed.capital.interestCoverage.value).toBe(full.computed.capital.interestCoverage.value);
+    expect(partial.computed.capital.interestCoverage.unverifiedOperands).toEqual(["interestExpense"]);
+    expect(partial.computed.capital.current?.interestCoverage).toBe(full.computed.capital.current?.interestCoverage);
+    expect(partial.computed.capital.current?.interestCoverageUnverifiedOperands).toEqual(["interestExpense"]);
+    for (const id of ["computed.capital.interestCoverage", "computed.capital.current.interestCoverage"]) {
+      expect(partial.payload.provenanceRegistry!.some((record) => record.origin === id || record.id === id)).toBe(false);
+      expect(partial.payload.citationRegistry).toEqual(expect.arrayContaining([expect.objectContaining({ id, kind: "payload-unestablished" })]));
+    }
+    // The value stays displayed and the model's row is byte-identical (label, value and printed tag); the printed
+    // tag itself registers unestablished, so a claim citing it reads gap-source-number, never unknown-source.
+    const row = (payload: typeof full.payload, source: string) => payload.computed.flatMap((section) => section.figures).find((figure) => figure.source === source);
+    for (const source of ["computed.capital.interestCoverage", "computed.capital.current.interestCoverage"]) {
+      expect(formatFigure(row(partial.payload, source)!)).toBe(formatFigure(row(full.payload, source)!));
+      const tag = row(partial.payload, source)!.provenanceId!;
+      expect(tag).not.toBe(source);
+      expect(partial.payload.citationRegistry).toEqual(expect.arrayContaining([expect.objectContaining({ id: tag, kind: "payload-unestablished", origin: source })]));
+      expect(partial.payload.provenanceRegistry!.some((record) => record.id === tag)).toBe(false);
+    }
   });
 
   it("wraps provider-controlled prose in explicit untrusted-data envelopes", () => {
@@ -2768,7 +2833,10 @@ describe("final assembled report verification", () => {
     // numbers are the judge's deliberately-untraceable "analyst memory" fixtures.
     const unverified = numbers.filter((number) => number.verified !== true);
     expect(unverified.length).toBeGreaterThan(0); // the fixture's untraceable ones
-    expect(unverified.filter((number) => number.source !== "analyst memory")).toEqual([]);
+    // D-282: the one exception is the coverage built on the fixture's vendor-only
+    // EBIT and interest; it is shown and stays unconfirmed (gap-source-number).
+    expect(unverified.filter((number) => number.source !== "analyst memory").map((number) => [number.source, number.verificationNote]))
+      .toEqual([["computed.capital.current.interestCoverage", "[unverified] gap-source-number"]]);
 
     if (report.fairValue?.status === "available") {
       expect(report.fairValue.perShare).not.toBeNull();
@@ -2972,7 +3040,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.95.0"); // D-286-D-290 review: fiscal WACC pairing and truthful evidence labels
+    expect(report.meta.specVersion).toBe("1.95.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations, coverage operands
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

@@ -113,6 +113,7 @@ import {
   isIncompleteAnalystCase,
   previousOutputBlock,
   renderUntrustedJson,
+  reciteFeedClaims,
   type ContextPayload,
 } from "@/pipeline/stageC/payload";
 import {
@@ -129,7 +130,7 @@ import {
 } from "@/pipeline/stageC/provenance";
 import { currencyCandidateInBaseUnits, matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
 import { unitLabel } from "@/report/format";
-import { buildPlainFigureIndex, checkPlainFigures, descriptionConflictsWithRecord, filedCalendarFiscalLabel, reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan, type PlainFigureText } from "@/pipeline/stageC/claimEvidence";
+import { buildPlainFigureIndex, checkPlainFigures, descriptionConflictsWithRecord, filedCalendarFiscalLabel, reportedSeriesLatest, validateClaimNumericSupport, valueConflictAtRecordDate, type ClaimEvidenceIndex, type ClaimSourceSpan, type PlainFigureText } from "@/pipeline/stageC/claimEvidence";
 import {
   parseCitationRef,
   citationAsOf,
@@ -3555,6 +3556,9 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     if (sourceFactSummary) reportRoot.sourceFactSummary = sourceFactSummary;
     else delete reportRoot.sourceFactSummary;
   }
+  // D-285 (P20, K33): a whole-feed news citation is re-cited to its one article or the statement is removed,
+  // before any guard or check below reads a path.
+  const recitation = reciteFeedClaims(verifiedReport, payload.news?.articles ?? []);
   const guardedReferences = guardEarningsReferences(verifiedReport, sourceFactSummary?.earningsReconciliation.status === "available");
   Object.assign(verifiedReport, guardedReferences.report);
   const guardedSchedule = guardEarningsSchedule(verifiedReport, payload.estimates?.notes ?? [], payload.citationRegistry, (payload.filings ?? []).filter(entry => entry.sourceEvidence?.kind === "issuer-statement").map(entry => entry.source),
@@ -3601,7 +3605,17 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     transcriptSource: payload.transcript?.source,
   });
 
-  const log: VerificationLogEntry[] = [...guardedReferences.log, ...guardedSchedule.log];
+  const log: VerificationLogEntry[] = [...guardedReferences.log, ...guardedSchedule.log,
+    ...recitation.removed.map(({ path, claim, candidates }): VerificationLogEntry => ({
+      claim: claim.text,
+      outcome: "removed",
+      note: `Removed: the statement cites the whole news feed on ${citationAsOf(claim) ?? "an undated day"}, and the payload holds ${candidates === 0 ? "no article" : candidates === 1 ? "one article without a link" : `${candidates} articles`} of that feed and date, so no single article can be named (D-285).`,
+      traceKind: "untraced",
+      path,
+      evidenceKind: claim.label === "JUDGMENT" ? "judgment" : "factual-claim",
+      source: claim.source,
+      reason: "unknown-source",
+    }))];
   let traced = 0;
 
   // D-45: the excerpts a number may be read against, and the one currency a
@@ -3729,6 +3743,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         // period or currency still mismatches, so a genuine error is not masked.
         // AI-408 / OD-3: retain decidable conflicts before erasing the
         // period-less as-of decoration used by the historical haiku output.
+        const periodStated = number.period != null && number.period.trim() !== "";
         const suppliedPeriodConflict = record.period === null && number.period != null &&
           recordPeriodAgreement(number.period, record) === false;
         if (record.period === null && number.period != null && !suppliedPeriodConflict) number.period = null;
@@ -3756,6 +3771,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
             ...(number.periodContext === undefined ? {} : { periodContext: number.periodContext }),
             asOf: sourceAsOf ?? "",
             source: sourceId ?? "",
+            periodStated,
           },
           registry,
         );
@@ -3879,9 +3895,14 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       const parts = name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
       return parts.length > 1 && parts.every((part) => claimWords.has(part));
     });
-    const validation = supported && !scheduleQualified && sourceId !== null
-      ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: [...issuerWords, ...namedPeople], index: claimEvidenceIndex, seriesLatest, registry })
-      : { status: "unchecked" as const, reason: match.reason, note: "citation unavailable or rejected; factual content unchecked", spans: [] };
+    const validationOptions = { record: registryRecord, excerpts, sourceId: sourceId ?? "", reportingCurrency, ignoreWords: [...issuerWords, ...namedPeople], index: claimEvidenceIndex, seriesLatest, registry };
+    // D-282 (P19, A1): a wrong cited date does not hide a value conflict with the one record the id names.
+    const dateConflict = !supported && !rejected && !scheduleQualified && !judgment && match.reason === "date-mismatch" && sourceId !== null
+      && registry.filter((record) => record.id === sourceId).length === 1
+      ? valueConflictAtRecordDate(claim, validationOptions) : null;
+    const validation = dateConflict ?? (supported && !scheduleQualified && sourceId !== null
+      ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, validationOptions)
+      : { status: "unchecked" as const, reason: match.reason, note: "citation unavailable or rejected; factual content unchecked", spans: [] });
     if (supported && validation.status === "unchecked" && citationRegistry.some((entry) => entry.id === sourceId && entry.allowedNumbers !== undefined)) {
       validation.reason = "supported";
       validation.note = "citation and ordered declared text values matched; metric-specific content remains unchecked";
@@ -3926,7 +3947,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       // Matching quantities does not adjudicate the entire prose proposition.
       // Keep numeric validation/counts while exposing the narrower claim scope.
       outcome: "unverified",
-      note: scheduleQualified ? "Provider-only event date qualified; the original citation does not establish company confirmation or validate the surrounding claim." : supported
+      note: scheduleQualified ? "Provider-only event date qualified; the original citation does not establish company confirmation or validate the surrounding claim." : dateConflict ? dateConflict.note : supported
         ? statusFinding?.note ?? validation.note
         : rejected
           ? rejection?.check === "named-individual"
@@ -3943,7 +3964,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       path,
       evidenceKind: judgment ? "judgment" : "factual-claim",
       source: sourceId ?? claim.source,
-      reason: scheduleQualified ? "earnings-date-qualified" : rejected ? (rejection?.reason ?? "unknown-source") : !supported ? match.reason : statusFinding?.reason ?? validation.reason,
+      reason: scheduleQualified ? "earnings-date-qualified" : rejected ? (rejection?.reason ?? "unknown-source") : dateConflict ? dateConflict.reason : !supported ? match.reason : statusFinding?.reason ?? validation.reason,
       validationStatus,
       numericSupportStatus: validationStatus,
       claimSupportStatus: validated ? "numeric-only" : validationStatus === "contradicted" ? "contradicted" : supported ? "cited" : "unreviewed",
@@ -3971,11 +3992,13 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     });
   }
 
+  // D-283 (P18, P19; revises D-197): a plain figure may value-match only code-owned evidence: the numeric
+  // records, retained filing and transcript text and the provider's news rows. The report's own claims and the
+  // analysts' retained cases and research notes are model-written, so a figure found only there (a model's own
+  // key number restated in the verdict) is "not matched", never an unmarked value match.
   const plainIndex = buildPlainFigureIndex(registry, [
     ...excerpts.map(excerpt => ({ source: excerpt.source, text: excerptBodyForVerification(excerpt) })),
     ...(payload.news?.notes ?? []).map(text => ({ source: "payload.news", text })),
-    ...claims.map(({ claim }) => ({ source: claim.source, text: claim.text })),
-    ...(evidence.retainedTexts ?? []),
   ], reportingCurrency, issuerWords);
   for (const { path, text } of collectPlainProse(verifiedReport)) {
     const results = checkPlainFigures(text, { registry, excerpts, reportingCurrency, ignoreWords: issuerWords, seriesLatest, index: plainIndex });

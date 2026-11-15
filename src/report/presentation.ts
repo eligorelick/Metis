@@ -30,6 +30,68 @@ export function withPlainFigureNotes(report: Report): Report {
   return next;
 }
 
+/** D-282: the mark a model-written paragraph or table cell carries; the legend explains it. */
+export const MODEL_PROSE_MARK = `[${CLAIM_STATUS_WORDS.unverified}]`;
+/** D-282 review round 2 (lead decision): the caption on every AI-authored table, card or row group, on every
+ * surface. Its titles, dates and ratings are the AI's; a cell inside it that code checked keeps its own mark. */
+export const AI_BLOCK_CAPTION = "Written by the AI; not checked by code.";
+
+const GRADE_PROSE_KEYS = ["oneLineWhy", "interpretation"] as const;
+const GRADED_SECTIONS = ["fundamentals", "balanceSheet", "valuation", "quality", "technicals", "leadership"] as const;
+const MODELED_CONDITIONS_PREFIX = "Modeled conditions: ";
+
+/** A report the AI wrote; a data-only report's text is written by code (it records the analysis.llm gap). */
+export function isModelWrittenReport(report: Pick<Report, "appendix">): boolean {
+  return !report.appendix.missingData.some(gap => gap.field === "analysis.llm");
+}
+
+/**
+ * D-282 (P19, P22; release item R1): every model-written paragraph or table
+ * cell that is not a tagged statement carries the "not confirmed" mark, on
+ * every surface: the verdict paragraph, each grade's one-line reason and
+ * interpretation, the debate resolutions, the reverse-DCF and market-share
+ * narratives, the technical read, scenario commentary and model-written
+ * conditions, and the macro relevance lines. Code-written text (a data-only
+ * report, a modeled-conditions line, the code-built trend line) is not marked.
+ * Read time only: the stored report is unchanged (P21).
+ */
+export function withModelProseMarks(report: Report): Report {
+  if (!isModelWrittenReport(report)) return report;
+  const next = structuredClone(report);
+  const mark = (text: string | null | undefined): string | null | undefined =>
+    typeof text === "string" && text.trim() !== "" && !text.trimEnd().endsWith(MODEL_PROSE_MARK) ? `${text} ${MODEL_PROSE_MARK}` : text;
+  const markBlock = (block: unknown): void => {
+    if (!block || typeof block !== "object") return;
+    const record = block as Record<string, unknown>;
+    for (const key of GRADE_PROSE_KEYS) if (typeof record[key] === "string") record[key] = mark(record[key] as string);
+  };
+  const root = next as unknown as Record<string, Record<string, unknown> | undefined>;
+  if (next.verdict) {
+    next.verdict.synthesis = mark(next.verdict.synthesis) as string;
+    for (const block of Object.values(next.verdict.gradeStrip ?? {})) markBlock(block);
+  }
+  for (const section of GRADED_SECTIONS) markBlock(root[section]?.graded);
+  markBlock(root.competitive?.moatGraded);
+  if (next.competitive && typeof next.competitive.marketShareDirection === "string") next.competitive.marketShareDirection = mark(next.competitive.marketShareDirection) as string;
+  for (const d of next.disagreements ?? []) {
+    d.judgeResolution = mark(d.judgeResolution) as string;
+    d.bullView = mark(d.bullView) as string;
+    d.bearView = mark(d.bearView) as string;
+  }
+  if (next.valuation?.reverseDcf && typeof next.valuation.reverseDcf.narrative === "string") next.valuation.reverseDcf.narrative = mark(next.valuation.reverseDcf.narrative) as string;
+  for (const scenario of next.valuation?.scenarios ?? []) {
+    if (scenario.qualitativeCommentary) scenario.qualitativeCommentary = scenario.qualitativeCommentary.map(text => mark(text) as string);
+    scenario.whatWouldHaveToBeTrue = scenario.whatWouldHaveToBeTrue.map(text => text.startsWith(MODELED_CONDITIONS_PREFIX) ? text : mark(text) as string);
+  }
+  const read = next.technicals?.read as Record<string, unknown> | undefined;
+  if (read) for (const key of ["momentum", "keyLevels", "relativeStrength"]) if (typeof read[key] === "string") read[key] = mark(read[key] as string);
+  for (const series of next.macro?.relevantSeries ?? []) series.relevance = mark(series.relevance) as string;
+  // Review round 1: flags in a model-written report are the judge's (passes.ts
+  // assembly copies them from the judge output); code flags exist only in data-only reports.
+  for (const flag of [...(next.quality?.flags ?? []), ...(next.technicals?.flags ?? [])]) flag.text = mark(flag.text) as string;
+  return next;
+}
+
 /** One reminder per checked report; absence of a field note never asserts verification. */
 export function plainFigureReaderNote(report: Report): string | null {
   return report.appendix.verificationLog?.some(entry => entry.check === "plain-figure")
@@ -59,7 +121,7 @@ import { formatScore } from "@/report/scoreText";
 import { attributeGradeReliability, type AttributeGradeReliability } from "@/report/gradeReliability";
 import { displayedClaimCoverage, displayedFactualValidation, displayedValidationStatus, numericClaimPartition } from "@/report/claimMatching";
 export { displayedValidationStatus } from "@/report/claimMatching";
-import { isComputedFigure } from "@/report/verificationMarks";
+import { CLAIM_STATUS_WORDS, isComputedFigure, isContradictedFigure } from "@/report/verificationMarks";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { fairValueDegradedText, readerFairValueBasisText, readerFairValueReferenceText, readerFairValueWithheldText } from "@/report/fairValueText";
@@ -479,6 +541,11 @@ export function sourceLabel(source: string): string {
   if (riskFree) return `Risk-free rate (${riskFreeSourceLabel(riskFree[1]!)})`;
   if (/^(computed|payload|manifest)\.[^\s]+$/.test(source)) return metricLabel(source);
   // FIGR extra-high audit: pipeline-owned notes printed their raw ids.
+  // D-285: a statement re-cited to one news article names its publisher, title and link; a whole-feed tag
+  // (a saved report's, or a row's source column) says that no single article is named.
+  const article = /^news: (.+)$/.exec(source);
+  if (article) return article[1]!;
+  if (/^(?:(?:fmp|finnhub):news|fmp:press-release)$/.test(source.trim())) return "News feed (no single article identified)";
   const pipeline = /^pipeline:([a-z-]+)$/.exec(source);
   if (pipeline) return ({ "insider-coverage": "Insider-filing coverage", "report-reference": "Report cross-reference" } as Record<string, string>)[pipeline[1]!] ?? sentence(segmentWords(pipeline[1]!));
   return source;
@@ -511,14 +578,21 @@ export interface FigureRow {
   /** The measurement window, or null when the figure did not supply one. */
   period: string | null;
   asOf: string | null;
-  /** "✓", "computed" (a data-only report's figure), "untraced" or "not checked". */
+  /** "✓", "computed" (a data-only report's figure), "not confirmed", "contradicted" or "not checked". */
   cited: string;
   trace: TracedNumber;
 }
 
+/**
+ * A figure's Cited mark. F-23: a data-only report ran no citation check; its
+ * figures were computed. D-282 (P18, P19): a figure code could not match to its
+ * record at stored precision reads "not confirmed", and one whose value
+ * conflicts with that record reads "contradicted", in every table that shows it.
+ */
 export function citedMark(n: TracedNumber): string {
-  // F-23: a data-only report ran no citation check; its figures were computed.
-  return n.verified === true ? isComputedFigure(n) ? "computed" : "✓" : numericCitationTraceLabel(n.verified);
+  if (n.verified === true) return isComputedFigure(n) ? "computed" : "✓";
+  if (n.verified === false) return isContradictedFigure(n) ? "contradicted" : "not confirmed";
+  return numericCitationTraceLabel(n.verified);
 }
 
 /**

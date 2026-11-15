@@ -53,12 +53,38 @@ function markedReport(): Report {
   return ReportSchema.parse(r);
 }
 
-const MARKS = ["validated", "unverified", "contradicted", "qualitative"] as const;
-const EXPECTED = { validated: 1, unverified: 1, contradicted: 1, qualitative: 1 };
+// D-282: "unverified" and "qualitative" both read "not confirmed"; a FACT or ESTIMATE the log has no entry for reads the same.
+const MARKS = ["validated", "not confirmed", "contradicted"] as const;
+// Exact statement marks on Markdown and print: the logged validated and contradicted claims, and 23 not
+// confirmed (the logged cited and unchecked claims and every FACT/ESTIMATE without an entry of its own).
+const EXPECTED = { validated: 1, "not confirmed": 23, contradicted: 1 };
+// The one documented rendering difference: Markdown and print show a catalyst's reasoning as one table
+// cell under one mark; the app lists it as a marked statement. The fixture has one such catalyst.
+const EXPECTED_APP = { ...EXPECTED, "not confirmed": 24 };
+// Markdown and print also mark 14 table cells: 7 grade-strip one-line whys, 4 macro relevance cells, the
+// catalyst's reasoning cell, and one quality and one technicals flag.
+const EXPECTED_WITH_CELLS = { ...EXPECTED, "not confirmed": 37 };
 
 function tally(text: string, pattern: (mark: string) => RegExp): Record<string, number> {
   return Object.fromEntries(MARKS.map((mark) => [mark, text.match(pattern(mark))?.length ?? 0]));
 }
+
+/** Each mark keyed by the claim it follows: the fixture's texts name their field ("... text for <field>; ..."). */
+function marksByClaim(text: string, pattern: RegExp): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const match of text.matchAll(pattern)) {
+    const before = text.slice(Math.max(0, match.index - 1500), match.index);
+    const field = [...before.matchAll(/demonstration text for ([^;]+?);/g)].at(-1)?.[1] ?? "?";
+    (out[field] ??= []).push(match[1]!);
+  }
+  return out;
+}
+
+const STATEMENT = {
+  md: /\)_ \[(validated|not confirmed|contradicted)\]$/gm,
+  print: /<\/span> <span class="claim-status">\[(validated|not confirmed|contradicted)\]<\/span>/g,
+  web: /class="claim-status[^"]*">\[(validated|not confirmed|contradicted)\]</g,
+};
 
 describe("per-claim validation marks (audit 2026-10-22 F-21)", () => {
   it("counts only printed claims, so the header equals the marked bullets", () => {
@@ -86,23 +112,47 @@ describe("per-claim validation marks (audit 2026-10-22 F-21)", () => {
   it("marks no claim from a removed entry (review of F-21)", () => {
     const r = markedReport();
     r.appendix.verificationLog = r.appendix.verificationLog!.map((row) => row.path === "fundamentals.commentary[0]" ? { ...row, outcome: "removed" as const } : row);
-    expect(reportToMarkdown(r)).not.toMatch(/\[qualitative\]/);
+    // D-282: the claim is still marked, but only "not confirmed" (no check entry), never its removed entry's status.
+    const md = reportToMarkdown(r);
+    expect(md).toContain(r.fundamentals.commentary[0]!.text);
+    expect(md).not.toMatch(/\[qualitative\]/);
   });
 
   it("marks each factual bullet after its citation in Markdown", () => {
     const md = reportToMarkdown(markedReport());
     // Bullets end "_(citation)_ [mark]"; a table cell escapes the brackets.
-    expect(tally(md, (mark) => new RegExp(`\\)_ \\[${mark}\\]$|\\\\\\[${mark}\\\\\\] \\|`, "gm"))).toEqual(EXPECTED);
+    expect(tally(md, (mark) => new RegExp(`\\)_ \\[${mark}\\]$|\\\\\\[${mark}\\\\\\] \\|`, "gm"))).toEqual(EXPECTED_WITH_CELLS);
   });
 
   it("marks each factual bullet after its citation in print", () => {
     const html = reportToPrintBody(markedReport());
-    expect(tally(html, (mark) => new RegExp(`</span> <span class="claim-status">\\[${mark}\\]</span>|\\[${mark}\\]</td>`, "g"))).toEqual(EXPECTED);
+    expect(tally(html, (mark) => new RegExp(`</span> <span class="claim-status">\\[${mark}\\]</span>|\\[${mark}\\]</td>`, "g"))).toEqual(EXPECTED_WITH_CELLS);
   });
 
   it("marks each factual claim in the dossier layout and leaves judgments unmarked", () => {
     const html = renderToStaticMarkup(createElement(ReportView, { report: markedReport() }));
-    expect(tally(html, (mark) => new RegExp(`class="claim-status[^"]*">\\[${mark}\\]<`, "g"))).toEqual(EXPECTED);
+    expect(tally(html, (mark) => new RegExp(`class="claim-status[^"]*">\\[${mark}\\]<`, "g"))).toEqual(EXPECTED_APP);
+  });
+
+  it("puts each logged claim's own mark after it, the same claims on every surface (review round 1)", () => {
+    const r = markedReport();
+    const md = marksByClaim(reportToMarkdown(r), STATEMENT.md);
+    const print = marksByClaim(reportToPrintBody(r), STATEMENT.print);
+    const web = marksByClaim(renderToStaticMarkup(createElement(ReportView, { report: r })), STATEMENT.web);
+    // The logged claims, one by one: validated, cited and contradicted (the graded reasoning list has five claims, one logged).
+    expect(print["verdict executive summary text"]).toEqual(["validated"]);
+    expect(print["fundamentals commentary text"]).toEqual(["not confirmed"]);
+    expect(print["graded reasoning text"]!.filter((mark) => mark !== "not confirmed")).toEqual(["contradicted"]);
+    expect(print["graded reasoning text"]).toHaveLength(5);
+    // The unchecked catalyst statement: a marked statement in the app, its table cell's mark on the exports.
+    expect(web["catalysts reasoning text"]).toEqual(["not confirmed"]);
+    expect(print["catalysts reasoning text"]).toBeUndefined();
+    expect(reportToPrintBody(r)).toMatch(/catalysts reasoning text;[^<]*<[^]*?\[not confirmed\]<\/td>/);
+    // Equal coverage: Markdown and print mark exactly the same claims; the app adds only the catalyst.
+    expect(md).toEqual(print);
+    const { ["catalysts reasoning text"]: catalyst, ...webRest } = web;
+    expect(catalyst).toEqual(["not confirmed"]);
+    expect(webRest).toEqual(print);
   });
 
   it("marks nothing when no verification pass logged the claims", () => {
@@ -110,6 +160,17 @@ describe("per-claim validation marks (audit 2026-10-22 F-21)", () => {
     r.appendix.verificationLog = [];
     expect(renderToStaticMarkup(createElement(ReportView, { report: r }))).not.toContain("claim-status");
     expect(reportToPrintBody(r)).not.toContain("claim-status");
-    expect(reportToMarkdown(r)).not.toMatch(/\)_ \[(validated|unverified|contradicted|qualitative)\]/);
+    expect(reportToMarkdown(r)).not.toMatch(/\)_ \[(validated|not confirmed|unverified|contradicted|qualitative)\]/);
+  });
+
+  it("D-282: prints the same number of not-confirmed marks on every surface and no old status word", () => {
+    const md = reportToMarkdown(markedReport());
+    const print = reportToPrintBody(markedReport());
+    const web = renderToStaticMarkup(createElement(ReportView, { report: markedReport() }));
+    // Statement marks only: exactly equal on Markdown and print; the app adds the catalyst's statement (see EXPECTED_APP).
+    expect(tally(print, (mark) => new RegExp(`</span> <span class="claim-status">\\[${mark}\\]</span>`, "g"))).toEqual(EXPECTED);
+    expect(tally(md, (mark) => new RegExp(`\\)_ \\[${mark}\\]$`, "gm"))).toEqual(EXPECTED);
+    expect(tally(web, (mark) => new RegExp(`class="claim-status[^"]*">\\[${mark}\\]<`, "g"))).toEqual(EXPECTED_APP);
+    for (const text of [md, print, web]) expect(text).not.toMatch(/\[(?:unverified|qualitative)\]/);
   });
 });
