@@ -5018,11 +5018,11 @@
   {
     "date": "2026-11-15",
     "target": "audit-fixture",
-    "decision": "D-309",
-    "reason": "D-308/D-309 move the report spec stamp to 1.100.0 for read-time reader amounts and complete-evidence full support; only the stamp and its digest change",
+    "decision": "D-307",
+    "reason": "D-307: the current report spec identifies filed effective-tax operand selection; only the report stamp and dependent projection hash move in this fixture.",
     "scope": [
-      "$.projectionSha256",
-      "$.projection.report.meta.specVersion"
+      "$.projection.report.meta.specVersion",
+      "$.projectionSha256"
     ],
     "beforeSha256": "ffa310c888684b5ca441d74a7cc4a6de21f8f43877f2810dabce47ab8aaa0f5e",
     "afterSha256": "1c282b2cbc8cab1e902101ba5e1ec52cacc7a3671a9af66ad2aedc5e821805c4",
@@ -5030,6 +5030,31 @@
     "changedPaths": [
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
+    ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "stagec-payload",
+    "decision": "D-307",
+    "reason": "D-307: the current payload stamp changes with filed effective-tax operand selection; only the dependent header and payload fingerprints move in this synthetic fixture.",
+    "scope": [
+      "$.payloadVersion",
+      "$.payload.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256"
+    ],
+    "beforeSha256": "216c5726b4a4d3348ebb955bb3e19c807d04306a6c355d79d126b2808d3f3c67",
+    "afterSha256": "864f1064f590fd8cbf9e075fccbeb3f91d0551764d97b0a513bf25745b43f311",
+    "changedLeaves": 6,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
     ]
   }
 ]

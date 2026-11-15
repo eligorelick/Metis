@@ -4481,7 +4481,9 @@
           "sign": -1
         }
       ],
-      "notes": []
+      "notes": [
+        "D-307: the report uses the reconciled filed provision and pre-tax amounts once the complete pair is proved; the rate is not inferred from rounded vendor quarters."
+      ]
     },
     {
       "case": "qcom-data-only",

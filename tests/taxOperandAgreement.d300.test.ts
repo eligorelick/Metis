@@ -10,9 +10,9 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { enrichIncomeClassification } from "@/edgar/incomeClassification";
+import { enrichIncomeClassification, effectiveTaxOperands, filedTaxOperandPair } from "@/edgar/incomeClassification";
 import type { CompanyFacts } from "@/edgar/xbrl";
-import { filedTaxOperands } from "@/pipeline/compute";
+import { filedTaxOperands, ttmIncome, effectiveTaxRateFromTtm, waccTaxRateFromStatements } from "@/pipeline/compute";
 import type { FmpIncomeStatementRow, FmpPayload } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
 
@@ -93,4 +93,66 @@ describe("D-300: agreeing tax-rate operands carry the filed proof", () => {
       fieldConflicts: { incomeTaxExpense: { usable: false, vendorValue: 1, secValue: 2, reason: "refused" } } })).toBe(false);
     expect(filedTaxOperands(base)).toBe(false);
   });
+});
+
+
+describe("D-307: filed amounts own the effective rate", () => {
+  it("annual industrial shape: differences inside P8 use the filed pair", () => {
+    const row = admit(YEAR, { incomeBeforeTax: 5000.07, incomeTaxExpense: 1000.05, netIncome: 4000.02 },
+      facts(YEAR, { [PRETAX_TOTAL]: 5000, IncomeTaxExpenseBenefit: 1000, NetIncomeLoss: 4000 }));
+    expect(effectiveTaxOperands(row)).toEqual({ pretax: 5000 * M, tax: 1000 * M });
+    expect(row.incomeBeforeTax).toBe(5000.07 * M);
+    expect(filedTaxOperands(row)).toBe(true);
+  });
+  it("control: missing filed provision keeps vendor amounts and qualification", () => {
+    const row = admit(YEAR, { incomeBeforeTax: 5000.07, incomeTaxExpense: 1000.05, netIncome: 4000.02 },
+      facts(YEAR, { [PRETAX_TOTAL]: 5000, NetIncomeLoss: 4000 }));
+    expect(effectiveTaxOperands(row)).toEqual({ pretax: 5000.07 * M, tax: 1000.05 * M });
+    expect(filedTaxOperands(row)).toBe(false);
+  });
+  it("equity-method shape: the filed provision and base both replace rounding differences", () => {
+    const row = admit(YEAR, { incomeBeforeTax: 96757.5, incomeTaxExpense: 19087.5, netIncome: 77670 },
+      facts(YEAR, { [PRETAX_BEFORE_EQUITY]: 97311, IncomeLossFromEquityMethodInvestments: -554, IncomeTaxExpenseBenefit: 19087, NetIncomeLoss: 77670 }));
+    expect(effectiveTaxOperands(row)).toEqual({ pretax: 97311 * M, tax: 19087 * M });
+  });
+});
+
+
+it("D-307: the complete TTM pair feeds WACC; one unproved quarter keeps the whole vendor pair", () => {
+  const periods = [["2026-04-01", "2026-06-30"], ["2026-01-01", "2026-03-31"],
+    ["2025-10-01", "2025-12-31"], ["2025-07-01", "2025-09-30"]];
+  const rows = periods.map(([start, end], i) => {
+    const period = { ...QUARTER, start: start!, end: end!, filed: "2026-07-29", fp: `Q${4-i}` };
+    return admit(period, { incomeBeforeTax: 5000.07, incomeTaxExpense: 1000.05, netIncome: 4000.02 },
+      facts(period, { [PRETAX_TOTAL]: 5000, IncomeTaxExpenseBenefit: 1000, NetIncomeLoss: 4000 }));
+  });
+  const filed = ttmIncome(rows)!;
+  expect(effectiveTaxRateFromTtm(filed)).toBe(0.2);
+  expect(waccTaxRateFromStatements(filed, undefined).rate).toBe(0.2);
+  const partial = ttmIncome(rows.map((row, i) => i === 0 ? { ...row, taxOperandAgreement: undefined } : row))!;
+  const withoutValues = ttmIncome(rows.map((row, i) => i === 0
+    ? { ...row, taxOperandAgreement: { ...row.taxOperandAgreement!, values: undefined } } : row))!;
+  expect(withoutValues.taxRateOperandsFiled).toBe(false);
+  expect(effectiveTaxRateFromTtm(withoutValues)).toBeCloseTo(1000.05 / 5000.07, 12);
+  expect(partial.taxRateOperandsFiled).toBe(false);
+  expect(effectiveTaxRateFromTtm(partial)).toBeCloseTo(1000.05 / 5000.07, 12);
+});
+
+
+it("D-307 review: a date timestamp and its filed day select the same filed pair", () => {
+  const row = admit(YEAR, { incomeBeforeTax: 5000.07, incomeTaxExpense: 1000.05, netIncome: 4000.02 },
+    facts(YEAR, { [PRETAX_TOTAL]: 5000, IncomeTaxExpenseBenefit: 1000, NetIncomeLoss: 4000 }));
+  const timestamped = { ...row, date: `${YEAR.end}T00:00:00Z` };
+  expect(filedTaxOperandPair(timestamped)).toEqual({ pretax: 5000 * M, tax: 1000 * M });
+  expect(filedTaxOperands(timestamped)).toBe(true);
+  expect(effectiveTaxOperands(timestamped)).toEqual(filedTaxOperandPair(timestamped));
+});
+
+it("D-307 review: proof without filed values cannot establish a filed rate pair", () => {
+  const row = admit(YEAR, { incomeBeforeTax: 5000.07, incomeTaxExpense: 1000.05, netIncome: 4000.02 },
+    facts(YEAR, { [PRETAX_TOTAL]: 5000, IncomeTaxExpenseBenefit: 1000, NetIncomeLoss: 4000 }));
+  const missing = { ...row, taxOperandAgreement: { ...row.taxOperandAgreement!, values: undefined } };
+  expect(filedTaxOperandPair(missing)).toBeNull();
+  expect(filedTaxOperands(missing)).toBe(false);
+  expect(effectiveTaxOperands(missing)).toEqual({ pretax: 5000.07 * M, tax: 1000.05 * M });
 });

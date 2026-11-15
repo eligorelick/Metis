@@ -1,13 +1,13 @@
 {
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
-  "payloadVersion": "1.112.0",
-  "fingerprint": "1.112.0:6c3d425e",
-  "summary": {"promptBytes": 187419, "promptFnv1a32": "6c3d425e", "provenanceCount": 547, "provenanceHash": "693836f4", "provenanceIdsHash": "596aaa95", "citationCount": 93, "citationHash": "673d6ddf", "computedFigureLabelHash": "0212433e", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "13ce15f6"},
+  "payloadVersion": "1.113.0",
+  "fingerprint": "1.113.0:27b19337",
+  "summary": {"promptBytes": 187419, "promptFnv1a32": "27b19337", "provenanceCount": 547, "provenanceHash": "693836f4", "provenanceIdsHash": "596aaa95", "citationCount": 93, "citationHash": "673d6ddf", "computedFigureLabelHash": "0212433e", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "13ce15f6"},
   "prompt": {
     "bytes": 187419,
-    "sha256": "d45c82488ff505f4a6630ff9667c2e995cc8608b4f64723c29f5b1674a05be2e",
+    "sha256": "6cdd56bae4fd098b04856f41dc19333231079a72100b10cccbe29e7a116709d2",
     "sections": [
-      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "012d35482cdb5b00c70ce932e313dda22e874f7605f18cf0d35c1ca56b4295ec"},
+      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "2a6a2d3e4ba4ceee54c350ef46f505a7f1ce11566d326f685bebdd4703da7169"},
       {"heading": "## Quote", "bytes": 520, "sha256": "5146e60fd664d5a82bbbf06b3413303e1136d43422948e7ad1e8c645380d4026"},
       {"heading": "## Growth & margins (computed)", "bytes": 2984, "sha256": "0a99f8d4e346e47a0c3816bac522e18117123512e830df57a2ae624db2407749"},
       {"heading": "## Returns (computed)", "bytes": 4571, "sha256": "99b14a71776e61ad00ffed6b57fcfc429d6d2c92fc6de78a29bc2491a451d898"},
@@ -5845,7 +5845,7 @@
     {"id": "fmp:key-executives", "kind": "payload-text", "asOf": null, "origin": "fmp:key-executives"}
   ],
   "payload": {
-    "payloadVersion": "1.112.0",
+    "payloadVersion": "1.113.0",
     "symbol": "AAPL",
     "companyName": "Apple Inc.",
     "route": {"base": "general", "overlays": [], "sector": "Technology", "industry": "Consumer Electronics"},
