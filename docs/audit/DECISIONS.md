@@ -74,7 +74,9 @@ verifier's metric match is a P19 change outside this brief.
 
 **Revises D-264** ("the original officer prefix ... remains untouched"). `tests/report.executiveDecisions.test.ts`
 (D-264 card test) now asserts the company-record wording on all three surfaces, that the stored text is absent from
-them, and still that the stored report is byte-identical: at least as strict.
+them, and still that the stored report is byte-identical; `tests/report.amznPresentationNits.test.ts` (pooled
+not-assessed list) now expects the exact "Company record during the tenure of <Name>: ..." text. Both are at least as
+strict as before.
 
 **Before and after (same-report check).** Lines changed from "<Name>: ..." to the company-record form: AMZN
 fixed-analyst 4 (Jassy: guidance share, TTM operating cash flow, each on the card and in a repeat), NVDA 4 (Huang,
