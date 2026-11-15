@@ -1,4 +1,5 @@
 import releaseW3Deltas from "./fixtures/release-w3-forensic-deltas.json";
+import releaseW4aDeltas from "./fixtures/release-w4a-wording-deltas.json";
 import { restorePublicPolishGolden } from "./helpers/publicPolishGolden";
 import { restoreP2ComputedGolden } from "./helpers/p2DcfInputsGolden";
 import { createHash } from "node:crypto";
@@ -184,6 +185,15 @@ describe("retained forensic observation context on real data-only exports", () =
     // observed at the balance date, so every value is unchanged; the four leaves the dated history adds are asserted
     // exactly below and restored, and the pin keeps checking every other byte.
     const computed = runStageB(fixture(undefined, BALANCE_DATE_CAP), { evIncludeLeases: false });
+    // D-296: the reader-wording change moves only these text leaves (no number). Assert each new text, then
+    // restore the preceding bytes before the earlier release deltas below.
+    for (const delta of releaseW4aDeltas) {
+      let parent = computed as unknown as Record<string | number, unknown>;
+      for (const key of delta.path.slice(0, -1)) parent = parent[key] as Record<string | number, unknown>;
+      const key = delta.path.at(-1)!;
+      expect(parent[key], delta.path.join(".")).toEqual(delta.after);
+      parent[key] = delta.before;
+    }
     // D-288/D-290: assert every release delta before restoring this historical whole-output pin.
     for (const delta of releaseW3Deltas) {
       let parent = computed as unknown as Record<string, unknown>;

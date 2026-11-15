@@ -955,8 +955,13 @@ export const ProductLineItemSchema = z
   .strict();
 export type ProductLineItem = z.infer<typeof ProductLineItemSchema>;
 
-/** D-271: the code-owned heading for an item whose stated name is not in its FACT claims. */
-export const UNNAMED_PRODUCT_LINE_HEADING = "Product line (its name is not in the cited claims)";
+/**
+ * D-271: the code-owned heading for an item whose stated name is not established.
+ * D-299: a neutral heading; the earlier parenthetical read as a defect report.
+ */
+export const UNNAMED_PRODUCT_LINE_HEADING = "Product line";
+/** D-299: the heading reports saved before D-299 (and model text copying it) carry; still a placeholder, never a name. */
+export const LEGACY_UNNAMED_PRODUCT_LINE_HEADING = "Product line (its name is not in the cited claims)";
 /** D-271: the group heading over the business-story subsections (read by the presentation and the peer note). */
 export const BUSINESS_STORY_HEADING = "The business";
 
@@ -996,7 +1001,7 @@ export function productLineNamedInClaims(item: { productLine: string; claims: re
  */
 export function productLineNamingClaims<C extends Pick<SourcedClaim, "text" | "label">>(item: { productLine: string; claims: readonly C[] }): C[] {
   const heading = headingText(item.productLine);
-  if (!heading || heading === headingText(UNNAMED_PRODUCT_LINE_HEADING)) return [];
+  if (!heading || heading === headingText(UNNAMED_PRODUCT_LINE_HEADING) || heading === headingText(LEGACY_UNNAMED_PRODUCT_LINE_HEADING)) return [];
   const wordChar = /[\p{L}\p{N}]/u;
   return item.claims.filter(claim => {
     if (claim.label !== "FACT") return false;

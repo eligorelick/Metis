@@ -404,7 +404,7 @@ const DAY_MS = 86_400_000;
 export const SBC_SUBTRACTED_FROM_FCF = true;
 
 const FCF_SBC_BASIS =
-  "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation " +
+  "Free cash flow = operating cash flow + capital expenditure (the provider records capex as negative), MINUS stock-based compensation " +
   "(house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, " +
   "\"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; " +
   "the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. " +
@@ -418,7 +418,7 @@ const MAINT_CAPEX_HEURISTIC_NOTE =
 
 const BUYBACK_HEURISTIC_NOTE =
   "HEURISTIC: the proxy assumes shares were repurchased at each fiscal year's average price (average daily market cap ÷ basic weighted-average shares, diluted as a disclosed fallback); its premium/discount to today's quote measures price appreciation since the repurchases, not timing, and is not graded. " +
-  "Timing (D-61, graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent";
+  "Timing (graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent";
 
 /**
  * D-61 house rules for repurchase timing. A paid price more than 1.6× away
@@ -735,7 +735,7 @@ export function computeCapital(
     } else if (cf.length > 0) {
       gaps.push({
         field: "capital.maintenanceCapex",
-        reason: "depreciationAndAmortization missing/≤0 on latest cash-flow row — capex split heuristic unavailable",
+        reason: "depreciation and amortization missing/≤0 on latest cash-flow row — capex split heuristic unavailable",
         severity: "info",
       });
     }
@@ -799,7 +799,7 @@ export function computeCapital(
     else if (resolution.value === null) { /* no net debt to adjust; the resolution says why */ }
     else if (leaseExcluded) ndNotes.push(`net debt excludes the operating-lease liability ${fmt(operatingLease as number)}, as enterprise value does (EBITDA is already after operating-lease cost)`);
     else if (leaseScope !== null) ndNotes.push(`${leaseScope}, as enterprise value is`);
-    ndNotes.push(`${resolution.version}: ${resolution.reason}`);
+    ndNotes.push(`house net-debt basis: ${resolution.reason}`);
     ndNotes.push(leaseEvidenceNote(latestBal, { removed: netDebt !== null && leaseExcluded ? operatingLease ?? null : null }).replace(/\.$/, ""));
     // EBITDA: own computation preferred (operatingIncome + cash-flow D&A), vendor fallback noted.
     const latestInc: CapitalIncomeRow | undefined = inc.length > 0 ? inc[0] : undefined;
@@ -825,13 +825,13 @@ export function computeCapital(
     if (ebitLatest !== null && daLatest !== null) {
       ebitda = ebitLatest + daLatest;
       ebitdaComputed = true;
-      ndNotes.push("EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)");
+      ndNotes.push("EBITDA computed as operating income + cash-flow D&A (latest FY, not TTM)");
     } else if (latestInc !== undefined && isFiniteNumber(latestInc.ebitda)) {
       ebitda = latestInc.ebitda;
       ndNotes.push(
         cfMatch !== undefined && isFiniteNumber(cfMatch.depreciationAndAmortization) && cfMatch.depreciationAndAmortization <= 0
-          ? `vendor ebitda field used (cash-flow D&A ${fmt(cfMatch.depreciationAndAmortization)} treated as undisclosed)`
-          : "vendor ebitda field used (own operatingIncome + D&A not computable)",
+          ? `vendor EBITDA used (cash-flow D&A ${fmt(cfMatch.depreciationAndAmortization)} treated as undisclosed)`
+          : "vendor EBITDA used (own operating income + D&A not computable)",
       );
     }
     let value: number | null = null;
@@ -883,7 +883,7 @@ export function computeCapital(
       if (intExp === null) {
         note =
           intRaw === 0
-            ? "interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m"
+            ? "interest expense = 0 treated as undisclosed (the provider writes zero for undisclosed) — coverage n/m"
             : "interest expense missing — coverage n/m";
         gaps.push({
           field: "capital.interestCoverage",
@@ -1085,7 +1085,7 @@ export function computeCapital(
     } else if (inc.length > 0) {
       gaps.push({
         field: "capital.shareCountTrend",
-        reason: "fewer than two periods of weightedAverageShsOutDil — share trend unavailable",
+        reason: "fewer than two periods of diluted weighted-average shares — share trend unavailable",
         severity: "warn",
       });
     }

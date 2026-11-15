@@ -12,11 +12,11 @@ export function resolveConsolidatedEquity(input: EquityScopeInputs): { value: nu
   // Zero and negative consolidated totals remain authoritative. Their sign is
   // not evidence of a vendor placeholder; callers guard nonpositive capital.
   if (total !== null) {
-    return { value: total, basis: "totalEquity", reason: "consolidated total equity including NCI; NCI is not added again" };
+    return { value: total, basis: "total equity", reason: "consolidated total equity including NCI; NCI is not added again" };
   }
   if (parent === null) return { value: null, basis: "unavailable", reason: "consolidated and parent equity unavailable" };
-  if (nci !== null) return { value: parent + nci, basis: "totalStockholdersEquity + minorityInterest", reason: "parent equity plus signed noncontrolling interest matches consolidated operating profit" };
-  return { value: parent, basis: "totalStockholdersEquity (NCI undisclosed)", reason: "parent equity fallback; NCI is undisclosed, so consolidated ownership scope is unverified" };
+  if (nci !== null) return { value: parent + nci, basis: "parent stockholders' equity + noncontrolling interest", reason: "parent equity plus signed noncontrolling interest matches consolidated operating profit" };
+  return { value: parent, basis: "parent stockholders' equity (NCI undisclosed)", reason: "parent equity fallback; NCI is undisclosed, so consolidated ownership scope is unverified" };
 }
 
 /**

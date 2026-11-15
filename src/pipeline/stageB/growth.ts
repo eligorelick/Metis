@@ -630,7 +630,7 @@ export function computeGrowth(
   });
   if (fcfDerivedFromComponents) {
     notes.push(
-      "FCF derived as operatingCashFlow + capitalExpenditure (FMP capex negative) for rows missing freeCashFlow",
+      "FCF derived as operating cash flow + capital expenditure (the provider records capex as negative) for rows missing free cash flow",
     );
   }
   if (inc.length > 0 && epsSeries.every((p) => p.value === null)) {

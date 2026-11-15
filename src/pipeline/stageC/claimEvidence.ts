@@ -1,4 +1,5 @@
 /** Conservative numeric support for prose. A citation alone never proves a fact. */
+import { withoutMemberMarker } from "@/edgar/segmentFacts";
 import type { SourcedClaim } from "@/report/schema";
 import type { TextExcerpt } from "@/pipeline/stageC/payload";
 import { baseAgrees, comparisonBase, comparisonCueEnd, findDirectionWords, HEDGE_WORDS, isDeltaRecord, labelOperands, type LabelOperands, proseQuantityText, quantityDirection, statesNumberWord, type QuantityDirection } from "@/pipeline/stageC/consistency";
@@ -919,7 +920,8 @@ export function descriptionConflictsWithRecord(
   if (/^payload\.(?:segments|segment-revenue)\./.test(record.id)) {
     const start = label.indexOf(": ");
     if (start >= 0) {
-      let member = label.slice(start + 2);
+      // D-299 (R32): the member is the filer's label without its trailing XBRL "[Member]" marker, as the report prints it.
+      let member = withoutMemberMarker(label.slice(start + 2));
       if (record.id.startsWith("payload.segment-revenue.")) member = member.split(/ revenue\b/i)[0];
       const shown = tokens(description.segment);
       if (shown.size && [...tokens(member)].some(w => !shown.has(w))) return "segment member differs";
@@ -1023,6 +1025,9 @@ function rsiIndexReading(record: NumericProvenanceRecord): boolean {
  * additional source labels, never stopwords in arbitrary prose/excerpts.
  * Accounting basis, entity, formula operands and forecast period survive.
  */
+/** D-296: the P/E basis in current words and as stored records wrote it. */
+const DILUTED_PE_DEFINITIONS: ReadonlySet<string> = new Set(["price / diluted EPS", "price / epsDiluted"]);
+const AGGREGATE_PE_DEFINITIONS: ReadonlySet<string> = new Set(["market cap / common income", "marketCap / common income"]);
 function labelReadings(record: NumericProvenanceRecord): string[] {
   const label = record.label;
   if (!label) return [];
@@ -1049,7 +1054,7 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (houseAspectScore(record) && label === "balanceSheet score") forms.add("balance sheet score");
     const annualPe = /^P\/E \(current, (FY\d{4})\)$/.exec(label)?.[1];
     if (annualPe && record.origin === "computed.valuation.multiples.peTtm" && record.unit === "ratio" &&
-      record.id === `computed.valuation.p-e-current-${annualPe.toLowerCase()}` && record.period === annualPe && record.fiscalPeriod === annualPe && peBasis === "price / epsDiluted")
+      record.id === `computed.valuation.p-e-current-${annualPe.toLowerCase()}` && record.period === annualPe && record.fiscalPeriod === annualPe && DILUTED_PE_DEFINITIONS.has(peBasis ?? ""))
       forms.add(`price to earnings on ${annualPe} diluted EPS`);
     if (record.origin === "computed.valuation.multiples.evToEbitda" && record.unit === "ratio" && label === "evToEbitda (current)")
       forms.add("EV/EBITDA");
@@ -1081,10 +1086,10 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (record.origin === "computed.valuation.multiples.peTtm" && record.unit === "ratio" && label === "peTtm (current)") {
       // D-274 review FC4: the producer has two different denominators. A generic
       // P/E label proves neither one; absent a declared formula, neither alias binds.
-      if (peBasis === "price / epsDiluted") forms.add("price to trailing diluted EPS multiple");
+      if (DILUTED_PE_DEFINITIONS.has(peBasis ?? "")) forms.add("price to trailing diluted EPS multiple");
       forms.add("P/E TTM (current)");
       forms.add("trailing price to earnings multiple");
-      if (peBasis === "marketCap / common income") forms.add("market capitalization to trailing common earnings");
+      if (AGGREGATE_PE_DEFINITIONS.has(peBasis ?? "")) forms.add("market capitalization to trailing common earnings");
       // D-182 (TSM paid run): "The trailing P/E was 26.4x" named this record but read as no metric.
       forms.add("trailing P/E");
       forms.add("trailing price to earnings");

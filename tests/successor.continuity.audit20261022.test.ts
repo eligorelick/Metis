@@ -112,7 +112,7 @@ describe("TTM earnings across a reorganisation (audit 2026-10-22 B-36)", () => {
   it("produces P/E when the successor's filing re-presents the predecessor's quarters unchanged", () => {
     const { pe: stat, computed } = pe(reorganised(SUCCESSOR_CIK));
     expect(stat.current).not.toBeNull();
-    expect(stat.basis).toMatch(/^marketCap \/ common income \(TTM; /);
+    expect(stat.basis).toMatch(/^market cap \/ common income \(TTM; /);
     expect(JSON.stringify(computed)).not.toContain("TTM earnings issuerId differs");
   });
 });

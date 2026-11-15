@@ -229,7 +229,7 @@ describe("D-65 anchor stop suffix reads a typed value (O1, D-223)", () => {
   const observe = (name: string) => {
     const a = build(CASES[name]);
     const basis = a.revenueAnchor?.basis ?? "";
-    const stop = /; year \w+ is not anchored: .*?(?= \(house rule D-60)/.exec(basis)?.[0] ?? null;
+    const stop = /; year \w+ is not anchored: .*?(?= \(house rule: consensus levels)/.exec(basis)?.[0] ?? null;
     return { a, basis, stop };
   };
 

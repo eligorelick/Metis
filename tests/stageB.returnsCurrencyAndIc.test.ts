@@ -178,7 +178,8 @@ describe("ROIC invested capital uses the house cash convention", () => {
     expect(r.latestRoicPct).toBeCloseTo(8.421052631578947, 9);
     expect(r.notes.join(" ")).not.toMatch(/no balance sheet discloses an operating-lease liability/);
     // Re-pinned for D-60: the net-debt convention is versioned V3.
-    expect(r.notes.join(" ")).toContain("NET_DEBT_V3");
+    expect(r.notes.join(" ")).toContain("the house net-debt basis (");
+    expect(r.notes.join(" ")).not.toContain("NET_DEBT_V");
   });
 
   it.each([

@@ -615,7 +615,12 @@ describe("business.segments[].sharePct — deterministic injection (assembly)", 
     const { bundle, computed } = buildInputs();
     if (bundle.statements.incomeAnnual.ok) bundle.statements.incomeAnnual.value.data.rows[0]!.revenue = 340e9;
     for (const feed of Object.values(bundle.segmentation)) if (feed.ok) feed.value.data.rows[0]!.reportedCurrency = "USD";
-    const report = assemble(bundle, computed, judgeOutput());
+    // D-299 (R38): each row cites its own segment record (id, period, currency, unit), so assembly binds its name.
+    const judge = judgeOutput();
+    for (const kind of ["product", "geographic"] as const) for (const row of judge.business.segments[kind]) {
+      Object.assign(row.revenue, { source: `payload.segments.${kind}-${row.name.toLowerCase()}`, unit: "currency", currency: "USD", period: "2025-09-27" });
+    }
+    const report = assemble(bundle, computed, judge);
 
     // Product total = 210e9 + 30e9 + 100e9 = 340e9.
     const product = report.business.segments.product;
@@ -628,9 +633,13 @@ describe("business.segments[].sharePct — deterministic injection (assembly)", 
     expect(geo.find((s) => s.name === "Americas")!.sharePct).toBe(50); // not 3.2
     expect(geo.find((s) => s.name === "Europe")!.sharePct).toBe(29.4); // judge said null
 
-    // Names + traced revenue stay judge-authored.
+    // Names are the cited records' own labels; traced revenue stays as written.
     expect(product.find((s) => s.name === "iPhone")!.revenue.value).toBe(210000000000);
     expect(() => ReportSchema.parse(report)).not.toThrow();
+    // Control: a row that cites only the provider endpoint does not resolve one record, so its name is withheld.
+    const endpointOnly = assemble(bundle, computed, judgeOutput()).business.segments.product;
+    expect(endpointOnly.map((s) => s.name)).toEqual(["Segment (name not established)", "Segment (name not established)", "Segment (name not established)"]);
+    expect(endpointOnly.map((s) => s.revenue.value)).toEqual([210000000000, 100000000000, 30000000000]);
   });
 
   it("nulls sharePct when the bundle segmentation feed is a gap — the judge's number is still discarded", () => {

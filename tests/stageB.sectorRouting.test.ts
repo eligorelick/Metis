@@ -306,7 +306,7 @@ describe("routeCompany overlays", () => {
     expect(r.overlays).not.toContain("unprofitable");
     const gap = r.gaps.find((g) => g.field === "route.overlays.unprofitable");
     expect(gap?.reason).toBe(
-      "netIncome unavailable on both TTM and annual bases, and operatingCashFlow is not a profitability signal on the 'bank' route — overlay not evaluated",
+      "net income unavailable on both TTM and annual bases, and operating cash flow is not a profitability signal on the 'bank' route — overlay not evaluated",
     );
   });
 

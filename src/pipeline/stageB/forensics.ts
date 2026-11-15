@@ -559,7 +559,7 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
     if (ni !== null && tax !== null && interest !== null) {
       ebit = ni + tax + interest;
       notes.push(
-        "EBIT reconstructed as net income from continuing operations (netIncome where the continuing figure is not reported) + incomeTaxExpense + interestExpense (last-resort fallback).",
+        "EBIT reconstructed as net income from continuing operations (net income where the continuing figure is not reported) + income tax expense + interest expense (last-resort fallback).",
       );
     }
   }
@@ -609,7 +609,7 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
       asOf.marketCap = null;
       notes.push(`Currency not established at the balance date (${inputs.marketCapHistoryCurrencyReason}) — original-variant X4 (market value of equity over liabilities) cannot be formed; suppressed.`);
       gaps.push(gapEntry("forensics.altman.currency",
-        `${inputs.marketCapHistoryCurrencyReason} — market-equity X4 cannot be set against the ${b.date ?? "balance-sheet"} liabilities; original-variant Z suppressed (D-267)`, "warn"));
+        `${inputs.marketCapHistoryCurrencyReason} — market-equity X4 cannot be set against the ${b.date ?? "balance-sheet"} liabilities; original-variant Z suppressed`, "warn"));
     } else if (!x4Currency.comparable) {
       equityNumerator = null;
       notes.push(
@@ -640,7 +640,7 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
         gaps.push(gapEntry("forensics.altman.marketCapDate",
           `no market value of equity observed on or before the balance-sheet date ${b.date ?? "(undated)"} within ${STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS} days` +
           `${inputs.marketCapHistorySource ? ` in ${inputs.marketCapHistorySource}` : " (no dated market-cap history)"}; ` +
-          `the current market cap${inputs.marketCapAsOf ? ` (${inputs.marketCapAsOf.slice(0, 10)})` : ""} is not set against an older balance sheet, so original-variant X4 and Z are withheld (D-267)`,
+          `the current market cap${inputs.marketCapAsOf ? ` (${inputs.marketCapAsOf.slice(0, 10)})` : ""} is not set against an older balance sheet, so original-variant X4 and Z are withheld`,
           "warn"));
       }
     } else {
@@ -649,7 +649,7 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
         gaps.push(
           gapEntry(
             "forensics.altman.marketCap",
-            "marketCap missing — original-variant X4 (market value of equity) unavailable",
+            "market capitalization missing — original-variant X4 (market value of equity) unavailable",
             "warn",
           ),
         );
@@ -1232,7 +1232,7 @@ export function computeBeneish(current: ForensicsPeriod, prior: ForensicsPeriod,
     ) {
       tataBalanceSheet = (dCA - dCash - (dCL - dSTD - dTP) - daT) / taT;
       notes.push(
-        "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable).",
+        "Diagnostic balance-sheet TATA uses short-term debt as a proxy for current maturities of LTD (broader — includes notes payable).",
       );
     }
   }
@@ -1760,7 +1760,7 @@ export function computePiotroski(
     ? na(eligibilityUnresolved ? unresolvedSignal : "gross margin not meaningful on a financial income statement — signal withheld")
     : gmT !== null && gmP !== null
       ? sig(gmT > gmP, `gross margin ${(gmP * 100).toFixed(2)}% → ${(gmT * 100).toFixed(2)}%`, notRisen("gross margin", gmT, gmP))
-      : na("gross margin not computable (revenue/grossProfit/costOfRevenue missing)");
+      : na("gross margin not computable (revenue, gross profit or cost of revenue missing)");
 
   // 9. F_ΔTURN — sales / beginning-of-year TA rose (needs TA at t−2)
   let s9: PiotroskiSignal;
@@ -2079,7 +2079,7 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
     gaps.push(
       gapEntry(
         "forensics.accruals.cashFlow",
-        "netIncome/CFO missing — cash-flow aggregate accruals unavailable",
+        "net income or operating cash flow missing — cash-flow aggregate accruals unavailable",
         "warn",
       ),
     );
@@ -2110,7 +2110,7 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
     gaps.push(
       gapEntry(
         "forensics.accruals.balanceSheet",
-        "NOA inputs (totalAssets, cashAndShortTermInvestments, totalLiabilities, totalDebt) missing in one or both years",
+        "NOA inputs (total assets, cash and short-term investments, total liabilities, total debt) missing in one or both years",
         "info",
       ),
     );
@@ -2515,7 +2515,7 @@ export function computeSupportFlags(
         severity: "flag",
         message: `Repeated material other income/expense: the net aggregate exceeded 10% of operating income in ${breaches} of the last ${evaluated} fiscal years (${expenseBreachYears} net-expense years; ${incomeBreachYears} net-income years). Classification of the underlying gains and expenses is required before normalizing recurring earnings; the aggregate alone does not establish their recurrence or accounting quality.`,
         metrics: { breachYearsCount: breaches, evaluatedYears: evaluated },
-        rule: `house rule: |totalOtherIncomeExpensesNet| > ${H.oneTimeItemsShareOfOperatingIncome * 100}% of |operatingIncome| in >= ${H.oneTimeSerialYears} of the last ${H.oneTimeLookbackYears} fiscal years`,
+        rule: `house rule: |total other income and expenses, net| > ${H.oneTimeItemsShareOfOperatingIncome * 100}% of |operating income| in >= ${H.oneTimeSerialYears} of the last ${H.oneTimeLookbackYears} fiscal years`,
         heuristic: true,
         asOf: breachYears,
       });

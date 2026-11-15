@@ -45,7 +45,7 @@ describe("peer market-cap currency", () => {
     expect(peerRecord.currencyBasis).toBeUndefined();
     // Control (D-65): the same-market micro-cap is still kept out of the list.
     expect(fig(payload, "MICRO")).toBeUndefined();
-    expect(payload.peers.notes).toContain("MICRO (Micro Inc) is not listed as a peer: size screen: market cap 50M is 200× smaller than the subject's 10.00B, outside the 100× comparable-size band (house rule D-65).");
+    expect(payload.peers.notes).toContain("MICRO (Micro Inc) is not listed as a peer: size screen: market cap 50M is 200× smaller than the subject's 10.00B, outside the 100× comparable-size band (house rule).");
     // Control (D-57 unchanged for the subject's own rows): the estimates still inherit USD.
     expect(payload.estimates.figures.some((f) => f.currencyInherited === true && f.currency === "USD")).toBe(true);
   });

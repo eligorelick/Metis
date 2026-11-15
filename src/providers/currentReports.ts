@@ -163,6 +163,30 @@ export interface MaterialEventFiling {
   sections: MaterialEventSection[];
 }
 
+/** The domestic note when no Item 2.02 results 8-K was found in the window. */
+export function noResultsEightKNote(days: number): string {
+  return `no Item 2.02 (results) 8-K among the filings of the last ${days} days`;
+}
+
+/** The owner's own domestic note, as any collection version wrote it (D-298). */
+export function isNoResultsEightKNote(note: string): boolean {
+  return /^no Item 2\.02 \(results\) 8-K among the filings of the last \d+ days$/.test(note);
+}
+
+/**
+ * D-298: a 20-F/40-F filer furnishes results on Form 6-K, not on an Item 2.02
+ * 8-K, so the domestic note is not applicable. This collector reads 8-K
+ * releases only; the note says what is missing in foreign-filer terms.
+ */
+export function foreignResultsNote(annualForm: string): string {
+  return `6-K results releases are not read: as a ${annualForm} filer the issuer furnishes its results on Form 6-K rather than an Item 2.02 8-K, so this report uses no results release`;
+}
+
+/** True when the issuer's annual report is a foreign-filer form (20-F or 40-F). */
+export function isForeignAnnualForm(form: string | null | undefined): form is "20-F" | "40-F" {
+  return form === "20-F" || form === "40-F";
+}
+
 export interface CurrentReports {
   version: typeof CURRENT_REPORTS_VERSION;
   /** Actual eligible-item filter used by this collection; absent on legacy inputs. */
@@ -572,10 +596,9 @@ export async function collectCurrentReports(
     : record === update ? { ...record, commentaryNarrative: null } : { ...record, releaseNarrative: null, commentaryNarrative: null }));
   const updateNote = update ? ` The newest operating update's release text (8-K ${update.accession}, ${update.filingDate}) is kept as its own excerpt; it is not an earnings release and supplies no release figures.` : "";
   if (newer.length) notes.unshift(`${newer.map(r=>`no earnings, EPS or operating-income amount was read in 8-K ${r.accession} (${r.filingDate}); treated as an operating update`).join(". ")}. ${holder ? `The earnings-release narrative and release figures are read from 8-K ${holder.accession} (${holder.filingDate}).` : "With no results release retained, no earnings-release narrative is kept."}${updateNote}`);
-  if (earnings.length === 0) notes.push(`no Item 2.02 (results) 8-K among the filings of the last ${RELEASE_WINDOW_DAYS} days`);
-
   const annual = filings.filter((f) => ["10-K", "20-F", "40-F"].includes(f.form) && /^\d{4}-\d{2}-\d{2}$/.test(f.filingDate) && f.filingDate <= today)
     .sort((a, b) => b.filingDate.localeCompare(a.filingDate))[0];
+  if (earnings.length === 0) notes.push(isForeignAnnualForm(annual?.form) ? foreignResultsNote(annual.form) : noResultsEightKNote(RELEASE_WINDOW_DAYS));
   const eventWindow = annual === undefined ? EVENT_WINDOW_DAYS : daysBetween(annual.filingDate, today);
   const eventCandidates = recentEightKs(filings, today, eventWindow, (f) => hasMaterialEventItem(f.items)).sort((a,b)=>Number(itemsOf(b.items).some(i=>PRIORITY_EVENT_ITEMS.has(i)))-Number(itemsOf(a.items).some(i=>PRIORITY_EVENT_ITEMS.has(i))) || b.filingDate.localeCompare(a.filingDate));
   for(const f of recentEightKs(filings,today,eventWindow,f=>!hasMaterialEventItem(f.items) && itemsOf(f.items).some(i=>!NON_EVENT_ITEMS.has(i)))) notes.push(`8-K ${f.accessionNumber} (${f.filingDate}; Items ${f.items}) is outside the material-event item filter and was not read.`);

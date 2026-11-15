@@ -1,3 +1,4 @@
+import { withRetiredGapWording } from "@/report/retiredReaderWording";
 import { insiderQuarterIndex, insiderStatisticsWindow, insiderStatisticRows, insiderQuarterContaining, insiderEvidence, insiderQuarterFigures, INSIDER_SCOPE, resultsHistory } from "@/pipeline/providerEvidence";
 export { insiderStatisticsWindow } from "@/pipeline/providerEvidence";
 import { PAYLOAD_VERSION } from "@/report/versions";
@@ -98,7 +99,7 @@ import {
   type CitationProvenanceRecord,
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
-import { admittedGeography, sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
+import { admittedGeography, withoutMemberMarker, sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
 import { operatingMeasuresStated, selectMaterialEvidence, selectGovernanceEvidence, selectEventLifecycleEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
 import type {
@@ -2204,6 +2205,61 @@ function shortInterestSection(bundle: DataBundle): PayloadSection {
   return payloadSection({ title: "Short interest", figures, notes });
 }
 
+/** The payload label of one filed quarterly segment revenue cell (its citation id is the slug of this label). */
+function segmentRevenueLabel(axisLabel: string, rowLabel: string, end: string, cross: boolean, residual: boolean): string {
+  return `${axisLabel}: ${rowLabel} revenue${cross ? " (derived across two filings)" : residual ? " (total less the other rows)" : ""}, quarter ended ${end}`;
+}
+
+/** One segment revenue record a report row may cite, with the name the record itself carries (D-299). */
+export interface SegmentRecordCitation {
+  id: string;
+  kind: "product" | "geographic";
+  name: string;
+  value: number;
+  unit: "currency";
+  currency: string | null;
+  period: string | null;
+}
+
+/**
+ * D-299 (P18, P19): the segment revenue records of this bundle under the exact
+ * citation ids the payload registers for them (`payload.segments.*` for the
+ * latest segmentation row, `payload.segment-revenue.*` for the filed quarterly
+ * table). An id that the payload would register twice is left out, because a
+ * citation of it does not name one record.
+ */
+export function segmentRecordCitations(bundle: DataBundle): SegmentRecordCitation[] {
+  const out: SegmentRecordCitation[] = [];
+  const annual = (res: DataBundle["segmentation"]["product"], kind: "product" | "geographic") => {
+    const latest = firstRow(res);
+    const data = latest?.data;
+    if (!data || typeof data !== "object") return;
+    for (const key of Object.keys(data).sort()) {
+      const value = numOrNull(data[key]);
+      if (value === null) continue;
+      out.push({ id: `payload.segments.${semanticSlug(`${kind}: ${key}`)}`, kind, name: withoutMemberMarker(key), value, unit: "currency",
+        currency: isoCurrency(latest?.reportedCurrency), period: isoDay(latest?.date) });
+    }
+  };
+  annual(bundle.segmentation.product, "product");
+  annual(admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments), "geographic");
+  const res = bundle.edgar?.quarterlySegments;
+  if (res?.ok) for (const axis of res.value.data.axes) {
+    const kind = axis.axis === "srt:StatementGeographicalAxis" ? "geographic" : "product";
+    for (const row of axis.rows) for (const i of segmentColumns(axis.quarters)) {
+      const q = axis.quarters[i]!;
+      const value = row.values[i] ?? null;
+      if (value === null || row.earlierPresentationAt?.includes(i)) continue;
+      const label = segmentRevenueLabel(axis.axisLabel, row.label, q.end, row.crossFilingAt?.includes(i) === true, row.residualAt?.includes(i) === true);
+      out.push({ id: `payload.segment-revenue.${semanticSlug(label)}`, kind, name: `${row.label} (quarter ended ${q.end})`, value, unit: "currency",
+        currency: axis.currency, period: q.end });
+    }
+  }
+  const counts = new Map<string, number>();
+  for (const record of out) counts.set(record.id, (counts.get(record.id) ?? 0) + 1);
+  return out.filter(record => counts.get(record.id) === 1);
+}
+
 function segmentsSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   // AI-509 (OD-4): provider geography the issuer's own XBRL contradicts is withheld, with the fixed reason.
@@ -3147,7 +3203,7 @@ function segmentRevenueSection(bundle: DataBundle): PayloadSection | undefined {
         // D-63: a cell filled as the total less the other rows says so.
         const residual = row.residualAt?.includes(i) === true;
         figures.push({
-          label: `${axis.axisLabel}: ${row.label} revenue${cross ? " (derived across two filings)" : residual ? " (total less the other rows)" : ""}, quarter ended ${q.end}`,
+          label: segmentRevenueLabel(axis.axisLabel, row.label, q.end, cross, residual),
           value,
           unit: "currency",
           currency: axis.currency,
@@ -3894,7 +3950,7 @@ function assembleContextPayloadInContext(
   const peerCoverage = computed.valuation.kind === "pre-revenue" ? undefined : computed.valuation.multiples.peerCoverage;
   const peerScreen = peerCoverage === undefined ? undefined : peerScreenSection(peerCoverage, peerCollectionNotes);
   const missingData = mergeManifest([
-    bundle.gaps,
+    withRetiredGapWording(bundle.gaps),
     computed.gaps,
     validation.gaps,
     degradationDisclosures(computed.degradation),

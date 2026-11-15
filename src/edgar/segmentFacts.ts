@@ -151,6 +151,17 @@ function dedupe(facts: RevenueFact[]): RevenueFact[] {
  * Issuer member labels from a label linkbase (`*_lab.xml`): element name
  * ("nvda:HyperscaleMember") -> the standard label without " [Member]".
  */
+/**
+ * D-299 (R32, lead decision): the trailing XBRL type marker " [Member]" (any
+ * case, as the whole last token) is label syntax, not part of the name; the text
+ * before it is the filer's own label, so nothing is invented. A label that is
+ * only the marker is left as it is.
+ */
+export function withoutMemberMarker(label: string): string {
+  const stripped = label.replace(/\s*\[member\]\s*$/i, "").trim();
+  return stripped === "" ? label : stripped;
+}
+
 export function parseMemberLabels(labXml: string): Record<string, string> {
   const locs = new Map<string, string>();
   for (const m of labXml.matchAll(/<link:loc\b([^>]*)\/?>/g)) {
@@ -173,7 +184,7 @@ export function parseMemberLabels(labXml: string): Record<string, string> {
     const labels = texts.get(attr(m[1]!, "xlink:to") ?? "");
     if (!element || !labels || !/Member$/.test(element)) continue;
     const pick = labels.find((l) => /\/terseLabel$/.test(l.role)) ?? labels.find((l) => /\/label$/.test(l.role)) ?? labels[0];
-    if (pick) out[element] = pick.text.replace(/\s*\[Member\]\s*$/i, "").trim();
+    if (pick) out[element] = withoutMemberMarker(pick.text);
   }
   return out;
 }
@@ -405,8 +416,8 @@ export type GeographyContradiction = "business-segments" | "issuer-geography";
 export interface SegmentAxisEvidence { axis: string; rows: readonly { label: string; member?: string }[] }
 
 export const PROVIDER_GEOGRAPHY_REASONS: Readonly<Record<GeographyContradiction, string>> = {
-  "business-segments": "Provider (FMP) geographic rows withheld as company geography: they name the issuer's reportable business segments (XBRL us-gaap:StatementBusinessSegmentsAxis), and segment revenue is not entity-wide geographic revenue (D-80).",
-  "issuer-geography": "Provider (FMP) geographic rows withheld as company geography: the issuer tags its own geographic revenue (XBRL srt:StatementGeographicalAxis), and at least one provider region name is not one of the issuer's geographic labels; the issuer's rows are in \"Segment revenue by quarter (10-Q/10-K XBRL)\" under its own labels (D-80).",
+  "business-segments": "Provider (FMP) geographic rows withheld as company geography: they name the issuer's reportable business segments (XBRL us-gaap:StatementBusinessSegmentsAxis), and segment revenue is not entity-wide geographic revenue.",
+  "issuer-geography": "Provider (FMP) geographic rows withheld as company geography: the issuer tags its own geographic revenue (XBRL srt:StatementGeographicalAxis), and at least one provider region name is not one of the issuer's geographic labels; the issuer's rows are in \"Segment revenue by quarter (10-Q/10-K XBRL)\" under its own labels.",
 };
 
 const norm = (s: string): string => s.replace(/\s*\([^)]*\)\s*$/, "").toLowerCase().replace(/[^a-z0-9]/g, "").replace(/segments?$/, "");

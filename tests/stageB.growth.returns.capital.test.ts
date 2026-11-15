@@ -163,7 +163,7 @@ describe("computeGrowth — CAGR exactness and windows", () => {
     expect(p1?.startValue).toBe(100);
     expect(p1?.endValue).toBe(120);
     expect(p1?.cagrPct).toBeCloseTo(20, 10);
-    expect(res.notes.join(" ")).toContain("operatingCashFlow + capitalExpenditure");
+    expect(res.notes.join(" ")).toContain("operating cash flow + capital expenditure");
   });
 
   it("margin series is oldest→newest with an exact regression slope", () => {
@@ -1112,7 +1112,7 @@ describe("computeCapital — zero-as-null and denominator guards", () => {
     const income = [{ ...capIncome[0], interestExpense: 0 }];
     const res = computeCapital(income, capCashflow, capBalance, [], { price: null }, USD_QUOTE);
     expect(res.interestCoverage.value).toBeNull();
-    expect(res.interestCoverage.note).toContain("zero-for-undisclosed");
+    expect(res.interestCoverage.note).toContain("treated as undisclosed (the provider writes zero for undisclosed)");
     expect(res.gaps.some((g) => g.field === "capital.interestCoverage")).toBe(true);
   });
 
@@ -1143,7 +1143,7 @@ describe("computeCapital — zero-as-null and denominator guards", () => {
     const cf = [{ ...capCashflow[0], depreciationAndAmortization: null }];
     const res = computeCapital(inc, cf, capBalance, [], { price: null }, USD_QUOTE);
     expect(res.netDebtToEbitda.ebitda).toBe(250);
-    expect(res.netDebtToEbitda.note).toContain("vendor ebitda");
+    expect(res.netDebtToEbitda.note).toContain("vendor EBITDA used");
   });
 
   it("suppresses net debt when short-term investments are unknown", () => {
@@ -1358,7 +1358,7 @@ describe("waccDisclosure — every WACC input named with its source and date", (
     });
     const d = waccDisclosure(res);
     expect(d.riskFree).toEqual({ pct: 4, seriesId: "fred:DGS10", asOf: "2026-07-03" });
-    expect(d.erp).toEqual({ pct: 5, source: "FMP market-risk-premium (US totalEquityRiskPremium)", asOf: "2026-07-02" });
+    expect(d.erp).toEqual({ pct: 5, source: "FMP market-risk-premium (US total equity risk premium)", asOf: "2026-07-02" });
     expect(d.costOfDebt.method).toBe("effective");
     expect(d.taxRate).toEqual({ fraction: 0.21, basis: "FMP ratios-ttm effectiveTaxRateTTM" });
     expect(d.weights.equity).toBeCloseTo(0.9, 12);
@@ -1494,7 +1494,7 @@ describe("audit 2026-09-06 — invested capital and the WACC debt leg share the 
     const r = computeRoic(leaseIncome, leaseBalance, { includeOperatingLeases: true });
     const latest = r.series[r.series.length - 1]!;
     expect(latest.investedCapitalAvg).toBeCloseTo(24_500, 9);
-    expect(r.notes.join(" ")).toMatch(/retained totalDebt basis \(THESIS_EV_INCLUDE_LEASES=1\)/);
+    expect(r.notes.join(" ")).toMatch(/retained total-debt basis \(METIS_EV_INCLUDE_LEASES=1\)/);
   });
 
   it("says when no balance sheet discloses the split, and states the basis that actually ran", () => {
@@ -1503,7 +1503,8 @@ describe("audit 2026-09-06 — invested capital and the WACC debt leg share the 
     expect(notes).toMatch(/no separate operating-lease observation is available/);
     expect(notes).toMatch(/cash \+ short-term investments/);
     // Re-pinned for D-60: the net-debt convention is versioned V3.
-    expect(notes).toMatch(/NET_DEBT_V3/);
+    expect(notes).toMatch(/the house net-debt basis \(cash-only/);
+    expect(notes).not.toMatch(/NET_DEBT_V\d/);
     expect(notes).not.toMatch(/§2\.2/);
   });
 });
@@ -1651,7 +1652,7 @@ describe("audit 2026-09-06 — WACC notes state the method and the basis that ac
   it("keeps the default labels when the caller states no basis", () => {
     const res = computeWacc({ ...waccBase, interestExpenseTtm: 40 });
     expect(res.notes.join(" ")).toMatch(/on TTM \(/);
-    expect(res.notes.join(" ")).toMatch(/debt weight uses book totalDebt \(avg of latest two periods\)/);
+    expect(res.notes.join(" ")).toMatch(/debt weight uses book total debt \(average of the latest two periods\)/);
     expect(waccDisclosure(res).weights.basis).toMatch(/average of the latest two balance sheets/);
   });
 });
@@ -1684,7 +1685,7 @@ describe("audit 2026-09-06 — computeCapital", () => {
     const latest = res.capexIntensity.series[res.capexIntensity.series.length - 1]!;
     expect(latest.capexToRevenuePct).toBeCloseTo(15, 9); // 30 / 200
     expect(res.sbc.pctOfRevenue).toBeCloseTo(5, 9); // 10 / 200
-    expect(res.netDebtToEbitda.note).toMatch(/operatingIncome \+ cash-flow D&A/);
+    expect(res.netDebtToEbitda.note).toMatch(/operating income \+ cash-flow D&A/);
     expect(res.buybackPriceAnalysis.avgPricePaidProxy).not.toBeNull();
     expect(res.gaps.some((g) => g.field === "capital.statementJoin")).toBe(false);
   });
@@ -1702,7 +1703,7 @@ describe("audit 2026-09-06 — computeCapital", () => {
     const inc = capIncome.map((r, i) => (i === 0 ? { ...r, ebitda: 250 } : r));
     const res = computeCapital(inc, zeroDa, capBalance, capMcapHistory, { price: 20 }, USD_QUOTE);
     expect(res.netDebtToEbitda.ebitda).toBe(250);
-    expect(res.netDebtToEbitda.note).toMatch(/vendor ebitda field used \(cash-flow D&A 0 treated as undisclosed\)/);
+    expect(res.netDebtToEbitda.note).toMatch(/vendor EBITDA used \(cash-flow D&A 0 treated as undisclosed\)/);
   });
 
   it("suppresses the buyback price proxy for an ADR or a currency mismatch, and says why", () => {

@@ -123,7 +123,7 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
  */
 export function isQuarterlyTrendNote(note: string): boolean {
   return note.startsWith("Vendor interim figures:") || /^Quarterly (?:(?:income|cash-flow) trend: |trend left out: |trend history stops before |cash-flow amounts for |operating cash flow for )/.test(note) ||
-    /^Operating (?:income and operating margin|expenses) for \d{4}-\d{2}-\d{2} withheld: /.test(note) ||
+    /^Operating (?:income and operating margin|margin|expenses) for \d{4}-\d{2}-\d{2} withheld: /.test(note) ||
     note.startsWith("Operating expenses not shown for ") ||
     note.startsWith("Operating expenses are the provider's subtotal");
 }
@@ -202,7 +202,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
         rows.push(["Annualized declared dividend per quoted share",money(i.annualizedPerQuotedShare!,i.currency,true),`${i.source}; ${i.paymentsPerYear} proven payments per year. ${i.basis}`]);
         rows.push([`Dividend-yield quote (${i.quoteDate})`,money(i.price!,i.currency,true),i.quoteSource]);
       }
-      for(const r of d.dividends.cashPayout) rows.push([`Fiscal-year common cash dividend payout ratio (${r.start ?? "start unestablished"} to ${r.end ?? "end unestablished"})`,r.value===null ? `Unavailable: ${r.reason}` : `${decimalRound(r.value,2).toFixed(2)}%`,`${r.source}; as-of ${r.asOf ?? "unavailable"}`]);
+      for(const r of d.dividends.cashPayout) rows.push([`Fiscal-year common cash dividend payout ratio (${r.start ?? "start unestablished"} to ${r.end ?? "end unestablished"})`,r.value===null ? `Unavailable: ${r.reason}` : `${decimalRound(r.value,2).toFixed(2)}%`,r.source.trim() === "" ? `no source: the ratio is withheld; as-of ${r.asOf ?? "unavailable"}` : `${r.source}; as-of ${r.asOf ?? "unavailable"}`]);
     }
     const capitalNotes = d.notes.filter(isCapitalReturnNote);
     const note = [d.freeCashFlowDefinition ? `Issuer definition: ${d.freeCashFlowDefinition}` : "", ...capitalNotes].filter((n) => n !== "").join(" ");

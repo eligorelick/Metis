@@ -42,6 +42,6 @@ describe("N2 tangible-book servicing-asset classification", () => {
 
   it("names the goodwill and vendor intangible amounts actually deducted", () => {
     const b = fixture(); b.edgar.tenQNotes = undefined;
-    expect(multiples(b).find(r => r.key === "priceToTbv")?.basis).toMatch(/deducts goodwill 0.*intangibleAssets 155024000/);
+    expect(multiples(b).find(r => r.key === "priceToTbv")?.basis).toMatch(/deducts goodwill 0.*intangible assets 155024000/);
   });
 });

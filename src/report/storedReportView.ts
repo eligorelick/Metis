@@ -19,6 +19,7 @@ import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
 import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnShareBasis";
 import { withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { withValuationUseSafety } from "@/report/valuationUseSafety";
+import { withRetiredReaderWording } from "@/report/retiredReaderWording";
 
 /** The readers {@link withStoredReportView} applies, first to last. */
 export const STORED_REPORT_VIEW_READERS = [
@@ -30,6 +31,8 @@ export const STORED_REPORT_VIEW_READERS = [
   withLegacyValuationNotes,
   withLegacyImpliedReturnShareBasis,
   withLegacyScopeQualifications,
+  // D-296: last, so the legacy readers above still match the stored wording they were written for.
+  withRetiredReaderWording,
 ] as const;
 
 /**
@@ -38,7 +41,7 @@ export const STORED_REPORT_VIEW_READERS = [
  * between this chain and that step.
  */
 export function withStoredReportView(report: Report): Report {
-  return withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report))))))));
+  return withRetiredReaderWording(withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))))));
 }
 
 /**

@@ -731,17 +731,17 @@ export function routeCompany(
       field: "route.overlays.unprofitable",
       reason:
         ocf === null
-          ? "netIncome and operatingCashFlow unavailable on both TTM and annual bases — overlay not evaluated"
-          : `netIncome unavailable on both TTM and annual bases, and operatingCashFlow is not a profitability signal ${finOther ? "for a FIN-OTHER issuer" : `on the '${base}' route`} — overlay not evaluated`,
+          ? "net income and operating cash flow unavailable on both TTM and annual bases — overlay not evaluated"
+          : `net income unavailable on both TTM and annual bases, and operating cash flow is not a profitability signal ${finOther ? "for a FIN-OTHER issuer" : `on the '${base}' route`} — overlay not evaluated`,
       severity: "warn",
       attemptedSources: ["fmp:/stable/income-statement(-ttm)", "fmp:/stable/cash-flow-statement(-ttm)"],
     });
   } else if ((ni !== null && ni < 0) || (ocfIsProfitSignal && ocf !== null && ocf < 0)) {
     overlays.push("unprofitable");
     notes.push(
-      `unprofitable overlay applied: netIncome=${ni === null ? "n/a" : ni} (${niBasis ?? "n/a"}), ` +
-        `operatingCashFlow=${ocf === null ? "n/a" : ocf} (${ocfBasis ?? "n/a"}). ` +
-        "Trigger (house rule): TTM netIncome < 0 OR TTM operatingCashFlow < 0" +
+      `unprofitable overlay applied: net income ${ni === null ? "n/a" : ni} (${niBasis ?? "n/a"}), ` +
+        `operating cash flow ${ocf === null ? "n/a" : ocf} (${ocfBasis ?? "n/a"}). ` +
+        "Trigger (house rule): TTM net income < 0 OR TTM operating cash flow < 0" +
         (ocfIsProfitSignal ? "." : finOther ? " (net income only for a FIN-OTHER issuer)." : ` (net income only on the '${base}' route).`),
     );
   } else if (!ocfIsProfitSignal && ocf !== null && ocf < 0) {
@@ -1318,7 +1318,7 @@ export function degradationPlan(
         action: "suppress",
         disclosure:
           "Altman Z, Beneish M and the accrual ratios are not computed for financials (their models are " +
-          "estimated on non-financial firms). Capital, credit and funding are graded instead (D-46): " +
+          "estimated on non-financial firms). Capital, credit and funding are graded instead: " +
           "tangible common equity / tangible assets, net charge-offs / average loans, nonperforming loans / loans " +
           "where the filer tags them, and loans / deposits. CET1 is shown when the filer tags it and is never graded.",
       },
@@ -1723,13 +1723,13 @@ export function computeRunway(
       if (!isFiniteNumber(ocf)) {
         missingOperatingCashFlowDates.push(row.date);
         notes.push(
-          `quarter ${row.date}: operatingCashFlow missing/non-finite — excluded from the burn window.`,
+          `quarter ${row.date}: operating cash flow missing/non-finite — excluded from the burn window.`,
         );
       }
       if (!isFiniteNumber(capex)) {
         missingCapitalExpenditureDates.push(row.date);
         notes.push(
-          `quarter ${row.date}: capitalExpenditure missing/non-finite — excluded from the burn window.`,
+          `quarter ${row.date}: capital expenditure missing/non-finite — excluded from the burn window.`,
         );
       }
       if (isFiniteNumber(ocf) && isFiniteNumber(capex)) {
@@ -1745,7 +1745,7 @@ export function computeRunway(
     gaps.push({
       field: "runway.operatingCashFlow",
       reason:
-        `operatingCashFlow missing/non-finite for quarter(s) ${missingOperatingCashFlowDates.join(", ")} — ` +
+        `operating cash flow missing/non-finite for quarter(s) ${missingOperatingCashFlowDates.join(", ")} — ` +
         "those rows were excluded from the burn window",
       severity: "warn",
       attemptedSources: ["fmp:/stable/cash-flow-statement?period=quarter"],
@@ -1755,7 +1755,7 @@ export function computeRunway(
     gaps.push({
       field: "runway.capitalExpenditure",
       reason:
-        `capitalExpenditure missing/non-finite for quarter(s) ${missingCapitalExpenditureDates.join(", ")} — ` +
+        `capital expenditure missing/non-finite for quarter(s) ${missingCapitalExpenditureDates.join(", ")} — ` +
         "those rows were excluded from the burn window",
       severity: "warn",
       attemptedSources: ["fmp:/stable/cash-flow-statement?period=quarter"],
@@ -1890,7 +1890,7 @@ export function computeRunway(
   if (shareRows.length === 0) {
     gaps.push({
       field: "runway.dilution",
-      reason: "no usable weightedAverageShsOutDil history provided — dilution context unavailable",
+      reason: "no usable diluted weighted-average share history provided — dilution context unavailable",
       severity: "info",
       attemptedSources: ["fmp:/stable/income-statement?period=quarter"],
     });
