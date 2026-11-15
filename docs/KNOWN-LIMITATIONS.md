@@ -1,6 +1,6 @@
 # Known limitations
 
-Release documentation reviewed 2026-11-15 against build `5a503eec`. Missing evidence is disclosed rather than filled in. These limits apply beyond the named examples wherever the same evidence shape occurs.
+Release documentation reviewed 2026-11-15 against build `3c0dbffe`. Missing evidence is disclosed rather than filled in. These limits apply beyond the named examples wherever the same evidence shape occurs.
 
 ## L1: Web claims
 
@@ -78,6 +78,18 @@ Foreign filers such as TSM and NVO. Form 6-K interim statements are not parsed i
 
 All panel checks. Inputs are private, and not-established figures mean the checker lacks a proven reference. A passing regression gate is not proof of universal accuracy.
 
+## L20: AI copies of figures
+
+Analyst reports. An AI copy of a code-computed figure can appear alongside the code row with its own verification mark. Rows merge only when their value, metric, period, unit, currency, date and verification mark agree. Unconfirmed or contradicted copies remain visible. The same AI figure can also carry different marks in prose and tables; those marks are not yet unified.
+
+## L21: App evidence details
+
+The app only. The expandable provenance details beside a figure name the internal source field (for example a computed score path) and raw gap ids. Markdown and print show plain names only.
+
+## L22: Full support is rare
+
+All companies. A report has full support only when every grade has all of the evidence that applies on its route and no valuation input or headline figure is withheld, unchecked or qualified. On the 25-company release panel no report meets that bar; each lists its reasons in plain words.
+
 ## Additional release decisions and deferred work
 
 Vendor qualifications use labels and separate gaps; there is no new typed vendor-qualification code in 1.0. Provider revenue may represent a provider revenue line rather than the filed total (R12); the report labels that basis alongside the filed total.
@@ -87,6 +99,10 @@ At generation, a statement citing the whole news feed is removed when no single 
 Bank tangible common equity (TCE) and return on tangible equity (ROTE) can use provider goodwill/intangible fields that have not been checked against a filing; the report labels this basis.
 
 The ROIC minus fiscal-year-end WACC spread pairs annual observed ROIC with a fiscal-year-end market-based discount rate: this hybrid basis is labelled rather than presented as a filed ratio. Saved text and the terminal-return switch are described above.
+
+When trailing tax operands are established from filings, the effective tax rate uses those filed amounts (D-307). Otherwise the code may use a labelled provider rate or statement-based fallback. Non-positive pre-tax income receives a disclosed zero tax shield; missing required inputs can withhold WACC. The debt tax-shield rate is subject to disclosed clamps. REITs use the same rules; whether their observed effective tax rate is the right tax-shield input remains an open owner decision.
+
+Foreign-filer reports can still show domestic 8-K item-filter wording beside the 6-K notice.
 
 Further debt-evidence sharing, typed refusal-reader migration, shortening reports, checking wording across saved reports, and reconciling business-word inventories remain deferred. Following successor registrants, parsing 6-K interim statements and typed ADS-member facts, evidence-loss scoring and terminal-return smoothing also remain deferred. These are not promised capabilities.
 

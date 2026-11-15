@@ -116,9 +116,9 @@ export function renderPricingBlock(registry, sizing) {
   lines.push("The estimated run is a calculation, not a measurement: the fixture shape at effort");
   lines.push(`\`${FIXTURE_RUN_EFFORT}\` and registry rates, with assumed research and writing token splits and three synthesis sections; Haiku's synthesize figures are those of ${judge.displayName}`);
   lines.push("because that pass is raised to it. The estimate does not scale with effort.");
-  lines.push("Measured whole-report costs at several effort levels are listed above.");
-  lines.push("Higher effort can consume more tokens; these examples are neither minimum nor");
-  lines.push("maximum prices, and the measurements do not establish model quality.");
+  lines.push("Measured whole-report token use and time are in [docs/REPORT-COSTS.md](docs/REPORT-COSTS.md).");
+  lines.push("Higher effort can consume more tokens; those measurements are neither minimum nor");
+  lines.push("maximum prices, and they do not establish model quality.");
   lines.push("");
   lines.push(END_MARKER);
   return lines.join("\n");

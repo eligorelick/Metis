@@ -149,9 +149,9 @@ reservations. A cut-off request is presumed at its worst case until reconciled.
 The estimated run is a calculation, not a measurement: the fixture shape at effort
 `high` and registry rates, with assumed research and writing token splits and three synthesis sections; Haiku's synthesize figures are those of Claude Sonnet 5.5
 because that pass is raised to it. The estimate does not scale with effort.
-Measured whole-report costs at several effort levels are listed above.
-Higher effort can consume more tokens; these examples are neither minimum nor
-maximum prices, and the measurements do not establish model quality.
+Measured whole-report token use and time are in [docs/REPORT-COSTS.md](docs/REPORT-COSTS.md).
+Higher effort can consume more tokens; those measurements are neither minimum nor
+maximum prices, and they do not establish model quality.
 
 <!-- END GENERATED: pricing -->
 
