@@ -8,7 +8,7 @@ import { readerBaseUnits, withReaderConventions } from "@/report/readerConventio
 import { SUPPORT_LEVELS, supportLevel, supportLevelText } from "@/report/supportLevel";
 import { REPORT_SPEC_VERSION } from "@/report/versions";
 import { ReportSchema, type FairValue, type Report, type TracedNumber } from "@/report/schema";
-import { consensusTables, figureRow } from "@/report/presentation";
+import { consensusTables, displayClaimText, displayProse, figureRow } from "@/report/presentation";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { loadTask28Fixture } from "./helpers/task28Report";
 import { readableHtml } from "./helpers/uiParityContract";
@@ -28,6 +28,36 @@ describe("raw base-unit amounts in reader text (D-308, check 3)", () => {
     expect(readerBaseUnits("market cap / price = 2208355468.988709 ADS versus provider 2208355469.")).toBe("market cap / price = 2,208,355,468.99 ADS versus provider 2,208,355,469.");
     expect(readerBaseUnits("minority interest 1276687427.7, preferred equity 0")).toBe("minority interest 1,276,687,427.7, preferred equity 0");
     expect(readerBaseUnits("net debt -42783000000.5;")).toBe("net debt -42,783,000,000.5;");
+  });
+
+  it("review round 1: never groups a version, a CIK number, an id or number reference, or a basic YYYYMMDD date", () => {
+    for (const kept of [
+      "version 1234567.123456",
+      "CIK number 1234567.",
+      "CIK no. 7654321 and CIK 1234567",
+      "basic date 20261115 and 19991231.",
+      "id 12345678, ID: 23456789 and identifier 34567890",
+      "no. 1234567 and #7654321",
+      "file number 1234567, account no. 23456789, registration number 3456789 and form number 1234567",
+      "serial 98765432",
+    ]) expect(readerBaseUnits(kept)).toBe(kept);
+    // Controls: an amount after "number of", an 8-digit run that is not a real calendar day, and a year-led amount with cents.
+    expect(readerBaseUnits("a number of 12345678 shares")).toBe("a number of 12,345,678 shares");
+    expect(readerBaseUnits("revenue 20261345 and 20260230")).toBe("revenue 20,261,345 and 20,260,230");
+    expect(readerBaseUnits("cash 20261115.5")).toBe("cash 20,261,115.5");
+  });
+
+  it("review round 1: model-written prose and claims are shown as written; code-written fields are still grouped", () => {
+    const text = "Revenue reached 12345678901 in FY2025, per version 1234567.123456 of the deck.";
+    expect(displayProse(text)).toBe(text);
+    expect(displayClaimText({ text, label: "FACT", source: "edgar:10-K item7", asOf: "2026-02-20" })).toBe(text);
+    // A model-written grade line keeps its digits; a code-written basis on the same report is grouped (control).
+    const report = ReportSchema.parse(loadTask28Fixture());
+    report.valuation.graded = { ...report.valuation.graded, oneLineWhy: "Analyst view: backlog of 12345678901 supports the case." };
+    report.valuation.dcf.assumptions = [{ name: "start revenue", value: "12.35B", basis: "TTM revenue 12345678901 as of 2025-12-31" }];
+    const view = withReaderConventions(report);
+    expect(view.valuation.graded.oneLineWhy).toBe("Analyst view: backlog of 12345678901 supports the case.");
+    expect(view.valuation.dcf.assumptions[0]!.basis).toBe("TTM revenue 12,345,678,901 as of 2025-12-31");
   });
 
   it("leaves dates, accessions, identifiers, small and already-grouped numbers alone (controls)", () => {
@@ -123,6 +153,8 @@ const ASPECTS = ["fundamentals", "valuation", "quality", "balanceSheet", "moat",
 function graded(shares: Partial<Record<(typeof ASPECTS)[number], number | null>> = {}): Report {
   const report = ReportSchema.parse({ ...loadTask28Fixture(), fairValue });
   report.meta.specVersion = REPORT_SPEC_VERSION;
+  // The demo fixture's one synthetic valuation-input gap would limit support by itself (review round 1).
+  report.appendix.missingData = report.appendix.missingData.filter(gap => gap.field !== "valuation.cet1Ratio");
   const aspects = structuredClone(report.scores!.aspects) as Record<string, Record<string, unknown>>;
   for (const key of ASPECTS) {
     const share = key in shares ? shares[key]! : 1;
@@ -149,6 +181,13 @@ describe("full support only on complete evidence (D-309, check 5)", () => {
     expect(supportLevelText(supportLevel(graded({ quality: 0.99999 })))).toContain("the quality grade rests on <100.0% of the evidence");
   });
 
+  it("review round 1: the fixture's synthetic valuation-input gap alone limits support (the literal definition)", () => {
+    const report = ReportSchema.parse({ ...loadTask28Fixture(), fairValue });
+    report.meta.specVersion = REPORT_SPEC_VERSION;
+    report.scores = graded().scores;
+    expect(supportLevel(report).limitations).toEqual([{ code: "headline-input-qualified", text: "a valuation input is withheld or qualified" }]);
+  });
+
   it("does not count evidence the route does not apply, an unweighted aspect or a grade already named (controls)", () => {
     // Route-inapplicable signals are outside the applicable share: 60% of all signal weight, 100% applicable.
     const routeScoped = graded();
@@ -168,15 +207,73 @@ describe("full support only on complete evidence (D-309, check 5)", () => {
     expect(supportLevel(limited).limitations.map(item => item.code)).toEqual(["grade-evidence-limited"]);
   });
 
+  it("review round 1: any unexpected valuation-input or headline-figure gap limits support, by its typed field", () => {
+    // The shape found on two general-route reports: a financial-asset add-back that cannot be placed.
+    const addBack = graded();
+    addBack.appendix.missingData.push({ field: "valuation.dcf.fairValueFinancialAssets", reason: "any wording", severity: "warn" });
+    expect(supportLevel(addBack)).toMatchObject({ level: "limited", limitations: [{ code: "headline-input-qualified",
+      text: "a separate add-back for financial assets is not included in the cash-flow value because their placement on the balance sheet is unresolved" }] });
+    // Other shapes: a discount-rate input, a peer screen and an unlisted valuation field (generic label), each once.
+    const several = graded();
+    several.appendix.missingData.push(
+      { field: "returns.wacc.history", reason: "x", severity: "info" },
+      { field: "valuation.multiples.peers", reason: "x", severity: "info" },
+      { field: "valuation.multiples.peers", reason: "y", severity: "info" },
+      { field: "valuation.newInput", reason: "x", severity: "info" },
+    );
+    expect(supportLevel(several).limitations.map(item => item.text)).toEqual([
+      "the ROIC-versus-WACC history uses the current discount rate for years without their own",
+      "too few comparable peers pass the screen, so peer medians are withheld",
+      "a valuation input is withheld or qualified",
+    ]);
+    // Controls: an expected omission, non-headline gaps and wording that names a valuation input change nothing.
+    const control = graded();
+    control.appendix.missingData.push(
+      { field: "valuation.dcf.fairValueFinancialAssets", reason: "x", severity: "warn", expected: true },
+      { field: "scores.leadership.buybackTiming", reason: "x", severity: "info" },
+      { field: "capital.buybackPriceAnalysis", reason: "x", severity: "info" },
+      { field: "edgar.annualGeography", reason: "the valuation input is withheld", severity: "info" },
+    );
+    expect(supportLevel(control).level).toBe("full");
+  });
+
+  it("review round 1: a gap another limitation already names is not repeated (named field, route, withheld fair value)", () => {
+    const named = graded();
+    named.appendix.missingData.push({ field: "returns.wacc.weights", reason: "x", severity: "critical" });
+    named.scores = { ...named.scores!, qualification: { aspects: {}, composite: { status: "provisional", reasons: [
+      { code: "financial-evidence-blocked", aspect: "valuation", field: "returns.wacc.weights", detail: "free text" },
+    ] } } } as unknown as Report["scores"];
+    expect(supportLevel(named).limitations.map(item => item.code)).toEqual(["headline-input-withheld"]);
+    // A bank: the route limitation already says the cash-flow valuation, reverse DCF and EV/EBITDA do not apply.
+    const bank = graded();
+    bank.fairValue = { ...fairValue, method: "excess-return" } as FairValue;
+    bank.routeMetrics = { route: "bank", metrics: [], notes: [], asOf: null };
+    bank.appendix.missingData.push(...["valuation.dcf", "valuation.reverseDcf", "valuation.evEbitda"].map(field => ({ field, reason: "x", severity: "info" as const })));
+    expect(supportLevel(bank).limitations.map(item => item.code)).toEqual(["financial-route"]);
+    // A withheld fair value already names the cash-flow valuation; the tax-operand and SBC entries keep their own lines.
+    const withheld = graded();
+    withheld.fairValue = { ...fairValue, status: "suppressed", perShare: null, upsidePct: null } as FairValue;
+    withheld.appendix.missingData.push(
+      { field: "valuation.dcf", reason: "x", severity: "info" },
+      { field: "valuation.dcf.taxOperands", reason: "x", severity: "info" },
+      { field: "capital.fcf.sbc", reason: "x", severity: "info" },
+    );
+    expect(supportLevel(withheld).limitations.map(item => item.code)).toEqual(["fair-value-withheld", "tax-operands-vendor", "fcf-after-sbc-withheld"]);
+  });
+
   it("is limited when free cash flow after stock-based compensation is withheld, read by its typed field", () => {
     const withheld = graded();
     withheld.appendix.missingData.push({ field: "capital.fcf.sbc", reason: "any wording", severity: "info" });
     expect(supportLevel(withheld)).toMatchObject({ level: "limited", limitations: [{ code: "fcf-after-sbc-withheld",
       text: "stock-based compensation is not established for the latest fiscal year, so free cash flow after it is withheld" }] });
-    // Controls: the same wording on another field, and an expected entry, change nothing.
+    // Controls: the same wording on another free-cash-flow field is not read as the SBC entry (it limits by its own
+    // typed line), and on a non-headline field or as an expected entry it changes nothing.
+    const wording = graded();
+    wording.appendix.missingData.push({ field: "capital.fcf.note", reason: "stock-based compensation not disclosed; free cash flow is reported before SBC", severity: "info" });
+    expect(supportLevel(wording).limitations).toEqual([{ code: "headline-input-qualified", text: "a free-cash-flow figure is withheld or qualified" }]);
     const control = graded();
     control.appendix.missingData.push(
-      { field: "capital.fcf.note", reason: "stock-based compensation not disclosed; free cash flow is reported before SBC", severity: "info" },
+      { field: "capital.note", reason: "stock-based compensation not disclosed; free cash flow is reported before SBC", severity: "info" },
       { field: "capital.fcf.sbc", reason: "x", severity: "info", expected: true },
     );
     expect(supportLevel(control).level).toBe("full");

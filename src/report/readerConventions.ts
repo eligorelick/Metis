@@ -41,16 +41,36 @@ export function lenderConventionTables(report: Report): ReportAuditTable[] {
 }
 
 /**
- * Group raw base-unit amounts (seven or more whole digits) without touching dates, accessions, hashes or
- * identifiers. D-308 (P22): an amount with cents ("31234567890.12", "2208355468.988709 ADS") and an amount that
- * ends a sentence ("SBC of 270000000.") or a clause ("31234567890.12, UNADJUSTED") are grouped too, at most two
- * decimals, the exact-amount format the reported-FCF sentence already prints ("-1,234,000,000"). Text only: no
- * stored number changes. A digit run with a leading zero is an identifier, never an amount, and is left as written.
+ * An identifier, never an amount, by the words just before it: a hash, seed, fingerprint or accession; a CIK (also
+ * "CIK number"/"CIK no."); a version; an id, number or "no."/"#" reference (file, account, registration, serial,
+ * document, reference or filing number). D-308 review round 1 (P22).
+ */
+export const IDENTIFIER_CONTEXT = /(?:\b(?:seed|hash|fingerprint|accession|version|ver\.|v\.|id|ids|identifier|serial)|\bCIK(?:\s+(?:number|no\.?))?|\b(?:file|account|registration|serial|document|reference|filing|form|case|order|invoice|CUSIP|ISIN)\s+(?:number|no\.?)|\bno\.|#)\s*[:=]?\s*$/i;
+
+/** An 8-digit basic date (YYYYMMDD, 19xx or 20xx, a real calendar day) is a date, not an amount. */
+function basicDate(digits: string): boolean {
+  const m = /^(19|20)(\d\d)(\d\d)(\d\d)$/.exec(digits);
+  if (!m) return false;
+  const [year, month, day] = [Number(m[1]! + m[2]!), Number(m[3]), Number(m[4])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+/**
+ * Group raw base-unit amounts (seven or more whole digits) in CODE-WRITTEN reader text, without touching dates,
+ * accessions, hashes or identifiers. D-308 (P22): an amount with cents ("31234567890.12", "2208355468.988709 ADS") and
+ * an amount that ends a sentence ("SBC of 270000000.") or a clause ("31234567890.12, UNADJUSTED") are grouped too, at
+ * most two decimals, the exact-amount format the reported-FCF sentence already prints ("-1,234,000,000"). Text only:
+ * no stored number changes. Never applied to model-written prose, quotes or claims, which are shown as written
+ * (review round 1). A leading-zero run, an 8-digit basic date and a number after an identifier word are left alone.
  */
 export function readerBaseUnits(text: string): string {
-  return text.replace(/(?<![\w./:,\-])-?(?!0\d)\d{7,15}(?:\.\d+)?(?![\w/:-]|[.,]\d)/g, (value: string, offset: number) =>
-    /\b(?:seed|hash|fingerprint|accession|CIK)\s*[:=]?\s*$/i.test(text.slice(Math.max(0, offset - 30), offset))
-      ? value : Number(value).toLocaleString("en-US", { maximumFractionDigits: 2 }));
+  return text.replace(/(?<![\w./:,\-])-?(?!0\d)\d{7,15}(?:\.\d+)?(?![\w/:-]|[.,]\d)/g, (value: string, offset: number) => {
+    const digits = value.replace(/^-/, "");
+    if (IDENTIFIER_CONTEXT.test(text.slice(Math.max(0, offset - 40), offset))) return value;
+    if (!digits.includes(".") && basicDate(digits)) return value;
+    return Number(value).toLocaleString("en-US", { maximumFractionDigits: 2 });
+  });
 }
 
 /** A refused input's retained evidence is useful even when there is no model output. */
@@ -72,7 +92,8 @@ export function withReaderConventions(report: Report): Report {
       // D-308 sweep: basis lists (fair value, scenario targets), the scenario interpretation, a signal's fallback
       // reason and period cell, and a grade qualification's detail carry the same producer amounts as the fields
       // already listed. Traced figures are returned unchanged above, so their periods and identities are untouched.
-      return /\.(?:note|basis|reason|oneLineWhy|definition|enterpriseValueNote|multiplesBasis|interpretation|fallbackReason|ownHistoryBasis|earningsCaveat|detail|period)$|\.(?:notes|assumptions|basis)\.\d+$/.test(path) ? readerBaseUnits(text) : text;
+      // Review round 1: code-written fields only; a grade line (oneLineWhy) can be model-written and is shown as written.
+      return /\.(?:note|basis|reason|definition|enterpriseValueNote|multiplesBasis|interpretation|fallbackReason|ownHistoryBasis|earningsCaveat|detail|period)$|\.(?:notes|assumptions|basis)\.\d+$/.test(path) ? readerBaseUnits(text) : text;
     }
     if (Array.isArray(value)) return value.map((v, i) => visit(v, `${path}.${i}`));
     if (!value || typeof value !== "object") return value;

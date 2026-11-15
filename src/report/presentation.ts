@@ -10,7 +10,7 @@ import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTimin
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 import { LENDER_DEBT_PERIMETER_LABEL } from "@/pipeline/stageB/lenderCashFlow";
 import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
-import { readerBaseUnits, readerConventionText, unavailableCashFlowModel } from "@/report/readerConventions";
+import { IDENTIFIER_CONTEXT, readerBaseUnits, readerConventionText, unavailableCashFlowModel } from "@/report/readerConventions";
 
 /** Only a recorded check may annotate a field; saved reports are never rechecked at display time. */
 export function withPlainFigureNotes(report: Report): Report {
@@ -2089,6 +2089,8 @@ export function readerPrecision(text: string, source?: string): string {
   return out.replace(
     /(?<![\w.:/-])(-?)(\d+)\.(\d+)(?!\.?\d)(\s?(?:x|×)(?![A-Za-z0-9])|%| percentage points?\b| pp\b| (?:trillion|billion|million|thousand)\b| per share\b)?/g,
     (match, sign: string, whole: string, fraction: string, unit: string | undefined, offset: number, whole_text: string) => {
+      // D-308 review round 1: a version, id or CIK number is an identifier, not a figure to round.
+      if (IDENTIFIER_CONTEXT.test(whole_text.slice(Math.max(0, offset - 40), offset))) return match;
       const decimals = fraction.length;
       const value = Number(`${sign}${whole}.${fraction}`);
       const tail = unit ?? "";
@@ -2119,7 +2121,9 @@ export function withoutDecisionNumbers(text: string): string {
 }
 
 export function displayProse(text: string, source?: string): string {
-  const readable = readerBaseUnits(readerConventionText(withoutDecisionNumbers(text), source))
+  // D-308 review round 1: no amount grouping here. displayProse renders model-written prose and claims too, which are
+  // shown as written; code-written fields are grouped by the reader view (withReaderConventions) or at their row.
+  const readable = readerConventionText(withoutDecisionNumbers(text), source)
     .replace(/(\bevidence completeness (?:was|is) )((?:0(?:\.\d+)?|1(?:\.0+)?))(?![\d%]|\.\d)/gi, (_, lead: string, value: string) => `${lead}${ratioPercentText(Number(value))}`)
     .replace(/(Self-assessed case strength[^:]*: bull )(\d)(, bear )(\d)(?!\s*(?:\/|of))/g, "$1$2 of 5$3$4 of 5");
   return readerPrecision(humanizeInlineCitations(readable), source);
