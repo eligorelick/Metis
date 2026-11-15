@@ -5,15 +5,17 @@ data, on your own computer. This is the first release meant for general use.
 
 ## What you get
 
-- **Reports you can check.** Every number in a report is computed by code from a recorded source: a filing, the
-  market-data provider, or a stated calculation. AI models write the arguments and summaries; they never produce a
-  number. Each AI-written statement carries a mark: **[validated]** when code matched it against the record it cites,
-  **[not confirmed]** when it did not, and **contradicted** when the record disagrees.
+- **Reports you can check.** Code computes the financial results from recorded inputs (filings, the market-data
+  provider) and disclosed assumptions. AI models write the arguments and summaries and may repeat figures; those copies
+  can be wrong, so factual and estimate statements carry a mark: **[validated]** when code matched them against the
+  record they cite, **[not confirmed]** when it did not, and **contradicted** when the record disagrees. Judgments are
+  labelled separately.
 - **A support level at the top of every report.** It says in plain words whether the report has full support or
   limited support, and lists what was not checked against filings or not covered. It also gives the share of the
-  report's distinct statements that code confirmed (a statement repeated in another section counts once).
-- **Gaps instead of guesses.** When an input cannot be proven from the filings, the figure that needs it is withheld
-  with a plain reason. Nothing is filled in with an assumption.
+  report's distinct factual and estimate statements that code confirmed (a statement repeated in another section
+  counts once).
+- **Gaps instead of guesses.** Missing required evidence becomes a disclosed gap, and figures that depend on it are
+  withheld with a plain reason. Where a provider value or a model assumption is used instead, it is labelled.
 - **Three ways to read a report:** in the app, as Markdown, or as a print page you can save as PDF.
 - **Data-only reports** need no AI connection. **Full reports** run through your own Claude or ChatGPT sign-in, or the
   Claude API with your key.
@@ -21,10 +23,11 @@ data, on your own computer. This is the first release meant for general use.
 ## How this release was checked
 
 - A fixed panel of 25 companies across industries, including banks, insurers, REITs, a utility, unprofitable
-  companies, a recent IPO and two foreign filers, was rebuilt offline at every change and compared with the previous
-  build (33 report cases).
-- An accuracy check compares 535 headline figures with the companies' filings: **331 match, 13 differ, 121 are withheld by the report and 70 cannot be checked yet**. Every difference is
-  a definition the report labels beside the figure (for example a 52-week revenue normalisation or a provider revenue line).
+  companies, a recent IPO and two foreign filers, was rebuilt offline for each change and compared with the previous
+  build. All 33 report cases rebuild successfully.
+- An accuracy check compares 535 headline figures with the companies' filings: **331 match, 13 differ, 121 are withheld by the report and 70 cannot be checked yet**. The 13 differences are
+  definitions the report labels beside the figure (for example a 52-week revenue normalisation or a provider revenue
+  line). Passing this check does not mean every figure agrees with the filings or can be checked.
 - Three new reports (a US company, a bank and a foreign filer) were generated through a Claude sign-in and checked
   by hand against the release checks; the
   problems that check found were fixed before release.
@@ -38,8 +41,9 @@ everything that is missing or partial.
 
 - **Full support is rare.** It requires every grade to have all of its evidence and no valuation input to be withheld
   or unchecked. No company on the release panel reaches it today; each report lists its reasons.
-- **Banks, insurers, REITs, utilities and loss-making companies** always have limited support because their methods
-  differ (for example banks are valued on book value and returns on equity).
+- **Banks, insurers, equity and mortgage REITs, regulated utilities, and loss-making or pre-revenue companies** have
+  limited support under the current methods. Banks and insurers are valued on book value and returns on equity;
+  several other routes give no per-share fair value.
 - **Foreign filers'** interim figures come from the data provider and are labelled, because Form 6-K statements are not
   parsed yet.
 - **Reports saved before 1.0** keep their original text. Some fixes apply when they are read; others need a new report.

@@ -1,6 +1,6 @@
 # Research validation status
 
-Checked 2026-11-15 against build `a18953a187aa386d7169c7b9b3df67724a024e18` (the 1.0.0 release commit adds only the version number and documentation).
+Checked 2026-11-15 against build `a18953a187aa386d7169c7b9b3df67724a024e18` (the 1.0.0 release changes the application version, documentation and the documentation-file allowlist test; report calculations are unchanged).
 
 The release panel covers 25 companies: AMZN, META, MU, NVDA, QCOM, FIGR, JPM, PGR, O, DUK, TSM, RIVN, VKTX, LLY, WMT, XOM, CAT, KO, UNH, DIS, UNP, BAC, MET, PLD and NVO. Routes include banks (JPM, BAC), insurers (PGR, MET), REITs (O, PLD) and the general route for the others. Overlays include foreign shares (TSM, NVO), recent IPO (FIGR), unprofitable (RIVN, VKTX) and utility (DUK). Each has a data-only case. AMZN, META, MU, NVDA, JPM, LLY and TSM also have fixed-analyst cases (two for LLY), giving 33 same-report cases.
 
