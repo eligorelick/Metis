@@ -57,7 +57,7 @@ entry, and two wording controls on `valuation.dcf.note` and `capital.fcf.note` n
 digests that include it in place (review round 2); with the phrase removed the old digests are reproduced exactly, so it
 is the only change. The UI and audit digests are unchanged.
 
-**Panel (same-report check, main `90c232c5`, 33 cases).** Before (main): Full support for AMZN (both), DIS, NVDA (both)
+**Panel (same-report check, main `33f0acb1` (after D-307), 33 cases).** Before (main): Full support for AMZN (both), DIS, NVDA (both)
 and WMT. After: **no case has full support**; all 33 are Limited. Lines added to each case (all earlier reasons
 unchanged):
 - Partial grade evidence: DIS valuation, quality, moat 70.0%, 97.6%, 75.0%; WMT, XOM balance sheet 82.4%; BAC, JPM,
@@ -79,8 +79,8 @@ unchanged):
   route-specific entries of MET (opening book, preferred capital on book multiples), O and PLD (REIT measures), MU
   (growth-anchor method), DIS (margin ceiling), DUK, VKTX and RIVN.
 
-Confirmed-statement counts, fair values (`golden:value-check`: 33 cases, 0 moves) and accuracy (535 figures: 330 match,
-14 mismatch, 121 gap, 70 not established, all as expected) are unchanged.
+Confirmed-statement counts, fair values (`golden:value-check`: 33 cases, 0 moves) and accuracy (535 figures: 331 match,
+13 mismatch, 121 gap, 70 not established after D-307, all as expected) are unchanged.
 
 **Tests.** `tests/release.w9b.test.ts`: full only at 100% on every grade; two partial grades named with shares and one
 alone; "<100.0%" never reads complete; controls: route-inapplicable signals (60% of all weight, 100% applicable), an
@@ -125,7 +125,7 @@ rail's "Recorded gaps" list, which show the stored record verbatim (the F5 evide
 export. Raw-amount hits on the reader surfaces fell from 3,891 to 2,629 across the 33 cases; every remaining hit is in
 those exact-record panels or a guarded identifier (a judge seed).
 
-**Approved report changes (same-report check, main `90c232c5`, 33 cases, 231 files).** Every differing line is the
+**Approved report changes (same-report check, main `33f0acb1` (after D-307), 33 cases, 231 files).** Every differing line is the
 same text with its amounts grouped (values equal at display precision; 11 Markdown table cells are cut one word
 earlier because grouped digits are longer), the support line (D-309) or the stamp. By case: AMZN, DIS, KO, LLY, NVDA,
 UNH and WMT the net-debt lease note, the SBC row and the scenario bridge; CAT, LLY #65, MU, QCOM, UNP and XOM the SBC
