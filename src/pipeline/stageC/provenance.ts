@@ -140,6 +140,12 @@ export interface ProvenanceCandidate {
   periodContext?: PeriodContext;
   asOf: string;
   source: string;
+  /**
+   * D-282 review: the figure itself stated its measurement window (it was not
+   * adopted from the record). Only then may a value conflict outrank a date
+   * mismatch; absent means not stated.
+   */
+  periodStated?: boolean;
 }
 
 export type ProvenanceMatch =
@@ -527,6 +533,17 @@ export function recordEstablishesInterval(supplied: string, record: NumericProve
     : parsed?.success === true && record.period === interval[2];
 }
 
+/**
+ * D-282: the record, rounded to the decimals the figure itself states, is not
+ * the figure. Half a unit of that last stated decimal is the most a faithful
+ * rounding can move it (the same bound as the stored-precision check below).
+ */
+function differsAtStatedRounding(stated: number, recorded: number): boolean {
+  const decimals = /\.(\d+)$/.exec(String(stated))?.[1]?.length ?? 0;
+  const bound = 0.5 * 10 ** -decimals;
+  return Math.abs(recorded - stated) > bound + 1e-9 * Math.max(1, Math.abs(recorded), Math.abs(stated));
+}
+
 /** Match every numeric dimension against the exact named registry record. */
 export function matchProvenanceRecord(
   candidate: ProvenanceCandidate,
@@ -546,10 +563,6 @@ export function matchProvenanceRecord(
       record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? null)))) {
     return { ok: false, reason: "period-mismatch", record };
   }
-  if (record.asOf !== candidate.asOf) {
-    return { ok: false, reason: "date-mismatch", record };
-  }
-
   // Half a unit of the last displayed decimal — the largest error a faithful
   // rounding can carry. A tie (a fifth decimal of exactly 5 against a 4-dp
   // rendering) sits ON the bound, and binary float noise in the subtraction
@@ -557,7 +570,21 @@ export function matchProvenanceRecord(
   // is relative and ~1e-9, far below any display precision the registry uses.
   const tolerance = 0.5 * 10 ** -record.displayPrecision;
   const slack = 1e-9 * Math.max(1, Math.abs(record.value), Math.abs(candidate.value));
-  if (Math.abs(record.value - candidate.value) > tolerance + slack) {
+  const differs = Math.abs(record.value - candidate.value) > tolerance + slack;
+  // D-282 (P19, A1; review round 1): a wrong cited date no longer hides a value
+  // conflict, but only when the same measurement window is established on both
+  // sides: the record names its window and the figure stated that window itself
+  // (checked above). Then a figure that differs from the record even at its own
+  // stated rounding (P19's display-rounding rule) is contradicted. Without an
+  // established common window (a point-in-time value, or a window the figure
+  // only adopted from the record: an FY figure against a newer TTM record) the
+  // two may measure different things, so it stays a date mismatch (unverified),
+  // as does a figure that is the record rounded.
+  if (record.asOf !== candidate.asOf) {
+    const sameWindow = candidate.periodStated === true && (record.period !== null || record.periodContext !== undefined);
+    return { ok: false, reason: sameWindow && differs && differsAtStatedRounding(candidate.value, record.value) ? "value-mismatch" : "date-mismatch", record };
+  }
+  if (differs) {
     return { ok: false, reason: "value-mismatch", record };
   }
   return { ok: true, record };

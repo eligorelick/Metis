@@ -10,6 +10,7 @@ import { valuationUseExplanation } from "@/pipeline/stageB/valuationUse";
 import { extractOfficerTenures, type OfficerTenure } from "@/edgar/officerTenure";
 import { fiscalLabelContradicted } from "@/report/filingDisclosurePresentation";
 import {isTableOfContentsStub} from "@/edgar/currentReports";
+import { citationAsOf, citationSourceId } from "@/pipeline/stageC/citations";
 import { publicDocumentExcerpts, publicTranscriptExcerpt } from "@/pipeline/stageC/publicEvidence";
 import {latestResultsRelease, updatesFiledAfterResults} from "@/providers/currentReports";
 import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimateTiming, type EstimateModelTiming } from "@/report/estimateTiming";
@@ -55,7 +56,7 @@ import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { debtFamilyAdmission, type DebtFamilyStatement } from "@/pipeline/admission/debtFamily";
-import { SHARE_TREND_WINDOW_YEARS } from "@/pipeline/stageB/capital";
+import { SHARE_TREND_WINDOW_YEARS, type CoverageOperand } from "@/pipeline/stageB/capital";
 import { operatingHistorySupport } from "@/pipeline/stageB/growth";
 import { incompleteLeaseCoverage, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 import { isAmbiguousDuplicateRejection, normalizeQuarterRows, normalizeQuarterRowsWithKinds } from "@/pipeline/stageB/quarterWindows";
@@ -67,7 +68,7 @@ import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
 import { PIOTROSKI_SIGNAL_LABELS, type PiotroskiSignalName } from "@/pipeline/stageB/forensics";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
-import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
+import type { FilingDisclosures, GuidanceRow, SourcedClaim, TracedNumber } from "@/report/schema";
 import { statementFiscalPeriods, buildFilingDisclosures, outlookCaveats, residualNote } from "@/pipeline/filingDisclosures";
 import { peerDiscoveryScreen, type PeerCoverage } from "@/pipeline/peers";
 import { consensusYearsText, type RevenueAnchor } from "@/pipeline/stageB/valuation";
@@ -218,6 +219,9 @@ export interface PayloadFigure {
   cashFlowDirection?: "outflow";
   /** Equivalent component definitions declared by the metric producer. */
   componentDefinitions?: readonly string[];
+  /** D-282 (P12, P19): operands of this computed ratio no exact-period filed
+   * evidence establishes. The value is shown; its tag registers unestablished. */
+  operandsUnestablished?: readonly CoverageOperand[];
   label: string;
   value: number | string | null;
   unit: string;
@@ -238,7 +242,23 @@ export interface PayloadFigure {
 }
 
 /** A labelled group of figures rendered as one block in the prompt. */
+/**
+ * D-285 (P20, K33): one provider news or press row the payload showed, with the
+ * identity a reader needs to find it. Pipeline-owned; never rendered into the
+ * model's prompt (the row's note already is).
+ */
+export interface PayloadNewsArticle {
+  /** The feed tag the row's note carries, e.g. "fmp:news" or "fmp:press-release". */
+  feed: string;
+  date: string;
+  publisher: string | null;
+  title: string;
+  url: string | null;
+}
+
 export interface PayloadSection {
+  /** D-285: the news rows behind the notes, for re-citing a feed-level citation to its article. */
+  articles?: PayloadNewsArticle[];
   /** Pipeline-owned officer evidence, bound to roster identity and office. */
   officerTenures?: OfficerTenure[];
   tenureConflicts?: Pick<OfficerTenure, "name" | "office">[];
@@ -789,7 +809,8 @@ function computedSections(
     { label: "capex/revenue slope", value: cap.capexIntensity.slopePctPtsPerYear, unit: "pp/yr", source: "computed.capital.capexIntensity", asOf: cap.asOf },
     { label: "capex/D&A (latest)", value: cap.maintenanceVsGrowthCapex.capexToDALatest, unit: "x", source: "computed.capital.maintenanceVsGrowthCapex", asOf: cap.asOf, ...capexYear },
     { componentDefinitions: ["net debt divided by ebitda"], label: "net debt/EBITDA", value: cap.netDebtToEbitda.value, unit: "x", source: "computed.capital.netDebtToEbitda", asOf: cap.netDebtToEbitda.asOf },
-    { componentDefinitions: ["ebit divided by interest expense"], label: "interest coverage", value: cap.interestCoverage.value, unit: "x", source: "computed.capital.interestCoverage", asOf: cap.asOf },
+    { componentDefinitions: ["ebit divided by interest expense"], label: "interest coverage", value: cap.interestCoverage.value, unit: "x", source: "computed.capital.interestCoverage", asOf: cap.asOf,
+      ...(cap.interestCoverage.unverifiedOperands ? { operandsUnestablished: cap.interestCoverage.unverifiedOperands } : {}) },
     { label: "SBC, cash-flow add-back / revenue", value: cap.sbc.pctOfRevenue, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
     { label: "SBC, cash-flow add-back / FCF", value: cap.sbc.pctOfFcf, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
     // N3: the dilution overhang had no consumer in the payload, the data-only
@@ -1030,6 +1051,7 @@ function computedSections(
         ...(key === "ebitda" && currentCapital.ebitdaComputed === true ? { componentDefinitions: ["ebit plus depreciation and amortization", "earnings before interest, taxes, depreciation and amortization"] } : {}),
         ...(CURRENT_CAPITAL_DEFINITIONS[key] ? { componentDefinitions: CURRENT_CAPITAL_DEFINITIONS[key] } : {}),
         ...(key === "cashBridge.cashCapitalExpenditure" ? { cashFlowDirection: "outflow" as const } : {}),
+        ...(key === "interestCoverage" && currentCapital.interestCoverageUnverifiedOperands ? { operandsUnestablished: currentCapital.interestCoverageUnverifiedOperands } : {}),
         source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period,
         ...(construction ? {
           periodContext: { kind: "duration" as const, start: construction.start, end: construction.end, basis: "rolling-12-month" as const },
@@ -2334,6 +2356,7 @@ export function sampleNewsRows(rows: readonly FmpRawRow[], limit: number): { row
 function newsSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
+  const articles: PayloadNewsArticle[] = [];
   let used = 0;
   let clippedRows = 0;
   let droppedRows = 0;
@@ -2351,6 +2374,7 @@ function newsSection(bundle: DataBundle): PayloadSection {
       const clipped = line.length + used > budget ? line.slice(0, Math.max(0, budget - used)) : line;
       if (clipped.length < line.length) clippedRows += 1;
       notes.push(`${clipped} [${provider}:${tag} · ${d}]`);
+      articles.push({ feed: `${provider}:${tag}`, date: d, publisher: strOrNull(r.publisher), title, url: strOrNull(r.url) });
       used += clipped.length;
     }
   };
@@ -2377,7 +2401,130 @@ function newsSection(bundle: DataBundle): PayloadSection {
     if (droppedRows > 0) parts.push(`${droppedRows} row${droppedRows === 1 ? "" : "s"} omitted`);
     notes.push(`${TRUNCATION_MARKER} ${parts.join("; ")} to fit the ${budget}-char news budget]`);
   }
-  return payloadSection({ title: "Recent news & press releases (snippets)", figures, notes });
+  return { ...payloadSection({ title: "Recent news & press releases (snippets)", figures, notes }), ...(articles.length ? { articles } : {}) };
+}
+
+/** The feed-level citation ids a news or press row carries (the tags `attachProvenanceRegistry` registers). */
+const FEED_CITATION = /^(?:(?:fmp|finnhub):news|fmp:press-release)$/;
+const ARTICLE_CITATION_PREFIX = "news: ";
+/**
+ * D-285: the statement lists the stored report schema requires to hold at
+ * least one statement, each inside a list item: a development's facts
+ * (`whatHappened`), a catalyst's or risk's `reasoning`, a management action's
+ * `action`, a product-line item's `claims`. Emptying one removes its list item.
+ * Every other statement list is optional (a development's why-it-matters, an
+ * action's assessment, a grade's reasoning, what the company sells) and may
+ * become empty; the reader renders its absence state.
+ */
+const REQUIRED_CLAIM_LISTS = /^(?:catalystsRisks\.(?:catalysts|risks)\[\d+\]\.reasoning|verdict\.recentDevelopments\.items\[\d+\]\.whatHappened|leadership\.managementActions\[\d+\]\.action|(?:business\.products|competitive\.competitorsByProductLine)\[\d+\]\.claims)$/;
+
+/**
+ * D-285: the citation id a statement re-cited to one article carries. It names
+ * the publisher, title and link in the reader's words; characters a citation
+ * id cannot hold are replaced. Null when the row has no link to cite.
+ */
+export function newsArticleCitationId(article: PayloadNewsArticle): string | null {
+  if (article.url === null) return null;
+  const clean = (text: string) => text.replace(/\s+/g, " ").replace(/·/g, "-").replace(/\[/g, "(").replace(/\]/g, ")").replace(/\s+/g, " ").trim();
+  const url = clean(article.url);
+  if (url !== article.url.trim()) return null;
+  const parts = [article.publisher === null ? null : clean(article.publisher), article.title.trim() ? `"${clean(article.title)}"` : null, url].filter((part): part is string => !!part);
+  return `${ARTICLE_CITATION_PREFIX}${parts.join(", ")}`;
+}
+
+/** True for a citation id written by {@link newsArticleCitationId}. */
+export function isNewsArticleCitation(sourceId: string): boolean {
+  return sourceId.startsWith(ARTICLE_CITATION_PREFIX);
+}
+
+export interface FeedRecitation {
+  /** Statements re-cited to their one article. */
+  recited: number;
+  /** Statements removed because their date names no article, or several. */
+  removed: { path: string; claim: SourcedClaim; candidates: number }[];
+}
+
+/**
+ * D-285 (P20, release item R8, K33): a statement citing a whole news feed
+ * ("fmp:news" on a date) names no article a reader can find. It is re-cited to
+ * the one payload article of that feed and date when exactly one exists and has
+ * a link, and removed otherwise; no title or wording is matched (no fuzzy
+ * binding). A list item left with no statements in a list that needs one
+ * ({@link REQUIRED_CLAIM_LISTS}), or whose single required statement goes, is
+ * removed with it; an optional list may become empty. Runs on the writer's
+ * output before verification, so every later path is current.
+ */
+export function reciteFeedClaims(root: object, articles: readonly PayloadNewsArticle[]): FeedRecitation {
+  const result: FeedRecitation = { recited: 0, removed: [] };
+  const isClaim = (value: unknown): value is SourcedClaim => {
+    const claim = value as Partial<SourcedClaim> | null;
+    return !!claim && typeof claim === "object" && typeof claim.text === "string" && typeof claim.source === "string" &&
+      (claim.label === "FACT" || claim.label === "ESTIMATE" || claim.label === "JUDGMENT");
+  };
+  /** A model-written flag or note row ({ text, source }) whose source is a whole feed: it carries no date to bind. */
+  const isFeedStatement = (value: unknown): value is { text: string; source: string } => {
+    const row = value as { text?: unknown; source?: unknown; label?: unknown } | null;
+    return !!row && typeof row === "object" && !Array.isArray(row) && typeof row.text === "string" && typeof row.source === "string" &&
+      row.label === undefined && FEED_CITATION.test(row.source.trim());
+  };
+  /** Re-cites the claim and returns true, or returns false (and logs the removal) when it must go. */
+  const visitClaim = (claim: SourcedClaim, path: string): boolean => {
+    const sourceId = citationSourceId(claim);
+    if (sourceId === null || !FEED_CITATION.test(sourceId)) return true;
+    const asOf = citationAsOf(claim);
+    const candidates = articles.filter(article => article.feed === sourceId && article.date === asOf);
+    const id = candidates.length === 1 ? newsArticleCitationId(candidates[0]!) : null;
+    if (id === null) { result.removed.push({ path, claim: structuredClone(claim), candidates: candidates.length }); return false; }
+    claim.sourceId = id;
+    claim.source = id;
+    result.recited += 1;
+    return true;
+  };
+  /** Statements in an array: unbindable ones are spliced out. */
+  const visitArray = (node: unknown[], path: string): void => {
+    for (let i = node.length - 1; i >= 0; i -= 1) {
+      const child = node[i];
+      const keep = isClaim(child) ? visitClaim(child, `${path}[${i}]`)
+        : isFeedStatement(child) ? (result.removed.push({ path: `${path}[${i}]`, claim: { text: child.text, label: "FACT", source: child.source, asOf: null }, candidates: 0 }), false)
+          : visit(child, `${path}[${i}]`, true);
+      if (!keep) node.splice(i, 1);
+    }
+  };
+  /**
+   * Returns false when this list item must go: a statement list the stored
+   * report requires to hold one ({@link REQUIRED_CLAIM_LISTS}) emptied, or its
+   * single statement (a saved catalyst's or risk's reasoning) went. A removed
+   * statement is never restored (lead decision, review round 1): an optional
+   * list is left empty and the reader shows its existing absence state (for
+   * example "Not established from verified sources." in the brief).
+   */
+  const visit = (node: unknown, path: string, inList: boolean): boolean => {
+    if (!node || typeof node !== "object") return true;
+    if (Array.isArray(node)) { visitArray(node, path); return true; }
+    const record = node as Record<string, unknown>;
+    let keep = true;
+    for (const [key, value] of Object.entries(record)) {
+      if (!path && (key === "meta" || key === "appendix")) continue;
+      const childPath = path ? `${path}.${key}` : key;
+      if (isClaim(value)) {
+        if (visitClaim(value, childPath)) continue;
+        // The schema holds a single statement only as a list item's reasoning, which goes with its item.
+        if (inList) keep = false;
+        else delete record[key];
+        continue;
+      }
+      if (Array.isArray(value)) {
+        const required = REQUIRED_CLAIM_LISTS.test(childPath) && value.some(isClaim);
+        visitArray(value, childPath);
+        if (required && value.length === 0 && inList) keep = false;
+        continue;
+      }
+      visit(value, childPath, false);
+    }
+    return keep;
+  };
+  visit(root, "", false);
+  return result;
 }
 
 /* ------------------------------------------------------------------------ *
@@ -3331,6 +3478,16 @@ function attachProvenanceRegistry(
         currencyUnknown,
       });
     };
+    // D-282: a ratio whose operands are not established is shown, never verifiable.
+    // It keeps the semantic tag it would print as a number, so the prompt is
+    // unchanged and a claim citing that tag reads its cause, not an unknown source.
+    if (figure.operandsUnestablished !== undefined && figure.operandsUnestablished.length > 0) {
+      const id = uniqueId(`${prefix}.${semanticSlug(figure.label)}`);
+      figure.provenanceId = id;
+      registerCitation(id, shownAsOf, figure.source, "payload-unestablished");
+      unestablished(false);
+      return;
+    }
     const canonical = canonicalizeTracedUnit(figure.unit, figure.currency);
     if (canonical === null) {
       unestablished(false);
@@ -3539,6 +3696,11 @@ function attachProvenanceRegistry(
   for (const note of payload.news.notes) {
     const match = /\[((?:fmp|finnhub):news|fmp:press-release) · (\d{4}-\d{2}-\d{2})\]$/.exec(note);
     if (match) registerCitation(match[1], match[2], match[1]);
+  }
+  // D-285: a statement re-cited to one article cites that article's own id.
+  for (const article of payload.news.articles ?? []) {
+    const id = newsArticleCitationId(article);
+    if (id !== null) registerCitation(id, article.date, article.feed);
   }
   // Insider-trade + key-executive rows render as inert text notes carrying one
   // assembler-owned tag at the END (like news). They are shown to the model as

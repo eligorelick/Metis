@@ -94,7 +94,7 @@ describe("report trust presentation", () => {
 
     expect(output).toContain("| Metric | Period | Value | As of | Cited |");
     expect(output).toContain(`| AUDIT-${group} | FY2023 | 10.0% | 2025-12-31 | ✓ |`);
-    expect(output).toContain(`| AUDIT-${group} | FY2024 | 20.0% | 2025-12-31 | untraced |`);
+    expect(output).toContain(`| AUDIT-${group} | FY2024 | 20.0% | 2025-12-31 | not confirmed |`);
     expect(output).toContain(`| AUDIT-${group} | FY2025 | 30.0% | 2025-12-31 | not checked |`);
   });
 
@@ -106,7 +106,7 @@ describe("report trust presentation", () => {
     expect(rows).toHaveLength(3);
     expect(output.includes("<th>Cited</th>")).toBe(true);
     expect(rows[0]).toContain("<td>✓</td>");
-    expect(rows[1]).toContain("<td>untraced</td>");
+    expect(rows[1]).toContain("<td>not confirmed</td>");
     expect(rows[2]).toContain("<td>not checked</td>");
   });
 
@@ -118,7 +118,7 @@ describe("report trust presentation", () => {
     }));
 
     expect(output.match(/aria-label="citation-traced"/g)).toHaveLength(4);
-    expect(output.match(/aria-label="untraced"/g)).toHaveLength(4);
+    expect(output.match(/aria-label="not confirmed"/g)).toHaveLength(4);
     expect(output.match(/aria-label="citation check not run"/g)).toHaveLength(4);
   });
 });

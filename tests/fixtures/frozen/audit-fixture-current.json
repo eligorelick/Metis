@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "cac252e2a3906df034d44b4cfab197cd5051c05bdaf7da68d8f950c0fb28258c",
+  "projectionSha256": "038791e7e9474f9385b212ca285bf462782b8089bf620e8d4312e6541dc787f9",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
     "stageB": {
@@ -341,6 +341,7 @@
           "value": 16.666666666666668,
           "ebit": 2500000000,
           "interestExpense": 150000000,
+          "unverifiedOperands": ["ebit", "interestExpense"],
           "note": {"$auditUndefined": true}
         },
         "sbc": {"latest": 250000000, "pctOfRevenue": 2, "pctOfFcf": 13.88888888888889, "note": "SBC % of FCF is measured against FCF BEFORE the SBC deduction"},
@@ -392,6 +393,7 @@
           "fcfBeforeSbc": 1800000000,
           "netIncome": 1750000000,
           "interestCoverage": 16.666666666666668,
+          "interestCoverageUnverifiedOperands": ["ebit", "interestExpense"],
           "fcfConversionBeforeSbc": 1.0285714285714285,
           "sbcPctOfFcf": 13.88888888888889,
           "cashBridge": {
@@ -2095,7 +2097,7 @@
         "symbol": "DEMO",
         "companyName": "Thesis Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
-        "specVersion": "1.94.0",
+        "specVersion": "1.95.0",
         "model": "synthetic-fixture",
         "pipelineVersion": "audit-fixture-comparison",
         "evidenceContract": "EVIDENCE_CONTRACT_1",

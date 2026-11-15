@@ -1,13 +1,13 @@
 {
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
-  "payloadVersion": "1.108.0",
-  "fingerprint": "1.108.0:10db7419",
-  "summary": {"promptBytes": 187251, "promptFnv1a32": "10db7419", "provenanceCount": 550, "provenanceHash": "bfbdbab5", "provenanceIdsHash": "24194465", "citationCount": 88, "citationHash": "10476af5", "computedFigureLabelHash": "0212433e", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "44d35352"},
+  "payloadVersion": "1.109.0",
+  "fingerprint": "1.109.0:6bab5404",
+  "summary": {"promptBytes": 187251, "promptFnv1a32": "6bab5404", "provenanceCount": 547, "provenanceHash": "693836f4", "provenanceIdsHash": "596aaa95", "citationCount": 92, "citationHash": "0598d06e", "computedFigureLabelHash": "0212433e", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "44d35352"},
   "prompt": {
     "bytes": 187251,
-    "sha256": "36fe3dce91ea38db32fc696a536abdffa196d8bad6fa990a68a80198b94520e8",
+    "sha256": "e15e45430ae62dea4c6006551faaf44cac254316c0b37a9618623779c2c2a457",
     "sections": [
-      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "8a1da69cf27f9e1c7864e20b2f2dc6aaf795e3b1bf50a0c1f5f93eff81a58b4a"},
+      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "62521d47966b62e724a634d2e58741935ed55502df8ee8264b43fda4faef70e3"},
       {"heading": "## Quote", "bytes": 520, "sha256": "5146e60fd664d5a82bbbf06b3413303e1136d43422948e7ad1e8c645380d4026"},
       {"heading": "## Growth & margins (computed)", "bytes": 2984, "sha256": "0a99f8d4e346e47a0c3816bac522e18117123512e830df57a2ae624db2407749"},
       {"heading": "## Returns (computed)", "bytes": 4582, "sha256": "a86fc8e32c22c9e7afaced0707f457d1454604f5192c00cc0508647660ae2125"},
@@ -2565,20 +2565,6 @@
       "formulaVersion": "stage-b-v1",
       "displayPrecision": 4
     },
-    {
-      "id": "computed.capital-cash.interest-coverage",
-      "label": "interest coverage",
-      "kind": "computed",
-      "value": 32.56410256410256,
-      "componentDefinitions": ["ebit divided by interest expense"],
-      "unit": "ratio",
-      "currency": null,
-      "period": null,
-      "asOf": "2025-09-27",
-      "origin": "computed.capital.interestCoverage",
-      "formulaVersion": "stage-b-v1",
-      "displayPrecision": 4
-    },
     {"id": "computed.capital-cash.sbc-cash-flow-add-back-revenue", "label": "SBC, cash-flow add-back / revenue", "kind": "computed", "value": 2.8834994148899105, "unit": "percent", "currency": null, "period": null, "asOf": "2025-09-27", "origin": "computed.capital.sbc", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
     {"id": "computed.capital-cash.sbc-cash-flow-add-back-fcf", "label": "SBC, cash-flow add-back / FCF", "kind": "computed", "value": 11.214953271028037, "unit": "percent", "currency": null, "period": null, "asOf": "2025-09-27", "origin": "computed.capital.sbc", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
     {
@@ -2946,20 +2932,6 @@
       "displayPrecision": 4
     },
     {
-      "id": "computed.current-capital.interest-coverage",
-      "label": "interest coverage",
-      "kind": "computed",
-      "value": 33.67875647668394,
-      "componentDefinitions": ["ebit divided by interest expense"],
-      "unit": "ratio",
-      "currency": null,
-      "period": "ttm: 2025-03-29 to 2026-03-28",
-      "asOf": "2026-03-28",
-      "origin": "computed.capital.current.interestCoverage",
-      "formulaVersion": "stage-b-v1",
-      "displayPrecision": 4
-    },
-    {
       "id": "computed.current-capital.net-debt",
       "label": "net debt",
       "kind": "computed",
@@ -3054,20 +3026,6 @@
       "period": "ttm: 2025-03-29 to 2026-03-28",
       "asOf": "2026-03-28",
       "origin": "computed.capital.current.netDebtToEbitda",
-      "formulaVersion": "stage-b-v1",
-      "displayPrecision": 4
-    },
-    {
-      "id": "computed.capital.current.interestCoverage",
-      "label": "interest coverage",
-      "kind": "computed",
-      "value": 33.67875647668394,
-      "componentDefinitions": ["ebit divided by interest expense"],
-      "unit": "ratio",
-      "currency": null,
-      "period": "ttm: 2025-03-29 to 2026-03-28",
-      "asOf": "2026-03-28",
-      "origin": "computed.capital.current.interestCoverage",
       "formulaVersion": "stage-b-v1",
       "displayPrecision": 4
     },
@@ -5774,6 +5732,8 @@
   ],
   "citationRegistry": [
     {"id": "computed.returns.roicVsWacc", "kind": "payload-gap", "asOf": "2025-09-27", "origin": "computed.returns.roicVsWacc"},
+    {"id": "computed.capital-cash.interest-coverage", "kind": "payload-unestablished", "asOf": "2025-09-27", "origin": "computed.capital.interestCoverage"},
+    {"id": "computed.capital.interestCoverage", "kind": "payload-unestablished", "asOf": "2025-09-27", "origin": "computed.capital.interestCoverage"},
     {"id": "computed.capital.dilution", "kind": "payload-gap", "asOf": "2025-09-27", "origin": "computed.capital.dilution"},
     {"id": "computed.capital.buybackPriceAnalysis", "kind": "payload-gap", "asOf": "2025-09-27", "origin": "computed.capital.buybackPriceAnalysis"},
     {"id": "computed.capital.buybackPriceAnalysis.timingPct", "kind": "payload-gap", "asOf": "2025-09-27", "origin": "computed.capital.buybackPriceAnalysis.timingPct"},
@@ -5794,6 +5754,8 @@
     {"id": "computed.forensics.accruals.definition", "kind": "payload-text", "asOf": "2025-09-27", "origin": "computed.forensics.accruals.definition"},
     {"id": "computed.forensics.accruals.band", "kind": "payload-text", "asOf": "2025-09-27", "origin": "computed.forensics.accruals.band"},
     {"id": "computed.forensics.accruals.scaler", "kind": "payload-text", "asOf": "2025-09-27", "origin": "computed.forensics.accruals.scaler"},
+    {"id": "computed.current-capital.interest-coverage", "kind": "payload-unestablished", "asOf": "2026-03-28", "origin": "computed.capital.current.interestCoverage"},
+    {"id": "computed.capital.current.interestCoverage", "kind": "payload-unestablished", "asOf": "2026-03-28", "origin": "computed.capital.current.interestCoverage"},
     {"id": "computed.capital.current.fcfConversionBeforeSbc", "kind": "payload-gap", "asOf": "2026-03-28", "origin": "computed.capital.current.fcfConversionBeforeSbc"},
     {"id": "computed.capital.current.sbcPctOfFcf", "kind": "payload-gap", "asOf": "2026-03-28", "origin": "computed.capital.current.sbcPctOfFcf"},
     {"id": "computed.capital.current.cashBridge.financeLeasePrincipalPayments", "kind": "payload-gap", "asOf": "2026-03-28", "origin": "computed.capital.current.cashBridge.financeLeasePrincipalPayments"},
@@ -5881,7 +5843,7 @@
     {"id": "fmp:key-executives", "kind": "payload-text", "asOf": null, "origin": "fmp:key-executives"}
   ],
   "payload": {
-    "payloadVersion": "1.108.0",
+    "payloadVersion": "1.109.0",
     "symbol": "AAPL",
     "companyName": "Apple Inc.",
     "route": {"base": "general", "overlays": [], "sector": "Technology", "industry": "Consumer Electronics"},
@@ -6016,6 +5978,7 @@
             "unit": "x",
             "source": "computed.capital.interestCoverage",
             "asOf": "2025-09-27",
+            "operandsUnestablished": ["ebit", "interestExpense"],
             "currency": null,
             "period": null,
             "provenanceId": "computed.capital-cash.interest-coverage"
@@ -6152,6 +6115,7 @@
             "unit": "x",
             "currency": null,
             "componentDefinitions": ["ebit divided by interest expense"],
+            "operandsUnestablished": ["ebit", "interestExpense"],
             "source": "computed.capital.current.interestCoverage",
             "asOf": "2026-03-28",
             "period": "ttm: 2025-03-29 to 2026-03-28",
@@ -8988,7 +8952,10 @@
     "news": {
       "title": "Recent news & press releases (snippets)",
       "figures": [],
-      "notes": ["2026-07-03 [news] Reuters: Apple ships new product — The company launched a device. [fmp:news · 2026-07-03]"]
+      "notes": ["2026-07-03 [news] Reuters: Apple ships new product — The company launched a device. [fmp:news · 2026-07-03]"],
+      "articles": [
+        {"feed": "fmp:news", "date": "2026-07-03", "publisher": "Reuters", "title": "Apple ships new product", "url": null}
+      ]
     },
     "validationFlags": [
       "[SKIPPED] FMP↔XBRL cross-check: companyfacts unavailable: fixture gap",

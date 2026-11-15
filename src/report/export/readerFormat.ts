@@ -11,7 +11,7 @@
 import { formatFinancialValue, formatPct } from "@/report/format";
 import { claimCitation, displayClaimText, displayProse, repeatedClaimsNote, withoutRepeatedClaims } from "@/report/presentation";
 import type { SourcedClaim, TracedNumber } from "@/report/schema";
-import { claimStatusMarkText } from "@/report/verificationMarks";
+import { claimStatusMarkText, claimTag } from "@/report/verificationMarks";
 
 /** The reader's mark for an absent value. */
 export const READER_DASH = "—";
@@ -70,7 +70,7 @@ export function claimReasoning(reasoning: SourcedClaim | SourcedClaim[], markup:
   const { shown, homes } = withoutRepeatedClaims(reasoning);
   const note = repeatedClaimsNote(homes);
   return [
-    ...shown.map(claim => `[${markup.label(claim.label)}] ${markup.claimText(displayClaimText(claim))} (${markup.citation(claim)})${markup.mark(statusMarkSuffix(claim))}`),
+    ...shown.map(claim => `[${markup.label(claimTag(claim))}] ${markup.claimText(displayClaimText(claim))} (${markup.citation(claim)})${markup.mark(statusMarkSuffix(claim))}`),
     ...(note ? [markup.text(note)] : []),
   ].join(" ");
 }

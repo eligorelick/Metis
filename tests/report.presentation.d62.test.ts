@@ -270,7 +270,7 @@ describe("D-264 reader repairs", () => {
     for (const output of surfaces(r)) {
       expect(output).toContain("not a current fair value");
       expect(output).not.toContain("Internal computed.valuation");
-      expect(output).toContain("the number was matched to its record by code");
+      expect(output).toContain("against the record it cites");
       expect(output).toContain("Citation coverage");
     }
     expect(JSON.stringify(r)).toBe(before);
