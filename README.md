@@ -49,7 +49,7 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
-On macOS/Linux, use `cp .env.example .env`. Then open <http://127.0.0.1:3000>; development and production both bind to `127.0.0.1`. For everyday use, `npm run app` serves the faster production build and rebuilds it only when the source changed (or run `npm run build`, then `npm start`).
+On macOS/Linux, use `cp .env.example .env`. Then open <http://127.0.0.1:3000>; development and production both bind to `127.0.0.1`. For everyday use, `npm run app` serves the production build and rebuilds it only when the source changed (or run `npm run build`, then `npm start`).
 
 No paid API key is required to try the app, and every provider key is optional:
 
@@ -88,7 +88,7 @@ Choose a route in **Settings → AI connections**:
 
 Sign-in runs no inference, and a failed connection never switches to paid API usage. [Anthropic's authentication rules](https://code.claude.com/docs/en/legal-and-compliance) describe the local CLI path. Writers and judges stay tool-free. Explicit optional-search limits fall back to supplied evidence with a coverage notice; authentication, policy and allowance failures still stop the run. See [setup, controls and limits](docs/PRIVACY.md#ai-connection-setup).
 
-Connections have offline test coverage, and complete reports have run live through a ChatGPT connection. One complete report has run live through a Claude Code subscription connection (one company, 2026-11-12, Claude Code 2.1.322, model alias `default`, which the CLI reported as `claude-opus-5-5`): every pass finished and $0 API cost was recorded. One run is not a guarantee: subscription usage limits apply and Metis cannot read them, the CLI does not report the effort it used, and that run predates analyst web research on this route (D-269).
+Connections have offline test coverage, and complete reports have run live through a ChatGPT connection. One complete report has run live through a Claude Code subscription connection (one company, 2026-11-12, Claude Code 2.1.322, model alias `default`, which the CLI reported as `claude-opus-5-5`): every pass finished and $0 API cost was recorded. One run is not a guarantee: subscription usage limits apply and Metis cannot read them, the CLI does not report the effort it used, and that run predates analyst web research on this route (D-269). Later, three reports ran through this route on 2026-11-14; see [measured route costs and times](docs/REPORT-COSTS.md) for their dated telemetry and limits.
 
 Settings follows a saved Claude key unless a connection was chosen explicitly. If the AI connection store cannot be read, saved reports stay readable but new jobs do not start. LAN mode disables credential and connection management. Stop all Metis servers before changing credential-lock versions; see [upgrade/downgrade guidance](docs/PRIVACY.md).
 
@@ -109,9 +109,9 @@ The verification pass makes no model call. It reports two results side by side; 
 
 ### Cost of Claude API analysis
 
-Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. These are neither measured prices nor spending caps; set `METIS_MAX_JOB_COST_USD` and `METIS_MAX_ROLLING_COST_USD` to cap spend.
+Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. The ~$3.42 illustration uses a synthetic fixture, while the $16-28 estimates in REPORT-COSTS reprice measured sign-in totals without cache pricing; neither is a quote. These are neither measured prices nor spending caps; set `METIS_MAX_JOB_COST_USD` and `METIS_MAX_ROLLING_COST_USD` to cap spend.
 
-Measured complete runs in November 2026 cost $1.62 (Haiku 4.5 analysts at medium effort with the Sonnet 5.5 judge), $2.28 (Sonnet 5.5 at high), $4.71 (Opus 5.5 at high), $12.27 (Opus 5.5 at extra high), $3.08 (Sonnet 5.5 on JPM) and $6.30 (Opus 5.5 on NVO), so expect more than the estimate at higher effort.
+See [report costs and times](docs/REPORT-COSTS.md) for measured sign-in runs and a separately labelled API estimate.
 
 Claude model prices and limits come from `config/models.json`; unknown IDs degrade to data-only reports because their spend cannot be bounded. `auto` prefers Opus 5.5; Haiku's judge uses Sonnet 5.5 with a disclosed model floor. See [Claude usage and cost controls](docs/CLAUDE-USAGE.md) for model, effort and cap guidance.
 
@@ -247,7 +247,7 @@ Metis is a Next.js (App Router) application written in TypeScript, with React, a
 | `npm run dev` | Run the app on 127.0.0.1 in development. |
 | `npm run build` | Production build. |
 | `npm run start` | Serve the production build on 127.0.0.1. |
-| `npm run app` | Everyday use: serve the production build, rebuilding it first when the source changed. Pages open several times faster than under `dev`. |
+| `npm run app` | Everyday use: serve the production build, rebuilding it first when the source changed. |
 | `npm run sample:build` | Rebuild the fictional sample report and matching charts offline; no provider or model calls. |
 | `npm run typecheck` | Type-check without emitting. |
 | `npm run lint` | ESLint over the repository. |
@@ -299,6 +299,8 @@ The product suite makes no network request whatever your `.env` contains; one li
 - **AI missing or a run held:** check the selected AI connection, provider allowance and spend caps in Settings. A failed connection does not silently switch to paid Claude. See [jobs and recovery](docs/OPERATIONS.md#report-lifecycle-and-recovery) and [Claude guidance](docs/CLAUDE-USAGE.md).
 
 ## Limitations
+
+See [known limitations](docs/KNOWN-LIMITATIONS.md) for missing evidence, affected company types and what reports show instead.
 
 - Metis is a research tool for one local user, not a broker or a trading system. A traced number can still come from incorrect source data, and AI narrative can be wrong even when its citations resolve.
 - Verification checks numeric content against dated registry records and retained passages; citation presence alone does not validate a claim or qualitative truth. Oversized analyst cases disclose removed material and any remaining excess.
