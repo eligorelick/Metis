@@ -84,7 +84,7 @@ export interface YahooMeta {
   /**
    * Yahoo's `chartPreviousClose`: the close BEFORE THE CHART RANGE, not the
    * prior session's. Under `range=5d` it is the close five sessions back
-   * (verified live 2026-09-06: AAPL gave 319.7 under 5d and 309.38 under 1mo
+   * (verified live: one symbol gave 319.7 under 5d and 309.38 under 1mo
    * while the true prior-session close was 328.21). Kept under its real name;
    * the quote uses {@link YahooMeta.previousSessionClose}.
    */
@@ -119,7 +119,7 @@ export interface YahooClientConfig {
   retryBaseDelayMs?: number;
 }
 
-/** FMP spells share classes "BRK.B"; Yahoo spells them "BRK-B". */
+/** FMP spells share classes "ABC.B"; Yahoo spells them "ABC-B". */
 export function yahooSymbol(symbol: string): string {
   return symbol.trim().toUpperCase().replace(/\./g, "-");
 }
@@ -284,8 +284,7 @@ function num(value: number | null | undefined): number | null {
 /**
  * The prior session's close from the chart bars (see
  * {@link YahooMeta.previousSessionClose}); `chartPreviousClose` is anchored to
- * the range and gave a five-session move labelled as the daily change (audit
- * 2026-09-06, F225).
+ * the range and gave a five-session move labelled as the daily change.
  */
 function previousSessionClose(result: ChartResult): number | null {
   const stamps = result.timestamp ?? [];
@@ -488,7 +487,7 @@ export class YahooClient {
       // dated to its session, which the FMP path's "no bar until the close"
       // premise does not share — a limitation of the unofficial endpoint,
       // recorded rather than filtered because it could not be verified
-      // against a live session during the 2026-09-06 audit (F228).
+      // against a live session.
       if (close === null || open === null || high === null || low === null) continue;
       rows.push({
         symbol: ySymbol,

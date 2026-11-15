@@ -42,7 +42,7 @@ import { z } from "zod";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import { fetchWithPolicy, HttpTransportError, type FetchPolicy, type TokenBucketLimiter } from "@/providers/http";
 import { canonicalEntitySymbol, isValidSymbol, sameEntitySymbol } from "@/symbol";
-// WS4 (D-11): DEMO and DBNK are reserved fixture symbols and never reach the vendor.
+// D-11: DEMO and DBNK are reserved fixture symbols and never reach the vendor.
 import { anyReservedFixtureSymbol, isReservedFixtureSymbol } from "@/providers/reservedSymbols";
 import { FmpAccessError, FmpQuotaError, assertFmpQuotaAvailable, currentFmpQuota, fmpAccessKey, fmpQuotaError, parseFmpRestriction, releaseGuessedFmpQuota, resetFmpAccess, withFmpAccess } from "@/providers/fmpAccess";
 import { quoteTtlMs } from "@/providers/usSession";
@@ -221,7 +221,7 @@ export interface FmpStatementRow extends FmpRawRow {
   interestExpenseAgreement?: StatementFieldProvenance;
 }
 
-/** FIN-401: arithmetic/provenance classification, never inferred from the operating-income tag alone. */
+/** D-147: arithmetic/provenance classification, never inferred from the operating-income tag alone. */
 export interface EquityMethodIncomePlacement {
   placement: "in-operating-income" | "below-operating-income" | "undetermined" | "immaterial";
   income: number | null;
@@ -267,7 +267,7 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
    */
   pretaxIncomeBeforeEquityMethod?: FiledIncomeLine;
   /**
-   * D-300 (P8, P12; review round 1): the reconciled filed earnings family the row's own tax-rate operands
+   * D-300 (P8, P12): the reconciled filed earnings family the row's own tax-rate operands
    * agree with (provision and the pre-tax base the rate divides by), recorded when no value changes. Like
    * `interestExpenseAgreement`, it is evidence that the operands were checked against a filing and is kept
    * out of `fieldProvenance`; absent means unverified. D-307 retains the filed pair in `values` for effective-rate consumers.
@@ -311,7 +311,7 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
   deferredRevenue?: number;
   capitalLeaseObligations?: number;
   /**
-   * WS6 review (BLOCKER 1): the OPERATING slice of `capitalLeaseObligations`.
+   * The OPERATING slice of `capitalLeaseObligations` (D-19 EV bridge).
    * FMP publishes no such field, so this is present only on the EDGAR-built
    * statements (`src/edgar/statements.ts`), where the lease chain resolves the
    * operating and finance liabilities separately. Absent ⇒ the split is
@@ -342,7 +342,7 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
   totalDebt?: number;
   netDebt?: number;
   /**
-   * Review m8 (2026-10-29): the vendor's own netDebt, kept when the D-133
+   * The vendor's own netDebt, kept when the D-133
    * completion recomposes netDebt from the filing. Only the vendor-convention
    * diagnostic reads it; the house net debt never does.
    */
@@ -1050,7 +1050,7 @@ export function parseFmpLimitCap(bodyText: string): number | null {
 const planLimitCaps = new Map<string, number>();
 /**
  * Largest `limit` the VENDOR has answered in full for a key — a lower bound on
- * its cap, never proof there is none. Before the 2026-09-06 audit (F223/F227)
+ * its cap, never proof there is none. Before this rule
  * a successful probe recorded an "uncapped" sentinel whatever limit it had
  * asked for, and whether the vendor or the cache had answered, so a within-cap
  * first request (or a cache hit) disabled the gate and the next wave paid one
@@ -1105,8 +1105,8 @@ export type FmpParams = Record<string, string | number | boolean | undefined>;
 /**
  * Auth-carrying param names that must NEVER appear in a query string, cache key,
  * or provenance annotation. FMP uses header auth; no stable endpoint takes a
- * param by these names, so stripping them is purely defensive (audit
- * 2026-07-11 #8) — a future change that accidentally threads the key through
+ * param by these names, so stripping them is purely defensive — a future
+ * change that accidentally threads the key through
  * params cannot leak it into the persisted api_cache or the report appendix.
  */
 const FMP_AUTH_PARAM_NAMES: ReadonlySet<string> = new Set(["apikey", "api_key", "token"]);
@@ -1181,7 +1181,7 @@ export { quotePriceObservationDay };
  * Derive an asOf date from response rows (fiscal date / quote timestamp), else
  * fallback. Clamped to the fetch date: forward-looking endpoints
  * (analystEstimates rows dated 2026..2030, earnings with future scheduled rows)
- * must never surface a FUTURE "as of" in the sources appendix (L2). The newest
+ * must never surface a FUTURE "as of" in the sources appendix. The newest
  * row date that is on or before the fetch date wins; if every row date is in
  * the future, the fetch date is used. Backward-looking endpoints are
  * unaffected (all their dates are already <= the fetch date).
@@ -1242,7 +1242,7 @@ export interface FmpClientConfig {
 
 /**
  * Total time one valuation-critical request may spend waiting out FMP rate
- * limits before the run goes on without it (AMZN audit 2026-10-20, finding 2).
+ * limits before the run goes on without it (D-98).
  * Long enough for one per-minute rate window plus slack; short enough that a
  * daily-quota refusal costs the report at most a minute and a half.
  */
@@ -1295,7 +1295,7 @@ interface CallSpec {
   allowObjectBody?: boolean;
   /** fixture basenames tried in order (before "default"); usually the symbol */
   fixtureKeys?: string[];
-  /** manifest field for gaps, e.g. "fmp.profile(AAPL)" */
+  /** manifest field for gaps, e.g. "fmp.profile(<symbol>)" */
   gapField: string;
   /** Requested issuer(s) that every returned row must remain bound to. */
   entityScope?: FmpEntityScope;
@@ -1429,9 +1429,8 @@ export class FmpClient {
    * cause. Any other result is returned untouched.
    */
   async retryRateLimited<T>(call: () => Promise<FetchResult<T>>): Promise<FetchResult<T>> {
-    // The bound is wall-clock time for the whole request (Codex review of
-    // PR #41): it starts before the first attempt, and each retry gets only
-    // the time that is left.
+    // The bound is wall-clock time for the whole request (D-98): it starts
+    // before the first attempt, and each retry gets only the time that is left.
     const start = this.now().getTime();
     let result = await call();
     if (this.apiKey === undefined) return result;
@@ -1490,7 +1489,7 @@ export class FmpClient {
   }
 
   /**
-   * WS4 (D-11): a request about a reserved fixture symbol is served from
+   * D-11: a request about a reserved fixture symbol is served from
    * fixtures even on a keyed plan, so the two fictional issuers can never be
    * sent to the vendor and can never collide with a real ticker of the same
    * name. The symbol is read from the call's declared entity scope, else from
@@ -1510,7 +1509,7 @@ export class FmpClient {
   }
 
   /**
-   * WS4 (D-11): the same client with its key dropped, so EVERY method serves
+   * D-11: the same client with its key dropped, so EVERY method serves
    * fixtures. A reserved-symbol run uses this rather than the per-request rule
    * alone, because a report also calls endpoints that carry no symbol at all
    * (treasury rates, the market risk premium) and a reserved symbol must reach
@@ -1705,7 +1704,7 @@ export class FmpClient {
         // non-error envelope ({"message": "temporarily unavailable"}) used to
         // pass the entity check on every optional-scope endpoint, normalize to
         // zero rows, and — not being an empty ARRAY — overwrite the last-good
-        // statement row for the full TTL (audit 2026-09-06, F221). Rejected
+        // statement row for the full TTL. Rejected
         // here so it is never admitted; the retrieval-side check below keeps
         // reading legacy rows.
         if (isRecord(body) && spec.allowObjectBody !== true) {
@@ -2299,7 +2298,7 @@ export class FmpClient {
    */
   async historicalPriceEodFull(symbol: string, from: string, to: string): FmpResult<FmpEodBarRow> {
     // The chunking loop below bypasses `call`, so the reserved-symbol rule is
-    // applied here too (WS4, D-11).
+    // applied here too (D-11).
     if (this.servesFixtures(symbol)) {
       return this.call<FmpEodBarRow>({
         method: "historicalPriceEodFull",
@@ -2388,7 +2387,7 @@ export class FmpClient {
     // chunk steps the boundary back one chunk instead. A missing OLDER chunk
     // merely truncates history: computeTechnicals already flags per-window
     // insufficiency, so a shortened window degrades honestly instead of erasing
-    // the whole technicals section (2026-07 audit: 8-11 early reports lost ALL
+    // the whole technicals section (8-11 early reports once lost ALL
     // technicals to one rate-limited chunk). Successful chunks older than a
     // boundary are dropped too — a hole in the middle of the series would
     // corrupt drawdowns/RS.

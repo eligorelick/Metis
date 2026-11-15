@@ -85,16 +85,16 @@ export function inProgressUsSessionDate(at: string): string | null {
 /**
  * Cache TTL for a quote-driven value. Between sessions no newer price exists,
  * so a quote fetched after the last close (plus settle time) stays fresh until
- * the next open. A flat 15-minute TTL flagged NVDA report #48's 20:00 UTC
- * closing quote "served past cache TTL" when it was reused 22 minutes later,
- * the same evening (2026-10-26).
+ * the next open. A flat 15-minute TTL flagged a 20:00 UTC closing quote
+ * "served past cache TTL" when a report reused it 22 minutes later, the same
+ * evening.
  */
 export function quoteTtlMs(baseTtlMs: number, now: Date): number {
   if (isUsSessionOpen(now)) return baseTtlMs;
   return Math.max(baseTtlMs, now.getTime() - (lastUsSessionClose(now) + CLOSE_SETTLE_MS));
 }
 
-/** DATA-112: only the current-date history tail shares quote freshness. */
+/** D-148: only the current-date history tail shares quote freshness. */
 export function sessionTailTtlMs(windowTo:string,now:Date,baseTtlMs=15*60_000):number|null {
  return windowTo>=now.toISOString().slice(0,10)?quoteTtlMs(baseTtlMs,now):null;
 }

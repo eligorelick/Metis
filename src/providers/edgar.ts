@@ -196,7 +196,7 @@ export interface FilingIndex {
   /** From FILED AS OF DATE (YYYY-MM-DD) when present. */
   filedAsOf?: string;
   /**
-   * WS4: the FILER blocks of the submission header, in filed order. A single
+   * D-14: the FILER blocks of the submission header, in filed order. A single
    * registrant files alone; a Form 8-K12B announcing a successor issuer
    * co-registers the PREDECESSOR, and that co-registrant CIK is the only
    * machine-readable link between the two entities — EDGAR's submissions and
@@ -359,9 +359,9 @@ export function parseIndexHtm(html: string): FilingIndex {
 
 /**
  * Exhibit type match by PREFIX, never exact string ("EX-13", "EX-13.1",
- * WFC-style letter suffixes). NEVER select exhibits by filename or size —
- * WFC's EX-13 is named like a primary doc and its largest ex*-named file is a
- * compensation plan (F17).
+ * letter suffixes). NEVER select exhibits by filename or size — one bank's
+ * EX-13 is named like a primary doc and its largest ex*-named file is a
+ * compensation plan.
  */
 export function isExhibitType(type: string, prefix: string): boolean {
   const t = type.trim().toUpperCase();
@@ -1346,7 +1346,7 @@ export class EdgarClient {
    * Resolve a ticker via https://www.sec.gov/files/company_tickers.json
    * (object keyed by array index, cik_str UNPADDED int; 1,476 CIKs appear under
    * multiple tickers — map is built ticker→cik, first occurrence wins).
-   * Cached ~7 days. Tries "BRK.B" ⇄ "BRK-B" spellings.
+   * Cached ~7 days. Tries "ABC.B" ⇄ "ABC-B" share-class spellings.
    */
   async tickerToCik(symbol: string): Promise<FetchResult<CikMapping>> {
     const url = `${EDGAR_HOSTS.www}/files/company_tickers.json`;
@@ -1406,7 +1406,7 @@ export class EdgarClient {
   /**
    * https://data.sec.gov/submissions/CIK{10-digit}.json — filings.recent is a
    * struct of parallel arrays, newest first, ≥1 year or 1,000 filings
-   * (JPM: 25,280 rows). Older overflow pages are listed but not fetched.
+   * (a large bank: 25,280 rows). Older overflow pages are listed but not fetched.
    */
   async submissions(cik: number | string): Promise<FetchResult<EdgarSubmissions>> {
     const url = `${EDGAR_HOSTS.data}/submissions/CIK${padCik(cik)}.json`;

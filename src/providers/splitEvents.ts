@@ -6,7 +6,7 @@
  * post-split basis — the date the vendor's own split-adjusted price series
  * pivots on. That is the date a price's share basis turns on, and it is
  * different from the dates a filer's XBRL carries (see src/edgar/splits.ts):
- * NVIDIA's 10-for-1 of 2024 became legally effective on 2024-06-07 at 4:01 p.m.
+ * one filer's 10-for-1 of 2024 became legally effective on 2024-06-07 at 4:01 p.m.
  * Eastern, and the first split-adjusted session was 2024-06-10.
  *
  * The evidence is either `retrieved` — the vendor answered for the stated
