@@ -65,9 +65,8 @@ export const ANTHROPIC_REQUEST_TIMEOUT_MS = 600_000;
  * guard is blind to exactly the signal that proves the request is alive.
  *
  * At 120s the guard therefore pre-empted a working detector with a broken one
- * and killed healthy paid passes: 2026-09-03, AMZN on claude-fable-5-1 at
- * effort max, abandoned mid-reasoning and settled at a presumed 127,995
- * output tokens. Sitting at or above undici's window leaves dead connections
+ * and killed healthy paid passes mid-reasoning, settled at a presumed maximum
+ * of output tokens (D-09). Sitting at or above undici's window leaves dead connections
  * to the layer that can see them, and leaves this guard as the backstop for
  * the case undici cannot catch — a socket kept warm by pings that never
  * produces anything.

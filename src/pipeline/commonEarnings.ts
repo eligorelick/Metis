@@ -3,11 +3,11 @@
  * stock whose vendor income row does not carry it.
  *
  * Why this exists: FMP's income statement has no `netIncomeAvailableToCommon`
- * for banks such as JPM, and its cash-flow `preferredDividendsPaid` is a zero
+ * for many banks, and its cash-flow `preferredDividendsPaid` is a zero
  * placeholder beside outstanding preferred. `computeRote` therefore (correctly)
  * refuses to credit the preferred coupon to common, so ROTE, the payout ratio
- * and the whole excess-return valuation were suppressed and the bank grades
- * fell back to a placeholder. The figure itself is filed: companyfacts carries
+ * and the whole excess-return valuation would be suppressed and the bank grades
+ * fall back to a placeholder (P8: the filed figure is used). The figure itself is filed: companyfacts carries
  * `NetIncomeLossAvailableToCommonStockholdersBasic` for the same fiscal year.
  *
  * Scope is deliberately narrow so the "no statement row mixes source fields"

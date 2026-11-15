@@ -87,7 +87,7 @@ export interface ForensicsBalanceRow {
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
   /**
-   * Audit 2026-10-22 E-8: a long-term debt composed from instrument-class tags
+   * D-105: a long-term debt composed from instrument-class tags
    * that may hold current notes, with those tags. It stays out of
    * `longTermDebt`; the Piotroski leverage direction compares it year on year
    * when both years compose it from the same classes.
@@ -409,7 +409,7 @@ export interface AltmanInputs {
    */
   marketCapHistoryCurrencyReason?: string | null;
   /**
-   * D-267 review: the current cap was converted to the statement currency at one dated rate. The converted cap counts
+   * D-267: the current cap was converted to the statement currency at one dated rate. The converted cap counts
    * as an observation at `marketCapAsOf` only when that date AND this rate's observation date both pair with the
    * balance date under the same rule; otherwise `marketCapHistoryCurrencyReason` applies.
    */
@@ -444,7 +444,7 @@ function marketValueAtBalanceDate(inputs: AltmanInputs, balanceDate: string): { 
   const cutoff = inputs.analysisCutoff ? inputs.analysisCutoff.slice(0, 10) : null;
   const rows: Array<{ date: string; marketCap: number; source: string | null }> = [];
   for (const row of inputs.marketCapHistory ?? []) {
-    // D-267 review (P1, P2): a reading derived from a close and a filed share count stands for its day only when the
+    // D-267 (P1, P2): a reading derived from a close and a filed share count stands for its day only when the
     // count was observed on or before that day; otherwise the reading does not qualify and the rule moves on.
     // Only a well-formed real day on or before the reading's own day proves it; blank, malformed or null does not.
     const shareMs = row.sharesAsOf === undefined ? null : strictUtcDayMs(row.sharesAsOf);
@@ -596,7 +596,7 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
     // either side leaves the ratio unproven, so it is withheld too.
     const x4Currency = comparePriceCurrency(inputs.reportedCurrency, inputs.quoteCurrency);
     const pairing = inputs.marketCapHistory !== undefined;
-    // D-267 review: a converted cap and its rate, both paired with the balance date, are one single-date observation.
+    // D-267: a converted cap and its rate, both paired with the balance date, are one single-date observation.
     const converted = pairing && inputs.marketCapConversion && b.date ? marketValueAtBalanceDate(inputs, b.date) : null;
     const convertedAdmitted = converted !== null && converted.source === "current market capitalization" &&
       latestOnOrBeforeWithin([{ date: inputs.marketCapConversion!.rateDate.slice(0, 10) }], b.date!.slice(0, 10), STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS) !== null &&
@@ -797,9 +797,10 @@ export function selectAltmanVariant(
     );
     return { variant: null, notes };
   }
-  // Audit 2026-10-22 A-3: a rate-regulated utility recovers its capital through
-  // the rate base; Z'' read DUK, NEE and SO as distressed on working capital
-  // and retained earnings the commission, not the market, determines.
+  // D-104 (regulated-utility overlay): a rate-regulated utility recovers its
+  // capital through the rate base; Z'' would read utilities as distressed on
+  // working capital and retained earnings the commission, not the market,
+  // determines.
   if (route.overlays.includes("regulated-utility")) {
     notes.push(
       "Altman Z not computed for a regulated utility: its rate base and regulatory assets are not the balance sheets the Z models were estimated on, and its leverage is scored on Moody's regulated-utility ranges instead.",
@@ -1434,7 +1435,7 @@ export interface PiotroskiSignal {
   value: 0 | 1 | null;
   detail: string;
   /**
-   * AMZN audit 2026-10-20 finding 20: on a failed signal, what the figures
+   * D-99 (report wording): on a failed signal, what the figures
    * did ("current ratio fell"). The signal names state the pass condition,
    * so printing them as the failures read as the opposite of the change.
    */
@@ -1455,7 +1456,7 @@ export const PIOTROSKI_SIGNAL_LABELS: Readonly<Record<PiotroskiSignalName, strin
 };
 
 /**
- * AMZN audit 2026-10-20 finding 20: what a failed signal establishes when it
+ * D-99 (report wording): what a failed signal establishes when it
  * records no direction (a result stored before `outcome` existed): the pass
  * condition did not hold, which is never the condition itself.
  */
@@ -1504,10 +1505,9 @@ export interface PiotroskiOptions {
    * unprofitable overlay off OCF on financial routes. Piotroski (2000) built
    * the score on non-financial firms, and scoring those four on a bank produced
    * coin-flips inside a 9-point score the report presents as a solvency read
-   * (JPMorgan graded 2/6 in the 2026-09-02 keyless sweep, both misses being the
-   * OCF tests).
+   * (a large bank could fail both OCF tests on funding flows alone).
    *
-   * WS5 (D-17) withholds two more, for the same reason stated one layer deeper:
+   * D-17 withholds two more, for the same reason stated one layer deeper:
    * ΔLEVER and ΔTURN do not merely fail on a financial balance sheet, they
    * measure the opposite of what the paper reads them as.
    *
@@ -1558,19 +1558,19 @@ export interface PiotroskiOptions {
 }
 
 export interface PiotroskiResult {
-  /** FIN-306: tests excluded by route design, independently of missing supported data. Absent on legacy results. */
+  /** D-150: tests excluded by route design, independently of missing supported data. Absent on legacy results. */
   routeWithheld?: number;
   score: number | null;
   /** Number of evaluable signals (9 with 3 fiscal years, 7 with 2, 3 on a financial route). */
   outOf: number;
   signals: Record<PiotroskiSignalName, PiotroskiSignal>;
   /**
-   * WS5: which scale this score is on. "standard" is the paper's 9-signal
+   * D-17: which scale this score is on. "standard" is the paper's 9-signal
    * F-score; "financial" is the reduced battery for a bank, insurer or
    * mortgage REIT. A 3-of-3 must never be read against the 9-point scale.
    */
   variant: "standard" | "financial" | "eligibility-unresolved";
-  /** WS5: display label carrying the scale, e.g. "Piotroski F (financial variant, 3 signals)". */
+  /** D-17: display label carrying the scale, e.g. "Piotroski F (financial variant, 3 signals)". */
   label: string;
   notes: string[];
   gaps: ManifestEntry[];
@@ -1592,7 +1592,7 @@ export function computePiotroski(
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
   const na = (detail: string): PiotroskiSignal => ({ value: null, detail });
-  // `outcome` is what a failure's figures did (AMZN audit 2026-10-20 finding 20).
+  // `outcome` is what a failure's figures did (D-99, report wording).
   const sig = (pass: boolean, detail: string, outcome: string): PiotroskiSignal =>
     pass ? { value: 1, detail } : { value: 0, detail, outcome };
   /** A rise test failed: the ratio fell, or did not move. */
@@ -1660,7 +1660,7 @@ export function computePiotroski(
   if (balanceSheetFunded) {
     s5 = na(leverageWithheld);
   } else {
-    // Audit 2026-10-22 E-8: a composed long-term debt that may hold current
+    // D-105: a composed long-term debt that may hold current
     // notes still shows the direction of leverage when both years compose it
     // from the same classes.
     const debtBasis = (balance: ForensicsBalanceRow | null | undefined): { value: number; tags: readonly string[] | null } | null => {
@@ -1826,7 +1826,7 @@ export function computePiotroski(
     );
   }
 
-  // WS5: the label carries the scale. A 3-of-3 on a bank must never be read
+  // D-17: the label carries the scale. A 3-of-3 on a bank must never be read
   // against the paper's 9-point scale; the Stage C payload renders this string
   // as the figure's label (payload.ts), and grading weights the signal by the
   // share of the nine signals that were evaluable.
@@ -2086,7 +2086,7 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
   } else if (definition === "financial-asset-adjusted") {
     notes.push(
       "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude " +
-        // FIG-4 (audit 2026-10-29, AMZN #51): the exclusion is claimed only when an investment was removed.
+        // D-133: the exclusion is claimed only when an investment was removed.
         (ltiT !== 0 || ltiP !== 0
           ? "cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. "
           : "cash and short-term investments. Long-term investments are 0 on both balance sheets, so none are removed from net operating assets. ") +
@@ -2531,7 +2531,7 @@ export function computeSupportFlags(
       });
     }
   } else if (lookback.some((row) => row !== null)) {
-    // FIN-509-V1: a rule that could not run says so (module convention above);
+    // D-134: a rule that could not run says so (module convention above);
     // no stand-in for the missing operand (docs/RESEARCH.md "5.3 One-time items").
     // The route is unknown here, so the wording names the SEC route neutrally.
     gaps.push(
@@ -2874,7 +2874,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
   );
   let altman: AltmanResult | null = null;
   if (altmanSelection.variant === null) {
-    // WS5 (criterion g): the variant selector already explains the refusal in
+    // D-17: the variant selector already explains the refusal in
     // its notes; carry that exact text into the MANIFEST too, so a report whose
     // Z-score cell is blank says why it is blank rather than looking like a
     // fetch that failed.
@@ -2960,7 +2960,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     notes.push(
       eligibilityUnresolved ? `Beneish M-score eligibility unresolved: ${eligibilitySubject} does not validate operating-method applicability; withheld pending methodology review.` : "Beneish M-score not computed: financial company (Beneish excluded financial institutions from the model's estimation sample, paper p.5).",
     );
-    // WS5 (criterion g): the reason reaches the MANIFEST, not only the notes.
+    // D-17: the reason reaches the MANIFEST, not only the notes.
     // A battery that silently produces nothing reads as missing data; this says
     // it was refused, and why.
     gaps.push(
@@ -3023,7 +3023,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     notes.push(
       eligibilityUnresolved ? `Accrual ratios eligibility unresolved: ${eligibilitySubject} does not validate operating accrual methodology; withheld pending methodology review.` : "Accrual ratios suppressed for financial companies — financial-asset flows swamp operating accruals (research §6.3).",
     );
-    // WS5 (criterion g): reason to the manifest as well as the notes.
+    // D-17: reason to the manifest as well as the notes.
     gaps.push(
       gapEntry(
         "forensics.accrualsRatio",

@@ -29,7 +29,7 @@ import { withComputationContext } from "@/edgar/computationContext";
  *  - runVerifyPass: measures CITATION COVERAGE (provenance, NOT correctness).
  *    Every TracedNumber must resolve an exact registry ID and match value, unit,
  *    currency, period, and as-of. Its printed description must not conflict with
- *    the cited metric (AI-407). Prose citations must resolve an exact payload
+ *    the cited metric (D-144). Prose citations must resolve an exact payload
  *    source/date or an observed fetched URL; this is counted separately from
  *    numeric prose support. Prose numbers additionally require a typed value
  *    or an unambiguous metric/unit/period binding to retained source spans.
@@ -93,14 +93,14 @@ export interface AssembleReportArgs {
     verificationRate: number | null;
     /** Omitted only by legacy/test callers; generation passes explicit coverage. */
     coverage?: ProvenanceCoverage;
-    /** WS7 (D-20): deterministic check results; omitted only by legacy callers. */
+    /** D-20: deterministic check results; omitted only by legacy callers. */
     checks?: ConsistencyChecks;
     log: VerificationLogEntry[];
   };
   costEntries: CostBreakdownEntry[];
   model: string;
   /**
-   * WS7 (D-20): how the judge pass was actually run (order, seed, per-side
+   * D-20: how the judge pass was actually run (order, seed, per-side
    * lengths and self-assessments, `both`-mode reconciliation). Completed here
    * with the model-family fact the cost entries carry. Omitted by the data-only
    * and legacy paths, which never ran a judge.
@@ -167,8 +167,8 @@ export const SCENARIO_TARGET_HORIZON = "explicit DCF horizon";
 
 /**
  * Overwrite each scenario's priceTarget with the DETERMINISTIC computed target
- * (Stage B {@link computeScenarioTargets}; 2026-07-11 scenario-credibility
- * checkpoint), so the judge/LLM number can never control the headline. A scenario
+ * (Stage B {@link computeScenarioTargets}; P18: code owns numbers), so the
+ * judge/LLM number can never control the headline. A scenario
  * with no available computed target — the block is `suppressed`/absent, or that
  * scenario's per-share is null — gets `priceTarget: null` (a target is SUPPRESSED,
  * never fabricated). The horizon beside it is {@link SCENARIO_TARGET_HORIZON}
@@ -200,7 +200,7 @@ export function applyScenarioTargets(
 
 /**
  * Overwrite valuation.dcf.perShare + upsidePct with the DETERMINISTIC fair value
- * (Stage B {@link computeFairValue}; 2026-07-11 DCF-credibility checkpoint) so the
+ * (Stage B {@link computeFairValue}; P18: code owns numbers) so the
  * judge/LLM cannot author the headline intrinsic value. When the block is absent /
  * suppressed, both are nulled — a fair value is SUPPRESSED, never fabricated. The
  * judge's dcf.assumptions display list + sensitivityGrid + reverse-DCF narrative
@@ -223,7 +223,7 @@ export function applyFairValue(
 
 /**
  * Overwrite valuation.dcf.assumptions + sensitivityGrid with the DETERMINISTIC
- * Stage B display (computeDcfDisplay; 2026-07-11 valuation-consistency checkpoint)
+ * Stage B display (computeDcfDisplay; P18: code owns numbers)
  * so the valuation card shows the real computed inputs, never judge-transcribed
  * ones. Empty for routes with no FCFF DCF (excess-return / REIT / pre-revenue /
  * suppressed) — nothing is fabricated. The judge keeps the reverse-DCF narrative
@@ -256,7 +256,7 @@ export const MULTIPLE_LABELS: Record<MultipleKey, string> = {
   peTtm: "P/E (TTM)",
   evToEbitda: "EV/EBITDA",
   evToSales: "EV/Sales",
-  // WS6 review (SHOULD-FIX 4): "free cash flow" means two things in this report
+  // D-19: "free cash flow" means two things in this report
   // — the vendor convention (OCF + capex) that this multiple and its own-history
   // distribution are built on, and the house default that subtracts SBC. The
   // label says which one the reader is looking at.
@@ -273,7 +273,7 @@ function groupedFigure(v: number | null): string {
 }
 
 /**
- * Audit 2026-10-22 B-9: a P/E or EV/EBITDA whose earnings are the latest
+ * D-112: a P/E or EV/EBITDA whose earnings are the latest
  * fiscal year (TTM suppressed) is named for that year, "P/E (FY2025)", never
  * "(TTM)". Every other row keeps its fixed label.
  */
@@ -287,7 +287,7 @@ export function multipleLabel(stat: Pick<MultipleStat, "key" | "period" | "owner
 
 /**
  * Replace the judge's valuation.multiples rows WHOLESALE with rows derived from
- * the DETERMINISTIC Stage B multiples framework (2026-07 invariant-1 hardening):
+ * the DETERMINISTIC Stage B multiples framework (P18):
  * current / peer median / own-5y percentile / sector-appropriate flag all come
  * from computed numbers, never from LLM transcription. Pre-revenue routes
  * (multiples === null) or an absent computed valuation (verify stand-in) yield
@@ -299,9 +299,9 @@ export function applyMultiples(
   computedValuation: ComputedMetrics["valuation"] | undefined,
 ): JudgeOutput["valuation"] {
   const mr = computedValuation?.multiples ?? null;
-  // AMZN audit 2026-10-20 finding 20: Stage B appends the whole EV bridge to
-  // each EV multiple's basis, and the table note below states it again, so a
-  // report printed it three times, each naming the environment variable that
+  // D-99 (report wording): Stage B appends the whole EV bridge to each EV
+  // multiple's basis, and the table note below states it again, so the bridge
+  // would print several times, each naming the environment variable that
   // keeps leases in EV. The note (multiplesBasis) states it once, in reader
   // terms; each EV row points to it.
   const bridgeBasis = mr?.enterpriseValue?.basis ?? null;
@@ -316,9 +316,8 @@ export function applyMultiples(
     mr === null
       ? []
       : mr.multiples.map((stat) => {
-          // A multiple on gain-inflated earnings is not ranked (AMZN audit
-          // 2026-10-20), so the table shows no rank beside its caveat
-          // (Codex review of PR #41).
+          // A multiple on gain-inflated earnings is not ranked (D-98), so the
+          // table shows no rank beside its caveat.
           const history = stat.gainInflatedEarnings ? null : stat.ownHistory;
           return {
             name: multipleLabel(stat),
@@ -361,7 +360,7 @@ export function applyMultiples(
 
 /**
  * Overwrite reverseDcf.impliedMetric + impliedValue with the DETERMINISTIC
- * Stage B reverse-DCF solve (2026-07 invariant-1 hardening). The metric label
+ * Stage B reverse-DCF solve (P18). The metric label
  * names exactly what the solver inverted: method "growth" solved the constant
  * explicit-horizon revenue growth that justifies the price; method "margin"
  * solved the terminal EBIT margin (fallback mode). Method "none", a non-DCF
@@ -399,7 +398,7 @@ export function applyReverseDcf(
 
 /**
  * Overwrite the four quality.forensicScores blocks with the DETERMINISTIC Stage
- * B forensics (2026-07 invariant-1 hardening): Altman variant/score/zone,
+ * B forensics (P18): Altman variant/score/zone,
  * Beneish M + verdict, Piotroski F out-of-N, and the cash-flow accruals ratio +
  * house-rule band. The judge's `notApplicableReason` prose is PRESERVED exactly
  * when the computed counterpart is null (it explains why the score is missing/
@@ -496,7 +495,7 @@ function latestSegmentationTotal(
   bundle: DataBundle | undefined,
 ): { total: number | null; reason?: "no-same-period-revenue" | "revenue-refused" | "split-does-not-reconcile" } {
   const missing = {total:null, reason:"no-same-period-revenue" as const};
-  // D-280 review round 2 (P10): a withheld or unavailable feed names no revenue cause; the heading falls back to
+  // D-280 (P10): a withheld or unavailable feed names no revenue cause; the heading falls back to
   // "share basis not established" rather than claim same-period revenue is missing.
   if (res === undefined || !res.ok || !res.value) return {total:null};
   const data = res.value.data.rows[0]?.data;
@@ -572,7 +571,7 @@ export function applySegmentShares(
   const segmentRecords = options.bindModelNames !== true || bundle?.segmentation === undefined ? [] : segmentRecordCitations(bundle);
   const named = <R extends Parameters<typeof boundSegmentName>[0]>(row: R, kind: "product" | "geographic"): string =>
     options.bindModelNames === true ? boundSegmentName(row, segmentRecords, kind) : row.name;
-  // AI-509: the share basis follows the same admission as the payload and the data-only report.
+  // D-127: the share basis follows the same admission as the payload and the data-only report.
   const primary = bundle?.segmentation?.geographic === undefined ? undefined
     : admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments);
   const geographicTotal = latestSegmentationTotal(primary, bundle);
@@ -601,7 +600,7 @@ export function applySegmentShares(
 }
 
 /**
- * D-271, review round 2 (lead fix, P18: code owns labels): the product and
+ * D-271 (P18: code owns labels): the product and
  * geographic segment names in the bundle's own segmentation data (filed or
  * provider rows, never model text), plus filed quarterly member labels (D-277),
  * as heading keys.
@@ -631,7 +630,7 @@ export function bundleSegmentNameKeys(bundle: DataBundle | undefined): Set<strin
 }
 
 /**
- * D-271, review round 2: a model-written product-line heading can assert what
+ * D-271: a model-written product-line heading can assert what
  * its only naming claim says is unproven ("Verandol dominates the market" over
  * "No reviewed source establishes that Verandol dominates the market"), and the
  * report's own segment rows keep judge-authored names, so neither the claims
@@ -665,7 +664,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     judgments: { cited: 0, total: 0, rate: null },
   };
 
-  // WS7 (D-20): complete the adversarial protocol with the model families the
+  // D-20: complete the adversarial protocol with the model families the
   // settled cost entries name, and disclose it — in the metadata AND in the
   // missing-data manifest, like every other behavior the report depends on.
   const execution = annotateSharedModelFamily(
@@ -693,7 +692,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     ...(args.judgeProtocol?.disclosures ?? []),
     ...(judgeProtocol === undefined ? [] : judgeProtocolManifestEntries(judgeProtocol)),
     ...(args.verify.checks === undefined ? [] : consistencyManifestEntries(args.verify.checks)),
-    // Audit 2026-10-22 C-11: "recovering toward the cost of equity" when the trailing return is already above the terminal target.
+    // D-102: "recovering toward the cost of equity" when the trailing return is already above the terminal target.
     ...returnPathLanguageManifestEntries(args.judgeOutput, args.computed),
   ]))), { execution, model: args.model });
 
@@ -709,10 +708,10 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     costUsd: totalCost(args.costEntries),
     verificationRate: args.verify.verificationRate,
     provenanceCoverage: coverage,
-    // WS7 (D-20)
+    // D-20
     ...(args.verify.checks === undefined ? {} : { consistencyChecks: args.verify.checks }),
     ...(judgeProtocol === undefined ? {} : { judgeProtocol }),
-    // end WS7
+    // end D-20
     dataCompleteness: buildDataCompleteness(missingData),
     execution,
     disclaimer: DISCLAIMER_TEXT,
@@ -733,7 +732,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     missingData,
     verificationRate: args.verify.verificationRate,
     provenanceCoverage: coverage,
-    // WS7 (D-20): checked, beside cited, in the appendix a reader actually opens.
+    // D-20: checked, beside cited, in the appendix a reader actually opens.
     ...(args.verify.checks === undefined ? {} : { consistencyChecks: args.verify.checks }),
     verificationLog: args.verify.log,
     costBreakdown: args.costEntries,
@@ -741,8 +740,8 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
 
   // Deterministic scenario price targets + DCF fair value overwrite the judge's
   // (or null them when suppressed) so the LLM never authors the headline numbers
-  // (2026-07-11 checkpoints). The blocks are attached for their trace/basis/reasons.
-  // 2026-07 invariant-1 hardening extends the same pattern to the remaining
+  // (P18). The blocks are attached for their trace/basis/reasons.
+  // The same pattern extends to the remaining
   // judge-path numerics: multiples rows, the reverse-DCF implied value, forensic
   // scores, and segment revenue shares are all computed-injected below.
   // Executive tenure is derived from an established office start; the legacy
@@ -772,7 +771,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     : { ...sharedBusiness, products: gateProductLineHeadings(sharedBusiness.products, segmentNames) };
   const competitive = args.judgeOutput.competitive.competitorsByProductLine === undefined ? args.judgeOutput.competitive
     : { ...args.judgeOutput.competitive, competitorsByProductLine: gateProductLineHeadings(args.judgeOutput.competitive.competitorsByProductLine, segmentNames) };
-  // Audit work package 3: guidance, issuer FCF, capital return, dated 8-K
+  // D-63: guidance, issuer FCF, capital return, dated 8-K
   // events, XBRL segment revenue by quarter and the eight-quarter trend,
   // pipeline-filled from the bundle. Built before the triggers (D-65), which
   // cite its guidance records.
@@ -806,7 +805,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     scenarioPresentation: buildScenarioPresentation(args.computed, comparableScenarioPrice(args.computed, args.bundle)),
     thesisTriggers: args.computed.valuation ? buildThesisTriggers(args.computed, guidanceLowCitation(filingDisclosures)) : [],
     ...(fairValue ? { fairValue } : {}),
-    // WS5 (D-17): the bank / insurer / mortgage-REIT route metrics and the
+    // D-17: the bank / insurer / mortgage-REIT route metrics and the
     // P/TBV-against-ROTE reading, pipeline-filled exactly like the blocks
     // above. Absent entirely on routes that have none, so a general report is
     // unchanged.

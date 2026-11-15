@@ -105,9 +105,8 @@ function issueListInWords(list: ZodIssueList, ruleMessages: boolean): string {
 }
 
 /**
- * A rejected analyst output in words a reader can follow, for the run panel.
- * NVDA run #49 (2026-10-26) printed the parse error there as the raw Zod
- * issue array. The full text still goes back to the model as repair feedback
+ * A rejected analyst output in words a reader can follow, for the run panel,
+ * never the raw Zod issue array (P24). The full text still goes back to the model as repair feedback
  * and stays on the pass artifact.
  */
 export function plainRejectionNote(detail: string): string {
@@ -150,8 +149,8 @@ export function capRawOutput(raw: string): string {
 /** Raw text of a received-but-invalid pass output, when the error carries it. */
 /**
  * A dropped response this long ran into the ChatGPT plan endpoint's 15-minute
- * response limit: every long judge failure on record ended at exactly 15.0
- * minutes, and every success finished under 13 (2026-10-12).
+ * response limit: long judge failures end at exactly 15.0 minutes, and
+ * successes finish under 13 (P24).
  */
 export const SUBSCRIPTION_TIME_LIMIT_NEAR_MS = 14 * 60_000;
 
@@ -162,7 +161,7 @@ export function partialTextOfError(err: unknown): string {
   return typeof partial === "string" ? partial : "";
 }
 
-/** The carried sections a retry may keep, and the ones it must write again (audit 2026-10-22 D-3). */
+/** The carried sections a retry may keep, and the ones it must write again (D-111). */
 export function checkCarried(
   passes: Pick<PipelinePasses, "checkCarriedSections">,
   pass: "bull" | "bear" | "synthesize",
@@ -199,7 +198,7 @@ export function rawTextOfError(err: unknown): string {
  */
 export const MAX_ANALYST_REPAIRS = 1;
 
-/** OD-10: the same provider class controls both backoff and explanation. */
+/** D-143: the same provider class controls both backoff and explanation. */
 export const PROVIDER_BUSY_PATTERN = /server_is_overloaded|server_error|subscription_sharing_(?:usage|user)_unavailable|HTTP (?:429|5\d\d)\b|rate_limit_exceeded/i;
 export function providerWasBusy(error: unknown): boolean { return PROVIDER_BUSY_PATTERN.test(errMessage(error)); }
 

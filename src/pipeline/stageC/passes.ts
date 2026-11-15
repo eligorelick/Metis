@@ -37,7 +37,7 @@ import {
   SHARED_RULES_BLOCK,
   buildJudgeFraming,
 } from "@/pipeline/stageC/prompts";
-// WS7 (D-20) begin.
+// D-20 begin.
 import {
   ANALYST_CASE_CHAR_CAP,
   buildJudgePresentation,
@@ -56,7 +56,7 @@ import type {
   JudgeOrder,
   JudgeOrderSetting,
 } from "@/report/schema";
-// WS7 (D-20) end.
+// D-20 end.
 import {
   analystVerificationTexts,
   type PassSettlementHook,
@@ -101,7 +101,7 @@ export function judgeUserTurns(
   payload: ContextPayload,
   bull: AnalystCase,
   bear: AnalystCase,
-  // WS7 (D-20): which case goes first, and how long each one is, are now inputs
+  // D-20: which case goes first, and how long each one is, are now inputs
   // rather than a hard-coded BULL-then-BEAR constant. Omitted only by legacy
   // callers/tests, which get the historical fixed order and no caps applied.
   presentation?: JudgePresentation,
@@ -138,7 +138,7 @@ export function judgeUserTurns(
   const message = buildCachedUserMessage(
       payload,
       [
-        // WS7 (D-20), N11: the order sentence follows the SETTING, exactly as
+        // D-20, N11: the order sentence follows the SETTING, exactly as
         // the length banner follows the presentation. A legacy caller with no
         // presentation gets the historical fixed order, hence the default.
         buildJudgeFraming(presentation?.setting, sectioned),
@@ -195,7 +195,7 @@ function entityConflictsForCases(
   );
 }
 
-/** OD-4: payload membership and issuer origin are both required. */
+/** D-144: payload membership and issuer origin are both required. */
 export function issuerPrimarySource(payload: ContextPayload): (id: string) => boolean {
   return id => {
     if (id === payload.transcript?.source || payload.filings.some(row => row.source === id && row.sourceEvidence !== undefined)) return true;
@@ -284,7 +284,7 @@ function entityConflictFailure(
 }
 
 /* ------------------------------------------------------------------------ *
- * WS7 (D-20) — the adversarial protocol for one judge pass
+ * D-20 — the adversarial protocol for one judge pass
  * ------------------------------------------------------------------------ */
 
 /**
@@ -327,7 +327,7 @@ export function buildJudgeRunPassArgs(
   bull: AnalystCase,
   bear: AnalystCase,
   validationFeedback?: string,
-  // WS7 (D-20): `both` mode builds the mirrored request with the swapped order.
+  // D-20: `both` mode builds the mirrored request with the swapped order.
   orderOverride?: JudgeOrder,
   /** Sections kept from a response the provider cut off; only the rest is requested. */
   continuation?: PassContinuation,
@@ -437,7 +437,7 @@ export async function runJudgePass(
 
   if (!run.ok) return settlePassRun(run, judgeModel, settlement);
 
-  // WS7 (D-20): `METIS_JUDGE_ORDER=both` runs the judge a SECOND time with the
+  // D-20: `METIS_JUDGE_ORDER=both` runs the judge a SECOND time with the
   // two cases swapped and reconciles the pair. It costs two judge passes, which
   // is why it is not the default. The second request rides the same authorized
   // launch (exactly as the provider's own transport retries do) and is admitted
@@ -576,7 +576,7 @@ function mergeJudgeBilling(
         primary.usage.cache_read_input_tokens,
         usage?.cache_read_input_tokens,
       ),
-      // N13 (2026-09 review): `webSearches` above sums both requests, so
+      // P24: `webSearches` above sums both requests, so
       // keeping only the primary's server-tool-use block contradicted the
       // provider's own aggregation (aggregateUsage in providers/anthropic.ts
       // rewrites these two counters from the summed totals). Nothing
@@ -624,7 +624,7 @@ export async function runJudgeVerifyAssemble(
   let lastZodError: string | null = null;
   let lastRawOutput: string | null = null;
 
-  // WS7 (D-20): same seeded order and same per-side caps as the runner's path.
+  // D-20: same seeded order and same per-side caps as the runner's path.
   // This loop issues ONE judge request per attempt and never runs the mirrored
   // pass, so a `both` setting is narrowed to the seeded single order: the
   // request is framed as the one pass it is, the protocol records the order

@@ -110,7 +110,7 @@ import {
   type RunPassFn,
   type RunPassStreamingFn,
 } from "@/pipeline/stageC/passes";
-// WS7 (D-20)
+// D-20
 import { getConfig } from "@/config/env";
 import type { ManifestEntry } from "@/types/core";
 import {
@@ -122,7 +122,7 @@ import {
   emptyConsistencyChecks,
 } from "@/pipeline/stageC/consistency";
 
-/** WS7 (D-20): append check disclosures, keyed by field so re-stamping is safe. */
+/** D-20: append check disclosures, keyed by field so re-stamping is safe. */
 function mergeCheckDisclosures(
   existing: readonly ManifestEntry[],
   additions: readonly ManifestEntry[],
@@ -155,7 +155,7 @@ interface AssemblyContext {
 const assemblyContexts = new WeakMap<ContextPayload, AssemblyContext>();
 
 /**
- * WS7 (D-20): the adversarial protocol the judge pass actually ran under. The
+ * D-20: the adversarial protocol the judge pass actually ran under. The
  * runner's facade hands `runVerifyPass`/`assembleReport` a JudgeOutput and no
  * pass metadata, so the protocol is stashed against the SAME per-job payload
  * object identity the assembly context uses. Same WeakMap discipline: collected
@@ -313,7 +313,7 @@ function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
     effort: deps.effort ?? "high",
     signal: deps.signal,
     admissionFor: deps.admissionFor,
-    // WS7 (D-20): the per-job seed the judge's case order is drawn from. The
+    // D-20: the per-job seed the judge's case order is drawn from. The
     // runner threads the job id; without one the passes fall back to the
     // payload fingerprint, so the draw stays deterministic either way.
     jobSeed: deps.jobSeed,
@@ -321,7 +321,7 @@ function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
 }
 
 /**
- * WS7 (D-20): add the `METIS_JUDGE_ORDER` setting from the PARSED config, so
+ * D-20: add the `METIS_JUDGE_ORDER` setting from the PARSED config, so
  * production has exactly one place where that env var is interpreted. Applied
  * only on the two judge-shaped paths (the judge pass and the preflight that has
  * to rebuild its exact request) — the analyst and verify paths do not depend on
@@ -608,7 +608,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
     let args: RunPassArgs;
     if (request.pass === "synthesize") {
       args = buildJudgeRunPassArgs(
-        withJudgeOrder(passDeps), // WS7 (D-20)
+        withJudgeOrder(passDeps), // D-20
         deps.payload,
         request.bull.data,
         request.bear.data,
@@ -714,7 +714,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
   ): Promise<PassResultLike<JudgeOutput>> {
     const passDeps = toPassDeps(deps);
     const run = await runJudgePass_(
-      withJudgeOrder(passDeps), // WS7 (D-20)
+      withJudgeOrder(passDeps), // D-20
       deps.payload,
       bull.data,
       bear.data,
@@ -723,7 +723,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
       beforeProviderLaunch,
       continuation,
     );
-    // WS7 (D-20): keep the protocol for assembly. Recorded before `unwrap`
+    // D-20: keep the protocol for assembly. Recorded before `unwrap`
     // throws on a failed pass, so a judge retry's protocol never leaks into the
     // attempt that eventually succeeds — each attempt overwrites it.
     if (run.ok && run.result.judgeProtocol !== undefined) {
@@ -766,7 +766,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
         costEntries: [],
         model: deps.analysisModel,
         pipelineVersion: PIPELINE_VERSION,
-        // WS7 (D-20): the order/length/self-assessment protocol the judge pass
+        // D-20: the order/length/self-assessment protocol the judge pass
         // recorded for this exact payload, or the reconstruction a durable
         // synthesize replay leaves recoverable (disclosed, never silent).
         judgeProtocol: judgeProtocolFor(deps.payload, deps.jobSeed),
@@ -781,7 +781,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
     await beforeProviderLaunch?.();
     const verify = await runVerifyPass_(passDeps, deps.payload, bound, evidence);
 
-    // WS7 (D-20): the checks run AFTER assembly (they verify the assembled
+    // D-20: the checks run AFTER assembly (they verify the assembled
     // object), so their manifest disclosure has to be merged here rather than
     // inside assembleReport. Deduped by field so a re-stamp cannot double-list
     // a family.
@@ -801,10 +801,10 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
         ...verify.verifiedReport.meta,
         verificationRate: verify.verificationRate,
         provenanceCoverage: verify.coverage,
-        consistencyChecks: verify.checks, // WS7 (D-20)
-        // 2026-09 review: meta.dataCompleteness was computed inside
-        // assembleReport from the UNMERGED manifest and never recomputed, so
-        // every added verify.check.* warn left the persisted counts one short of
+        consistencyChecks: verify.checks, // D-20
+        // P20: meta.dataCompleteness computed inside assembleReport from the
+        // UNMERGED manifest and never recomputed would leave every added
+        // verify.check.* warn out of the persisted counts, one short of
         // the manifest they summarize. deriveReportCompletenessPresentation
         // recomputes from the manifest, disagrees, and reports
         // metadataStatus:"inconsistent" — which forces state, critical count,
@@ -817,7 +817,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
         ...verify.verifiedReport.appendix,
         verificationRate: verify.verificationRate,
         provenanceCoverage: verify.coverage,
-        consistencyChecks: verify.checks, // WS7 (D-20)
+        consistencyChecks: verify.checks, // D-20
         verificationLog: verify.log,
         missingData,
       },
@@ -871,7 +871,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
         costEntries,
         model: input.meta.model,
         pipelineVersion: PIPELINE_VERSION,
-        // WS7 (D-20): the unverified-fallback path still discloses how the judge
+        // D-20: the unverified-fallback path still discloses how the judge
         // pass was run — a report that skipped verification is exactly the one a
         // reader most needs the protocol for. `meta.runId` is the job id, which
         // is the seed the runner threads as `deps.jobSeed`.

@@ -22,7 +22,7 @@
  * Pure strings + builders — no network, no clock, no LLM. Deterministic.
  */
 
-// WS7 (D-20): the per-side character cap the analyst prompt must state and the
+// D-20: the per-side character cap the analyst prompt must state and the
 // pipeline enforces. Imported (not re-declared) so the number the model is told
 // and the number the code applies can never drift apart.
 import type { JudgeOrderSetting } from "@/report/schema";
@@ -61,9 +61,9 @@ export const SHARED_RULES_BLOCK = [
   "- FACT: a value or statement taken directly from the payload or a cited fetched source.",
   "- ESTIMATE: an analyst or model projection (yours or a consensus figure).",
   "- JUDGMENT: your interpretation of facts. Say it is a judgment.",
-  // FIGR paid audit (2026-11-02, B-17): FACT claims carried "In our judgment …".
+  // D-157: a FACT holds only its sourced statement; an interpretation ("In our judgment …") is a JUDGMENT.
   "- A FACT holds only the sourced statement. Put your interpretation of it in a separate JUDGMENT claim, never inside the FACT.",
-  // FIGR paid runs (2026-11-02): both judges wrote catalyst/risk `reasoning` as a list and paid a repair request.
+  // D-163: one claim object per catalyst and risk `reasoning` entry, so no repair request is needed.
   "- Each catalyst's and each risk's `reasoning` is an array of 1–4 concise claims that read as one short paragraph. Give each claim its own source and asOf date. Keep sourced statements FACT and your interpretation in separate JUDGMENT claims; keep cited figures exact.",
   "- Methodology, data-gap and coverage statements describe this analysis: label them JUDGMENT, not issuer FACT.",
   "- Reconcile dated corporate events across retained sources: a later issuer-stated completion supersedes an earlier pending agreement for current status. Keep any explicitly retained historical closing window as dated history; integration and financial results may remain prospective. Completion alone establishes neither final consideration nor funding.",
@@ -75,7 +75,7 @@ export const SHARED_RULES_BLOCK = [
   "`asOf` is a calendar date written YYYY-MM-DD (never a time component, a month, a quarter or a year alone); use null when no date is known.",
   "`period` is the period exactly as the payload renders it (a statement column's ISO period end, a projection's FY label); omit it when the figure shows none.",
   "Never paste a rendered `[source · as-of]` token into a source field or duplicate its date.",
-  // D-43 (2026-10-13): the old line here ("preserve an explicit unsupported
+  // D-43: the old line here ("preserve an explicit unsupported
   // state") was followed literally — data-gap statements were written with the
   // source "unsupported" and all failed. Gaps now have tags to cite.
   "A statement that a figure is unavailable, withheld, suppressed or not applicable cites the row that discloses it:",
@@ -84,43 +84,42 @@ export const SHARED_RULES_BLOCK = [
   "so write no number in that sentence. Never use 'unsupported', 'n/a' or any placeholder as a source.",
   "If no row discloses the gap, leave that list empty. Say what this report's evidence lacks",
   "(\"not in the filings and data reviewed\"), never that the company does not disclose it.",
-  // D-63 (NVDA audit, 2026-10-15): the report twice said evidence the payload
-  // carried was "not in the filings" or "not established" (issuer FCF bridge,
-  // non-GAAP reconciliation, the Hugging Face price, the OCF drop's cause).
+  // D-63: the report must not call evidence the payload carries "not in the
+  // filings" or "not established" (an issuer FCF bridge, a non-GAAP
+  // reconciliation, a transaction price, the cause of a cash-flow change).
   "Before writing that something is not in the filings and data reviewed, not disclosed or not established, search the",
   "whole payload for it: the issuer-filing rows (guidance, free cash flow and its reconciliation, commitments, guarantees),",
   "the quarterly-trend rows, and every excerpt (10-K Items 1, 1A and 7, the 10-Q MD&A and notes, the 8-K release,",
   "commentary and event excerpts). If any states it, use it. An excerpt's coverage note lists what was omitted from it;",
   "an omitted passage is a limit of this review, never evidence that the item is absent.",
-  // D-63 (audit P0-10): "$6.1 billion" (MD&A) and "$6.042 billion" (cash-flow
-  // statement) were reported as a discrepancy.
+  // D-63: "$6.1 billion" (MD&A) and "$6.042 billion" (cash-flow statement) are
+  // one figure at two roundings, not a discrepancy.
   "ROUNDING: two statements of one quantity agree when they are equal at the coarser stated precision (\"$6.1 billion\" and",
   "\"$6.042 billion\" are the same figure). Never call that a discrepancy or say the figures may not be interchangeable;",
   "a difference is real only when it exceeds the rounding of the less precise figure.",
-  // NVDA final rerun: prose repeated model values at four decimals ("USD 296.3179
+  // D-66: prose need not repeat model values at four decimals ("USD 296.3179
   // per share", "82.1353%"). The validator compares at the stated precision.
   "PROSE PRECISION: in sentences, state figures at reader precision: prices and per-share amounts to cents, percentages,",
   "multiples and ratios to one decimal, large amounts in billions or trillions to two decimals (\"USD 296.32 per share\",",
   "\"82.1%\"), never a computed value's full decimals. Numbers are checked at the precision you state.",
-  // D-63: 30 of 30 FACT claims in the NVDA rerun carried no figure, so the
-  // deterministic numeric validation read 0/30.
+  // D-63: FACT claims that carry no figure leave the deterministic numeric
+  // validation nothing to check.
   "NUMERIC FACTS: when a registered payload figure supports a FACT, state that figure in the sentence (value, unit or",
   "currency, and period) in the record's own metric words, one figure per sentence, and cite its tag: \"Revenue for the",
   "quarter ended 2026-07-26 was USD 96.2 billion.\" The verifier validates such a sentence against its record; a FACT",
   "that leaves the figure out cannot be validated.",
   "A figure shown with \"(currency unknown)\" has no established currency: never write a currency symbol or code beside it.",
-  // D-57 (2026-10-15): estimates, targets and pay rows carry no currency of
+  // D-57: estimates, targets and pay rows carry no currency of
   // their own; when the issuer's reporting and listing currencies agree they
   // inherit it and are registered money in that currency. Peer caps do not
-  // inherit (AI-301): they take only a currency their own data states.
+  // inherit (D-124): they take only a currency their own data states.
   "A figure shown with \"(USD, inherited)\" (any ISO code) takes the issuer's currency because its provider row states none: it is money in that currency.",
-  // 2026-10-13: with peer market caps unverifiable as numbers (currency not
-  // established, D-43), a medium-effort JPM report dropped its peer table
-  // entirely (10 rows -> 0). The peer identities are established; only the
-  // caps are not.
+  // D-43: with peer market caps unverifiable as numbers (currency not
+  // established), a report must not drop its peer table. The peer identities
+  // are established; only the caps are not.
   "Peer table: list every provider peer by the name and symbol shown in the Peers rows. Give a peer a metric only",
   "when it cites a registered record; a peer market cap shown \"(currency unknown)\" is not one, so leave that peer's metrics empty.",
-  // D-45 (2026-10-13): numbers cited to an excerpt are now read against the
+  // D-45: numbers cited to an excerpt are read against the
   // cited excerpt's own text. In system so the judge, which writes the final
   // key numbers, sees it (the analysts' WRITING NUMBERS block never reaches it).
   "EXCERPT NUMBERS: a TracedNumber citing a filing or transcript excerpt is checked against that excerpt's text.",
@@ -176,7 +175,7 @@ export interface LeadershipGuidanceOptions {
   /**
    * Whether the pass this fragment is written for can search the web. The
    * analyst passes can; the judge request carries no tools (passes.ts), so its
-   * copy must not tell it to search (audit 2026-09-06, F172).
+   * copy must not tell it to search (P24).
    */
   webSearch: boolean;
 }
@@ -187,7 +186,7 @@ export function buildLeadershipGuidance(
   return [
     "LEADERSHIP GRADING (evidence-based — grade credibility SEPARATELY from strategy):",
     "Grade each key executive A–F on the evidence in the payload, not on reputation. Inputs:",
-    // WS7 (D-20): a claim about a named person is the highest-harm thing this
+    // D-20: a claim about a named person is the highest-harm thing this
     // report emits and was the one grounded in the weakest source. Web search
     // is now out of bounds for it; the verifier enforces the same rule.
     "- NAMED-INDIVIDUAL RULE (enforced by the verification pass, not a suggestion): any claim that",
@@ -198,8 +197,8 @@ export function buildLeadershipGuidance(
     "  compensation row 'Susan Li Chief Financial Officer' supports 'Susan Li, Chief Financial Officer';",
     "  a row reading 'Co-CEO, Commercial & Investment Bank' supports 'Co-CEO of Commercial & Investment",
     "  Bank', not 'CEO'. A person row supports identity, title, tenure, pay, or the trade only.",
-    // D-63 (audit P1-F): with D-57 the compensation rows of a single-currency
-    // issuer are registered money, yet the report stated no pay at all.
+    // D-63: with D-57 the compensation rows of a single-currency issuer are
+    // registered money, so the report can state pay.
     "- PAY: a compensation row printed with a currency (\"(USD, inherited)\" or its own) is a registered amount. In",
     "  that officer's `evidence.compensation`, state the total and its fiscal year, one officer per sentence, citing",
     "  the row's tag: '<Name>, <title as the row spells it>: total compensation for FY2026 was USD 36.3 million.' Add",
@@ -215,8 +214,8 @@ export function buildLeadershipGuidance(
     "  `outlook.guidanceCredibility`, may cite ONLY a payload figure or a filing/transcript excerpt.",
     // The payload carries the computed growth-and-margin figures, the returns
     // section and the multi-year statement extracts — not a per-year ROIC
-    // series and not a dividend history (audit 2026-09-06, F178). The inputs
-    // name what is actually there.
+    // series and not a dividend history. The inputs name what is actually there
+    // (P20).
     "- ROIC / margin trend over the executive's tenure: the computed growth & margins and returns",
     "  figures plus the statement extracts, read against the titleSince dates or the filing-sourced officer tenure in leadership context.",
     `- Capital-allocation record: buyback timing vs price paid (the capital section's buyback-price analysis and the cash-flow extract), M&A${options.webSearch ? " (web search for deals)" : " (as the analyst cases cite it — this pass has no web search)"}.`,
@@ -226,7 +225,7 @@ export function buildLeadershipGuidance(
     "  way; neither establishes motive, and plan capacity is not an executed sale.",
     "  State the last Form 4 filing date inspected, the bounded post-window activity and the Form 144 collection limit.",
     "  Selected provider rows are not a complete SEC review; do not describe proposed Form 144 sales as executed sales.",
-    // FIGR paid audit (2026-11-02, B-05): three share classes, no word on who controls the vote.
+    // D-157, D-158: with several share classes, voting control is stated.
     "- Control: when the company has more than one class of common stock, state each class's voting rights and who",
     "  holds voting control where the filings name them, and say what is not established.",
     "  Date the filed control/count observations; an IPO conversion count is not a current Class B balance.",
@@ -236,8 +235,8 @@ export function buildLeadershipGuidance(
     "  Filing tenure retains the original wording and precision. A month/year establishes overlap only from its last day,",
     "  not an invented appointment day. Read its filing citation/date; another office, director service or joining date",
     "  cannot establish the current CEO/CFO start. The pipeline supplies officeTenure; do not author or infer that field.",
-    // D-63 (audit P1-10): the gate became reachable (D-59) but the judge gave
-    // no card an admissible record, so every card read "not-assessed".
+    // D-63: the gate is reachable (D-59), so the judge must give each card an
+    // admissible record or it reads "not-assessed".
     "- GUIDANCE TRACK RECORD: the quarterly-trend rows \"share of the last <N> guided quarters with <metric> above",
     "  (below) the prior guided range\" are the company's record against its own outlook, and the per-quarter",
     "  \"actual vs prior guidance midpoint\" rows its detail. The CEO and the CFO issue that outlook (the earnings",
@@ -292,7 +291,7 @@ export function buildLeadershipGuidance(
  * ------------------------------------------------------------------------ */
 
 /**
- * WS7 (D-20). The 1-5 self-assessment rubric, stated verbatim to both analysts
+ * D-20. The 1-5 self-assessment rubric, stated verbatim to both analysts
  * and quoted to the judge. It exists so an honest thin case can SAY it is thin:
  * before this, the only signal a judge had about how much was behind a case was
  * how much of it there was, which rewarded volume.
@@ -317,8 +316,8 @@ export const CASE_STRENGTH_RUBRIC = [
 /**
  * The TracedNumber unit rule, shared by the analysts and the judge. It sat only
  * in the analysts' WRITING NUMBERS block, but the judge writes every graded
- * key number and technical indicator in the final report, and in reports 25/26
- * (2026-10-13) it wrote "RSI", "RSI index" and "MACD histogram" as units (D-44).
+ * key number and technical indicator in the final report, and it can write
+ * "RSI", "RSI index" and "MACD histogram" as units (D-44).
  */
 export const TRACED_NUMBER_UNIT_RULE = [
   "- A TracedNumber `unit` is the bare registered unit exactly as the payload shows it (\"x\", \"%\",",
@@ -353,9 +352,9 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "- Each material numeric assertion in prose must use its exact typed record or its own source passage,",
   "  metric, period, unit and currency. Prefer one metric/period per sourced sentence. A valid citation",
   "  or fetched URL alone does not validate a number. Ambiguous columns, currencies or ranges stay unchecked.",
-  // NVDA report #34 audit (work package 3): guidance, issuer FCF, capital
-  // return, 8-K events and quarterly segments now reach the payload; the report
-  // omitted all of them and twice said issuer FCF was not in the filings.
+  // D-63: guidance, issuer FCF, capital return, 8-K events and quarterly
+  // segments reach the payload, and the report uses them rather than saying
+  // they are not in the filings.
   "ISSUER FILINGS (8-K releases, 8-K events, quarterly XBRL), when the payload carries them:",
   "- State the company's next-period guidance (revenue, margins, opex, tax) with its period and the 8-K it",
   "  came from, and compare it with the latest quarter and the trailing figures. Guidance is the company's",
@@ -371,10 +370,10 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "  as departing is described as departing (with the date), never as current, and the named successor is identified.",
   // D-63: the business description, the 10-Q notes and the release's
   // reconciliation, commitments and guarantees tables now reach the payload.
-  // Audit 2026-10-27 AI-507: by reporting period, because between a 10-K and the
+  // D-124: by reporting period, because between a 10-K and the
   // next 10-Q the newest 10-Q is the older filing.
-  // D-271: the Item 1 instruction was worded for a chip/software issuer (NVDA). The checklist below is the same
-  // for every company type; the 2026-11-14 business-coverage diagnosis scored reports on these eight items.
+  // D-271: the Item 1 checklist below is the same for every company type, never worded for one industry; the
+  // business-coverage check scores reports on these eight items.
   "- BUSINESS CHECKLIST, for every company type, from the business excerpt (10-K Item 1, 20-F Item 4), MD&A, the 10-Q,",
   "  the issuer filings and the supplied research. Use the names the source uses, and cite each item:",
   "  1. Products and services: each product or service line the source names; revenue and growth only from its payload record.",
@@ -442,15 +441,15 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "before the latest reported quarter (an 18-month-old inventory charge) is historical context, at most low or medium",
   "severity, unless the filings show it recurring or still affecting current results. Grade severity by materiality to",
   "current earnings, not by the size the item once had.",
-  // D-63 (audit P0-E): "the price requires demanding growth" although the
-  // price-implied growth was below guidance-, consensus- and latest-quarter growth.
+  // D-63: never "the price requires demanding growth" when the price-implied
+  // growth is below guidance-, consensus- and latest-quarter growth.
   "IMPLIED EXPECTATIONS: before calling a price-implied (reverse-DCF) growth rate demanding or modest, compare it with",
   "the growth implied by the company's guidance, the consensus case and the latest quarter's year-over-year growth in",
   "the payload, and say which of them it is above or below.",
   "CATALYSTS: give each catalyst the date or window its evidence states (the next earnings date row, a product's",
   "launch quarter, a deal's expected close, when a guarantee takes effect) and cite it; write it undated only when no",
   "payload row or excerpt dates it.",
-  // FIGR paid audit (2026-11-02): each line answers a misreading in that report.
+  // D-157: each line answers one way of misreading the evidence.
   "READING THE EVIDENCE ACCURATELY:",
   "- Name each figure by its own metric: revenue growth is not profit growth. Read a KPI the issuer defines (a take rate,",
   "  an adjusted margin) by the issuer's definition; a change in it is not by itself a price change. State the definition,",
@@ -458,8 +457,8 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "- Before calling a group of lines 'most' of revenue, or stating their share, add them up from the cited rows.",
   "- A derivative's notional amount is not a recorded balance: state the fair value when saying what is recorded.",
   "- Keep each change in its own period: a change between two balance dates happened by the later date, not after it.",
-  // FIGR extra-high audit A2-14: the rule above held, yet one paragraph blended the first-half
-  // commitment increase with a July notes issue and a September acquisition as "since then".
+  // D-163: even under the rule above, a paragraph must not blend changes of different dates (a
+  // first-half increase, a later notes issue, a later acquisition) as "since then".
   "  Put a change between balance dates and a later event (a debt issue, an acquisition) in separate sentences, each dated.",
   "- Before treating a facility, subsidiary or agreement as a current obligation or catalyst, check the retained notes",
   "  for a later deconsolidation, merger, repayment or termination; the later statement governs.",
@@ -474,7 +473,7 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "  record, operating metrics such as volume included: compare them, citing both, for",
   "  every period for which both are retained, not only the latest.",
   "- Cite the passage that states a fact, not a neighbouring filing that only mentions the subject.",
-  // FIGR extra-high audit (2026-11-02, AUDIT-A2/B2): each line answers an analysis error in that report.
+  // D-163: each line answers one kind of analysis error.
   "- Before calling a profit line clean of an item, check where the filing records it: a gain, loss or valuation",
   "  mark recorded in revenue or operating expenses (servicing-asset fair-value changes, say) is inside operating income.",
   "  Operating income removes income-tax effects, not revenue marks; only items below it (interest, other income, tax) are outside.",
@@ -501,7 +500,7 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "- Define a specialist term (UPB, DSCR, VIE, a product name) in plain words on first use.",
 ].join("\n");
 
-/** WS7 (D-20): the per-side length cap, stated to the analyst that must meet it. */
+/** D-20: the per-side length cap, stated to the analyst that must meet it. */
 function analystLengthRule(capChars: number): string {
   return [
     `LENGTH CAP: your complete ANALYST_CASE JSON must serialize to at most ${capChars} characters.`,
@@ -646,7 +645,7 @@ export function buildJudgeFraming(
     sectioned ? "report content in bounded parts; emit only the top-level sections requested in the final turn." : "report content as the JUDGE_OUTPUT structured schema.",
     "The cases start from shared retained inputs and can share omissions; adjudication is not independent factual validation.",
     "",
-    // WS7 (D-20): the two cases used to arrive in a fixed BULL-then-BEAR order
+    // D-20: the two cases used to arrive in a fixed BULL-then-BEAR order
     // with no stated lengths, so position and volume were silent advantages.
     judgeOrderSentence(setting),
     "Neither being first nor being second is evidence. The order actually used is recorded in the",
@@ -658,7 +657,7 @@ export function buildJudgeFraming(
     "  cited source; reject a claim ONLY for lack of support, never to appear balanced.",
     "- DO NOT MANUFACTURE BALANCE. If the evidence is lopsided, say so and grade accordingly. A",
     "  forced 'on the other hand' that the evidence does not support is a failure, not fairness.",
-    // WS7 (D-20): the judge may now act on the analysts' own strength scores.
+    // D-20: the judge may now act on the analysts' own strength scores.
     "- Each case carries `case_strength`, the analyst's OWN 1–5 score for its own side against this",
     "  rubric, and its length in characters. Both are stated above the two cases. You MAY DISCOUNT A",
     "  WEAK SIDE: a side that scored itself 1 or 2, or a side whose cited evidence plainly does not",
@@ -679,12 +678,12 @@ export function buildJudgeFraming(
     "  deviate by at most ONE letter, and ONLY with an explicit, evidence-based reason stated in that",
     "  section's reasoning (e.g. a red flag the score cannot see). Do not silently override the score.",
     "  The ordered bands are A, B, C, D, F; D to F is one step. Keep strip and section grades identical.",
-    // FIGR paid audit (2026-11-02, B-02): unscored valuation, quality, balance
-    // sheet and leadership were each called "the neutral D band" in prose.
+    // D-157: an unscored aspect has no band and no grade, never "the neutral D
+    // band" in prose.
     "  An aspect with no score (grade n/a) is not assessed: it has no band and no grade. Never call it neutral, a D",
     "  or a default band. The composite's pull toward 50 for missing evidence is a rule of the composite, not a grade.",
-    // FIGR extra-high audit A2-27: "the four aspects with no score are pulled toward the
-    // midpoint" blended aspects the route excludes with applicable evidence that is missing.
+    // D-163: aspects the route excludes are not "pulled toward the midpoint"; only missing
+    // applicable evidence scales the composite's distance from 50.
     "  Aspects with no signal that applies on the route are left out of the composite and do not move it. Missing",
     "  evidence the route could supply shrinks the composite toward 50: its distance from 50 is scaled by the",
     "  evidence-completeness share. Unscored aspects are not themselves pulled toward any value.",
@@ -712,12 +711,12 @@ export function buildJudgeFraming(
     "  fixed display weights or present-value upside as an expected future stock return.",
     "",
     "WHAT TO EMIT:",
-    // FIGR paid audit (2026-11-02, B-06): a lender's report never said how it earns money.
+    // D-157: the business section opens with how the company makes money.
     "- `business` opens with how the company makes money in plain words: what it sells, to whom, how it is paid,",
     "  and which risks stay on its own balance sheet after a sale.",
     "- `business.marketStructure`: describe the served market's size and growth where the payload or a case's cited source states them,",
     "  how the industry is structured and where value accrues, and the company's position and share where a source states them.",
-    // D-182 (META paid run, 2026-11-03): with no market-size source the judge wrote [] although the 10-K describes the competition.
+    // D-182: with no market-size source the judge still describes the competition the 10-K states.
     "  When no source states a market size, say so once and still describe the industry structure and the company's position",
     "  from the filing's business and risk excerpts and the cases; use [] only when neither discusses the industry.",
     "- `competitive.competitors`: name the main competitors from the 10-K business excerpt or the analysts' cited sources,",
@@ -747,9 +746,8 @@ export function buildJudgeFraming(
     "  apply this opening to `verdict.synthesis` as well.",
     "  it weaves the composite grade, the available weighted projections, and the bull/base/bear scenarios into",
     "  ONE plain-English thesis, and states what would change the view. Rating-safe; no buy/sell/hold.",
-    // AMZN audit 2026-10-20 finding 18: the verdict took no stance ("establish"
-    // 82 times; 54 of 93 judgments were negations) and never set the consensus
-    // price target against the DCF value.
+    // D-99 (verdict stance): the verdict takes a stance on the price and sets
+    // the consensus price target against the DCF value.
     "  Its opening connects that business debate to a stance: a JUDGMENT saying whether, on this evidence, the current share price looks",
     "  undemanding, about right or demanding, and which evidence decides it. That is a valuation judgment, not a rating",
     "  or an allocation directive. With no intrinsic value or peer median, still judge the price using the sector-appropriate",
@@ -758,7 +756,7 @@ export function buildJudgeFraming(
     "  from a price / provider-EPS multiple whose accounting basis is unverified. An unscored valuation does not erase them.",
     "  State once which anchor is missing, without treating its absence as evidence that the price is about right.",
     "  Say 'the price cannot be judged' only when no multiple is meaningful, and state the evidence that would decide it.",
-  // Q1 (owner request 2026-11-02): a sell-side note opens on what changed, not only on the numbers.
+  // Owner rule (P18): a sell-side note opens on what changed, not only on the numbers.
   "  The synthesis and the executive summary weigh the most important recent development and the top catalyst and risk alongside the numbers.",
   // D-175: a provider's first rows for a new filing are the least reliable.
   "  When the manifest carries `manifest.validation.freshFiling`, the executive summary says once, citing that row, that figures from the",
@@ -772,7 +770,7 @@ export function buildJudgeFraming(
   "  Each gives `occurredOn` (the event date), a short `title`, `whatHappened` as 1–2 cited FACT claims, `whyItMatters` as 1–2 JUDGMENT",
   "  claims on the investment case, `direction` and `affects` (the part of the case it moves: demand, margins, capital, competition, regulation).",
   "  `summary` is 2–3 cited JUDGMENT claims on what they mean together. Use [] where no dated, sourced evidence exists.",
-  // D-182 (META paid run, 2026-11-03): the judge listed 2 developments for a heavily covered issuer.
+  // D-182: a heavily covered issuer's developments are listed, not cut to a couple.
   "  Include each material development the evidence dates (a widely covered company typically has 3–8), most material first",
   "  when choosing which to keep; never pad with minor or undated items.",
     "- Bull / base / bear scenario NARRATIVE: qualitative commentary in assumptions and qualitative",
@@ -825,7 +823,7 @@ export function buildJudgeFraming(
   "  matches management's earlier stated plans or guidance, from the evidence only and never a guess at motive; tax-withholding dispositions",
   "  and plan capacity are not decisions to sell. `actor` is a role (CEO, CFO, other executive, board, company): name a person only inside a cited claim.",
   "  Use [] when no action is evidenced.",
-  // D-182 (META paid run, 2026-11-03): issued guidance and a preferred offering were in the payload, but only 2 actions were listed.
+  // D-182: every management action the payload carries (issued guidance, an offering) is listed.
   "  Guidance issued with results, financings (debt, preferred or common stock), buybacks, dividends and leadership changes each count:",
   "  include each one the evidence dates (a large company typically has 3–8 in a year), never padding with routine items.",
     "",

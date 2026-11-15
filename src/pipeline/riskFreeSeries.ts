@@ -1,5 +1,5 @@
 /**
- * Series ids for the risk-free rate's fallback sources (audit 2026-10-22 B-4).
+ * Series ids for the risk-free rate's fallback sources (D-111).
  *
  * The id travels with the rate (`riskFreePct` → the WACC result → the payload
  * citation `computed.returns.wacc.riskFree(<id>)`), so it stays one token with

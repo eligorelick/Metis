@@ -1,7 +1,6 @@
 /**
  * One house definition of the claims senior to common that sit outside
- * permanent equity (audit 2026-10-27 FIN-119, FIN-119-V2; decisions D-135,
- * OD-1): redeemable preferred and redeemable noncontrolling interests, carried
+ * permanent equity (D-135): redeemable preferred and redeemable noncontrolling interests, carried
  * in temporary equity (ASC 480-10-S99) at their redemption claim.
  *
  * The DCF bridge, the market and own-history enterprise values and the
@@ -48,12 +47,12 @@ export interface TemporaryEquityClaims {
   overlap?: string | null;
 }
 
-/** The lead of the `valuation.dcf.salesToCapital` reason when a refused temporary-equity operand withholds the DCF (FIN-119-V1); the fair value and scenario targets quote a warn gap that starts with it. */
+/** The lead of the `valuation.dcf.salesToCapital` reason when a refused temporary-equity operand withholds the DCF (D-135); the fair value and scenario targets quote a warn gap that starts with it. */
 export const TEMPORARY_EQUITY_REFUSAL_LEAD = "Temporary equity refused for invested capital: ";
 
 /**
  * The lead of the `valuation.dcf.salesToCapital` reason when the operating-lease removal itself empties invested capital
- * and the issuer's own history cannot stand in (FIN-303, pre-flight I6; D-135 OD-3). The gap is a warn: the DCF is
+ * and the issuer's own history cannot stand in (D-135). The gap is a warn: the DCF is
  * withheld, but main published one on the lease-inclusive capital, and a critical gap would block the report. The fair
  * value and the scenario targets quote a warn gap that starts with it.
  */
@@ -71,10 +70,10 @@ const finite = (value: unknown): value is number => typeof value === "number" &&
 export function temporaryEquityClaims(row: TemporaryEquityRow | null | undefined): TemporaryEquityClaims | null {
   const claims = admittedClaims(row);
   if (claims === null || claims.refusal !== null || row === null || row === undefined) return claims;
-  // B4a final review M-9 (round 2): a filer that tags its mezzanine preferred `PreferredStockValue` and also
+  // D-135: a filer that tags its mezzanine preferred `PreferredStockValue` and also
   // `TemporaryEquityCarryingAmountAttributableToParent` has one claim filed twice. Main already deducts the preferred
   // line, so the claim is left out here and counts once, as preferred. The rows themselves stay as filed. Unequal
-  // amounts are both kept: B4b's overlap territory (D-135 OD-2).
+  // amounts are both kept: the overlap rule decides them (D-147).
   const preferred = row.preferredStock;
   if (!finite(preferred) || preferred <= 0 || claims.redeemablePreferred <= 0) return claims;
   if (Math.abs(preferred - claims.redeemablePreferred) > Math.max(1, 1e-6 * claims.redeemablePreferred)) return claims;

@@ -72,7 +72,7 @@ export function toGrowthCashFlow(r: FmpCashFlowRow): GrowthCashFlowRow {
 /**
  * The issuer whose earnings a row reports: its filer, or, for a predecessor's
  * row that the successor's own filing re-presents unchanged, the successor
- * (audit 2026-10-22 B-36).
+ * (D-112).
  */
 function economicIssuerId(row: FmpStatementRow): string | null {
   return row.predecessor === true ? str(row.successorCik) ?? str(row.cik) : str(row.cik);
@@ -96,7 +96,7 @@ export function commonFlowScope(row: FmpStatementRow, field: string, basis: "ann
 function netIncomeOwnership(row: FmpIncomeStatementRow): "parent" | "consolidated" | undefined {
   const tags = row.fieldProvenance?.netIncome?.tags ?? [];
   const consolidatedTag = tagsFor("netIncomeConsolidated").some(tag => tags.includes(`us-gaap/${tag}`));
-  // Consolidated profit less the NCI share is the parent's figure (audit B-18).
+  // Consolidated profit less the NCI share is the parent's figure (D-108).
   const nciDeducted = consolidatedTag && tagsFor("netIncomeAttributableToNoncontrollingInterest").some(tag => tags.includes(`us-gaap/${tag}`));
   return row.netIncomeOwnershipBasis === "parent" || row.netIncomeOwnershipBasis === "consolidated" ? row.netIncomeOwnershipBasis :
     nciDeducted ? "parent" : consolidatedTag ? "consolidated" :
@@ -223,7 +223,7 @@ export function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
     preferredStock: num(r.preferredStock),
     preferredCapitalWithheldReason: r.preferredCapitalWithheldReason,
     preferredCapitalBasis: r.preferredCapitalBasis,
-    // FIN-119-V1: temporary equity is financing capital (and its refusals ride in `fieldConflicts` above).
+    // D-135: temporary equity is financing capital (and its refusals ride in `fieldConflicts` above).
     ...temporaryEquityFields(r),
     cashBasis: r.cashBasis,
     cashConflictReconciled: r.cashConflictReconciled,
@@ -241,7 +241,7 @@ export function filedInterestOperand(row: FmpIncomeStatementRow): boolean {
   return corrected?.source === "edgar" && corrected.periodEnd === end || row.interestExpenseAgreement?.periodEnd === end;
 }
 
-/** D-300 (P8, P12; review round 1): the tax rate's operands are established for the row's own period:
+/** D-300 (P8, P12): the tax rate's operands are established for the row's own period:
  * each was replaced by the filed amount, or the vendor's agrees with the reconciled filed family. */
 export function filedTaxOperands(row: FmpIncomeStatementRow): boolean {
   return filedTaxOperandPair(row) !== null;
@@ -312,7 +312,7 @@ export function toCapitalBalance(r: FmpBalanceSheetRow, leaseEvidenceContext: Le
     ...(num(r.capitalLeaseObligationsNonCurrent) !== null ? { capitalLeaseObligationsNonCurrent: num(r.capitalLeaseObligationsNonCurrent) } : {}),
     operatingLeaseLiability: num(r.operatingLeaseLiability),
     financeLeaseLiability: num(r.financeLeaseLiability),
-    // Review m8: the vendor's own figure when the completion recomposed netDebt (diagnostic only).
+    // P20: the vendor's own figure when the completion recomposed netDebt (diagnostic only).
     netDebt: num(r.vendorNetDebt !== undefined ? r.vendorNetDebt : r.netDebt),
     cashAndCashEquivalents: num(r.cashAndCashEquivalents),
     shortTermInvestments: num(r.shortTermInvestments),
@@ -370,7 +370,7 @@ export function toForensicsBalance(r: FmpBalanceSheetRow): ForensicsBalanceRow {
     // Leverage tests read long-term debt alone; a composed figure holding
     // current notes would count those notes twice beside current liabilities.
     longTermDebt: (r.fieldProvenance?.longTermDebt?.calculation !== "same-filing-debt-completed" && longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags)) ? null : num(r.longTermDebt),
-    // Audit 2026-10-22 E-8: kept with its tags for the Piotroski leverage direction.
+    // D-105: kept with its tags for the Piotroski leverage direction.
     longTermDebtComposed: (r.fieldProvenance?.longTermDebt?.calculation !== "same-filing-debt-completed" && longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags)) && num(r.longTermDebt) !== null
       ? { value: num(r.longTermDebt)!, tags: [...r.fieldProvenance!.longTermDebt!.tags] }
       : null,
@@ -419,10 +419,10 @@ function annualTaggedValue(facts: CompanyFacts | null, tag: string, end: string,
 
 /**
  * D-68: forensic context the vendor statements do not carry, from the
- * filer's tags: inventory write-downs (GMI), and a business acquisition the
- * filer reports on a line of its own (us-gaap
+ * filer's tags: inventory write-downs, and a business acquisition the filer
+ * reports on a line of its own (us-gaap
  * PaymentsToAcquireBusinessTwoNetOfCashAcquired) that the vendor row folds
- * into other investing — NVIDIA's FY2026 $13.0B. The payment is attributed to
+ * into other investing. The payment is attributed to
  * acquisitions only when no competing acquisitions line exists. Companyfacts
  * supplies no additive presentation linkage; unresolved overlap is retained.
  */

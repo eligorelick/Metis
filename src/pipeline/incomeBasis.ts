@@ -278,7 +278,7 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
         out={...out,waccOperatingIncome:undefined};
         gaps.push({field:`statements.income.${row.date}.waccOperatingIncome`,severity:"warn",reason:standaloneRefusal ?? retainedWaccRefusal!});
       }
-      // The annual predecessor fallback remains bounded to the E-5 key.
+      // The annual predecessor fallback remains bounded to the NCI earnings key (D-102).
       // D-260 also completes same-issuer quarterly ownership flows below,
       // using exact filed periods and the same revenue/filing scope.
       const priorNci = name === "incomeAnnual" && predecessorEvidence && row.cik != null && Number(row.cik) === Number(predecessorEvidence.cik10) &&
@@ -360,12 +360,10 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
       }
       const expense = out.fieldProvenance?.operatingExpenses;
       const filedTotal = expense?.tags.includes("us-gaap/OperatingExpenses") === true && sameBasis(out.fieldProvenance?.revenue, expense);
-      // Integration review (R2): a provider amount that bridges its own row's
-      // gross profit to the (admitted) operating income is a complete total on
-      // that row's operating basis. On the owner's saved real-data snapshots it
-      // does for 31 of 34 QCOM, 33 of 34 NVDA and 33 of 34 AMZN rows; FIGR's
-      // Q1 2026 does not once the filed operating income replaces the
-      // provider's pre-interest numerator.
+      // D-159: a provider amount that bridges its own row's gross profit to the
+      // (admitted) operating income is a complete total on that row's operating
+      // basis. Most provider rows bridge; a row stops bridging once the filed
+      // operating income replaces a provider's pre-interest numerator.
       const providerRow = (out.source ?? input.value.source) !== "edgar" && expense === undefined;
       const bridgeable = providerRow && finite(out.operatingExpenses) && finite(out.grossProfit) && finite(out.operatingIncome) &&
         out.fieldConflicts?.grossProfit?.usable !== false;

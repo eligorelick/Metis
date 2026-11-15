@@ -34,7 +34,12 @@ export interface AnalystEstimateRow {
   revenueHigh?: number | null;
 }
 
-/* D-60, D-65: Anchor the projection to the established revenue window and disclose the evidence used. */
+/**
+ * D-65: revenue already reported in the fiscal year containing the start of
+ * the first forecast window. That year contributes consensus less this
+ * revenue, spread over its unreported days, rather than an even share of
+ * the whole year's consensus.
+ */
 export interface FiscalYearToDate {
   /** End of the previous fiscal year (the day before this fiscal year starts). */
   priorFiscalYearEnd: string;
@@ -44,7 +49,11 @@ export interface FiscalYearToDate {
   quarters: number;
 }
 
-/* D-136: Calendarize consensus and guidance over the issuer fiscal windows using the established seasonal shape. */
+/**
+ * D-99 (seasonal consensus): the four reported quarterly revenues of the issuer's last complete fiscal
+ * year, oldest first, in the model currency. They give each fiscal year's consensus its seasonal shape
+ * when it is calendarized (D-136 for 52/53-week calendars).
+ */
 export interface RevenueSeasonality {
   /** The last complete fiscal year's end; the fourth quarter ends on it. */
   fiscalYearEnd: string;
@@ -78,7 +87,7 @@ export interface DcfIncomeRow extends FiscalDatedRow {
   date: string;
   /** Inclusive filed duration, or the gap to the preceding period end. */
   days?: number | null;
-  /* D-60: Anchor the projection to the established revenue window and disclose the evidence used. */
+  /** Four-quarter TTM or the latest audited annual statement when TTM is unavailable. */
   basis?: "ttm" | "annual";
   revenue: number | null;
   operatingIncome: number | null;
@@ -99,7 +108,7 @@ export interface DcfBalanceRow {
   operatingLeaseLiability?: number | null;
   financeLeaseLiability?: number | null;
   capitalLeaseObligations?: number | null;
-  /* D-97: Remove operating leases only when filed evidence establishes their inclusion and scope. */
+  /** The financing components that prove a partial operating lease's scope (D-97). */
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
   leaseCoverageNote?: string;
@@ -128,7 +137,7 @@ export interface DcfBalanceRow {
   longTermInvestments?: number | null;
 }
 
-/* D-19: SBC treatment, with the reported FCF before and after it. */
+/** D-19: SBC treatment, with the reported FCF before and after it. */
 export interface DcfSbcTreatment {
   beforeSbc: number | null;
   afterSbc: number | null;
@@ -137,7 +146,10 @@ export interface DcfSbcTreatment {
   basis: string;
 }
 
-/* D-19: log-linear revenue trend over every annual year on record (growth.ts `logLinearGrowth`). Structural, so the DCF does not depend on the whole GrowthResult. */
+/**
+ * D-18: log-linear revenue trend over every annual year on record (growth.ts `logLinearGrowth`).
+ * Structural, so the DCF does not depend on the whole GrowthResult.
+ */
 export interface DcfRevenueTrend {
   growthPct: number | null;
   rSquared: number | null;
@@ -153,8 +165,9 @@ export interface DcfAssumptionInputs {
   equityMethodStake?: { value: number; treatment: "added-back" | "operating"; incomePlacement: "in-operating-income" | "below-operating-income" | "undetermined" | null; incomeExcludedFromEbit?: boolean; basis: string } | null;
   /**
    * D-135 (D-25): the lease-inclusive switch (`METIS_EV_INCLUDE_LEASES`, from `runStageB`'s
-   * `evIncludeLeases`). Absent is false, the default: sales-to-capital and its sales-to-capital
-   * history remove the proven operating-lease slice from debt exactly when the equity bridge does.
+   * `evIncludeLeases`). Absent is false, the default: sales-to-capital and the issuer's own
+   * sales-to-capital history (D-104) remove the proven operating-lease slice from debt exactly when
+   * the equity bridge does.
    */
   includeLeasesInEv?: boolean;
   /** 3y revenue CAGR in percent (computed upstream from statements); null when unavailable. */
@@ -169,9 +182,15 @@ export interface DcfAssumptionInputs {
    */
   revenueCagr3yExcludedSpanYears?: number | null;
   revenueCagr5yExcludedSpanYears?: number | null;
-  /* D-19: the log-linear regression method of the growth anchor. Absent or null makes it an unavailable method, named as such in the basis. */
+  /**
+   * D-18: the log-linear regression method of the growth anchor. Absent or null makes it an
+   * unavailable method, named as such in the basis.
+   */
   revenueLogLinear?: DcfRevenueTrend | null;
-  /* D-19: the WACC disclosure sentence (returns.ts `waccDisclosure`), printed verbatim in the assumption block so the discount rate is never an unattributed percentage. */
+  /**
+   * D-19: the WACC disclosure sentence (returns.ts `waccDisclosure`), printed verbatim in the
+   * assumption block so the discount rate is never an unattributed percentage.
+   */
   waccBasis?: string | null;
   /*
    * D-19: the reported free-cash-flow metric before and after the SBC deduction (capital.ts). The
@@ -182,17 +201,27 @@ export interface DcfAssumptionInputs {
   fcfSbc?: DcfSbcTreatment | null;
   /** Forward annual analyst estimates (FMP names); null/empty when uncovered. */
   analystEstimates: AnalystEstimateRow[] | null;
-  /* D-98: Retain the analyst-estimate refusal even when the estimate rows are absent. */
+  /**
+   * D-98: the provider's rate-limit refusal when that, not coverage, is why `analystEstimates` is
+   * null. It makes the analyst-growth record name the cause and mark the valuation degraded.
+   */
   analystEstimatesRefusal?: string | null;
   waccPct: number;
   riskFreePct: number;
-  /* D-30: Compare the model reporting currency with the listing currency before publishing a per-share upside. */
+  /**
+   * Statements' reportedCurrency (the ADR currency guard, P4). When it differs from quoteCurrency the
+   * DCF per-share would be in reported currency against a quote-currency price, so valueCompany
+   * suppresses the DCF instead (mirroring the multiples currencyMismatch flag; no FX conversion).
+   */
   reportedCurrency?: string | null;
   /** Listing/trading currency of the quote and market cap. */
   quoteCurrency?: string | null;
   /** Base income statement: four-quarter TTM, or an explicitly labeled annual fallback. */
   incomeTtm: DcfIncomeRow | null;
-  /* D-98: Separate tagged operating one-offs from the recurring starting margin. */
+  /**
+   * D-98: tagged one-off items inside the base period's operating income, removed from the margin
+   * seed in both directions.
+   */
   unusualOperatingItems?: import("../unusualItems").UnusualOperatingItems | null;
   /** D-198: completed material disposals already excluded from the shared calculation view. */
   operatingNormalizationBasis?: string;
@@ -212,7 +241,11 @@ export interface DcfAssumptionInputs {
    * the basis and the info gap state only what was checked.
    */
   bridgeCause?: { cause: "statement-row" | "none-filed" | "incomplete" | "statement-row-refused" | "anchor-refused"; detail: string | null };
-  /* D-104: Establish sales-to-capital from compatible filed history before using it in valuation. */
+  /**
+   * D-104 (the issuer's own sales-to-capital): annual balance rows (any order), measured like
+   * `balance`. With the income history they show whether the issuer's own filings establish a
+   * sales-to-capital below the house floor. Omitted or null: the house floor applies, as before.
+   */
   capitalHistory?: DcfBalanceRow[] | null;
   marketCap: number | null;
   /**
@@ -234,7 +267,10 @@ export interface DcfAssumptionInputs {
   domicileCountry?: string | null;
   /** D-65: revenue already reported in the fiscal year the first window starts in. */
   fiscalYearToDate?: FiscalYearToDate | null;
-  /* D-136: Calendarize consensus and guidance over the issuer fiscal windows using the established seasonal shape. */
+  /**
+   * D-99 (seasonal consensus): the last complete fiscal year's four reported quarters. Omitted or
+   * null: consensus is spread evenly over each fiscal year's days.
+   */
   revenueSeasonality?: RevenueSeasonality | null;
   /**
    * D-65: the date the value is compared with a price (the quote date). Cash
@@ -248,7 +284,7 @@ export interface DcfAssumptionInputs {
 export interface DcfQuarterRevenue {
   latest: { date: string; revenue: number | null; days?: number | null };
   yearAgo: { date: string; revenue: number | null; days?: number | null } | null;
-  /* D-136: Compare guidance with the same fiscal quarter a year earlier. */
+  /** D-98 (guided year-over-year pace): the same fiscal quarter a year before the guided quarter, model currency. */
   guidedYearAgo?: { date: string; revenue: number | null; days?: number | null } | null;
   /** Newest first, ending at guidedYearAgo; eight quarters establish one yearly factor. */
   guidedYearAgoWindow?: Array<{ date: string; revenue: number; days?: number | null }>;
@@ -332,7 +368,7 @@ export interface RevenueAnchor {
     guidedSeasonalFactor?: number | null;
     /** Guided quarter over the latest reported quarter, annualized, percent. */
     guidedPacePct: number | null;
-    /* D-136: Retain the guided quarter growth over its comparable prior-year window. */
+    /** D-98: guided quarter over the same quarter a year earlier, percent; absent on reports built before that rule. */
     guidedYoyPct?: number | null;
     guidedYoyIssuerEffectPp?: number | null;
     /** Calendarized consensus for the year-one and year-two windows. */
@@ -357,7 +393,11 @@ export interface DcfRoicYear {
   waccPct?: number | null;
   /** Date of the risk-free observation behind `waccPct`. */
   waccAsOf?: string | null;
-  /* D-102: Use the evidenced starting return and converge payout to the terminal return and growth assumptions. */
+  /**
+   * D-102: material business-combination evidence for this fiscal year (excessReturnStart.ts
+   * `businessCombinationYears`), printed beside the year. Under the four-of-five rule a below-hurdle
+   * year carrying it does not count against the terminal carry.
+   */
   combinationEvidence?: string | null;
 }
 
@@ -381,10 +421,10 @@ export interface TerminalRoic {
 const TERMINAL_ROIC_DEFAULT_BASIS =
   "terminal ROIC = WACC (zero excess returns in perpetuity, HOUSE CONVENTION default — see docs/METHODOLOGY.md, \"Terminal value house convention\")";
 
-/*
+/**
  * D-19: Apply the terminal excess-return HOUSE CONVENTION (see TERMINAL_EXCESS_RETURN_CAP_PP). It
  * is not a standard: it is this app's own convention, and it is labelled as such wherever it is
- * printed. each fiscal year is compared to its OWN WACC when the caller supplied one (recomputed
+ * printed. Each fiscal year is compared to its OWN WACC when the caller supplied one (recomputed
  * from that year end's risk-free observation); years without one fall back to the current WACC and
  * the note says which happened.
  */
@@ -397,7 +437,11 @@ export function terminalRoic(
    * the cost of equity, so its disclosures must not say ROIC and WACC.
    */
   labels: { ret: string; rate: string } = { ret: "ROIC", rate: "WACC" },
-  /* D-102: Use the evidenced starting return and converge payout to the terminal return and growth assumptions. */
+  /**
+   * "every-year" (the FCFF DCF): the return beat the hurdle in every one of the last 4+ years.
+   * "four-of-five" (the excess-return model, D-102): in at least 4 of the last 5, where a
+   * below-hurdle year with business-combination evidence is set aside rather than counted as a miss.
+   */
   options: { rule?: "every-year" | "four-of-five" } = {},
 ): TerminalRoic {
   const { ret: RET, rate: RATE } = labels;
@@ -536,7 +580,7 @@ export function terminalRoic(
   };
 }
 
-/* D-19: one method of the growth anchor and what it produced. */
+/** D-18: one method of the growth anchor and what it produced. */
 export interface GrowthAnchorMethod {
   name: string;
   valuePct: number | null;
@@ -544,7 +588,7 @@ export interface GrowthAnchorMethod {
   detail: string;
 }
 
-/* D-19: median-of-methods near-term growth anchor. */
+/** D-18: median-of-methods near-term growth anchor. */
 export interface GrowthAnchor {
   /*
    * D-18: The year-one growth faded by the DCF is the median of available methods after the
@@ -571,11 +615,11 @@ export interface DcfAssumptions {
   startRevenue: Assumption<number>;
   /** Explicit horizon (default 10). */
   years: number;
-  /* D-19: the discount rate with every input named. */
+  /** D-19: the discount rate with every input named. */
   wacc: Assumption<number>;
-  /* D-19: SBC treatment, with the reported FCF before and after it. */
+  /** D-19: SBC treatment, with the reported FCF before and after it. */
   sbc: Assumption<DcfSbcTreatment>;
-  /* D-19: the growth anchor's methods, point estimate and range. */
+  /** D-18: the growth anchor's methods, point estimate and range. */
   growthAnchor: GrowthAnchor;
   /** D-58: what set the year-one/two revenue level; absent on assumptions built before D-58. */
   revenueAnchor?: RevenueAnchor;
@@ -599,7 +643,10 @@ export interface DcfAssumptions {
    * when gross profit is not on record; absent on assumptions built before D-60.
    */
   scenarioMarginCeiling?: ScenarioMarginCeiling | null;
-  /* D-98: Use the evidenced margin regime and disclose the improving-margin fade assumption. */
+  /**
+   * D-98 (improving margins): present only when an improving regime faded the margin up, so
+   * runStageB can show the value with the margin held flat.
+   */
   improvingMarginFade?: { currentPct: number; targetPct: number };
   /**
    * D-65: the date the value is stated at. The explicit years are windows
@@ -620,7 +667,13 @@ export interface DcfAssumptions {
    * (capital already non-positive) takes the issuer's own history for the ratio.
    */
   nonOperatingInvestments?: { value: number; balanceDate: string; basis?: string };
-  /* D-98, D-58: Use the evidenced margin regime and disclose the improving-margin fade assumption. */
+  /**
+   * D-98: the rate at which the bridge taxes non-operating investments it adds:
+   * the D-58 marginal-rate floor toward which terminal tax converges. Apply it
+   * to the whole carrying value as though the tax basis were zero. A sale
+   * delivers the stake's value to shareholders and its gain is taxed; the
+   * filed carrying value is before that tax.
+   */
   investmentTax?: { ratePct: number; basis: string };
   asOf: { statements: string | null; estimates: string | null };
   notes: string[];
@@ -648,7 +701,10 @@ export interface BuildDcfAssumptionsResult {
   gaps: ManifestEntry[];
 }
 
-/* D-60: Annualize the analyst growth leg over the actual distance between the TTM and fiscal-year endpoints. */
+// Day-count handling for the TTM→FY1 analyst leg (D-60): the TTM window and the FY1 estimate are
+// both 12-month figures whose END DATES are offset by the TTM→FY1 span, so the raw ratio is growth
+// over that span. Treating a 3–9 month offset as a full-year rate depresses the whole fade path for
+// mid-fiscal-year runs.
 const DAYS_PER_YEAR = 365.25;
 const LEG_DAY_MS = 24 * 3600 * 1000;
 /** Below this span the partial-period ratio is too noisy to annualize — skip the leg. */
@@ -821,7 +877,8 @@ function buildRevenueAnchor(args: {
   // P11, D-223: notCovered[k - 1] is true when year k's gate is "not covered by the
   // fiscal-year estimates". Local only, never on the path rows or in the output.
   const notCovered: boolean[] = [];
-  /* D-136: Calendarize consensus and guidance over the issuer fiscal windows using the established seasonal shape. */
+  // D-99 (seasonal consensus): how the fiscal years a covered window holds only part of were spread
+  // (null when each falls wholly inside one).
   let spread: "seasonal" | "even" | null = null;
   for (let k = 1; ttmEnd !== null && k <= DCF_HORIZON_YEARS; k++) {
     const w = forecastYearPeriod(ttmEnd, k, windowBasis);
@@ -879,7 +936,7 @@ function buildRevenueAnchor(args: {
   const latestQuarter = inputs.quarterRevenue?.latest.date === ttmEnd ? posOrNull(inputs.quarterRevenue?.latest.revenue) : null;
   const fL = thirteenWeekFactor(inputs.quarterRevenue?.latest.days ?? null);
   const guidedPacePct = guide !== null && latestQuarter !== null ? (Math.pow(guide.revenue * fG / (latestQuarter * fL), 4) - 1) * 100 : null;
-  /* D-136: Use a compatible year-ago quarter to establish guided year-over-year growth. */
+  // D-98 (guided year-over-year pace): the guided quarter over the same quarter a year earlier.
   const yearAgoRow = inputs.quarterRevenue?.guidedYearAgo ?? null;
   const yearAgoRevenue = posOrNull(yearAgoRow?.revenue);
   const yearAgoDays = guide === null || yearAgoRow === null ? null : daysBetween(yearAgoRow.date, guide.periodEnd);
@@ -1312,7 +1369,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   };
 
   // --- D-58: year one (and two) from evidence, then a convergent fade ------
-  /* D-60: Anchor the projection to the established revenue window and disclose the evidence used. */
+  // TTM x (1 + clamped g) could put year-one revenue below the issuer's own latest quarter x 4, and a
+  // linear fade from a very high consensus year one would keep growth far above the terminal rate for
+  // years. The anchored years now come from guidance, consensus or the run-rate; every later year
+  // closes the gap to the terminal rate geometrically from the last anchored year.
+  // D-65: every year consensus anchors, not only the first two.
   const anchoredGrowth = (revenueAnchor.anchoredGrowthPct ?? [revenueAnchor.yearOneGrowthPct]).slice(0, Math.max(1, years - 1));
   const lastAnchored = anchoredGrowth[anchoredGrowth.length - 1];
   const growthPath = [
@@ -1322,7 +1383,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const guide = nextQuarterGuidance(inputs.guidance, ttm?.date ?? null);
 
   // --- EBIT margin path -----------------------------------------------------
-  /* D-98: Separate one-off tax effects from the evidenced operating tax assumption and disclose the basis. */
+  // D-98: a one-off inside operating income (an insurance gain, an impairment) would set the margin
+  // for every year, so the seed leaves tagged one-offs out, gains and charges alike.
   const unusual = inputs.unusualOperatingItems == null ? null : {
     ...inputs.unusualOperatingItems, value: inputs.unusualOperatingItems.value * baseFactor,
   };
@@ -1410,8 +1472,12 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // the issuer's own highest annual margin in the five-year history,
   // whichever is higher (METHODOLOGY "Fade and horizon", RESEARCH §7.5).
   // D-58: it binds the margin the path fades TO — year five onward and the
-  /* D-60: Anchor the projection to the established revenue window and disclose the evidence used. */
-  /* D-98: Use the evidenced margin regime and disclose the improving-margin fade assumption. */
+  // terminal year — not year one. Capping year one would force the margin down from the current
+  // TTM margin with nothing in the evidence behind the step-down; the current margin may set year
+  // one unless it is impossible (above 100%).
+  // D-60: a full four-quarter TTM is as demonstrated as a fiscal year, so it counts as an earned
+  // margin too; otherwise the path could fade to a margin below every recent quarter while the cap
+  // stayed at an older fiscal year's margin. A single quarter does not count.
   const ttmMarginPoint = ttm?.basis !== "annual" && ttmMarginRaw !== null && ttmMarginRaw <= 1 && ttm?.date
     ? [{ date: ttm.date, marginPct: ttmMarginRaw * 100, ttm: true }]
     : [];
@@ -1450,7 +1516,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
         : marginSlope < -MARGIN_TREND_THRESHOLD_PP_PER_YEAR
           ? "declining"
           : "stable";
-    /* D-98: Use the evidenced margin regime and disclose the improving-margin fade assumption. */
+    // D-98 (improving margins): a declining margin fades down to its history, so an improving one
+    // fades up rather than being held at today's level for ten years. The target is bounded twice:
+    // half the dated trend carried over the fade years, and the efficiency the issuer has already
+    // shown (today's gross margin less its leanest operating-expense ratio, the scenario ceiling).
+    // Without a gross margin to bound it, it stays flat.
     const improvingCeiling = regime === "improving" && marginSlope !== null
       ? scenarioMarginCeiling(normalizedTtm, normalizedHistory)
       : null;
@@ -1549,7 +1619,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // D-58: a below-statutory effective rate (credits, deferrals, preferential
   // regimes) is not carried in perpetuity: the terminal rate converges toward
   // the marginal rate (Damodaran), never below the 15% global minimum (OECD
-  /* D-98: Separate one-off tax effects from the evidenced operating tax assumption and disclose the basis. */
+  // Pillar Two). A low historical median would otherwise tax terminal NOPAT below the rate the
+  // issuer itself guides. A company whose own history is higher keeps it.
 
   const companyTax = companyTerminalTax as number;
   const taxTerminal = Math.max(companyTax, taxFloor);
@@ -1559,7 +1630,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     : `the ${companyTaxText} ${fmtNum(taxTerminal)}%, at or above the ${fmtNum(taxFloor)}% floor = ${taxFloorText}`;
   if (taxTerminal > companyTax) notes.push(`terminal tax rate floored: ${terminalTaxText}`);
   // D-60: management's effective-tax-rate guidance, when the same release
-  /* D-60: Anchor the projection to the established revenue window and disclose the evidence used. */
+  // gives one, sets year one; the path still fades to the terminal rate.
   const guidedTax =
     guide !== null && isNum(guide.taxRatePct) && guide.taxRatePct >= 0 && guide.taxRatePct <= 50 ? guide.taxRatePct : null;
   const tEff = guidedTax ?? currentTaxRate ?? taxTerminal;
@@ -1593,7 +1664,10 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
 
   // --- Sales-to-capital ------------------------------------------------------
   const bal = inputs.balance;
-  /* D-97: Remove operating leases only when filed evidence establishes their inclusion and scope. */
+  // D-97 (partial lease maturity): a missing operating-lease maturity leaves the lease-inclusive
+  // total unknown, but where the financing components prove the tagged operating portion is the only
+  // lease in totalDebt, invested capital is measured excluding operating leases instead of the DCF
+  // being withheld. A missing finance maturity still withholds it.
   const debtScopeRefusal = leaseDebtScopeRefusal(bal, true) === null ? null : leaseDebtScopeRefusal(bal, false);
   if (debtScopeRefusal) {
     gaps.push(gapEntry("valuation.dcf.salesToCapital", `${debtScopeRefusal} Raw lease-inclusive invested capital cannot support sales-to-capital; DCF withheld.`, "critical"));
@@ -1666,7 +1740,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     emptiedHistory = history;
   }
   // Only after main's critical checks (a refused claim is zero in `ic` above, so those read as at main): a refused
-  /* D-135: An unresolved temporary-equity operand withholds the per-share bridge and names the missing claim. */
+  // temporary-equity operand withholds the DCF at warn, never critical (D-135): the claim exists, only its amount
+  // is disputed, and a critical gap would block the report.
   if (temporary !== null && temporary.refusal !== null) {
     /*
      * D-135: This return bypasses bridge checks that run only for a built DCF. Retain critical
@@ -1682,8 +1757,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // After the capital/claim refusals above so this warn cannot hide an existing critical. D-267
   // (P1, P13; revises D-65 for the fiscal-year fallback): when the model falls back to the
   // fiscal-year statement, the balance that supplies invested capital and the equity bridge must be
-  // dated at that fiscal year end. D-135's bridge row is that balance when one is admitted
-  // (`dcfBridgeRow`); when none is (none filed, incomplete, refused, or the anchor refused),
+  // dated at that fiscal year end. The DCF bridge row (the statement-date balance, D-135) is that
+  // balance when one is admitted (`dcfBridgeRow`); when none is (none filed, incomplete, refused,
+  // or the anchor refused),
   // another date's balance would count flows twice or not at all and would set the fiscal year's
   // revenue against another date's capital, so the model value is withheld with the root cause
   // named. The typed cause routes it through the existing withheld-DCF path (P11). The
@@ -1718,10 +1794,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       "so this DCF is withheld instead of mixing dates", "warn", "dcf-balance-date-mismatch"));
     return { assumptions: null, notes, gaps };
   }
-  // D-60: long-term investments (strategic and non-marketable stakes, long
-  // marketable securities) are non-operating: their income is below the EBIT
-  // this DCF projects, so they are not capital the operating path earns on.
-  /* D-104: Remove established non-operating investments from the operating sales-to-capital denominator. */
+  // D-60: long-term investments (strategic and non-marketable stakes, long marketable securities) are
+  // non-operating: their income is below the EBIT this DCF projects, so they are not capital the
+  // operating path earns on. When removing them would leave no operating capital (D-135), the
+  // operating ratio is unbounded and takes the house cap, and the bridge still adds the holding back.
+  // (Capital emptied by the lease removal is `emptiedHistory`'s.)
   const filedLti = isNum(bal.longTermInvestments) && bal.longTermInvestments > 0 ? bal.longTermInvestments : 0;
   const operatingStake = inputs.equityMethodStake?.treatment === "operating" ? Math.min(filedLti, Math.max(0, inputs.equityMethodStake.value)) : 0;
   const lti = filedLti - operatingStake > 0 ? filedLti - operatingStake : null;
@@ -1733,7 +1810,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const exceedsHoldingClause = `the holding meets or exceeds operating invested capital, so sales-to-capital takes the house cap ${S2C_CLAMP[1]} and the holding is added back here`;
   const emptiedHoldingClause = "sales-to-capital takes the issuer's own history because invested capital is not positive once the operating lease leaves debt";
   const capitalDefinition = `invested capital (total debt + consolidated equity [${equity.basis}]${temporaryText} - cash and short-term investments, ${bal.basis} balance as of ${bal.date}; ${equity.reason})`;
-  /* D-104: Establish sales-to-capital from compatible filed history before using it in valuation. */
+  // D-104 (the issuer's own sales-to-capital): the house floor guards against a mis-scaled input, so
+  // it yields to a lower ratio the issuer's own filings establish.
   const s2cHistory = emptiedHistory ?? establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseBasis);
   /* Capital efficiency uses reported flows; only the DCF starting flows are annualised. */
   const rawS2c = emptiedHistory !== null ? emptiedHistory.ratio as number : holdingExceedsCapital ? S2C_CLAMP[1] : filedRevenue / (operatingIc ?? ic);
@@ -1767,7 +1845,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   if (normalizedYears) terminal.basis += `; terminal evidence uses operating income excluding admitted tagged one-off items (${normalizedYears}); reported GAAP ROIC is unchanged`;
   if (inputs.recurringOperatingItemsBasis) terminal.basis += `; ${inputs.recurringOperatingItemsBasis}`;
   if (terminal.note !== null) notes.push(terminal.note);
-  /* D-19: say which cost of capital each ROIC year was measured against, in the notes AND in the manifest when it was not the year's own WACC. */
+  // D-19: say which cost of capital each ROIC year was measured against, in the notes AND in the
+  // manifest when it was not the year's own WACC.
   if (terminal.waccBasisNote !== null) notes.push(terminal.waccBasisNote);
   if (terminal.waccBasis === "current") {
     gaps.push(
@@ -1781,7 +1860,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const roicTerm = terminal.roicTermPct;
   const reinvestRate = roicTerm > 0 ? gTerm / roicTerm : 0;
 
-  /* D-19: SBC treatment, stated in the assumption block with the size of the adjustment to the reported free-cash-flow metric. */
+  // D-19: SBC treatment, stated in the assumption block with the size of the adjustment to the
+  // reported free-cash-flow metric.
   const sbcInfo = inputs.fcfSbc ?? null;
   const sbcBasis =
     sbcInfo === null || sbcInfo.beforeSbc === null

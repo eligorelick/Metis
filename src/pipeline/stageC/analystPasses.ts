@@ -385,10 +385,8 @@ function hardFailure(field: string, err: unknown, model: string): PassRun<Analys
  * abandoned — is not repairable, so `recoverable` in the runner is false and
  * the job degrades to a data-only report whatever the sibling does next.
  *
- * The sibling used to keep generating anyway: on 2026-09-03 bull was abandoned
- * at 19:05:00 and bear billed on until the user cancelled it by hand at
- * 19:13:12, eight minutes of paid output for a report that could no longer be
- * written. A side's output is only worth finishing because a partial resume can
+ * Left running, the sibling would keep generating paid output for a report
+ * that can no longer be written (P23). A side's output is only worth finishing because a partial resume can
  * reuse it, and a resume re-runs the failed side regardless — so the sibling's
  * remaining spend buys, at best, one pass on a run the user may never resume.
  */

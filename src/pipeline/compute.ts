@@ -52,7 +52,7 @@ import {
   type RoutingIncomeRow,
   type RoutingCashflowRow,
 } from "@/pipeline/stageB/sectorRouting";
-// WS5: XBRL routing evidence (D-16) and financial-route metrics (D-17).
+// XBRL routing evidence (D-16) and financial-route metrics (D-17).
 import { deriveRoutingEvidence } from "@/pipeline/stageB/routingEvidence";
 import {
   computeFinancialMetrics,
@@ -120,7 +120,7 @@ import {
   classifyInstrumentSupport,
   UnsupportedInstrumentError,
 } from "@/pipeline/stageB/instrumentSupport";
-// WS6 (D-19): METIS_EV_INCLUDE_LEASES.
+// D-19: METIS_EV_INCLUDE_LEASES.
 import { getConfig } from "@/config/env";
 import { mergeManifest } from "@/pipeline/stageA/manifest";
 import type {
@@ -176,7 +176,7 @@ export interface ComputedMetrics {
   technicals: TechnicalsResult;
   valuation: ValuationResult;
   /**
-   * WS5 (D-17): route metrics for bank / insurer / mortgage-REIT routes — the
+   * D-17: route metrics for bank / insurer / mortgage-REIT routes — the
    * figures those routes lead with. Empty on every other route. Each metric is
    * computed from the filer's tags or withheld with its reason.
    */
@@ -187,9 +187,9 @@ export interface ComputedMetrics {
   scores: Scoring;
   /** Weighted forward projections (feature 1.1.0). */
   projections: Projections;
-  /** Deterministic bull/base/bear price targets (2026-07-11 checkpoint). */
+  /** Deterministic bull/base/bear price targets (P18). */
   scenarioTargets: ScenarioTargets;
-  /** Deterministic intrinsic per-share fair value (2026-07-11 DCF checkpoint). */
+  /** Deterministic intrinsic per-share fair value (P18). */
   fairValue: FairValue;
   /** Metric keys nulled by the sector policy, with the disclosing reason. */
   suppressed: SuppressedMetric[];
@@ -233,7 +233,7 @@ function withMarketableEquity(rows: FmpBalanceSheetRow[], facts: CompanyFacts | 
   });
 }
 
-/** N2: classify a proved fair-value servicing financial asset, never infer an absent intangible. */
+/** classify a proved fair-value servicing financial asset, never infer an absent intangible. */
 function withTangibleBookClassification(row: FmpBalanceSheetRow, bundle: DataBundle, facts: CompanyFacts | null): FmpBalanceSheetRow {
   const date = isoDay(row.date), currency = str(row.reportedCurrency), vendor = num(row.intangibleAssets);
   const registrant = bundle.edgar.registrant;
@@ -556,7 +556,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     ttmGaps,
     bundle.statements.incomeQuarterly,
   );
-  // L2: a vendor quarter can omit a filed common numerator while retaining
+  // a vendor quarter can omit a filed common numerator while retaining
   // otherwise usable income. Reuse the SEC normalizer's additive-flow rules;
   // never infer a common allocation from total income or rebuild IPO EPS.
   let commonEarningsSupplemented = false;
@@ -605,7 +605,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
 
   const todayIso = bundle.builtAt.slice(0, 10);
 
-  // WS5: routing evidence from EDGAR companyfacts, read-only (D-16).
+  // Routing evidence from EDGAR companyfacts, read-only (D-16).
   const routingEvidence = deriveRoutingEvidence(admittedFacts, { today: todayIso });
 
   // --- Route FIRST -----------------------------------------------------------
@@ -711,7 +711,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     .map(row=>({date:row.date,fiscalYear:row.fiscalYear,period:undefined}));
   const incomeAnnualForRevenue = revenueConflict
     ? incomeAnnual.map(row => ({ ...row, revenue: undefined, operatingIncome: undefined, nonMarginOperatingIncome: undefined })) : incomeAnnual;
-  // Review m6: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
+  // P20: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
   const balanceAdmissions: BalanceAdmission[] = [];
   // D-254 (P13): the debt family is admitted once per run by its shared preparation; Stage B presents its own row.
   const debtAdmission = debtFamilyAdmission(bundle);
@@ -770,7 +770,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
       cashflowAnnual: routingCashflowAnnual,
       availableQuarters: incomeQuarterly.length,
     },
-    // WS5: XBRL routing evidence (D-16). Read-only from the bundle's EDGAR
+    // XBRL routing evidence (D-16). Read-only from the bundle's EDGAR
     // companyfacts; an absent or failed payload routes on industry/SIC alone
     // and says so in the routing note and the manifest.
     { today: todayIso, evidence: routingEvidence },
@@ -779,7 +779,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   if (foreignBasis) route.notes = route.notes.map(note => note.startsWith("adr overlay applied")
     ? `adr overlay applied (profile.isAdr). ${foreignBasis.note}` : note);
 
-  // Audit 2026-10-19 O-2: debt the year's interest expense shows to be
+  // D-97: debt the year's interest expense shows to be
   // incomplete is withheld before any consumer reads it. Financial routes are
   // excluded: their interest expense funds deposits and float, not debt.
   if (!(route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage")) {
@@ -812,7 +812,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     suppressed.push({ key, reason });
   };
 
-  // WS5: the REIT sub-map drives the withholding disclosures in the plan.
+  // D-16: the REIT sub-map drives the withholding disclosures in the plan.
   const degradation = degradationPlan(
     route.base,
     route.overlays,
@@ -851,7 +851,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   if (isSuppressed("operatingMargin")) growth.margins.operating = { series: [], slopePctPtsPerYear: null };
 
   // --- Returns (WACC / ROIC / DuPont) ---------------------------------------
-  // WS6 (D-19): METIS_EV_INCLUDE_LEASES is read ONCE per Stage B run and
+  // D-19: METIS_EV_INCLUDE_LEASES is read ONCE per Stage B run and
   // handed to both consumers — the returns block (WACC debt leg, invested
   // capital) and the valuation block (both EV bridges) — so the lease basis
   // cannot drift between them and the run makes a single settings read
@@ -923,7 +923,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
       repurchaseExecutions: repurchaseExecutions.rows,
       companyFacts,
       asOf: bundle.builtAt,
-      // AMZN audit 2026-10-20, finding 20 (b): net debt/EBITDA on the EV's lease basis.
+      // D-99 (leverage basis): net debt/EBITDA on the EV's lease basis.
       evIncludeLeases,
     },
   );
@@ -962,7 +962,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     route: route.base,
     modelEligibilityReason,
     evIncludeLeases,
-    // D-31 / FIN-112: like the annual capital input, EBIT stays on operating income.
+    // D-31 / D-137: like the annual capital input, EBIT stays on operating income.
     // An incomplete trailing operating flow is unknown, never vendor EBIT or an annual substitute.
     income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, netIncome: consolidatedConversionIncome, operatingIncome: operatingIncomeForNonMargins(ttmInc), ebit: operatingIncomeForNonMargins(ttmInc),
       // D-282: a filed exact window or four established quarters establish the TTM interest.
@@ -1093,7 +1093,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   // cap converted at the quote-date rate cannot be converted at the balance date with that rate.
   const forensicClassScopeRebuilt = forensicEquityScope.status === "resolved" &&
     (forensicEquityScope.multiClass === true || forensicEquityScope.weightedClasses === true);
-  // D-267 review: a derived reading carries the date of the share count it multiplied (see `derivedMarketCapShareDate`).
+  // D-267: a derived reading carries the date of the share count it multiplied (see `derivedMarketCapShareDate`).
   const marketCapHistoryEndpoint = bundle.marketCapHistory?.ok ? bundle.marketCapHistory.value.endpoint : null;
   const shareFacts = bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.data : null;
   const forensicMarketCapHistory = foreignBasis || forensicClassScopeRebuilt ? [] : rowsOf(bundle.marketCapHistory).flatMap((r) => {
@@ -1133,7 +1133,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
       ? "no admitted history: the provider market-cap series is not on the issuer's economic class basis"
       : bundle.marketCapHistory.ok ? bundle.marketCapHistory.value.endpoint : null,
     marketCapHistoryCurrencyReason: foreignCapRefusal,
-    // D-267 review: the converted cap is the quote's observation at the rate's own date; forensics admits it only when
+    // D-267: the converted cap is the quote's observation at the rate's own date; forensics admits it only when
     // both dates pair with the balance date.
     marketCapConversion: foreignBasis ? { rateDate: foreignBasis.fx.observation.date, source: `FRED ${foreignBasis.fx.series}` } : null,
     analysisCutoff: isoDay(bundle.builtAt),
@@ -1157,7 +1157,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   }
 
   if (foreignBasis) {
-    // D-267 review: the note states what Altman actually did with the converted capitalization on this run.
+    // D-267: the note states what Altman actually did with the converted capitalization on this run.
     const altmanRun = forensics.altman;
     const convertedSource = altmanRun?.variant === "original" ? altmanRun.asOf.marketCapSource ?? null : null;
     const refusal = altmanRun?.gaps.some((g) => g.field === "forensics.altman.currency") === true ? foreignCapRefusal : null;
@@ -1188,7 +1188,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     foreignBasis,
     revenueEligibilityReason,
     operatingDispositions: operatingDispositions.read,
-    // FIN-121: use the SAME selected routing flow, before model-currency filtering.
+    // D-137: use the SAME selected routing flow, before model-currency filtering.
     finOtherOcfExemption: route.base === "general" && !route.overlays.includes("unprofitable") &&
       ["financial services", "financial"].includes(str(profile?.sector)?.trim().toLowerCase() ?? "") &&
       (routingCashflowTtm?.operatingCashFlow ?? routingCashflowAnnual?.operatingCashFlow ?? 0) < 0,
@@ -1208,14 +1208,14 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     currencyEvidence,
     growth,
     evIncludeLeases,
-    // WS6 wiring.
+    // D-18 and D-19 inputs.
     capital,
     wacc: returns.wacc,
     waccInputs: returns.waccInputs,
     waccHistory: returns.waccHistory,
     roic: returns.roic,
     dupont: returns.dupont,
-    // WS5: P/TBV against ROTE on the financial routes.
+    // D-17: P/TBV against ROTE on the financial routes.
     rote: returns.rote,
     commonReturnTtm: returns.commonReturnTtm,
     profile,
@@ -1234,7 +1234,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
       valuation.gaps = valuation.gaps.map(gap => gap.field === "valuation.dcf" ? {...gap,reason:`${gap.reason} ${sbcConcentration.basis}`} : gap);
     }
   }
-  // --- Route metrics for financial companies (WS5, D-17) --------------------
+  // --- Route metrics for financial companies (D-17) --------------------
   // The bank, insurer and mortgage-REIT routes have led with NIM, the
   // efficiency ratio, the combined ratio, book value per share, the spread and
   // leverage since the route table was written, and nothing computed any of
@@ -1348,7 +1348,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     });
   }
   const asOfDay = bundle.builtAt.slice(0, 10);
-  // Audit 2026-10-22 B-13: Moody's leverage ratios on the current capital
+  // D-104: Moody's leverage ratios on the current capital
   // window and the balance sheet it pairs with.
   const utilityCredit = route.overlays.includes("regulated-utility") ? (() => {
     const current = capital.current ?? null;
@@ -1428,7 +1428,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     returns.gaps.push({ field: "returns.roicVsWacc", reason, severity: "info" });
   }
 
-  // Same point-in-time anchors as computeValuation (audit H2/M3/M4): the NEWER
+  // Same point-in-time anchors as computeValuation (P1, P2): the NEWER
   // of the latest quarterly vs annual whole rows (balance + diluted shares,
   // zero-for-undisclosed share counts treated as missing), and net debt from
   // the shared components-only resolver. Disclosures are emitted once from the
@@ -1436,7 +1436,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   const inc0Proj = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows[0];
   const projRowDate = (r: { date?: unknown } | null | undefined): string =>
     typeof r?.date === "string" ? r.date : "";
-  // FIN-404: the same divisor as the valuation block (a loss period keeps its award dilution).
+  // D-135: the same divisor as the valuation block (a loss period keeps its award dilution).
   const projDivisors = incomeDivisors(incomeQuarterly, inc0Proj, confirmedIssuerFacts(bundle.symbol, bundle.edgar));
   const sharesQProj = projDivisors.quarter.shares;
   const sharesAProj = projDivisors.annual.shares;
@@ -1511,7 +1511,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
   const projectionOutsideOwnership = [num(projectionOwnershipBalance?.minorityInterest), num(projectionOwnershipIncome?.netIncomeAttributableToNoncontrollingInterest)]
     .some(value => value !== null && value !== 0);
-  // FIN-119 (OD-1, one definition of claims senior to common): a refused temporary-equity operand, or an
+  // D-135 (one definition of claims senior to common): a refused temporary-equity operand, or an
   // admitted claim, also leaves a future common-earnings allocation unestablished. This covers a redeemable
   // NCI beside a null book NCI, which the bridge fields cannot show. An unknown (withheld) enrichment withholds nothing.
   const projectionTemporary = projectionOwnershipBalance === undefined ? null : temporaryEquityClaims({ ...temporaryEquityOperands(projectionOwnershipBalance), preferredStock: num(projectionOwnershipBalance.preferredStock) });
@@ -1556,8 +1556,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   const translatedProjectionInputs = foreignBasis ? translateProjectionInputs(projectionInputs, foreignBasis) : projectionInputs;
   const projections = computeProjections(translatedProjectionInputs);
 
-  // Deterministic bull/base/bear price targets (2026-07-11 scenario-credibility
-  // checkpoint). Reuses the SAME point-in-time anchors + ±σ construction as the
+  // Deterministic bull/base/bear price targets (P18). Reuses the SAME point-in-time anchors + ±σ construction as the
   // projection fan, so the target band and the fan agree; base IS the DCF fair
   // value. Financial routes instead stress their own common-return history
   // and persistence around the unchanged excess-return base (D-193). Missing
@@ -1579,12 +1578,11 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   const classApproximation = bundle.economicShareEvidence?.find(e => e.approximation && e.effectiveFrom <= asOfDay && (e.effectiveTo === null || e.effectiveTo > asOfDay))?.approximation;
   if (classApproximation) scenarioTargets.basis.push(classApproximation.basis);
 
-  // Deterministic intrinsic per-share fair value (2026-07-11 DCF-credibility
-  // checkpoint). Route-appropriate (FCFF DCF / excess-return), reused from
+  // Deterministic intrinsic per-share fair value (P18). Route-appropriate (FCFF DCF / excess-return), reused from
   // valueCompany — never recomputed. assembleReport overwrites the judge's
   // valuation.dcf.perShare + upsidePct from this; suppressed (never fabricated)
   // when no per-share model applies or the equity bridge is missing.
-  // Audit 2026-10-22 F-13: an available value built on substituted inputs
+  // D-111: an available value built on substituted inputs
   // carries a "degraded inputs" reason naming each substitution.
   if (classApproximation) {
     fairValue.basis.push(classApproximation.basis);
@@ -1609,14 +1607,14 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   if (isSuppressed("evEbitda")) suppress("multiples.evToEbitda", lendingCashFlow?.reason ?? `EV/EBITDA excluded for ${route.base} — enterprise value ill-defined`);
   if (isSuppressed("currentRatio")) suppress("returns.currentRatio", `current ratio not meaningful for ${route.base}`);
 
-  // Audit 2026-10-22 B-24: a results release later than every statement.
+  // D-112: a results release later than every statement.
   const newer = newerResultsRelease(bundle);
   const newerResultsGaps: ManifestEntry[] = newer === null ? [] : [{ field: "fundamentals.newerResults", severity: "warn", reason: newerResultsSentence({
     source: { form: newer.release.form ?? "8-K", accession: newer.release.accession, exhibit: null, filingDate: newer.release.filingDate, url: null },
     reportedPeriod: newer.reportedPeriod, reportedPeriodEnd: newer.reportedPeriodEnd, statementsEnd: newer.statementsEnd,
   }) }];
 
-  // Audit 2026-10-22 B-23: a 10-Q or 10-K on file that the statements do not reach.
+  // D-112: a 10-Q or 10-K on file that the statements do not reach.
   const newerFiling = newerPeriodicFiling(bundle);
   if (newerFiling !== null) newerResultsGaps.push({ field: "fundamentals.newerFiling", severity: "warn", reason: newerFilingSentence({
     source: { form: newerFiling.filing.form, accession: newerFiling.filing.accessionNumber, exhibit: null, filingDate: newerFiling.filing.filingDate, url: null },
@@ -1642,7 +1640,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     projectionPeriodGaps,
     technicals.gaps,
     valuation.gaps,
-    // WS5: every withheld route metric reaches the missing-data manifest with
+    // D-17: every withheld route metric reaches the missing-data manifest with
     // the reason it was withheld.
     financialMetrics.gaps,
     runway?.gaps ?? null,
@@ -1681,7 +1679,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
 }
 
 /**
- * WS5 (D-17): the report-ready route-metrics block, or null on a route that has
+ * D-17: the report-ready route-metrics block, or null on a route that has
  * none.
  *
  * `Report.routeMetrics` was defined and never populated, and the excess-return
@@ -1859,11 +1857,10 @@ function gateRunwayCurrency(
 
 /**
  * D-173. A provider's annual balance-sheet feed can trail its annual income and
- * cash-flow feeds for days after an annual report is filed (AAPL, 2026-11-02: the
- * 10-K for the year ended 2026-09-26 had reached the annual income, annual cash-flow
- * and quarterly balance-sheet feeds, while the annual balance sheet still ended at
- * 2025-09-27, so Altman, Beneish, accruals and ROIC - WACC were withheld for the
- * newest year). A balance sheet is a point-in-time statement: the quarterly row
+ * cash-flow feeds for days after an annual report is filed (the new 10-K can reach
+ * the annual income, annual cash-flow and quarterly balance-sheet feeds while the
+ * annual balance sheet still ends a year earlier, which would withhold Altman,
+ * Beneish, accruals and ROIC - WACC for the newest year). A balance sheet is a point-in-time statement: the quarterly row
  * dated exactly at the newest annual income period end is that fiscal year's
  * closing balance. Only that one date is filled, only when the annual feed has no
  * row within the forensic alignment tolerance of it (a 52/53-week alias dated a few

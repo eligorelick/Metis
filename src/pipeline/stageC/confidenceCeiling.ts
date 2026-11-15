@@ -14,8 +14,8 @@
  *  - aspect applicableCompleteness < 0.5                          → low
  *  - aspect applicableCompleteness < 0.75                         → medium
  *
- * Completeness is read over what the ROUTE can support (review of D-50,
- * 2026-10-13): `dataCompleteness` also counts route-suppressed signals as
+ * Completeness is read over what the ROUTE can support (D-50):
+ * `dataCompleteness` also counts route-suppressed signals as
  * missing, which capped every fully observed bank's fundamentals, quality and
  * leadership at medium with a reason that was false for it. A stored report
  * without `applicableCompleteness` falls back to `dataCompleteness`.

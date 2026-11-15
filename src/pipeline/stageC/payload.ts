@@ -129,7 +129,7 @@ export const PAYLOAD_BUDGETS = {
   /**
    * Annual risk-factors excerpt: 10-K Item 1A or 20-F Item 3.D. D-63: this is
    * the floor; a long section keeps `item1aLongShare` of its length, up to
-   * `item1aMaxChars` (NVDA's 114,916-char Item 1A kept 12% under the flat cap).
+   * `item1aMaxChars` (a flat cap kept only a small share of a long Item 1A).
    */
   item1aChars: 14_000,
   item1aMaxChars: 24_000,
@@ -152,9 +152,9 @@ export const PAYLOAD_BUDGETS = {
   mdnaChars: 14_000,
   mdnaMaxChars: 50_000,
   /**
-   * 10-Q Part I Item 2 (MD&A) excerpt. D-63: 8,000 dropped 81% of NVDA's
-   * latest-quarter MD&A, including the H200 inventory charge and the
-   * Hyperscale/ACIE recast; it is the most current narrative the filings give.
+   * 10-Q Part I Item 2 (MD&A) excerpt. D-63: a small cap dropped most of a
+   * latest-quarter MD&A, including charges and segment recasts; it is the most
+   * current narrative the filings give.
    */
   tenQMdnaChars: 12_000,
   tenQMdnaMaxChars: 48_000,
@@ -168,8 +168,8 @@ export const PAYLOAD_BUDGETS = {
   listRows: 12,
   /**
    * Latest 8-K EX-99.1 earnings-release narrative (outlook, highlights). D-63:
-   * 5,000 dropped 4,096 of NVDA's 8,593-char Q2 FY2027 narrative, and the
-   * report then said what it held was "not in the filings".
+   * a small cap cut about half a release narrative, and the report then said
+   * what it held was "not in the filings".
    */
   earningsReleaseChars: 9_000,
   /**
@@ -180,9 +180,9 @@ export const PAYLOAD_BUDGETS = {
    */
   cfoCommentaryChars: 11_000,
   /**
-   * R1 (FIGR paid audit): the newest operating update filed after the results
-   * release (FIGR's preliminary Q3 marketplace volume of $5,119 million was
-   * read only from a news headline).
+   * D-156: the newest operating update filed after the results release
+   * (preliminary operating data otherwise reached the report only through a
+   * news headline).
    */
   operatingUpdateChars: 2_500,
   /** One ordinary material-event 8-K's item text. */
@@ -190,7 +190,7 @@ export const PAYLOAD_BUDGETS = {
   /** Credit-support agreements retain named parties, caps, options and contractual offsets. */
   eightKCreditEventChars: 1_800,
   /**
-   * R1 (FIGR paid audit): an acquisition's completion (Item 2.01) or a merger
+   * D-156: an acquisition's completion (Item 2.01) or a merger
    * or purchase agreement (Item 1.01) keeps its dated lead, the consideration
    * and how it was funded; at 1,200 the completion 8-K's consideration was cut.
    */
@@ -352,7 +352,7 @@ export interface ContextPayload {
   computed: PayloadSection[];
   /**
    * Peer-screen exclusion reasons and peer-collection notes, which can quote a
-   * provider's error body; rendered inside an untrusted envelope (AI-102).
+   * provider's error body; rendered inside an untrusted envelope (D-126).
    */
   peerScreen?: PayloadSection;
   /** Compact statement extracts (annual + quarterly key line items). */
@@ -464,7 +464,7 @@ function payloadSection(
 }
 
 /**
- * Audit 2026-10-27 B3 (AI-306): the span the share-count change was measured
+ * D-124: the span the share-count change was measured
  * over, as the figure's label states it. A null span (no change measured) keeps
  * the requested window; a span within 0.05 of a whole number reads as that
  * number, anything else to one decimal.
@@ -497,7 +497,7 @@ export function truncateWithDisclosure(
   // Reserve room for the marker so the total stays within budget. When the
   // budget cannot hold the counted marker plus any text, fall back to the bare
   // marker — still visibly cut, and never longer than the budget it was given
-  // (audit 2026-09-06, F165: a marker-only result used to exceed `maxChars`).
+  // (a marker-only result must not exceed `maxChars`; P20).
   const marker = maxChars >= full.length + 1 ? full : `${TRUNCATION_MARKER}]`.slice(0, Math.max(0, maxChars));
   const keep = Math.max(0, maxChars - marker.length);
   return { text: text.slice(0, keep) + marker, truncated: true, originalChars };
@@ -572,8 +572,7 @@ function firstRow<TRow extends FmpRawRow>(f: {
 /**
  * The quote is in the listing's trading currency. When a second common class
  * leaves the issuer's economic scope unresolved, the quote's market cap may
- * price one class only, and the section says so as the report does (audit
- * 2026-10-22 B-8).
+ * price one class only, and the section says so as the report does (D-103).
  */
 function quoteSection(bundle: DataBundle, currency: string | null, equityScope?: EconomicEquityScope): PayloadSection {
   const q = firstRow(bundle.quote);
@@ -679,8 +678,7 @@ const BANK_PAYLOAD_METRICS = [
 ] as const;
 
 /**
- * The peer exclusion reasons and peer-collection notes (audit 2026-10-27 B3
- * Task 2, AI-102). Both can quote a provider's error body verbatim, so they are
+ * The peer exclusion reasons and peer-collection notes (D-126). Both can quote a provider's error body verbatim, so they are
  * their own section, which the serializer renders inside an untrusted envelope.
  * Undefined when there is neither.
  */
@@ -768,7 +766,7 @@ function computedSections(
   const returnsFigures: PayloadFigureInput[] = [
     // Current WACC mixes market observations and statement inputs. Its date is
     // the calculation day; each individual input retains its observation date.
-    // Audit 2026-10-22 B-31: a route valued at the cost of equity has neither; the returns notes say why.
+    // D-104: a route valued at the cost of equity has neither; the returns notes say why.
     ...(r.wacc.withheld ? [] : [{ label: "WACC", value: r.wacc.waccPct, unit: "%", source: "computed.returns.wacc", asOf: isoDay(computed.builtAt) }]),
     { label: "cost of equity", value: r.wacc.costOfEquityPct, unit: "%", source: "computed.returns.wacc.costOfEquity", asOf: r.wacc.asOf?.riskFreeRate ?? null },
     ...(r.wacc.withheld ? [] : [{ label: "cost of debt (pre-tax)", value: r.wacc.costOfDebtPct, unit: "%", source: `computed.returns.wacc.costOfDebt(${r.wacc.costOfDebtMethod})`, asOf: r.wacc.asOf?.statements ?? null }]),
@@ -778,14 +776,14 @@ function computedSections(
     { label: "ROIC (latest)", value: r.roic.latestRoicPct, unit: "%", source: "computed.returns.roic", asOf: r.roic.asOf, ...fiscalYearOf(annualLabels, r.roic.series.at(-1)?.date, r.roic.asOf) },
     { label: "ROE (latest, DuPont)", value: r.dupont.latest?.roePct ?? null, unit: "%", source: "computed.returns.dupont", asOf: r.dupont.asOf, ...fiscalYearOf(annualLabels, r.dupont.latest?.date, r.dupont.asOf) },
     { label: "ROIC − fiscal-year-end WACC spread (current beta, equity risk premium and weights)", value: r.roicVsWacc.spreadPctPts, unit: "pp", source: "computed.returns.roicVsWacc", asOf: r.roicVsWacc.asOf ?? r.roic.asOf },
-    // Audit 2026-10-22 C-11: the trailing return the excess-return model starts from.
+    // D-102: the trailing return the excess-return model starts from.
     ...(r.commonReturnTtm == null ? [] : [{
       label: r.commonReturnTtm.basis === "tangible-common-equity" ? "ROTE (trailing four quarters)" : "common-equity ROE (trailing four quarters)",
       value: r.commonReturnTtm.returnPct, unit: "%", source: "computed.returns.commonReturnTtm", asOf: r.commonReturnTtm.asOf,
     }]),
   ];
   // clampsApplied is folded into the section notes so a bound WACC/beta/tax is
-  // visible to the model (audit 2026-07-11 #5); material clamps ALSO surface as
+  // visible to the model (P20); material clamps ALSO surface as
   // manifest gaps (returns.ts), but immaterial ones would otherwise have no
   // consumer at all.
   sections.push(payloadSection({
@@ -799,9 +797,9 @@ function computedSections(
   const fcfYear = fiscalYearOf(annualLabels, cap.fcf.series.at(-1)?.date, cap.asOf);
   const capexYear = fiscalYearOf(annualLabels, cap.capexIntensity.series.at(-1)?.date, cap.asOf);
   const capFigures: PayloadFigureInput[] = [
-    // WS6 review (SHOULD-FIX 4): every free-cash-flow figure names its
+    // D-19: every free-cash-flow figure names its
     // definition. The house default subtracts SBC; the vendor convention does
-    // not, and P/FCF is built on the before-SBC figure; the graded conversion is the current-capital one (AI-511).
+    // not, and P/FCF is built on the before-SBC figure; the graded conversion is the current-capital one (D-124).
     { label: cap.fcf.series.at(-1)?.stockBasedCompensation == null ? "latest FCF (before SBC; compensation undisclosed)" : "latest FCF (after SBC, house default)", value: cap.fcf.latestFcf, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf", asOf: cap.asOf, ...fcfYear },
     { label: "latest FCF (before SBC, vendor convention)", value: cap.fcf.latestFcfBeforeSbc, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf.beforeSbc", asOf: cap.asOf, ...fcfYear },
     { label: cap.fcf.series.at(-1)?.stockBasedCompensation == null ? "FCF conversion (latest, before SBC; compensation undisclosed)" : "FCF conversion (latest, after SBC)", value: cap.fcf.latestConversion, unit: "x", source: "computed.capital.fcf.conversion", asOf: cap.asOf, ...fcfYear },
@@ -814,7 +812,7 @@ function computedSections(
       ...(cap.interestCoverage.unverifiedOperands ? { operandsUnestablished: cap.interestCoverage.unverifiedOperands } : {}) },
     { label: "SBC, cash-flow add-back / revenue", value: cap.sbc.pctOfRevenue, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
     { label: "SBC, cash-flow add-back / FCF", value: cap.sbc.pctOfFcf, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
-    // N3: the dilution overhang had no consumer in the payload, the data-only
+    // the dilution overhang had no consumer in the payload, the data-only
     // report or the schema — only its note, and only when it was non-null.
     { label: "weighted-average diluted/basic share gap", value: cap.dilution.overhangPct, unit: "%", source: "computed.capital.dilution", asOf: cap.dilution.asOf },
     { label: `weighted-average diluted common-share change (${shareCountSpanLabel(cap.shareCount.actualYears)}y total)`, value: cap.shareCount.trendPct, unit: "%", source: "computed.capital.shareCount", asOf: cap.shareCount.endDate },
@@ -825,8 +823,8 @@ function computedSections(
     { label: "current quote vs proxy buyback price (price appreciation since repurchases, not graded)", value: cap.buybackPriceAnalysis.premiumDiscountPct, unit: "%", source: "computed.capital.buybackPriceAnalysis", asOf: cap.asOf },
     ...(cap.buybackPriceAnalysis.totalRepurchased > 0
       ? [
-          // AMZN audit 2026-10-20 finding 15: dated by the newest priced year, not
-          // the latest fiscal year (a 2022 measure read "as of 2025-12-31").
+          // D-99 (buyback timing): dated by the newest priced year, not the latest
+          // fiscal year, so an older measure never reads as of the latest year end.
           { label: "buyback timing: cost of the repurchased shares at each year's average price vs cost paid", value: cap.buybackPriceAnalysis.timingPct ?? null, unit: "%", source: "computed.capital.buybackPriceAnalysis.timingPct",
             asOf: cap.buybackPriceAnalysis.years.filter((y) => isNum(y.actualPricePaid)).at(-1)?.date ?? cap.asOf },
           { label: "buyback timing coverage of repurchase dollars", value: cap.buybackPriceAnalysis.timingCoveragePct ?? null, unit: "%", source: "computed.capital.buybackPriceAnalysis.timingCoveragePct", asOf: cap.asOf },
@@ -1043,7 +1041,7 @@ function computedSections(
         : `${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}`;
       // The bridge group is structure, not the metric: "total debt including
       // leases", never "debt Bridge total Debt Including Leases", which no
-      // prose naming the metric could match (NVDA report 34).
+      // prose naming the metric could match.
       const label = (key === "cashBridge.stockBasedCompensation" ? "SBC, cash-flow add-back" : key === "allocatedSbcExpense" ? "SBC, allocated expense" : undefined)
         ?? (key === "debtBridge.totalDebtIncludingLeases" ? currentCapital.debtBridge.providerDebtPerimeterLabel : undefined) ?? (key.startsWith("debtBridge.") ? LEASE_DEBT_LABELS[key.slice("debtBridge.".length)] : undefined) ?? key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
       figures.push({ label, value, unit, currency: unit === "currency" ? currentCapital.currency : null,
@@ -1084,7 +1082,7 @@ function computedSections(
       unit: "", source: "computed.capital.current", asOf: currentCapital.asOf });
     sections.push(payloadSection({ title: "Current capital (computed)", figures, notes: [
       `Current capital basis: ${currentCapital.basis}; ${currentCapital.periodStartIsApproximate ? "approximate" : "exact"} window ${currentCapital.periodStart ?? "unknown start"} through ${currentCapital.asOf ?? "unknown end"}.`,
-      // AI-511: only the figure grading.ts graded is called graded, and its window is named.
+      // D-124: only the figure grading.ts graded is called graded, and its window is named.
       ...(computed.scores?.aspects.balanceSheet.signals?.some((s) => s.id === "fcfConversionBeforeSbc")
         ? [`The balance-sheet score grades "fcf conversion before sbc" from this section (${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}); ${currentCapital.basis === "annual"
           ? `on this basis the graded value is computed over that annual window; "FCF conversion (latest fiscal year, before SBC)" under "Capital & cash (computed)" covers the same window only when its fiscal year ends on ${currentCapital.asOf ?? "unknown end"}.`
@@ -1119,9 +1117,9 @@ function computedSections(
     // in the gap list.
     { label: "relative strength vs SPY, 12-1 month (latest month skipped)", value: rs.momentum12m1m?.differentialPctPoints ?? null, unit: "pp", source: "computed.technicals.relativeStrength.12m1m", asOf: rs.momentum12m1m?.endDate ?? null },
     { label: "relative strength vs SPY, 6-month", value: rs.points.find((p) => p.months === 6)?.differentialPctPoints ?? null, unit: "pp", source: "computed.technicals.relativeStrength.6mo", asOf: rs.asOf },
-    // D-66: one tag per read. Both rows printed `computed.technicals.read`, so
-    // the NVDA final rerun's judge composed `computed.technicals.momentum` for
-    // the momentum read, a tag that did not exist (unknown-source).
+    // D-66: one tag per read. When both rows printed `computed.technicals.read`,
+    // a judge composed `computed.technicals.momentum` for the momentum read, a
+    // tag that did not exist (unknown-source).
     { label: "trend read", value: t.read.trend, unit: "", source: "computed.technicals.trend-read", asOf: t.asOf },
     { label: "momentum read", value: t.read.momentum, unit: "", source: "computed.technicals.momentum-read", asOf: t.asOf },
   ];
@@ -1157,7 +1155,7 @@ function computedSections(
       source: `computed.valuation.taxCapitalSensitivity.cell${index + 1}`, asOf: computed.fairValue?.currentUse?.valueDate ?? null,
     }));
   } else if (val.kind === "excess-return") {
-    // WS5 review (NIT 8): the model's shape and the multiple a financial is
+    // D-17: the model's shape and the multiple a financial is
     // actually read on had no consumer anywhere downstream — the payload showed
     // one number from a model whose horizon, discount rate and opening book
     // value were only inferable from prose.
@@ -1181,7 +1179,7 @@ function computedSections(
       valFigures.push({ label, value: a?.[key] ?? null, unit, currency: unit === "currency" ? currencies.model : null,
         source: `computed.valuation.excessReturn.financialAssumptions.${key}`, asOf: val.excessReturn.asOf });
     }
-    // C-11: each cell of the start-return × cost-of-equity grid, citeable on its own.
+    // D-102: each cell of the start-return × cost-of-equity grid, citeable on its own.
     const grid = val.excessReturn.startCoeGrid;
     grid?.rows.forEach((row, i) => grid.costOfEquityPcts.forEach((c, j) => {
       valFigures.push({ label: `excess-return per share, start ${row.label} × cost of equity ${c.toFixed(1)}%`, value: grid.perShare[i]?.[j] ?? null,
@@ -1199,7 +1197,7 @@ function computedSections(
     );
   }
   for (const m of val.kind === "pre-revenue" ? [] : val.multiples.multiples) {
-    // Audit 2026-10-22 B-9: a multiple on the latest fiscal year (TTM
+    // D-112: a multiple on the latest fiscal year (TTM
     // suppressed) names that year in its label, so the prompt shows the period
     // its record carries; a TTM multiple keeps its label and registers none.
     // An annual P/E is not labelled by its key: the claim checker reads the
@@ -1244,7 +1242,7 @@ function computedSections(
         `${anchoredLabels.length > 0 ? ` (${anchoredLabels[0]}${anchoredLabels.length > 1 ? ` through ${anchoredLabels[anchoredLabels.length - 1]}` : ""})` : ""}; ` +
         `the remaining years are the house convergent fade. Call the base path consensus-anchored only for those years, and name them.`,
   ];
-  // Audit 2026-10-22 F-13: the model is told which inputs were substituted.
+  // D-111: the model is told which inputs were substituted.
   const degradedInputs = fairValueDegradedText(computed.fairValue);
   sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: [
     ...(taxCapital ? [taxCapital.basis, ...(taxCapital.withheldReason ? [taxCapital.withheldReason] : [])] : []),
@@ -1287,7 +1285,7 @@ function computedSections(
     sections.push(payloadSection({
       title: "Comparable peers (computed)",
       figures: peerFigures.length ? peerFigures : [{ label: "qualified comparable peer valuation", value: null, unit: "x", source: "computed.valuation.peerCoverage", asOf: null }],
-      // Audit 2026-10-27 B3 Task 2 (AI-102): the collection notes and the
+      // D-126: the collection notes and the
       // exclusion reasons can quote a provider's error body, so they travel in
       // `peerScreen` (an untrusted envelope); this section keeps the figures,
       // the assembler's method lines and the comparison bases.
@@ -1301,7 +1299,7 @@ function computedSections(
   // --- Deterministic aspect scores (feature 1.1.0) -------------------------
   if (computed.scores) {
     const sc = computed.scores;
-    // Audit 2026-10-22 F-19: the composite letter carries the aspects'
+    // D-100: the composite letter carries the aspects'
     // evidence floor, and a band letter for a 45-55 score is marked neutral.
     const neutral = `neutral ${NEUTRAL_SCORE_BAND.low}–${NEUTRAL_SCORE_BAND.high}`;
     const composite = compositeDisplay(sc);
@@ -1325,9 +1323,8 @@ function computedSections(
         asOf: null,
       });
       // D-44: completeness was shown only inside the score's unit qualifier,
-      // which no record carries, so the true "quality evidence completeness
-      // 0.4" in report 26 could only be cited against the score record and
-      // failed. Its own row gives it its own id and unit.
+      // which no record carries, so a true "quality evidence completeness
+      // 0.4" could only be cited against the score record and failed. Its own row gives it its own id and unit.
       scoreFigures.push({
         label: `${key} evidence completeness`,
         value: a.dataCompleteness,
@@ -1342,8 +1339,8 @@ function computedSections(
       notes: [
         sc.composite.methodology,
         `band table: ${sc.bandsVersion} (${BAND_THRESHOLDS_TEXT}: a 45–55 score is the neutral prior, neither weak nor strong)`,
-        // D-61 (NVDA report #34: a leadership grade justified by guidance
-        // execution that the score never measured).
+        // D-61: a leadership grade must not be justified by guidance
+        // execution that the score never measured.
         "The leadership score is a capital-stewardship proxy: repurchase timing (the price actually paid against the same fiscal year's average price) and annualized weighted-average diluted common-share change. That share measure is not net economic dilution. Management quality, guidance execution and governance are not inputs to it; a leadership grade that rests on them is a judgment beyond the band and must say so, not cite the band as support.",
       ],
     }));
@@ -1421,7 +1418,7 @@ function computedSections(
   } else if (computed.projections) {
     // No weights here: nothing is weighted on this route, so none are shown.
     // The n/a row gives "probability-weighted forecasts are unavailable" a
-    // gap tag to cite (D-43; report 26 cited "unsupported" for it).
+    // gap tag to cite (D-43), never "unsupported".
     sections.push(payloadSection({
       title: "Weighted projections (computed)",
       figures: [{ label: "weighted projections", value: null, unit: "", source: "computed.projections", asOf: null }],
@@ -1502,8 +1499,8 @@ const BALANCE_LINE_ITEMS: { key: keyof FmpBalanceSheetRow; label: string; unit: 
   { key: "totalStockholdersEquity", label: "stockholders equity", unit: "currency" },
   { key: "totalDebt", label: "total debt", unit: "currency" },
   // D-60: the vendor netDebt field nets cash only (total debt − cash and
-  // equivalents) and contradicted the house net debt in prose (NVDA report 34:
-  // +$16.4B beside −$66.0B); the house figure is in the current-capital section.
+  // equivalents) and contradicted the house net debt in prose; the house figure
+  // is in the current-capital section.
   { key: "cashAndShortTermInvestments", label: "cash + STI", unit: "currency" },
 ];
 
@@ -1535,7 +1532,7 @@ function issuerFiscalLabel(row: FmpRawRow): string | null {
 /**
  * Whether an "FY<year>" label can belong to an annual period ending on `day`: the end's own calendar year, or the year before when the
  * end falls in January to March (52/53-week and March year ends). The label field is the provider's or keyless builder's, and can be wrong
- * (decisions spec 4.6: FCX's keyless 2024-12-31 row carried "2023").
+ * (a December row can carry the prior year's label; P1).
  */
 function plausibleFiscalLabel(label: string, day: string): boolean {
   const year = Number(label.slice(2));
@@ -1556,9 +1553,9 @@ export function annualFiscalLabels(bundle: DataBundle): ReadonlyMap<string, stri
 }
 
 /**
- * Audit 2026-10-27 B3 (residual a): a computed figure taken from one fiscal year's rows carries that year's issuer label
+ * D-124: a computed figure taken from one fiscal year's rows carries that year's issuer label
  * and period end, read from the annual income row of the date Stage B states, as the annual statement cell carries them;
- * never inferred from a calendar year or from an as-of that happens to match a year end (B1 OD-1 (b)). The period is what
+ * never inferred from a calendar year or from an as-of that happens to match a year end (D-128). The period is what
  * makes the consistency period check run, so a label never validates another year. Only when the window end is a full ISO
  * day, equals the as-of the figure prints and the labels hold it; otherwise nothing is added.
  */
@@ -1670,8 +1667,8 @@ function extractStatement<TRow extends FmpRawRow>(
 }
 
 /**
- * One row per fiscal period, the row Stage B uses (audit 2026-10-27 AI-505,
- * D-13 "last-filed wins"): the provably latest filing wins and a period served
+ * One row per fiscal period, the row Stage B uses (D-124, D-13 "last-filed
+ * wins"): the provably latest filing wins and a period served
  * twice with no provable order is left out, as `normalizeQuarterRows` decides
  * for growth, returns and capital. A row whose date is not a real day keeps its
  * "unknown" column. The notes cover only periods inside the block's window and
@@ -1782,8 +1779,8 @@ function inheritanceNote(figures: readonly PayloadFigureInput[], issuer: Inherit
  * registered, so no citation of it verifies in any currency.
  */
 /**
- * AMZN audit 2026-10-20 finding 18: the verdict never set the USD 328.90
- * consensus price target against the USD 72 DCF value. Two per-share values
+ * D-99 (verdict stance): the verdict must set a consensus price target against
+ * the DCF value when they diverge. Two per-share values
  * whose implied moves from the price differ by more than this many
  * percentage points of the price are materially different, and the verdict
  * must reconcile them. Project convention: about the width of a DCF's own
@@ -1870,7 +1867,7 @@ const GRADES_CONSENSUS_WORDS: ReadonlyMap<string, string> = new Map(
 /**
  * The estimates section renders outside the untrusted envelopes, so the
  * consensus is stated only as one of FMP's rating words; any other provider
- * string is withheld rather than quoted (Codex review of PR #48).
+ * string is withheld rather than quoted (D-101).
  */
 function gradesConsensusWord(value: unknown): string {
   const raw = strOrNull(value);
@@ -1880,8 +1877,8 @@ function gradesConsensusWord(value: unknown): string {
 
 /**
  * The next scheduled earnings date, as one note ending in an assembler-owned
- * tag that `attachProvenanceRegistry` registers. Until 2026-10-13 the bundle
- * derived this date and nothing rendered it, so with a Finnhub key set the
+ * tag that `attachProvenanceRegistry` registers. When the bundle derived this
+ * date and nothing rendered it, with a Finnhub key set the
  * manifest said "dataFallback.earningsCalendarNext: Supplied by Finnhub" while
  * no date reached the model. Only the date is rendered: the row's estimated
  * EPS and revenue carry no currency, so they stay out. Every piece of the note
@@ -1902,7 +1899,7 @@ export function nextEarningsNote(bundle: DataBundle): string | null {
 
 /**
  * A stock-peers market cap is money only in a currency the run holds for that
- * peer (AI-301): the provider row's own currency, else the listing currency of
+ * peer (D-124): the provider row's own currency, else the listing currency of
  * a profile the peer collection read for that symbol. The subject's currency is
  * never assumed (FMP documents its peers as same-exchange, but its own answers
  * list foreign exchanges). The size screen is the one Stage B discovery uses.
@@ -1921,7 +1918,7 @@ function peerListingCurrency(bundle: DataBundle, symbol: string, row: FmpStockPe
 
 function peersSection(bundle: DataBundle): PayloadSection {
   // D-65: discovery candidates outside the comparable-size band are named in
-  // a note, not listed as peers (NVDA: a $29M and a $265M listing beside $5.2T).
+  // a note, not listed as peers (tiny listings beside a very large subject).
   const subjectCap = numOrNull(firstRow(bundle.quote)?.marketCap) ?? numOrNull(firstRow(bundle.profile)?.marketCap);
   const subjectCurrency = establishedIsoCode(firstRow(bundle.profile)?.currency) ?? establishedIsoCode(firstRow(bundle.quote)?.currency);
   const screened = rowsOf(bundle.peers).map((p) => {
@@ -1955,17 +1952,16 @@ function peersSection(bundle: DataBundle): PayloadSection {
 
 const INSIDER_WINDOW_WORDS = ["", "one", "two", "three", "four"] as const;
 
-/** Q1: the window and the number of people the per-person trade lines cover. */
+/** the window and the number of people the per-person trade lines cover. */
 const PERSON_TRADE_WINDOW_DAYS = 183;
 const PERSON_TRADE_PEOPLE = 8;
 const SENIOR_ROLE = /chief executive|\bceo\b|chief financial|\bcfo\b|\bchair|(?<!vice[ -])president/i;
 
 /**
- * Q1: one line per person for Form 4 code P and S rows in the last six months,
- * from every selected provider row. The detailed rows are only the newest
- * twelve, which awards, gifts and tax withholding often fill: on the frozen
- * 2026-11-02 panel these trades were visible for 3 of 7 people at AAPL, 1 of 9
- * at JPM and 1 of 5 at FIGR. Each line keeps the trade-row shape (date, name,
+ * One line per person for Form 4 code P and S rows in the last six months,
+ * from every selected provider row (P20). The detailed rows are only the newest
+ * twelve, which awards, gifts and tax withholding often fill, so most people's
+ * open-market trades would otherwise stay unseen. Each line keeps the trade-row shape (date, name,
  * role, tag), so a claim naming the person can cite it. Senior officers come
  * first, then the larger amounts; at most eight people are listed.
  */
@@ -2064,7 +2060,7 @@ function insidersSection(bundle: DataBundle): PayloadSection {
   const filingDates = observed.filter(tr => tr.formType !== undefined).map(tr => isoDay(tr.filingDate))
     .filter((day): day is string => day !== null && isIsoDate(day) && day <= bundle.builtAt.slice(0, 10)).sort();
   const lastFiling = filingDates.at(-1) ?? null;
-  // Integration review (R6): one citable figure; the same words as a note too
+  // D-158: one citable figure; the same words as a note too
   // printed the statement twice in every payload.
   const coverage = `Last Form 4 filing date inspected: ${lastFiling ?? "unavailable"}. ` +
     `${observed.length} selected provider rows cover transaction dates ${transactionSpan(observed)}; ${trades.length} detailed rows shown cover only ${transactionSpan(trades)}. Neither span establishes coverage outside those dates or a complete aggregate-window code breakdown. ` +
@@ -2262,7 +2258,7 @@ export function segmentRecordCitations(bundle: DataBundle): SegmentRecordCitatio
 
 function segmentsSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
-  // AI-509 (OD-4): provider geography the issuer's own XBRL contradicts is withheld, with the fixed reason.
+  // D-127: provider geography the issuer's own XBRL contradicts is withheld, with the fixed reason.
   const geographic = admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments);
   const providerKeyNotes: string[] = [];
   const build = (
@@ -2449,8 +2445,8 @@ function newsSection(bundle: DataBundle): PayloadSection {
   }
   if (bundle.pressReleases.ok) addRows(rowsOf(bundle.pressReleases).slice(0, PAYLOAD_BUDGETS.listRows), "press-release", bundle.pressReleases.value.source);
   // Every truncation is disclosed (module rule): a snippet cut mid-line or a
-  // row left out for the budget used to vanish silently (audit 2026-09-06,
-  // F171). The note carries no source tag, so it registers no citation.
+  // row left out for the budget must never vanish silently (P20). The note
+  // carries no source tag, so it registers no citation.
   if (clippedRows > 0 || droppedRows > 0) {
     const parts: string[] = [];
     if (clippedRows > 0) parts.push(`${clippedRows} snippet${clippedRows === 1 ? "" : "s"} clipped mid-line`);
@@ -2550,7 +2546,7 @@ export function reciteFeedClaims(root: object, articles: readonly PayloadNewsArt
    * Returns false when this list item must go: a statement list the stored
    * report requires to hold one ({@link REQUIRED_CLAIM_LISTS}) emptied, or its
    * single statement (a saved catalyst's or risk's reasoning) went. A removed
-   * statement is never restored (lead decision, review round 1): an optional
+   * statement is never restored (D-285): an optional
    * list is left empty and the reader shows its existing absence state (for
    * example "Not established from verified sources." in the brief).
    */
@@ -2631,7 +2627,7 @@ const FISCAL_DAY_MS = 86_400_000;
 const fiscalDayMs = (iso: string): number => Date.parse(`${iso}T00:00:00Z`);
 /** The tolerance between a release's quarter end and a statement row's period end (fiscalLabelOf, releaseFiscalLabelContradicted). */
 const sameFiscalPeriodEnd = (a: string, b: string): boolean => Math.abs(fiscalDayMs(a) - fiscalDayMs(b)) <= 3 * FISCAL_DAY_MS;
-/** AI-512-V1: titles and tables share the same statement comparison. */
+/** D-148: titles and tables share the same statement comparison. */
 function releaseFiscalLabelContradicted(bundle: DataBundle, label: string, periodEnd: string): boolean {
  return fiscalLabelContradicted(statementFiscalPeriods(bundle), label, periodEnd);
 }
@@ -2640,7 +2636,7 @@ function releaseFiscalLabelContradicted(bundle: DataBundle, label: string, perio
  * D-66: the fiscal label an earnings release gives the quarter ending on (or
  * within three days of) `periodEnd`; an annual filing takes that quarter's
  * fiscal year. Null when no release reports that period.
- * Audit 2026-10-27 AI-512: a release label the run's own statement rows contradict is withheld, not replaced; a stale label in a stored parse made by an earlier parser is caught here, where it is read.
+ * D-124: a release label the run's own statement rows contradict is withheld, not replaced; a stale label in a stored parse made by an earlier parser is caught here, where it is read.
  */
 function fiscalLabelOf(bundle: DataBundle, periodEnd: string, form: string): string | null {
   const res = bundle.edgar?.currentReports;
@@ -2654,7 +2650,7 @@ function fiscalLabelOf(bundle: DataBundle, periodEnd: string, form: string): str
 }
 
 /**
- * Audit 2026-10-27 AI-507: the newest ISO reporting period among the 10-K
+ * D-124: the newest ISO reporting period among the 10-K
  * sections the run read (a 20-F filer files no 10-Q, so it never gets a marker).
  */
 function latestAnnualPeriod(edgar: DataBundle["edgar"] | undefined): string | null {
@@ -2685,7 +2681,7 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     if (cut === null) return;
     const kept = cut.superseded ?? [];
     const reportingPeriod = isoDay(sec.reportDate);
-    // AI-507: a 10-Q whose reporting period ended before the 10-K's is the older
+    // D-124: a 10-Q whose reporting period ended before the 10-K's is the older
     // word (periods, never filing dates; an equal end is not older).
     const older = sec.form === "10-Q" && annualEnd !== null && reportingPeriod !== null && isIsoDate(reportingPeriod) && reportingPeriod < annualEnd;
     const markerNote = (sec.method === "reference-table-pages" ? " [mapped-page excerpts; complete item not recovered]" : "") +
@@ -2735,7 +2731,7 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     "annual",
   );
   // D-66: the 10-Q MD&A keeps its concentration-of-revenue statements first.
-  // Audit 2026-10-22 C-16: and, when it is newer than the 10-K, its passages
+  // D-103: and, when it is newer than the 10-K, its passages
   // restating an operating figure the 10-K excerpts above state.
   const annual = out.filter((excerpt) => excerpt.source === "edgar:10-K item1" || excerpt.source === "edgar:10-K item7");
   const tenQEnd = bundle.edgar.tenQMdna?.ok ? isoDay(bundle.edgar.tenQMdna.value.data.reportDate) : null;
@@ -2855,7 +2851,7 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     // without restating its period is read as that quarter's (claimEvidence).
     const stated = latest.reported.fiscal?.label ?? null;
     const periodEnd = latest.reported.periodEnd !== null && isIsoDate(latest.reported.periodEnd) ? latest.reported.periodEnd : null;
-    // AI-512: a label the statement rows for that quarter end contradict is withheld from the title.
+    // D-124: a label the statement rows for that quarter end contradict is withheld from the title.
     const withheld = stated !== null && periodEnd !== null && releaseFiscalLabelContradicted(bundle, stated, periodEnd);
     const fiscal = withheld ? null : stated;
     const period = fiscal !== null && periodEnd !== null ? `${fiscal}, quarter ended ${periodEnd}`
@@ -2868,9 +2864,9 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     }
     narrative(latest.commentaryNarrative, `8-K EX-99.2 — CFO commentary, ${period} (${where})`, "edgar:8-K EX-99.2", PAYLOAD_BUDGETS.cfoCommentaryChars);
   }
-  // R1 (FIGR paid audit): the newest operating update filed after the results
+  // D-156: the newest operating update filed after the results
   // release (preliminary operating data, monthly sales) is its own excerpt,
-  // cited by its accession. AI-506: it is never the earnings-release narrative
+  // cited by its accession. It is never the earnings-release narrative
   // and supplies no release figures. "After" is by filing (`filedAfter`):
   // release order cannot place a period-end-only update against a
   // fiscal-label-only results release.
@@ -2924,7 +2920,7 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
 
 /* ------------------------------------------------------------------------ *
  * Filing disclosures — guidance, issuer FCF, capital return, XBRL segments,
- * the eight-quarter trend (audit work package 3 / data depth of 9)
+ * the eight-quarter trend (D-63)
  * ------------------------------------------------------------------------ */
 
 const GUIDANCE_METRIC_LABELS: Record<GuidanceRow["metric"], string> = {
@@ -3248,7 +3244,7 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
     if (row.grossMarginPct !== null) figures.push({ ...base, componentDefinitions: ["gross profit divided by revenue"], label: `gross margin, ${at}`, value: row.grossMarginPct, unit: "%" });
     if (row.operatingMarginPct !== null) figures.push({ ...base, componentDefinitions: ["operating income divided by revenue"], label: `operating margin, ${at}`, value: row.operatingMarginPct, unit: "%" });
     if (row.freeCashFlow !== null) figures.push({ ...base, label: `free cash flow (operating cash flow less capex), ${at}`, value: row.freeCashFlow, unit: "currency", currency });
-    // D-63 (audit P1-B): the issuer's own reconciliation figures by quarter.
+    // D-63: the issuer's own reconciliation figures by quarter.
     const recon = { ...base, source: "edgar:8-K EX-99 reconciliation" };
     if (row.equitySecuritiesGains != null) figures.push({ ...recon, label: `net gains from equity securities, ${at}`, value: row.equitySecuritiesGains, unit: "currency", currency });
     if (row.nonGaapEpsDiluted != null) figures.push({ ...recon, label: `non-GAAP diluted EPS, ${at}`, value: row.nonGaapEpsDiluted, unit: "currency/share", currency });
@@ -3267,7 +3263,7 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
         };
         const base = { period: latestEnd, source: "edgar:xbrl segment revenue", asOf: latestEnd };
         const sourceFor = (i: number | null, share = false) => row.crossFilingAt?.includes(0) || (i !== null && row.crossFilingAt?.includes(i)) || (share && axis.totalCrossFilingAt?.includes(0)) ? "computed:xbrl segment cross-filing difference" : base.source;
-        // AI-406: a rate is computed only against the quarter its label names.
+        // D-124: a rate is computed only against the quarter its label names.
         const qoq = growth(priorQuarterIndex(ends, QOQ_WINDOW_DAYS) ?? undefined);
         const yoy = growth(priorQuarterIndex(ends, YOY_WINDOW_DAYS) ?? undefined);
         if (qoq !== null) figures.push({ ...base, source: sourceFor(priorQuarterIndex(ends, QOQ_WINDOW_DAYS)), label: `${axis.axisLabel}: ${row.label} revenue growth quarter over quarter, quarter ended ${latestEnd}`, value: qoq, unit: "%" });
@@ -3290,7 +3286,7 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
   const notes = [
     "Year-over-year growth compares with the quarter ending 350-380 days earlier; quarter-over-quarter with the quarter ending 80-100 days earlier. Free cash flow here is operating cash flow less capital expenditure, not the issuer's own definition.",
   ];
-  // FIN-511-V1: the basis note of every growth cell that uses a first-reported copy or is dashed.
+  // D-134: the basis note of every growth cell that uses a first-reported copy or is dashed.
   for (const note of new Set(disclosures.quarterlyTrend.flatMap((row) => row.revenueGrowthNotes ?? []))) notes.push(note);
   notes.push(...disclosures.notes.filter(note => note.startsWith("Quarterly operating cash flow")));
   // D-63: the company's guidance track record, one citable figure per metric:
@@ -3399,9 +3395,8 @@ export const FAIR_VALUE_PROVENANCE_ID =
 
 /**
  * The citable tag of one missing-data manifest entry: `manifest.<field>`
- * (D-43). Until 2026-10-13 manifest lines carried no tag, and the prompt told
- * the model to "preserve an explicit unsupported state" when it had none, so
- * every data-gap statement (no insider activity, no estimate history) was
+ * (D-43). Without a tag, the prompt told the model to "preserve an explicit
+ * unsupported state" when it had none, so every data-gap statement (no insider activity, no estimate history) was
  * written with the source "unsupported" and failed verification. Null when the
  * field could not be written back as one source id (a bracket, the date
  * separator or whitespace in it); that line then renders untagged.
@@ -3502,11 +3497,11 @@ function attachProvenanceRegistry(
   ): void => {
     // Every row prints its tag (formatFigure), and the prompt says "Cite that
     // tag", so every row that does not become a numeric record is registered
-    // as a citation of the kind it is (D-43). Until 2026-10-13 an n/a row or
-    // a money row of unknown currency printed a tag nothing registered, and
-    // every claim citing it — "EBIT interest coverage is not meaningful for
+    // as a citation of the kind it is (D-43). Otherwise an n/a row or a money
+    // row of unknown currency prints a tag nothing registers, and every claim
+    // citing it — "EBIT interest coverage is not meaningful for
     // this bank" on computed.capital.interestCoverage, a compensation row's
-    // named officer — failed as unknown-source.
+    // named officer — fails as unknown-source.
     const shownAsOf = isFullIsoDate(figure.asOf) ? figure.asOf : null;
     if (typeof figure.value !== "number" || !Number.isFinite(figure.value)) {
       if (figure.value === null) {
@@ -3775,7 +3770,7 @@ function attachProvenanceRegistry(
   // same anchored, allowlisted parse keeps any other estimates note — the
   // grades line carries provider strings — from registering a source. The
   // note's one date is the only date a sentence citing it may state
-  // (allowedDates; review, 2026-10-13): registered as plain text, "reports on
+  // (allowedDates, D-43): registered as plain text, "reports on
   // 2027-02-14" verified against a note that says 2027-01-14.
   for (const note of payload.estimates.notes) {
     const match = /: (\d{4}-\d{2}-\d{2}) \[((?:fmp|finnhub):earnings-calendar) · (\d{4}-\d{2}-\d{2})\]$/.exec(note);
@@ -4146,8 +4141,7 @@ export function renderUntrustedJson(value: unknown): string {
 /**
  * Echo a rejected analyst or judge output back on a repair turn. The output is
  * model-authored and can quote the filing, web or case text it read, so it is
- * enveloped as untrusted data like the cases the judge reads (2026-10-22
- * audit). Both repair loops in jobRunner and the judge's retry feedback use it.
+ * enveloped as untrusted data like the cases the judge reads (D-101). Both repair loops in jobRunner and the judge's retry feedback use it.
  */
 /**
  * How the analyst content check (passes.ts parseAnalystCase) opens its rejection:
@@ -4164,7 +4158,7 @@ export function isIncompleteAnalystCase(detail: string): boolean {
 
 export function previousOutputBlock(raw: string, incompleteCase = false): string {
   // D-185: an incomplete analyst case needs its missing sections written, so it is
-  // not told to repair in place (that kept an ASML skeleton unchanged).
+  // not told to repair in place (that would keep a skeleton case unchanged).
   const instruction = incompleteCase
     ? "incomplete: keep its correct claims and write the missing sections in full"
     : "repair this JSON in place — do not start over";
@@ -4209,14 +4203,14 @@ export function serializePayloadForPrompt(payload: ContextPayload): string {
       "Every figure below is tagged [source · as-of]. Cite that tag; if a figure is not here or in a fetched web source, do not state it.",
     ].join("\n"),
   );
-  // Audit 2026-10-22 F-1: the run-level provider-fallback line the reader sees in the report header.
+  // D-111: the run-level provider-fallback line the reader sees in the report header.
   const fallback = providerFallbackNotice({ appendix: { missingData: payload.missingData } });
   if (fallback !== null) parts.push(`${fallback} Never attribute a substituted figure to FMP or FRED DGS10.`);
 
   parts.push(renderSection(payload.quote));
   for (const s of payload.computed) parts.push(renderSection(s));
   if (payload.primaryCapitalEvidence) parts.push(renderUntrustedValue("Primary capital source proofs (cash outflow and equity cost are separate; source coordinates are locators, not financial figures)", JSON.stringify(payload.primaryCapitalEvidence)));
-  // Audit 2026-10-27 B3 Task 2 (AI-102): exclusion reasons and collection notes
+  // D-126: exclusion reasons and collection notes
   // can quote a provider's error body: enveloped, one entry per line (D-101).
   if (payload.peerScreen) {
     parts.push(renderUntrustedLines(

@@ -1,5 +1,5 @@
 /**
- * The risk-free rate's last two sources (audit 2026-10-22 B-4).
+ * The risk-free rate's last two sources (D-111).
  *
  * Owner order: FRED DGS10 (keyed API, then fredgraph.csv) → FMP treasury
  * year10 → the last good cached DGS10 observation, if it is at most ten

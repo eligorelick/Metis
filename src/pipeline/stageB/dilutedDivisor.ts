@@ -1,5 +1,5 @@
 /**
- * The per-share divisor of a loss period (audit 2026-10-27 FIN-404; see
+ * The per-share divisor of a loss period (D-135; see
  * docs/METHODOLOGY.md "Share basis (D-65)").
  *
  * Under ASC 260-10-45-17..20 a period with a loss from continuing operations
@@ -23,8 +23,8 @@ export interface DivisorRow {
   continuingIncome?: number | null;
   /**
    * The filed if-converted increment for the period, which is not award
-   * dilution. `incomeDivisors` reads it from the filed facts; when Task 11
-   * (B4b) supplies it from its own reader, that value takes precedence.
+   * dilution. `incomeDivisors` reads it from the filed facts; when the
+   * convertible reader (D-147) supplies it, that value takes precedence.
    */
   conversionShares?: number | null;
   /** Whether the row is a quarter or a fiscal year (a quarter and a year can share an end date). */
@@ -99,7 +99,7 @@ const CONVERSION_TAGS = [
   "IncrementalCommonSharesAttributableToConversionOfPreferredStock",
 ] as const;
 
-/** The convertible carrying-value tags Task 11 reads (notes, and preferred at its option value). */
+/** The convertible carrying-value tags the convertible reader (D-147) reads (notes, and preferred at its option value). */
 const CONVERTIBLE_TAGS = [
   "ConvertibleNotesPayable", "ConvertibleDebtNoncurrent", "ConvertibleLongTermNotesPayable",
   "ConvertibleDebtCurrent", "ConvertibleNotesPayableCurrent", "ConvertibleDebt",
@@ -214,7 +214,7 @@ export interface ShareBasisComparison {
   cause: "dilution-or-share-changes" | "not-established" | "scope-owner";
   scopeOwner?: "class" | "quoted-unit";
   /**
-   * The divisor is a restored loss-period count (FIN-404: the latest period's basic count plus a profitable period's
+   * The divisor is a restored loss-period count (D-135: the latest period's basic count plus a profitable period's
    * award dilution), not a filed count; `filedShares` is the latest filed weighted-average diluted count EPS uses.
    */
   restored?: { filedShares: number };
@@ -273,7 +273,7 @@ const deferral = (owner: "class" | "quoted-unit"): string => owner === "class"
  */
 export function shareBasisNote(c: ShareBasisComparison, quoteDay: string | null | undefined): string | null {
   if (c.cause === "scope-owner") return deferral(c.scopeOwner ?? "class");
-  // A restored divisor is named as what it is in either direction (FIN-404); EPS keeps the filed count.
+  // A restored divisor is named as what it is in either direction (D-135); EPS keeps the filed count.
   const divisor = c.restored === undefined ? `The diluted divisor (${millions(c.divisorShares)})`
     : `The valuation divisor (${millions(c.divisorShares)}; restored: the latest period's basic count plus a profitable period's award dilution, ` +
       `not the filed weighted-average diluted count of ${millions(c.restored.filedShares)})`;

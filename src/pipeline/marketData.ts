@@ -52,7 +52,7 @@ function iso(value: unknown): string | null {
   return /^[A-Z]{3}$/.test(code) ? code : null;
 }
 
-/** Balance dates whose total debt Stage B withheld (audit O-2), with the reason; a derived EV built on that debt is refused.
+/** Balance dates whose total debt Stage B withheld (D-97), with the reason; a derived EV built on that debt is refused.
  * An info entry records a recovery, not a withhold. */
 function stageBWithheldDebtDates(gaps: readonly { field: string; severity?: string; reason?: string }[] | undefined): Map<string, string> {
   return new Map((gaps ?? []).filter((gap) => gap.severity !== "info").flatMap((gap): [string, string][] => {
@@ -64,7 +64,7 @@ function stageBWithheldDebtDates(gaps: readonly { field: string; severity?: stri
 const DEBT_FIELDS = ["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"] as const;
 
 /**
- * Audit 2026-10-29, AMZN #51 (FIG-2; D-133): a provider EV is that date's
+ * D-133: a provider EV is that date's
  * market cap + the vendor's total debt − cash. It is withheld when the
  * same-date balance's debt was refused (its operand cannot be checked) or was
  * composed from the filing because the vendor's own total was partial and the

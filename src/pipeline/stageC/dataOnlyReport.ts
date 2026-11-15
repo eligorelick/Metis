@@ -114,8 +114,7 @@ interface TracedOptions {
  * A Stage B number as a TracedNumber. `verified: true` because the value was
  * computed by the pipeline from sourced inputs — the same status the LLM path
  * gives the deterministic score drivers. Monetary units require a currency;
- * without one the figure is withheld rather than mislabelled (the currency
- * audit's standing rule).
+ * without one the figure is withheld rather than mislabelled (P4).
  */
 function traced(
   value: number | null | undefined,
@@ -146,7 +145,7 @@ function fact(text: string, source: string, asOf: string | null): SourcedClaim {
 /**
  * A statement about this analysis — its method, a heuristic or proxy, a house
  * score's band, a data gap — not about the issuer. JUDGMENT, as the shared
- * prompt rule labels such statements (audit 2026-10-22 F-20).
+ * prompt rule labels such statements (D-110).
  */
 function judgment(text: string, source: string, asOf: string | null): SourcedClaim {
   return { text, label: "JUDGMENT", source, asOf: isoDay(asOf) };
@@ -285,7 +284,7 @@ function gradeBlock(
     // The schema requires a letter, and the composite's own neutral point
     // (50/100) falls in the D band of the house scale; the sentence names the
     // letter as a placeholder so a reader never takes it for a failing mark
-    // (audit 2026-09-06, F175).
+    // (P17).
     const placeholder = scoreToBand(NEUTRAL_MIDPOINT_SCORE);
     return {
       grade: placeholder,
@@ -407,12 +406,12 @@ function fundamentalsSections(
     seriesRow("ROIC", r.roic.series.map((y) => ({ date: y.date, value: y.roicPct })), "%", "computed.returns.roic", null),
     seriesRow("Return on tangible common equity", r.rote.series.map((y) => ({ date: y.date, value: y.rotePct })), "%", "computed.returns.rote", null),
     seriesRow("ROE (DuPont)", r.dupont.series.map((y) => ({ date: y.date, value: y.roePct })), "%", "computed.returns.dupont", null),
-    // Audit 2026-10-22 C-11: the trailing return the excess-return model starts from.
+    // D-102: the trailing return the excess-return model starts from.
     r.commonReturnTtm == null ? null : singleRow(
       r.commonReturnTtm.basis === "tangible-common-equity" ? "Return on tangible common equity (trailing four quarters)" : "Return on common equity (trailing four quarters)",
       r.commonReturnTtm.asOf === null ? "TTM" : `TTM to ${r.commonReturnTtm.asOf}`, r.commonReturnTtm.returnPct, "%", "computed.returns.commonReturnTtm", r.commonReturnTtm.asOf),
     singleRow("WACC", "latest", r.wacc.waccPct, "%", "computed.returns.wacc", computed.builtAt.slice(0, 10)),
-    // Audit 2026-10-22 B-31: with no note channel here, the row says why the WACC and cost of debt rows are absent.
+    // D-104: with no note channel here, the row says why the WACC and cost of debt rows are absent.
     singleRow(r.wacc.withheld ? `Cost of equity (the ${computed.route.base} route values equity at the cost of equity; no WACC or cost of debt is used)` : "Cost of equity",
       "latest", r.wacc.costOfEquityPct, "%", "computed.returns.wacc.costOfEquity", r.wacc.asOf?.riskFreeRate ?? null),
     singleRow("Pre-tax cost of debt", "latest", r.wacc.costOfDebtPct, "%", `computed.returns.wacc.costOfDebt(${r.wacc.costOfDebtMethod})`, r.wacc.asOf?.statements ?? null),
@@ -422,9 +421,9 @@ function fundamentalsSections(
   ]);
 
   const fcf = present([
-    // WS6 review (SHOULD-FIX 4): the data-only report has no note channel, so
-    // the row label itself has to carry the definition — "Free cash flow" alone
-    // printed the after-SBC figure beside a P/FCF built on the before-SBC one.
+    // D-19: the data-only report has no note channel, so the row label itself
+    // has to carry the definition — "Free cash flow" alone would print the
+    // after-SBC figure beside a P/FCF built on the before-SBC one.
     // Each year's FCF is in its own cash-flow row's currency (never the
     // income statement's), and a history is never shown across a currency break.
     seriesRow("Free cash flow (after SBC, house default)", cashFlowSeries(cap.fcf.series.map((y) => ({ date: y.date, value: y.fcf })), cf), "currency", "computed.capital.fcf", null),
@@ -523,7 +522,7 @@ function balanceSheetSection(
       ),
     );
   }
-  // N3: dilution from outstanding awards is SHOWN, or its unavailability is
+  // dilution from outstanding awards is SHOWN, or its unavailability is
   // stated — criterion (d). It reached no reader surface before.
   // An unavailable overhang is a data-gap statement; a computed one states figures.
   allocation.push(
@@ -542,7 +541,7 @@ function balanceSheetSection(
     // that percentage above (or below) it — price appreciation since the
     // repurchases, not timing. Timing is stated separately when measurable.
     // Both rest on the year-average-price proxy, so they are a sentence of
-    // their own, labelled JUDGMENT; the cash total stays FACT (F-20).
+    // their own, labelled JUDGMENT; the cash total stays FACT (D-110).
     const priceNote = isNum(bb.premiumDiscountPct)
       ? `the current price is ${fmtPct(Math.abs(bb.premiumDiscountPct))} ${bb.premiumDiscountPct >= 0 ? "above" : "below"} the average repurchase price proxy (price appreciation since the repurchases, not timing)`
       : null;
@@ -713,9 +712,9 @@ function leadershipSection(stub: Report["leadership"], bundle: DataBundle, grade
  * The report-vocabulary unit and scaled value of one FRED observation, the
  * same conversion the Stage C payload applies (payload.ts macroSection):
  * percent transforms render as "%", scaled series (payrolls in thousands, PCE
- * in billions) as a plain count or currency amount, levels as an index. Before
- * the 2026-09-06 audit (F168/F176) every row was stamped "index" at the raw
- * served value, so CPI YoY read as an index and payrolls were 1,000× short.
+ * in billions) as a plain count or currency amount, levels as an index (P3).
+ * Stamping every row "index" at the raw served value would read CPI YoY as an
+ * index and payrolls 1,000× short.
  */
 function macroTraced(
   seriesId: string,
@@ -843,7 +842,7 @@ function synthesis(
         return `${ASPECT_LABEL[key]} ${aspect.band === null ? "not assessed" : hasLimitedEvidence(aspect) ? "limited evidence" : withNeutral(aspect.band, aspect.score) + suffix}`;
       })
       .join(", ");
-    // Audit 2026-10-22 F-19: the composite carries the aspects' evidence floor.
+    // D-100: the composite carries the aspects' evidence floor.
     const shown = compositeDisplay(computed.scores);
     parts.push(
       `The deterministic composite score is ${fmtScore(composite.score, 1)}/100 (${shown.grade === null ? shown.label.replace(/^Not/, "not") : `band ${shown.label}`}); aspect bands — ${bands}.`,
@@ -860,13 +859,13 @@ function synthesis(
     parts.push(
       `Deterministic ${fv.method ?? "fair-value"} model: ${fmtNum(fv.perShare.value, 2)} ${fvCurrency} per share${quote ? ` against a ${fmtNum(quote.price, 2)} quote` : ""}${upside}.`,
     );
-    // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
+    // D-111: substituted inputs, beside the value they moved.
     const degraded = fairValueDegradedText(fv);
     if (degraded !== null) parts.push(degraded);
   } else if (fv.status === "dated-reference") {
     parts.push(fairValueReferenceText(fv)!);
   } else if (fv.status === "outside-domain") {
-    // Audit 2026-10-22 B-29: the verdict says the model is outside its domain.
+    // D-102: the verdict says the model is outside its domain.
     parts.push(`Deterministic ${fv.method ?? "fair-value"} model: no fair value. ${fv.basis[0] ?? "Model outside its domain."}`);
   }
   const v = computed.valuation;
@@ -959,9 +958,8 @@ function enrichDataOnlyReportInContext(stub: Report, args: EnrichDataOnlyReportA
         leadership: leadershipGrade,
         moat: moatGrade,
         // The judge is asked for a balance-sheet strip entry (prompts.ts) and
-        // the block is computed here anyway; leaving it off the strip (before
-        // the 2026-09-06 audit, F179) made the data-only strip one column
-        // short of the LLM path's.
+        // the block is computed here anyway; leaving it off the strip would make
+        // the data-only strip one column short of the LLM path's (P22).
         balanceSheet: balanceSheetGrade,
       },
     },
@@ -990,7 +988,7 @@ function enrichDataOnlyReportInContext(stub: Report, args: EnrichDataOnlyReportA
     projections: computed.projections,
     scenarioTargets: computed.scenarioTargets,
     fairValue: computed.fairValue,
-    // WS5 (D-17): the route metrics a financial report leads with, and the
+    // D-17: the route metrics a financial report leads with, and the
     // P/TBV-against-ROTE reading, on the data-only surface too — this report
     // has no analyst pass to describe them in prose.
     ...(routeMetrics ? { routeMetrics } : {}),

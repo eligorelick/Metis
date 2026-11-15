@@ -1,12 +1,11 @@
 /**
- * D-45 (2026-10-13): read a number cited to a filing or transcript excerpt
+ * D-45: read a number cited to a filing or transcript excerpt
  * against the text of THAT excerpt.
  *
- * Before this, a TracedNumber citing `edgar:10-K item7` was unverifiable by
- * construction: the verifier only knew numeric registry records, so JPM report
- * 26 logged 25 numbers as "text-source" although the excerpt the model was
- * shown prints most of them ("$915 billion", "14.2 %", a "95,640" cell in an
- * "(in millions" table).
+ * Without this, a TracedNumber citing `edgar:10-K item7` is unverifiable by
+ * construction: the verifier only knows numeric registry records, so numbers
+ * log as "text-source" although the excerpt the model was shown prints them
+ * ("$915 billion", "14.2 %", a "95,640" cell in an "(in millions" table).
  *
  * The match is deliberately narrow, and fails closed at every step:
  *  - Only the cited excerpt's body is searched, never the full filing section,
@@ -22,16 +21,16 @@
  *    comparison; neither the source value nor a convenient match sets it.
  *  - The printed figure must be specific: three or more significant digits,
  *    or two with a decimal or a scale word. "7%" or a bare "4" cell matches
- *    too many unrelated figures by chance (50% of whole percents 1..30 hit
- *    somewhere in JPM's 10-K MD&A excerpt, measured 2026-10-13).
+ *    too many unrelated figures by chance (half of whole percents 1..30 hit
+ *    somewhere in a large bank's 10-K MD&A excerpt; D-45).
  *  - The claim's own description — the words the model wrote beyond the bare
  *    unit ("% Standardized CET1 ratio") and the label of the row the number
  *    sits in — must name the figure: more than half of its distinctive words
  *    must appear within {@link DESCRIPTION_WINDOW} characters of the printed
  *    figure and inside its sentence or, for a table cell, in the row's own
  *    label. A claim with no distinctive words is not accepted at all. This is
- *    what stops a right value being read with the wrong meaning ("15.1" is
- *    printed for two different ratios in JPM's 10-Q).
+ *    what stops a right value being read with the wrong meaning (one figure
+ *    can be printed for two different ratios in the same 10-Q).
  * What it does not check: the period. This first gate does not compare a
  * supplied period with the column the figure was printed in; the second gate
  * (claimEvidence.ts, D-66) does, and its note is the one the log carries.
@@ -157,7 +156,7 @@ export function excerptNumberMentions(body: string): ExcerptMention[] {
       // Only a comma-grouped whole number takes a table's scale. A decimal
       // cell ("$ 126.99" book value per share in an "(in millions, except per
       // share data" table) never does, and under an "except per share" header
-      // neither does any "$" cell (D-45 review: both read as millions before).
+      // neither does any "$" cell (D-45: both read as millions before).
       const header = tableScale(body, at);
       if (header !== null && !(dollar && header.exceptPerShare)) {
         scale = header.scale;
@@ -266,10 +265,9 @@ function sentenceWindow(body: string, mention: ExcerptMention): string {
  *  - in a table row, in that row's own label. A flattened table packs a dozen
  *    rows into 250 characters, so the window let a "noninterest expense"
  *    claim verify against the noninterest REVENUE cell two rows up.
- * One word anywhere in the window was the minimum asked for; it accepted 126
- * of 795 deliberate swaps to other figures in JPM's excerpts (2026-10-13), a
- * "pre-provision profit" claim taking any dollar figure near the word
- * "provision". See D-45 for the measurement.
+ * One word anywhere in the window is too weak: it accepts many deliberate
+ * swaps to other figures, a "pre-provision profit" claim taking any dollar
+ * figure near the word "provision". See D-45 for the measurement.
  */
 export function nearbyDescriptionToken(
   body: string,
@@ -351,7 +349,7 @@ export function valueMentions(
     // A bare decimal with no scale word is no count: in a flattened table
     // only the first row prints its "%" or "$", so "Tier 1 capital 15.1" (a
     // percent) and "Tangible book value per share 113.35" read as counts and
-    // verified as "15.1 count" (review, 2026-10-13). A count is a whole
+    // would verify as "15.1 count" (D-45). A count is a whole
     // number or a scaled figure ("3.60 billion").
     if (want === "count" && mention.decimals && !mention.scaled) return false;
     const slack = 1e-9 * Math.max(1, Math.abs(mention.value));

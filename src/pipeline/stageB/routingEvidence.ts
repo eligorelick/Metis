@@ -1,20 +1,20 @@
 /**
- * Stage B — sector-routing evidence from EDGAR XBRL companyfacts (WS5, D-16).
+ * Stage B — sector-routing evidence from EDGAR XBRL companyfacts (D-16).
  *
  * PURE, deterministic, read-only: reads the bundle's companyfacts payload and
  * reports which balance-sheet and income-statement tags a filer carries. The
  * routing layer (`routeCompany`) combines this with the vendor industry string
  * and the SEC SIC code; this module never decides a route on its own.
  *
- * Evidence rules (the WS5 methodology, "Routing evidence"):
+ * Evidence rules (docs/METHODOLOGY.md, "Routing"):
  * - deposits AND (loans OR net interest income)      → bank
  * - premiums earned/written AND loss/policy reserves → insurer
  * - net investment property >= half of same-filing Assets -> property REIT
  * - mortgage loans plus MBS >= half of same-filing Assets -> mortgage REIT
- * FIN-308 P9: token holdings, gross cost alone and generic loan tags do not
+ * D-150 (P9): token holdings, gross cost alone and generic loan tags do not
  * establish either type. Both majorities (including 50/50) stay undetermined.
  * - regulatory assets or rate-regulated revenue       → regulated-utility
- *   overlay evidence only (audit 2026-10-22 B-13; never a base route)
+ *   overlay evidence only (D-104; never a base route)
  *
  * Base-route inference requires a filed asset majority. For an already-routed
  * REIT, the sub-map comparison also admits PP&E as rental real property.
@@ -74,7 +74,7 @@ export interface RoutingEvidence {
    */
   mortgageFunding: EvidenceSignal[];
   /**
-   * Audit 2026-10-22 B-13: rate-regulated revenue or regulatory assets whose
+   * D-104: rate-regulated revenue or regulatory assets whose
    * newest fact ends within `recencyMonths` of the run date. Evidence for the
    * regulated-utility overlay only; it never suggests a base route.
    */
@@ -89,7 +89,7 @@ export interface RoutingEvidence {
    * "mortgage" for a mortgage-asset majority, null when neither or both.
    */
   reitSubmap: "equity" | "mortgage" | null;
-  /** FIN-308: consumed only after the issuer's REIT base route is established. */
+  /** D-150: consumed only after the issuer's REIT base route is established. */
   reitAssetComparison?: {
     submap: "equity" | "mortgage" | null;
     basis: string;
@@ -157,8 +157,8 @@ export const EQUITY_REIT_PROPERTY_TAGS = [
  * (`AvailableForSaleSecuritiesDebtSecurities`,
  * `DebtSecuritiesAvailableForSaleExcludingAccruedInterest`,
  * `AvailableForSaleSecuritiesDebtSecuritiesAmortizedCostBasis`) is what an
- * ordinary corporate treasury tags for its bond portfolio, so those three used
- * to route Apple, Alphabet or Microsoft to the mortgage-REIT map. Evidence
+ * ordinary corporate treasury tags for its bond portfolio, so those three would
+ * route a cash-rich technology company to the mortgage-REIT map (D-16). Evidence
  * about a business model has to be specific to that business model.
  */
 export const MORTGAGE_REIT_MBS_TAGS = [
@@ -188,7 +188,7 @@ export const MORTGAGE_REIT_LOAN_TAGS = [
 export const MORTGAGE_REIT_FUNDING_TAGS = ["SecuritiesSoldUnderAgreementsToRepurchase"] as const;
 
 /**
- * Audit 2026-10-22 B-13: what rate regulation leaves in the statements, the
+ * D-104: what rate regulation leaves in the statements, the
  * revenue a commission sets and the regulatory assets it allows to be
  * recovered. `RegulatedAndUnregulatedOperatingRevenue` is a total and evidences
  * neither.
@@ -292,7 +292,7 @@ export function deriveRoutingEvidence(
     repo: MORTGAGE_REIT_FUNDING_TAGS,
   };
 
-  // B-13: utility evidence is dated against the run, not against the
+  // D-104: utility evidence is dated against the run, not against the
   // financial tags (a utility usually has none of those).
   const utilityCutoff = opts.today !== undefined && /^\d{4}-\d{2}-\d{2}/.test(opts.today) ? addMonths(opts.today.slice(0, 10), -recencyMonths) : null;
   const regulatedUtility = REGULATED_UTILITY_TAGS.flatMap((tag) => {
@@ -330,7 +330,7 @@ export function deriveRoutingEvidence(
 
   const bank = deposits.length > 0 && (loans.length > 0 || nii.length > 0) ? [...deposits, ...loans, ...nii] : [];
   const insurer = premiums.length > 0 && reserves.length > 0 ? [...premiums, ...reserves] : [];
-  // FIN-308 P9: a token holding does not establish a business model. Compare
+  // D-150 (P9): a token holding does not establish a business model. Compare
   // net property or mortgage assets to Assets on the SAME instant, currency
   // and filing. Alias totals are selected once, never summed as components.
   const assetsHit = newestPoint(facts, "Assets", opts.today?.slice(0, 10));
@@ -361,7 +361,7 @@ export function deriveRoutingEvidence(
   const equityReit = propertyMajority && !mortgageMajority ? [...propertySignals, assets!] : [];
   const mortgageReit = mortgageMajority && !propertyMajority ? [...mortgageSignals, assets!, ...repo] : [];
 
-  // Coordinator revision, 2026-11-02: an established REIT's sub-map answers
+  // D-150: an established REIT's sub-map answers
   // mortgage versus equity, not whether rental property dominates goodwill,
   // intangibles and right-of-use assets. Generic PP&E is rental real property
   // ONLY in that established REIT context; it never sets `suggests` below.

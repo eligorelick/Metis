@@ -123,7 +123,7 @@ interface Signal {
    * weight.
    */
   evidenceFraction?: number;
-  /** FIN-306: share supported by route design; missing supported data still counts. */
+  /** D-150: share supported by route design; missing supported data still counts. */
   applicableFraction?: number;
 }
 
@@ -220,7 +220,7 @@ function scoreAspect(
         band: null,
         weightPct,
         dataCompleteness: 0,
-        // D-50 review: null when the route cannot score the aspect at all, so
+        // D-50: null when the route cannot score the aspect at all, so
         // the confidence ceiling does not read "not applicable" as "unscored".
         applicableCompleteness: notApplicableReason !== null || applicableWeight === 0 ? null : 0,
         drivers,
@@ -228,7 +228,7 @@ function scoreAspect(
         notApplicableReason:
           notApplicableReason ??
           noDataReason ??
-          // Audit 2026-10-19 FCX-14: a data gap is not a route design choice.
+          // D-97: a data gap is not a route design choice.
           (applicableWeight > 0
             ? "applicable signals unavailable (data gap: their inputs were withheld or missing; see the data gaps) — aspect not scored"
             : "no applicable signals for this route — aspect not scored"),
@@ -324,8 +324,8 @@ const ROTE_LEVEL_BAND: readonly BandPoint[] = [
  * D-61: moat DURABILITY is the worst annual return in the window (ROIC, or
  * ROTE on financial routes), banded on the same scale as the level. It
  * replaced the population standard deviation of the series, which read a
- * RISING return as instability: NVDA's 69 → 23 → 125 → 198 → 150% ROIC had an
- * SD of 61pp and scored 12 although no year came near the cost of capital.
+ * RISING return as instability: a series that rose steeply had a large SD and
+ * scored low although no year came near the cost of capital.
  * A moat is the persistence of returns above the cost of capital (the
  * profitability-persistence literature: Fama & French 2000), so the evidence
  * of durability is how low returns fell, not how much they moved. The level
@@ -463,8 +463,8 @@ const SMA_GAP_BAND: readonly BandPoint[] = [
   [10, 86],
 ];
 /**
- * Proximity to the 52-week high: (close / 52-week high − 1) × 100, ≤ 0 (D-48,
- * corrected on review 2026-10-13). George & Hwang (2004) rank on price / 52-week
+ * Proximity to the 52-week high: (close / 52-week high − 1) × 100, ≤ 0 (D-48).
+ * George & Hwang (2004) rank on price / 52-week
  * high; the range position (close − low) / (high − low) it replaced ranks
  * differently (a stock 4% off a narrow range's high read 20%). A house
  * convention, not fitted: the paper gives the direction, not these cut points.
@@ -499,7 +499,7 @@ const REL_STRENGTH_12M1M_BAND: readonly BandPoint[] = [
 // holding-company GAAP ratio, NOT the regulatory leverage ratio: TCE excludes
 // preferred stock (which counts in Tier 1) and is read over period-end
 // tangible assets, so it runs structurally below Tier 1 leverage, and a bank at
-// a cut point is not at a regulatory minimum (review of D-46, 2026-10-13). The
+// a cut point is not at a regulatory minimum (D-46). The
 // numbers echo the PCA and Basel leverage lines in scale only.
 const TCE_TO_TANGIBLE_ASSETS_BAND: readonly BandPoint[] = [
   [4, 20],
@@ -544,7 +544,7 @@ const UPSIDE_BAND: readonly BandPoint[] = [
   [50, 92],
 ];
 // Valuation: own-history multiple RANK among N quarters (0-100) — LOWER =
-// cheaper = better. WS6 review (SHOULD-FIX 3): it is a rank within the observed
+// cheaper = better. D-19: it is a rank within the observed
 // sample, never a percentile of a distribution; 8-20 quarters cannot estimate
 // one, and every reader-visible surface says rank.
 const MULTIPLE_OWN_HISTORY_RANK_BAND: readonly BandPoint[] = [
@@ -594,7 +594,7 @@ function multipleOwnHistoryRank(valuation: ValuationResult, keys: string[]): num
   if (valuation.kind === "pre-revenue") return null;
   const stats = valuation.multiples?.multiples ?? [];
   for (const key of keys) {
-    // AMZN audit 2026-10-20: a P/E on gain-inflated earnings is not ranked.
+    // D-98 (gain-inflated earnings): a P/E on gain-inflated earnings is not ranked.
     const stat = stats.find((m) => m.key === key && m.gainInflatedEarnings === undefined);
     const pr = stat?.ownHistory?.percentileRank;
     if (isNum(pr)) return pr;
@@ -653,7 +653,7 @@ function weightsForRoute(route: CompanyRouteResult): WeightVector {
 }
 
 /*
- * Audit 2026-10-22 B-13: Moody's "Regulated Electric and Gas Utilities"
+ * D-104 (regulated-utility overlay): Moody's "Regulated Electric and Gas Utilities"
  * (6 August 2024), Financial Strength, Standard Grid. Each grade's boundary is
  * a house letter boundary: Aa and better A (85+), A → B (70), Baa → C (55),
  * Ba → D (40), B and below F; Aaa reaches 95.
@@ -680,7 +680,7 @@ const UTILITY_DEBT_TO_BOOK_CAPITALIZATION_BAND: readonly BandPoint[] = [
 ];
 
 /**
- * The regulated-utility balance-sheet aspect (audit 2026-10-22 B-13). A
+ * The regulated-utility balance-sheet aspect (D-104). A
  * utility in its capex cycle borrows against a rate base the commission lets
  * it recover, so net debt / EBITDA, EBIT coverage and FCF conversion on the
  * industrial bands read it as distressed. It is scored instead on the two
@@ -787,7 +787,7 @@ export interface ScoringInputs {
    * graded on four of them; absent ⇒ that aspect is unscored for lack of data.
    */
   financialMetrics?: FinancialMetricsResult | null;
-  /** Audit 2026-10-22 B-13: the regulated-utility leverage ratios; read only on that overlay. */
+  /** D-104: the regulated-utility leverage ratios; read only on that overlay. */
   utilityCredit?: UtilityCreditMetrics | null;
   /** Latest quote price (for DCF upside); null when unavailable. */
   currentPrice: number | null;
@@ -801,7 +801,7 @@ export function computeScores(inputs: ScoringInputs, gaps: ManifestEntry[] = [])
   const { route, policy: routePolicy, growth, roic, rote, roicVsWacc, capital, forensics, technicals, valuation } = inputs;
   const undeterminedReit = route.base === "reit" && route.reitSubmap === "undetermined";
   const reitGradeReason = "REIT type undetermined: mortgage and property maps disagree on these grading signals; withheld until filed evidence establishes the type.";
-  // FIN-308: grading-only exclusions. Do not erase otherwise reported raw
+  // D-150: grading-only exclusions. Do not erase otherwise reported raw
   // figures or substitute a financial return model on an unproved type.
   const policy = undeterminedReit ? { ...routePolicy, suppress: [...routePolicy.suppress,
     "roicVsWacc", "fcfGrowth", "operatingMargin", "grossMargin", "altmanZ", "beneishM", "accrualsRatio"] } : routePolicy;
@@ -848,7 +848,7 @@ export function computeScores(inputs: ScoringInputs, gaps: ManifestEntry[] = [])
     const achievable = isStartingGrowthFamily(valuation.reverseDcf?.growthPathFamily)
       ? valuation.reverseDcf?.baseRevenueGrowthPct ?? valuation.assumptions?.growthPath.value[0] ?? null
       : null;
-    // AMZN audit 2026-10-20 finding 10: a price beyond every value in the
+    // D-99 (reverse DCF beyond the range): a price beyond every value in the
     // growth search range is graded at that range end: the implied gap is at
     // least (at most) the bound's, so the expensive case scores the band floor
     // and the cheap case at least the bound's score. Missing, it read neutral.
@@ -939,9 +939,9 @@ export function computeScores(inputs: ScoringInputs, gaps: ManifestEntry[] = [])
   // when deposits fund the balance sheet; the route's own disclosure names the
   // equity-side spread (return on common equity against the cost of equity) as
   // the value-creation measure to use instead. It is scored here in the same
-  // slot, weight and band. Without it, a bank's quality rested on a 3-5 signal
-  // Piotroski battery alone (~7% of intended evidence), which swung JPM to F and
-  // WFC to A on the same thin basis (2026-10-12 sweep).
+  // slot, weight and band (D-41). Without it, a bank's quality rested on a 3-5
+  // signal Piotroski battery alone (~7% of intended evidence), which swung banks
+  // between F and A on the same thin basis.
   const er = valuation.kind === "excess-return" ? valuation.excessReturn : null;
   const equityReturn = er?.roePathPct?.value?.[0];
   const equityCoe = er?.costOfEquityPct?.value;
@@ -1003,7 +1003,7 @@ export function computeScores(inputs: ScoringInputs, gaps: ManifestEntry[] = [])
   );
 
   // --- Balance sheet & capital --------------------------------------------
-  // AMZN audit 2026-10-20 finding 8: the ratio is undefined when FCF before
+  // D-99 (SBC beyond all FCF): the ratio is undefined when FCF before
   // SBC is zero or negative, and leaving the signal out let a cash-burning
   // issuer's SBC carry no weight. Positive SBC then exceeds all of the free
   // cash flow, past the band's last breakpoint, so it is graded there (the
@@ -1029,7 +1029,7 @@ export function computeScores(inputs: ScoringInputs, gaps: ManifestEntry[] = [])
         [
           { name: "netDebtToEbitda", raw: currentCapital ? currentCapital.netDebtToEbitda : capital.netDebtToEbitda.value, unit: "x", weight: 0.3, band: NET_DEBT_EBITDA_BAND, suppressedBy: "netDebtToEbitda" },
           { name: "interestCoverage", raw: currentCapital ? currentCapital.interestCoverage : capital.interestCoverage.value, unit: "x", weight: 0.2, band: COVERAGE_BAND, suppressedBy: "interestCoverage" },
-          // WS6 review (SHOULD-FIX 2): graded on the BEFORE-SBC ratio, the
+          // D-19: graded on the BEFORE-SBC ratio, the
           // definition FCF_CONVERSION_BAND was calibrated on. Grading the
           // after-SBC ratio on the same band silently moved the metric onto a
           // new definition AND charged stock-based compensation twice, since
@@ -1126,7 +1126,7 @@ export function computeScores(inputs: ScoringInputs, gaps: ManifestEntry[] = [])
   // share-count trend carries the aspect at full completeness. A company that
   // did repurchase without tagged execution prices is MISSING the evidence,
   // and its completeness says so.
-  // AMZN audit 2026-10-20 finding 15: only repurchases in the issuer's last
+  // D-99 (buyback timing): only repurchases in the issuer's last
   // three fiscal years are timed. With none, there is nothing recent to time,
   // as for a company that never repurchased; a recent repurchase without a
   // priced recent year is missing evidence. Stale timing is shown, not graded.

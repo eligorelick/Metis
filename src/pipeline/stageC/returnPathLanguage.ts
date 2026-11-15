@@ -1,11 +1,11 @@
 /**
  * Stage C — base-case language about returns "recovering toward" the cost of
- * equity (audit 2026-10-22 C-11).
+ * equity (D-102).
  *
- * COF's report said returns "recover from the acquisition-affected annual
+ * A report can say returns "recover from the acquisition-affected annual
  * starting point toward the cost of equity along the model's explicit recovery
- * path" when its trailing four quarters already earned about 16.5%, above every
- * point of the path. When the trailing return already exceeds the excess-return
+ * path" when the trailing four quarters already earn above every point of the
+ * path. When the trailing return already exceeds the excess-return
  * model's terminal target, the base path starts above where it ends, so such a
  * sentence misdescribes current data. This check finds those sentences in the
  * verdict and the base scenario and discloses them; it does not rewrite them.

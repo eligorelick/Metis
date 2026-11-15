@@ -1,5 +1,5 @@
 /**
- * Audit 2026-10-22 B-13: the two leverage ratios of Moody's "Regulated
+ * D-104 (regulated-utility overlay): the two leverage ratios of Moody's "Regulated
  * Electric and Gas Utilities" methodology (6 August 2024) that the regulated-
  * utility balance sheet is scored on.
  *

@@ -196,7 +196,7 @@ export interface PassDeps {
   signal?: AbortSignal;
   /** Per-request cost admission, by pass (DECISIONS D-10). */
   admissionFor?: (pass: "bull" | "bear" | "synthesize" | "verify") => unknown;
-  // WS7 (D-20) begin.
+  // D-20 begin.
   /**
    * Per-job seed the judge's case order is drawn from — the job id in
    * production. Absent in tests and in the standalone
@@ -209,7 +209,7 @@ export interface PassDeps {
    * production does; tests pass it explicitly so no test depends on env state.
    */
   judgeOrder?: JudgeOrderSetting;
-  // WS7 (D-20) end.
+  // D-20 end.
 }
 
 /* ------------------------------------------------------------------------ *
@@ -231,7 +231,7 @@ export interface PassResult<T> {
   /** Canonical URLs returned by successful web-search result blocks. */
   fetchedUrls: string[];
   /**
-   * WS7 (D-20): how the adversarial stage ran (case order, seed, per-side
+   * D-20: how the adversarial stage ran (case order, seed, per-side
    * lengths and self-assessments, `both`-mode reconciliation). Set ONLY by the
    * judge pass; every other pass leaves it undefined.
    */

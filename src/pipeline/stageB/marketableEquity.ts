@@ -1,8 +1,7 @@
 /**
  * D-60: marketable equity securities held inside "cash and short-term
- * investments". NVDA's 10-Q for the quarter ended 2026-07-26 reports cash and
- * short-term investments of $99.37B as cash $22.44B + marketable debt
- * securities $34.14B + publicly-held equity securities $42.78B, most of the
+ * investments". A 10-Q can report cash and short-term investments as cash +
+ * marketable debt securities + publicly-held equity securities, much of the
  * equity under lock-up. Equity stakes are not cash: the house net debt leaves
  * them out and the DCF bridge carries them as a separately disclosed
  * non-operating asset.

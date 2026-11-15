@@ -126,7 +126,7 @@ export const LEASE_DEBT_LABELS: Readonly<Record<string, string>> = {
   financeLeases: "Recorded finance-lease observation",
 };
 
-/** D-294 review: inclusion is an attestation about the total's filed composition, not a lease observation. */
+/** D-294: inclusion is an attestation about the total's filed composition, not a lease observation. */
 export function debtCompositionDefinition(row: LeaseScopeRow | null | undefined): string | null {
   const p = row?.fieldProvenance?.totalDebt;
   if (!p || p.source !== "edgar" || !row?.date || !validAmount(row.totalDebt) || p.periodEnd !== row.date || p.periodStart != null ||

@@ -22,9 +22,9 @@ interface Quantity {
   unit: CanonicalUnit | null; currency: string | null; dollar: boolean;
   /** D-66: a scale word was printed with the figure ("496 million"). */
   scaled: boolean;
-  /** AI-409: the comparator printed directly before the figure ("less than", "over"), or null for a point figure. */
+  /** D-129: the comparator printed directly before the figure ("less than", "over"), or null for a point figure. */
   bound: "upper" | "lower" | null;
-  /** AI-409: a strict bound excludes its own value ("more than", "less than"); an inclusive one ("at least", "up to") keeps it. */
+  /** D-129: a strict bound excludes its own value ("more than", "less than"); an inclusive one ("at least", "up to") keeps it. */
   strict: boolean;
   /** Display metadata from this same parser, used only to name a recorded comparison. */
   displayScale?: number; decimalPlaces?: number; scaleWord?: string; unitWord?: string;
@@ -37,8 +37,8 @@ const DOLLARS = new Set(["USD", "CAD", "AUD", "NZD", "SGD", "HKD"]);
 
 /**
  * D-66: a score's scale is its unit, not two more figures ("95 on the 0–100
- * scale", "95/100", "95 out of 100", "95 (0–100)"). NVDA final rerun: six
- * aspect-score claims read as three quantities each and stayed unchecked.
+ * scale", "95/100", "95 out of 100", "95 (0–100)"). Otherwise an aspect-score
+ * claim reads as three quantities and stays unchecked.
  */
 const SCORE_SCALE = /\s*(?:\/\s*100\b|out of 100\b|on (?:the|a) 0\s*[–—-]\s*100(?:[\s-]+point)?\s+scale\b|\(\s*0\s*[–—-]\s*100\s*(?:scale\s*)?\))/iy;
 /**
@@ -47,12 +47,12 @@ const SCORE_SCALE = /\s*(?:\/\s*100\b|out of 100\b|on (?:the|a) 0\s*[–—-]\s*
  */
 const WINDOW_LABEL = /\b\d{1,2}M(?=\s+(?:ending|ended)\b)/g;
 /**
- * AI-304: "12 months", "1.5 months" and "6 months ended" name a period, not a quantity. The
+ * D-129: "12 months", "1.5 months" and "6 months ended" name a period, not a quantity. The
  * scale token is a whole word now, so the "m" of "months" no longer hides them.
  */
 const DURATION_MONTHS = /(?<![\d.,])\d+(?:[.,]\d+)*\s+months?\b/gi;
 /**
- * AI-409: a comparator directly before the figure makes it a bound, not a point. One hedge from the
+ * D-129: a comparator directly before the figure makes it a bound, not a point. One hedge from the
  * consistency reader's HEDGE_WORDS may sit between the comparator and the figure ("at least about").
  * The negations come first, because "no less than" would otherwise read as the upper "less than" and
  * "no more than" as the lower "more than". The text before the figure is cut to a fixed tail, so the
@@ -70,7 +70,7 @@ function boundBefore(text: string, start: number): { bound: "upper" | "lower" | 
   return LOWER_INCLUSIVE.test(tail) ? { bound: "lower", strict: false } : UPPER_INCLUSIVE.test(tail) ? { bound: "upper", strict: false }
     : UPPER_STRICT.test(tail) ? { bound: "upper", strict: true } : LOWER_STRICT.test(tail) ? { bound: "lower", strict: true } : { bound: null, strict: false };
 }
-/** AI-409: a source bound supports a claim bound of its direction that is no stricter: strict implies strict or inclusive, inclusive implies only inclusive. */
+/** D-129: a source bound supports a claim bound of its direction that is no stricter: strict implies strict or inclusive, inclusive implies only inclusive. */
 function boundSupports(claim: Quantity, source: Quantity): boolean {
   return claim.bound === source.bound && (claim.strict === source.strict || (source.strict && !claim.strict));
 }
@@ -340,7 +340,7 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
       let result = frame ? undefined : validate(isolated);
       let display = record.unit === "ratio" && record.unitScale === "fraction" && q.unit === "percent" ? record.value * 100 : record.value;
       if (!result || (result.status !== "validated" && !(result.status === "contradicted" && result.reason === "value-mismatch"))) {
-        // D-263 (second review): a rebuilt label may still find a value conflict, but it never confirms where the
+        // D-263: a rebuilt label may still find a value conflict, but it never confirms where the
         // clause held a declared definition or the record is a declared cash outflow (the rebuild drops the clause's
         // own words, including an opposed cash-use direction). Only the record that declares a found definition is
         // read under it; any other record stays unbound, so a definition cannot select a different metric.
@@ -369,16 +369,16 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
         const boundSupported = q.bound === "lower" ? (q.strict ? display > q.value : display >= q.value)
           : q.bound === "upper" ? (q.strict ? display < q.value : display <= q.value) : false;
         if (/\b(?:must|would need|would have to|well beyond|threshold)\b/i.test(own.own)) continue;
-        // D-278 (P19, Part C audit): "Differs from the record" needs the figure's own description to name
+        // D-278 (P19): "Differs from the record" needs the figure's own description to name
         // only the record's metric. A qualifier the record lacks ("Foundayo revenue", "$900 million of
         // benefits" against total revenue) means a different quantity, so the figure stays unbound
         // (unverified), never a value conflict. Confirmation is unchanged.
         // A bounded figure ("more than 20%") is settled by its bound below, and a stated cash direction
-        // ("a source of cash of") is a direction conflict the D-263 review keeps, so neither is a qualifier;
+        // ("a source of cash of") is a direction conflict D-263 keeps, so neither is a qualifier;
         // a technical frame ("50-day average" -> SMA50) already proves the metric.
         if (result.status === "contradicted" && q.bound === null && !frame) {
           const recordWords = new Set(readings.flatMap(reading => [...reading.tokens, ...metricTokens(reading.label, options.ignoreWords, { loose: true })]));
-          // An incidental parenthetical ("gross margin (more or less)") is not a qualifier (D-263 review).
+          // An incidental parenthetical ("gross margin (more or less)") is not a qualifier (D-263).
           const described = metricTokens(own.own.replace(/\([^()]*\)/g, " ").replace(/\b(?:an?\s+)?(?:sources?|uses?)\s+of\s+cash\b|\b(?:cash\s+)?(?:inflows?|outflows?)\b/gi, " "),
             options.ignoreWords, { loose: true }).filter(w => !w.startsWith("window"));
           if (described.some(word => ![...recordWords].some(other => namesMetric([word], [other])))) { qualifiedConflict = true; continue; }
@@ -399,7 +399,7 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
       return { figure, outcome: "contradiction", source: first.record.id, recorded: displayedPlainValue(q, first.display, first.record.currency) };
     }
     const value = plainValue(lookup, frame ? { ...own, own: frame.label } : lookup !== q ? { ...own, own: own.label } : own, options.reportingCurrency);
-    // D-278 review rounds 1-2: a figure that lost a candidate above keeps a visible warning. Any value found
+    // D-278: a figure that lost a candidate above keeps a visible warning. Any value found
     // elsewhere, even the same metric for another period, would print as the unmarked "value matched" and hide
     // a real conflict, so the figure is reported as not matched (P19: doubt means unverified).
     const matched = value && !qualifiedConflict ? valueFound(value, options.index.values) : undefined;
@@ -412,12 +412,12 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
 /** `start` and `end` are offsets in the text the period was read from. */
 interface PeriodReference { key: string; label: string; raw: string; kind: "date" | "month" | "period" | "window"; start: number; end: number }
 /**
- * `periods` are the periods the clause states for its figure; `bases` (AI-402) are
+ * `periods` are the periods the clause states for its figure; `bases` (D-128) are
  * the comparison bases it names ("compared with $10.2 billion in second quarter
  * 2025"), which belong to the amount the comparison word introduces, not to a figure before it.
  */
 interface Context { start: number; end: number; text: string; label: string; own: string; ownAfter: string; periods: PeriodReference[]; bases: PeriodReference[];
-  /** Final re-review (AI-303-V3): a period of this figure's clause sat in a parenthetical holding another figure, so its periods cannot be read. */
+  /** D-128: a period of this figure's clause sat in a parenthetical holding another figure, so its periods cannot be read. */
   held: boolean; ambiguous: boolean; direction: QuantityDirection | null; base: boolean }
 interface SourceBinding {
   quantity: Quantity; context: Context; span: ClaimSourceSpan;
@@ -428,14 +428,14 @@ interface SourceBinding {
    * FY2027 CFO commentary is the quarter's inventory.
    */
   inherited: PeriodReference[];
-  /** AI-303 / C-6: the windows the excerpt's title states; a clause naming no period is read under them. Empty for table cells. */
+  /** D-128: the windows the excerpt's title states; a clause naming no period is read under them. Empty for table cells. */
   inheritedWindows: ReadonlySet<string>;
   /**
-   * AI-302-V1 / OD-3: the source clause is management's expectation, outlook or guidance. It inherits no period or window from the
+   * D-128: the source clause is management's expectation, outlook or guidance. It inherits no period or window from the
    * excerpt's title and binds only a claim whose own clause is forward-looking (a result clause only a result claim). Always false for table cells.
    */
   forwardLooking: boolean;
-  /** AI-303-V3: the excerpt's title carries an FY or Q4 label, so a figure dated to its reporting date (the excerpt's asOf) is a fiscal year-end figure. */
+  /** D-128: the excerpt's title carries an FY or Q4 label, so a figure dated to its reporting date (the excerpt's asOf) is a fiscal year-end figure. */
   yearEnd: boolean;
   /**
    * D-63: a source clause is ambiguous for this figure only when another
@@ -468,7 +468,7 @@ const MONTH_NAMES = "January|Jan|February|Feb|March|Mar|April|Apr|May|June|Jun|J
  */
 const COMPARISON_BASIS = /\b(?:year|quarter)[\s‐‑–—-]+over[\s‐‑–—-]+(?:year|quarter)\b/gi;
 /**
- * Audit 2026-10-27 AI-303: a window is also written without for/during/over
+ * D-128: a window is also written without for/during/over
  * ("this quarter's revenue", "the latest fiscal year", "fiscal-year revenue").
  * Read only for a claim ({ loose: true }); a source or record label keeps the
  * explicit forms.
@@ -483,7 +483,7 @@ const NAMED_PERIOD_AFTER = /^[\s‐‑–—-]*(?:(?:19|20)\d{2}|FY\s*\d{4}|Q[1-
 // "year ended" does not match (`end` needs a word end); "quarter end" stays a descriptor.
 const FISCAL_YEAR_END = /\b(?:(?:fiscal|financial)[\s‐‑–—-]+)?year[\s‐‑–—-]*end\b|\bend\s+of\s+(?:the\s+|its\s+|our\s+)?(?:(?:latest|most\s+recent|last|current|prior|previous)\s+)?(?:fiscal\s+)?year\b/gi;
 /**
- * Final review (2026-10-28, AI-303-V3): a prior fiscal year-end ("the end of the prior year", "the end of last fiscal year", "the
+ * D-128: a prior fiscal year-end ("the end of the prior year", "the end of last fiscal year", "the
  * previous fiscal year-end") is an instant of its own, read before FISCAL_YEAR_END. No title, header, inherited window or current
  * fiscal year-end establishes it, and no record does, by its label or its basis; only the same relative phrase in a filing figure's own
  * clause does, stated as that figure's own instant (after a comparison word it is the base's, after "from" or "since" a start).
@@ -509,7 +509,7 @@ function periodLabels(text: string, options: { loose?: boolean; yearEnd?: boolea
     const iso = `${year}-${String(month).padStart(2, "0")}-${day.padStart(2, "0")}`;
     return { kind: "date", label: iso, key: isIsoDate(iso) ? iso : `unestablished-date:${iso}` };
   };
-  // AI-303-V3: the fiscal year-end is an instant, read before the window words so
+  // D-128: the fiscal year-end is an instant, read before the window words so
   // "the end of the fiscal year" is not an annual window. A claim's reading only.
   // A source clause that states the year-end itself names it too ({ yearEnd: true }).
   if (options.loose || options.yearEnd) {
@@ -574,14 +574,14 @@ export function windowsNamed(text: string): string[] {
 const HARD_BOUNDARY = /;|\n|•|[.!?](?=\s+[A-Z“"(])/g;
 /** The windows that are instants: the fiscal year-end and the prior fiscal year-end. */
 const INSTANT_WINDOWS: ReadonlySet<string> = new Set(["FYE", PRIOR_FISCAL_YEAR_END]);
-/** "from" or "since" directly before an instant makes it a change's start (final re-review, AI-303-V3). */
+/** "from" or "since" directly before an instant makes it a change's start (D-128). */
 const START_LEAD = /\b(?:from|since)\s+(?:the\s+|its\s+|our\s+)?$/i;
 /**
- * AI-404: the periods and comparison bases `span` of `text` states for `quantity`.
+ * D-128: the periods and comparison bases `span` of `text` states for `quantity`.
  * Every quantity inside the span is blanked first (a figure's digits are never a
  * year); the comparison cue is looked for in the unblanked text, because the
  * amounts between a bare "from" and its period are part of the cue grammar.
- * AI-402: a period that follows a comparison cue is the comparison's base, unless
+ * A period that follows a comparison cue is the comparison's base, unless
  * this figure sits between the cue and it (then it is the figure's own period).
  * Offsets in the result are relative to `span.start`.
  */
@@ -594,9 +594,9 @@ function framePeriods(text: string, span: { start: number; end: number }, quanti
       blanked = blanked.slice(0, other.start - span.start) + " ".repeat(other.end - other.start) + blanked.slice(other.end - span.start);
     }
   }
-  // Final re-review (AI-303-V3): a period inside a parenthetical that holds another figure is that figure's ("$31.6 billion (at the end
+  // D-128: a period inside a parenthetical that holds another figure is that figure's ("$31.6 billion (at the end
   // of the prior fiscal year, $25.8 billion)", "(prior fiscal year-end: $25.8 billion)"), never a figure's outside it; a parenthetical
-  // with no figure of its own stays the clause's. This is the reverse of the apposition rule for direction words (AI-401-V1). Such a
+  // with no figure of its own stays the clause's. This is the reverse of the apposition rule for direction words (D-129). Such a
   // parenthetical can also state the outside figure's own period ("$25.8 billion (at the end of the prior fiscal year, up from $20.0
   // billion a year earlier)"), so a figure that loses a period to one has periods that cannot be read (`held`), never none.
   const inside = (other: Quantity, [open, end]: readonly [number, number]): boolean => other.start - span.start > open && other.end - span.start <= end;
@@ -614,7 +614,7 @@ function framePeriods(text: string, span: { start: number; end: number }, quanti
       !/[,;()]/.test(ownText.slice(period.end, other.start - span.start)));
   });
   const isBase = (period: PeriodReference): boolean => {
-    // Final re-review (AI-303-V3 / AI-402): a year-end is an instant, so it is read as a date is; any other window is a span and is
+    // D-128: a year-end is an instant, so it is read as a date is; any other window is a span and is
     // never a base. An instant right after "from" or "since" is where a change starts ("Since the end of the prior fiscal year,
     // inventory increased by $5.8 billion"), never the figure's own instant.
     if (period.kind === "window" && !INSTANT_WINDOWS.has(period.key)) return false;
@@ -672,12 +672,12 @@ function withinSpans(spans: readonly (readonly [number, number])[], at: number):
   }
   return false;
 }
-// OD-3: management's expectation, outlook or guidance is not a reported result (accounting-standard "guidance" is not matched).
+// D-128: management's expectation, outlook or guidance is not a reported result (accounting-standard "guidance" is not matched).
 const FORWARD_LOOKING = /\b(?:(?:is|are|was|were|be|been|being|remains?|remained)\s+(?:now\s+|currently\s+|still\s+|also\s+)?(?:expected|projected|forecast(?:ed)?|anticipated|estimated|guided)\s+to|expects?|expecting|anticipates?|anticipating|forecasts?|outlook|guidance\s+(?:for|of|range|calls?\s+for|is|was|issued)|(?:our|its|management['’]s|the\s+company['’]s)\s+(?:[a-z-]+\s+){0,3}guidance)\b/i;
 /**
- * AI-404 / C-3: a claim that states one figure is read for its periods and bases as a whole; several figures keep per-clause reading.
+ * D-128: a claim that states one figure is read for its periods and bases as a whole; several figures keep per-clause reading.
  * A period named only in a forward-looking clause or sentence is not lent to a figure whose own clause is not forward-looking
- * ("Revenue was USD 108.0 billion; NVIDIA expects strength in Q3 FY2027.").
+ * ("Revenue was USD 108.0 billion; the company expects strength in Q3 FY2027.").
  */
 function claimContext(text: string, quantity: Quantity, all: Quantity[]): Context {
   const own = context(text, quantity, all);
@@ -695,7 +695,7 @@ function claimContext(text: string, quantity: Quantity, all: Quantity[]): Contex
   return { ...own, periods: whole.periods.filter(lent), bases: whole.bases.filter(lent) };
 }
 /**
- * AI-305 (OD-1): the words a sentence gives to a figure itself. Before the figure: from the latest of the clause start, the
+ * D-129: the words a sentence gives to a figure itself. Before the figure: from the latest of the clause start, the
  * preceding figure's end, the last "(" when no ")" follows it (only the last "(" is looked at) and the last ":" or ";" after that. After it: up to the first comma, semicolon, colon,
  * parenthesis, em or en dash, the next figure or the clause end. A comma inside a date ("as of September 3, 2026") does not cut.
  */
@@ -755,7 +755,7 @@ function context(text: string, quantity: Quantity, all: Quantity[], source = fal
   // Keep offsets and every actual change/negation word for direction binding.
   const directionText = ownText.replace(/\block[‐‑–—-]up\b/gi, (match) => match.slice(0, -2) + "xx");
   const { periods, bases, held } = framePeriods(text, { start, end }, quantity, all, !source, source);
-  // AI-503: a figure the text introduces with "from", "compared with/to", "versus", "vs." or "against" is a comparison base. The raw text
+  // D-130: a figure the text introduces with "from", "compared with/to", "versus", "vs." or "against" is a comparison base. The raw text
   // before the figure is read, not the clause: a clause can start at a "versus" connector and leave the figure nothing before it.
   const base = COMPARISON_BASE_LEAD.test(text.slice(Math.max(0, quantity.start - 24), quantity.start));
   return { start, end, text: ownText, label, own, ownAfter, periods, bases, held, base,
@@ -799,9 +799,9 @@ const ABBREVIATIONS: Readonly<Record<string, readonly string[]>> = {
  * D-66: one name per metric head, applied to the claim and the source alike.
  * Small and explicit on purpose: each pair names the same figure, and none
  * drops a definition-changing modifier (non-GAAP, operating, diluted, net,
- * adjusted all survive). NVDA final rerun: "The quoted price was USD 217.23
- * per share" against the record "price" and "Consensus estimated revenue"
- * against "est revenue" stayed unchecked.
+ * adjusted all survive), so "The quoted price was USD 217.23 per share"
+ * reads against the record "price" and "Consensus estimated revenue"
+ * against "est revenue".
  */
 const METRIC_SYNONYMS: readonly (readonly [readonly string[], readonly string[]])[] = [
   [["quoted", "price"], ["price"]], [["share", "price"], ["price"]], [["stock", "price"], ["price"]], [["last", "price"], ["price"]],
@@ -826,7 +826,7 @@ function splitCompound(word: string): string[] {
   return !word.includes("-") || word.startsWith("non-") || DEFINITION_MODIFIERS.has(word) ? [word] : word.split("-");
 }
 /**
- * AI-305 (OD-1): words in a figure's own description that carry no metric. The list is closed and holds no noun, adjective,
+ * D-129: words in a figure's own description that carry no metric. The list is closed and holds no noun, adjective,
  * comparator, definition modifier or direction word; "reported" and "total" stay meaningful (see METRIC_GRAMMAR).
  */
 const OWN_CONTEXT_WORDS = new Set([
@@ -853,12 +853,12 @@ function ownDescriptionTokens(text: string, ignore: readonly string[]): string[]
   const blanked = text
     .replace(/\b(?:first|second|third|fourth)[\s\u2010-\u2014-]+(?:fiscal[\s\u2010-\u2014-]+)?(?:quarter|half)\b/gi, " ")
     .replace(/\b(?:prior|previous|preceding|same)\s+(?:quarter|year|period)\b/gi, " ")
-    // A prior fiscal year-end is compared as a period, as the claim's is (final review, AI-303-V3), but only when no comparison cue or
-    // start precedes it: after one it is a base or a start, and the figure must not be described by it (final re-review).
+    // A prior fiscal year-end is compared as a period, as the claim's is (D-128), but only when no comparison cue or
+    // start precedes it: after one it is a base or a start, and the figure must not be described by it (D-128).
     .replace(PRIOR_YEAR_END, (match: string, offset: number, whole: string) => OWN_PERIOD_CUE.test(whole.slice(0, offset)) ? match : " ")
     // A spelled-out basis is a comparison base too ("a year-over-year increase of $66.1 billion in purchases"), and D-63 never required it.
     .replace(/\b(?:year|quarter)[\s\u2010-\u2014-]+over[\s\u2010-\u2014-]+(?:year|quarter)\b|\b(?:yoy|qoq)\b/gi, " ");
-  // A window is compared as a period (AI-303 / C-6), not as a metric word, exactly as the claim's own window tokens are.
+  // A window is compared as a period (D-128), not as a metric word, exactly as the claim's own window tokens are.
   return metricTokens(blanked, ignore).filter((word) => !OWN_CONTEXT_WORDS.has(word) && !word.startsWith("window"));
 }
 function metricTokens(label: string, ignore: readonly string[], options: { loose?: boolean; keepDirectionWords?: boolean } = {}): string[] {
@@ -891,12 +891,12 @@ function metricTokens(label: string, ignore: readonly string[], options: { loose
     .filter((word) => !(word.includes("-") && word.split("-").every((part) => ignored.has(part))))
     .flatMap(splitCompound)
     .flatMap((word) => ABBREVIATIONS[word] ?? [word])
-    // A possessive's "s" ("NVIDIA's revenue") is no word of the metric.
+    // A possessive's "s" ("the company's revenue") is no word of the metric.
     .filter((word) => word !== "s");
   const tokens = withSynonyms(words);
   return [...new Set(tokens.filter((word) => !METRIC_GRAMMAR.has(word) && !PERIOD_DESCRIPTORS.has(word) && !ignored.has(word)))];
 }
-/** AI-407 / OD-2: reject detected conflicts, preserving legitimate paraphrases. */
+/** D-144: reject detected conflicts, preserving legitimate paraphrases. */
 export function descriptionConflictsWithRecord(
   description: { metric: string; segment: string }, record: NumericProvenanceRecord, ignore: readonly string[],
 ): string | null {
@@ -948,7 +948,7 @@ function basisWindows(record: NumericProvenanceRecord): Set<string> {
   const fiscal = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? "";
   if (/^Q[1-4]\s/i.test(fiscal)) windows.add("quarter");
   else if (/^FY\s?\d/i.test(fiscal)) windows.add("annual");
-  // AI-303-V3: only a year-end record (an FY or fourth-quarter label, or a fiscal-year basis) establishes the year-end instant.
+  // D-128: only a year-end record (an FY or fourth-quarter label, or a fiscal-year basis) establishes the year-end instant.
   if (/^(?:Q4\s|FY\s?\d)/i.test(fiscal)) windows.add("FYE");
   const basis = record.periodContext?.basis;
   if (basis === "fiscal-quarter") windows.add("quarter");
@@ -971,7 +971,7 @@ function labelWindows(record: NumericProvenanceRecord): Set<string> {
   return windows;
 }
 /**
- * AI-303: the windows a record's label names loosely ("latest-quarter revenue
+ * D-128: the windows a record's label names loosely ("latest-quarter revenue
  * growth"), which labelWindows does not read. Prose may name or omit them.
  */
 function labelLooseWindows(record: NumericProvenanceRecord): Set<string> {
@@ -1084,13 +1084,13 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (record.unit === "score" && /^computed\.scores\.[a-z]+$/.test(record.origin) &&
       record.id.startsWith("computed.deterministic-aspect-scores.") && /^[a-z]+ score$/.test(label)) forms.add(`quantitative ${label}`);
     if (record.origin === "computed.valuation.multiples.peTtm" && record.unit === "ratio" && label === "peTtm (current)") {
-      // D-274 review FC4: the producer has two different denominators. A generic
+      // D-274: the producer has two different denominators. A generic
       // P/E label proves neither one; absent a declared formula, neither alias binds.
       if (DILUTED_PE_DEFINITIONS.has(peBasis ?? "")) forms.add("price to trailing diluted EPS multiple");
       forms.add("P/E TTM (current)");
       forms.add("trailing price to earnings multiple");
       if (AGGREGATE_PE_DEFINITIONS.has(peBasis ?? "")) forms.add("market capitalization to trailing common earnings");
-      // D-182 (TSM paid run): "The trailing P/E was 26.4x" named this record but read as no metric.
+      // D-182: "The trailing P/E was 26.4x" names this record, so it must read as that metric.
       forms.add("trailing P/E");
       forms.add("trailing price to earnings");
     }
@@ -1103,7 +1103,7 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
       forms.add("payables to third-party loan owners");
     if (record.origin === "computed.valuation.peerCoverage.market-cap-ttm-common-earnings.count" && label === "Market cap / TTM common earnings eligible peer count after filtering")
       forms.add("eligible peer count for market capitalization to trailing common earnings after filtering");
-    // R9 renamed these labels to name the cash-flow add-back basis; the same readings hold.
+    // These labels name the cash-flow add-back basis; the same readings hold (P19).
     if (record.origin === "computed.capital.sbc" && (label === "SBC % revenue" || label === "SBC, cash-flow add-back / revenue"))
       forms.add("stock based compensation as a share of revenue");
     if (record.origin === "computed.capital.current.cashBridge.stockBasedCompensation" && label === "SBC, cash-flow add-back")
@@ -1358,11 +1358,11 @@ function support(status: ClaimNumericSupport["status"], reason: ClaimNumericSupp
  * path keeps exact symmetry; an excerpt clause also carries its verb and its
  * context ("Inventory was $31.6 billion, up from $25.8 billion sequentially, as we prepare for …": an explanation after a comma),
  * which demanding in the claim failed every figure a filing states in a sentence.
- * AI-305 / D-129 (OD-1) revises the clause-wide half: the clause still carries the verb and the context, but the words the
+ * D-129 revises the clause-wide half: the clause still carries the verb and the context, but the words the
  * sentence gives to the figure itself (its own description, Context.own) must be named by the claim too, so a figure the
  * sentence gives to another noun ("a record of nearly $26.0 billion to shareholders") no longer binds a free-cash-flow claim.
  * The two tests are conjoined, so this never admits a candidate the clause test rejected.
- * AI-503 / D-130: a comparison base binds only a comparison base, and a move's end takes the move's head (`Context.base`, `moveHead`).
+ * D-130: a comparison base binds only a comparison base, and a move's end takes the move's head (`Context.base`, `moveHead`).
  */
 const DEFINITION_MODIFIERS = new Set(["gaap", "non-gaap", "net", "adjusted", "excluding", "exclude", "excludes", "ex", "pro-forma", "proforma",
   "organic", "underlying", "core", "normalized", "diluted", "basic", "gross", "operating", "pre-tax", "pretax", "after-tax",
@@ -1377,15 +1377,15 @@ function excerptNamesMetric(claim: string[], source: string[], named: string[], 
     own.every((word) => inClaim(word) || (inNamed(word) && ownAfter.some((other) => stem(word) === stem(other))));
 }
 /**
- * AI-503: the words that make the next figure a comparison base. A base supports only a claim figure introduced the same way, and it
+ * D-130: the words that make the next figure a comparison base. A base supports only a claim figure introduced the same way, and it
  * takes no reporting period from the excerpt.
  */
 const COMPARISON_BASE_LEAD = /\b(?:from|compared\s+(?:with|to)|versus|vs\.?|against)\s*$/i;
-/** The only words that may sit between $A and the "to" that opens a move's end; they describe $A (fix round 1). */
+/** The only words that may sit between $A and the "to" that opens a move's end; they describe $A (D-130). */
 const MOVE_TIME_WORDS: ReadonlySet<string> = new Set(["last", "ago", "earlier", "sequentially", "quarter", "year", "prior", "first", "second",
   "third", "fourth", "fiscal", "month", "months", "the", "a", "an", "in", "at", "of", "end"]);
 /**
- * AI-503: in "<direction word> from $A ... to $B" the metric and the direction belong to $B. Returns the words from the start of $A's own
+ * D-130: in "<direction word> from $A ... to $B" the metric and the direction belong to $B. Returns the words from the start of $A's own
  * description up to its "from" (the move's head), when "from" opens $A, both figures lie in the clause and $B is the next figure after
  * a bare "to"; null otherwise.
  */
@@ -1394,7 +1394,7 @@ function moveHead(text: string, previous: Quantity, current: Quantity, all: read
   if (fromLead === null) return null;
   if (previous.start < clause.start || current.end > clause.end) return null;
   if (!/^[^\d$€£¥;•\n]*\bto\s*$/i.test(text.slice(previous.end, current.start))) return null;
-  // Fix round 1 (AI-503): only time words may sit between $A and "to". Any punctuation, direction word or other content word means
+  // D-130: only time words may sit between $A and "to". Any punctuation, direction word or other content word means
   // another clause or a new subject ("... due to Data Center revenue growing to $41.1 billion"), and $B then gets no head.
   const between = text.slice(previous.end, current.start).replace(/\bto\s*$/i, " ");
   if (/[,:()\u2014\u2013]/.test(between) || findDirectionWords(between).length > 0) return null;
@@ -1421,20 +1421,20 @@ function excerptPeriods(excerpt: TextExcerpt): PeriodReference[] {
   }
   return periods;
 }
-/** AI-303 / C-6: the windows the excerpt's title states ("quarter ended …", a Q<n> FY label is a quarter, an FY label the year). */
+/** D-128: the windows the excerpt's title states ("quarter ended …", a Q<n> FY label is a quarter, an FY label the year). */
 function excerptWindows(excerpt: TextExcerpt): Set<string> {
   const title = excerpt.title
     .replace(/\bfiled \d{4}-\d{2}-\d{2}\b/gi, " ")
     .replace(/\b\d{10}-\d{2}-\d{6}\b/g, " ")
     .replace(LABEL_WINDOW, (match, quarter: string | undefined) => quarter ? " for the quarter " : " for the year ");
-  // A title never establishes a prior fiscal year-end (final review, AI-303-V3).
+  // A title never establishes a prior fiscal year-end (D-128).
   const windows = new Set(periodLabels(title, { loose: true }).filter((period) => period.kind === "window" && period.key !== PRIOR_FISCAL_YEAR_END)
     .map((period) => period.key));
   for (const period of excerptPeriods(excerpt)) {
     if (period.kind !== "period") continue;
     if (/^Q[1-4]/.test(period.key)) windows.add("quarter");
     else if (/^FY/.test(period.key)) windows.add("annual");
-    if (/^Q4|^FY/.test(period.key)) windows.add("FYE"); // AI-303-V3
+    if (/^Q4|^FY/.test(period.key)) windows.add("FYE"); // D-128
   }
   return windows;
 }
@@ -1447,7 +1447,7 @@ const CHANGE_COLUMN = /^[\s,|]*(?:[$%]\s*)?Change\b/i;
 const MONTHS_ENDED = /\b(Three|Six|Nine)\s+Months\s+Ended\b/gi;
 const TABLE_SCALE = /\(\s*(?:\$\s*)?in\s+(thousands|millions|billions)(?:,[^)]{0,40})?\s*\)/gi;
 /**
- * AI-403: a row's own lead, without any table scale declaration. The first row
+ * D-129: a row's own lead, without any table scale declaration. The first row
  * under a header reads "($ in millions, except per share data) Revenue", and the
  * declaration is not that row's description.
  */
@@ -1455,28 +1455,28 @@ function rowLead(label: string): string {
   return label.replace(TABLE_SCALE, " ");
 }
 /**
- * The per-share basis is named in the words ("Basic net income per share"), not after the figure; "EPS" alone is not read (DECISIONS,
- * "Audit batch B2: known residuals of the claim-verifier number fixes").
+ * The per-share basis is named in the words ("Basic net income per share"), not after the figure; "EPS" alone is not read
+ * (D-131).
  */
 function perShareInWords(quantity: Quantity, label: string): boolean {
   return quantity.unit === "currency" && /\bper\s+share\b/i.test(label);
 }
 /**
  * A table row label that names a per-share basis: "per share", "per basic share", "per diluted share", "per common share", "per
- * ordinary share" (up to two of those qualifiers, "per diluted common share") or "EPS" (Codex fixes re-review, Y1).
+ * ordinary share" (up to two of those qualifiers, "per diluted common share") or "EPS" (D-131).
  */
 const PER_SHARE_ROW = /\bper[\s-]+(?:(?:basic|diluted|common|ordinary)[\s-]+){0,2}share\b|\beps\b/i;
 /**
- * AI-403 / D-45: under "except per share data" a decimal cell is the per-share line only when its own row names a per-share basis
+ * D-129 / D-45: under "except per share data" a decimal cell is the per-share line only when its own row names a per-share basis
  * ("Net income per share: Basic", "Diluted EPS"). Decimal precision alone never makes a cell per share, whatever the declared
- * scale: "Revenue $ 5.0" under "($ in millions, except per share data)" is $5.0 million (PR #71 Codex review).
+ * scale: "Revenue $ 5.0" under "($ in millions, except per share data)" is $5.0 million.
  */
 function isPerShareCell(quantity: Quantity, column: { scale: number | null; exceptPerShare: boolean; label: string } | undefined): boolean {
   if (column === undefined || !column.exceptPerShare || quantity.step >= 1) return false;
   return PER_SHARE_ROW.test(rowLead(column.label));
 }
 /**
- * AI-403: a table's "(In millions)" scales its amounts and share counts only, never a percent, a ratio, a day count
+ * D-129: a table's "(In millions)" scales its amounts and share counts only, never a percent, a ratio, a day count
  * or a per-share cell, and never a figure that printed its own scale word.
  */
 function tableScaleFor(quantity: Quantity, column: { scale: number | null; exceptPerShare: boolean; label: string } | undefined): number {
@@ -1639,8 +1639,8 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
   return out;
 }
 
-// D-274 review round 2 (lead fix, P3, P19): an omitted unit is never inferred.
-// Merge-gate rounds showed that neither a change-word list (for percent) nor a
+// D-274 (P3, P19): an omitted unit is never inferred.
+// Neither a change-word list (for percent) nor a
 // scale-marker list (for counts) can prove a bare figure's unit, so a figure
 // verifies only when the source and the claim each print its unit.
 
@@ -1698,14 +1698,14 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const aliases = column.period.kind === "period" ? (/^Q[1-4]/.test(column.period.key) ? [column.period.key] : []) : inherited.some((period) => period.kind === "date" && period.key === column.period.key) && (column.window === null || column.window.key === "quarter")
           ? inherited.filter((period) => period.kind === "period").map((period) => period.key)
           : [];
-        // D-274 review round 2 (lead fix, P3): a header can scale counts ("(In millions)") or except them
+        // D-274 (P3): a header can scale counts ("(In millions)") or except them
         // ("(In thousands, except subscriber counts)"), and only a per-share exception is read, so a count cell
         // under a declared scale has no established unit and stays unverified.
         const scaledCountCell = quantity.unit === "count" && column.scale !== null && column.scale !== 1;
         const dollarCell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true }
           : scaledCountCell ? { ...quantity, unit: null } : quantity;
         const tableColumn = { scale: column.scale, aliases, date: column.period.key, exceptPerShare: column.exceptPerShare, label: column.label };
-        // AI-403: a decimal cell of an "except per share data" table is the per-share line, in dollars, and is never scaled.
+        // D-129: a decimal cell of an "except per share data" table is the per-share line, in dollars, and is never scaled.
         const cell = dollarCell.unit === "currency" && isPerShareCell(dollarCell, tableColumn) ? { ...dollarCell, unit: "currency-per-share" as const } : dollarCell;
         return { quantity: cell, context: own, inherited, inheritedWindows: new Set<string>(), forwardLooking: false, yearEnd, listAmbiguous: false, levelBeforeComparison: false, column: tableColumn,
           span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + rowStart, end: body.start + quantity.end, text: body.text.slice(rowStart, quantity.end) } };
@@ -1727,14 +1727,14 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           own.bases = quantity === annualLevels[0] ? suffix : [];
         }
       }
-      // AI-503: the end of "<direction word> from $A ... to $B" takes the move's metric and direction. The words between $A and "to"
+      // D-130: the end of "<direction word> from $A ... to $B" takes the move's metric and direction. The words between $A and "to"
       // ("last quarter", "a year ago") describe $A. Without a governing direction word the end figure keeps its own label.
       const previous = index > 0 ? found[index - 1]! : undefined;
       const head = previous === undefined ? null : moveHead(body.text, previous, quantity, found, own);
       const start = head === null ? null : context(body.text, previous!, found, true).direction;
       if (head !== null && start !== null) {
-        // Fix round 1: the words between $A and "to" describe $A, so the end's label is the head plus its own after-text only.
-        // Final review (AI-503): so are the periods, windows and fiscal year-end stated there ("from $10.0 billion at fiscal year-end to
+        // D-130: the words between $A and "to" describe $A, so the end's label is the head plus its own after-text only.
+        // So are the periods, windows and fiscal year-end stated there ("from $10.0 billion at fiscal year-end to
         // $8.5 billion"); only those outside [$A's start, $B's start) stay the end's own. Offsets are relative to the clause start.
         const endsOwn = (period: PeriodReference): boolean => period.start < previous!.start - own.start || period.start >= quantity.start - own.start;
         own.periods = own.periods.filter(endsOwn);
@@ -1747,7 +1747,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
       const unitPair = dividendPairs.get(quantity);
       // The printed "TOTAL, or PER-SHARE, of cash dividends paid" shares its
       // trailing metric, but each amount retains its own printed unit/value.
-      // AI-305: the appositive's trailing metric is the pair's own description ("including $973 million, or $0.92 per share, of cash dividends paid").
+      // D-129: the appositive's trailing metric is the pair's own description ("including $973 million, or $0.92 per share, of cash dividends paid").
       if (unitPair !== undefined) { own.own = " cash dividends paid"; own.ownAfter = own.own; }
       if (unitPair?.totalStart === quantity.start) own.label += " cash dividends paid";
       const inClause = found.filter((other) => other !== quantity && other.start >= own.start && other.end <= own.end &&
@@ -1760,7 +1760,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           return !COMPARATIVE_LEAD.test(lead) && metricTokens(lead, []).length === 0;
         });
       const forwardLooking = FORWARD_LOOKING.test(own.text);
-      // AI-503: a comparison base is not a figure of the excerpt's reporting period.
+      // D-130: a comparison base is not a figure of the excerpt's reporting period.
       const noPeriod = forwardLooking || own.base;
       return { quantity, context: own, inherited: noPeriod ? [] : inherited, inheritedWindows: noPeriod ? new Set<string>() : inheritedWindows, forwardLooking, yearEnd, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
         levelBeforeComparison: /^\s*,?\s*(?:up|down|higher|lower)\s+from\b/i.test(body.text.slice(quantity.end)),
@@ -1769,7 +1769,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
   });
 }
 
-// Audit 2026-10-27 AI-303-V4 / C-4: "latest" (directly before, or one word before, a period
+// D-128: "latest" (directly before, or one word before, a period
 // or filing noun, so "the latest guidance" is not a recency claim) on a figure from a reported-period
 // series (statement, quarterly-trend and segment rows) must be the newest period
 // of that series the registry holds. A series is a registry id carrying exactly
@@ -1852,7 +1852,7 @@ function annualProducerFiscalLabel(record: NumericProvenanceRecord, registry: re
 export function valueConflictAtRecordDate(claim: SourcedClaim, options: Parameters<typeof validateClaimNumericSupport>[1]): ClaimNumericSupport | null {
   const record = options.record;
   if (record === undefined) return null;
-  // Review round 1: only when the same measurement window is established: the record names its window and the
+  // D-282: only when the same measurement window is established: the record names its window and the
   // claim states a period of its own (the reading below then checks that it is the record's).
   if (record.period === null && record.periodContext === undefined) return null;
   if (periodLabels(claim.text, { loose: true }).length === 0) return null;
@@ -1906,7 +1906,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     if ([...own.periods, ...own.bases].some((period) => period.key.startsWith("unestablished-date:"))) {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous");
     }
-    // Final re-review (AI-303-V3): no record label or basis establishes a prior fiscal year-end.
+    // D-128: no record label or basis establishes a prior fiscal year-end.
     const annualFiscal = annualProducerFiscalLabel(record, options.registry ?? []);
     if (annualFiscal === null) return support("unchecked", "period-mismatch", "retained annual statements conflict on the producing record's fiscal label");
     const filedFiscal = annualFiscal ?? filedCalendarFiscalLabel(record, options.excerpts);
@@ -1918,17 +1918,17 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     const perShare = (words: string[]): string[] => record.unit === "currency-per-share" ? words.filter((word) => word !== "share" && word !== "shares") : words;
     // A window the record's basis establishes may be left unstated on either side.
     const unestablished = (words: string[]): string[] => words.filter((word) => ![...established].some((key) => word === `window${key.toLowerCase()}`));
-    // Final review (AI-303-V3): a claim's prior fiscal year-end is checked as a period below, so it is not a metric word here.
+    // D-128: a claim's prior fiscal year-end is checked as a period below, so it is not a metric word here.
     const claimTokens = perShare(unestablished(metricTokens(own.label, ignore, { loose: true })).filter((word) => !(word === "yoy" && established.has("annual")) &&
       word !== `window${PRIOR_FISCAL_YEAR_END.toLowerCase()}`));
     const labels = labelReadings(record);
-    // AI-501: label direction nouns define the metric; a claim's attached
+    // D-144: label direction nouns define the metric; a claim's attached
     // direction can instead describe the relation to its own figure.
     const claimKept = perShare(unestablished(metricTokens(own.label, ignore, { loose: true, keepDirectionWords: true })).filter((word) => !(word === "yoy" && established.has("annual")) && word !== `window${PRIOR_FISCAL_YEAR_END.toLowerCase()}`));
     const matchingLabels = labels.flatMap((label) => {
       const words = perShare(unestablished(metricTokens(`${label} ${record.period ?? ""}`, ignore, { keepDirectionWords: true })));
       const plain = perShare(unestablished(metricTokens(`${label} ${record.period ?? ""}`, ignore)));
-      // A label without direction nouns reads as before AI-501: the claim's own
+      // A label without direction nouns reads as before D-144: the claim's own
       // direction words ("74%, up from Q2 2019") state a relation, not the metric.
       if (words.every((word) => plain.includes(word))) return namesMetric(claimTokens, plain) ? [{ label, words: claimTokens }] : [];
       return namesMetric(claimKept, words) ? [{ label, words: claimKept }] : own.direction !== null && namesMetric(claimTokens, words) ? [{ label, words: claimTokens }] : [];
@@ -1941,7 +1941,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       const original = labelOperands(record.label ?? "");
       return (operands === null || operandsInOrder(words, operands, ignore)) && (original === null || operandsInOrder(words, original, ignore));
     })) return support("unchecked", "text-context-mismatch", "the prose reverses the operands of the cited difference or ratio");
-    // AI-303-V4: a record citation states one figure, so the whole claim is read.
+    // D-128: a record citation states one figure, so the whole claim is read.
     const series = namesRecency(typedText) ? reportedSeries(record) : null;
     if (series !== null && (options.seriesLatest?.get(series.key) ?? series.date) > series.date) {
       return support("unchecked", "period-mismatch", "the prose calls the figure the latest, but a later period of the cited series is registered");
@@ -1960,7 +1960,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     }
     const labelled = labelWindows(record);
     const fiscalPeriod = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? filedFiscal ?? (/^(?:Q[1-4]\s*)?FY\d{4}$/i.test(record.period ?? "") ? record.period : undefined);
-    // Audit 2026-10-27 AI-106 / OD-1: a record with no period establishes only
+    // D-128: a record with no period establishes only
     // what it carries: its as-of date, a date its period context declares, and
     // a fiscal label it declares (matched only against an FY-style prose label).
     // periodsAgree() is not asked: it accepts any label for a null period.
@@ -1977,19 +1977,18 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       ? period.key !== PRIOR_FISCAL_YEAR_END && (established.has(period.key) || labelled.has(period.key) || window?.key === period.key)
       : record.period === null ? periodlessEstablishes(period) : periodsAgree(period.label, record.period, fiscalPeriod ?? null) ||
         // A lone date names the window's end; its start counts only inside the
-        // complete stated interval (audit 2026-10-27 AI-302, D-82's interval proof).
+        // complete stated interval (D-128, D-82's interval proof).
         (period.kind === "date" && window !== null && (period.key === window.end ||
           (period.key === window.start && own.periods.some((other) => other.kind === "date" && other.key === window.end)))) ||
         (period.kind === "date" && explicitSpan !== null && (period.key === explicitSpan.start || period.key === explicitSpan.end));
     // A record that carries no period cannot contradict a prose period; it can
     // only fail to establish it. That case is decided by periodlessEstablishes
-    // above, not by periodsAgree (NVDA final rerun: "DCF base-case year-one
-    // revenue growth over trailing revenue is 82.1353%" against a period-less
-    // reverse-DCF context record was counted as a contradiction). Audit
-    // 2026-10-22 F-22: nor can a record whose period differs. A period, unit or
+    // above, not by periodsAgree (D-66: a period-less context record must not
+    // count a growth claim as a contradiction). D-110: nor can a record whose
+    // period differs. A period, unit or
     // currency the record does not establish leaves the claim unverified;
     // "contradicted" is reserved for a value or sign conflict.
-    // AI-402 (fix round 1): a comparison base the claim states must be established by the cited record:
+    // D-128: a comparison base the claim states must be established by the cited record:
     // only a year-over-year or quarter-over-quarter record measures its figure against a base period.
     const measuredAgainst = own.bases.length > 0 ? comparisonBase(record) : null;
     // A base spelled with "fiscal" ("fiscal 2025", "the second quarter of fiscal 2025") keeps that word: it is not read as a calendar year.
@@ -2025,7 +2024,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // ratio (including a P/E multiple) provides no such scale evidence.
     // The per-share basis may be named in the metric words instead of after
     // the figure ("Our DCF per share as of 2026-10-26 is USD 320.63"): it is
-    // the record's own unit, not a total (live MSFT check, 2026-10-26).
+    // the record's own unit, not a total (D-109).
     const normalizedQuantity = quantity.unit === "percent" && record.unit === "ratio" && record.unitScale === "fraction"
       ? { ...quantity, value: quantity.value / 100, step: quantity.step / 100, unit: "ratio" as const }
       : record.unit === "currency-per-share" && perShareInWords(quantity, own.label) ? { ...quantity, unit: "currency-per-share" as const } : { ...quantity, unit: explicitUnit };
@@ -2120,16 +2119,16 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     }
     if (own.ambiguous || quantity.unit === null) return support("unchecked", "text-ambiguous", "multiple unbound quantities or a missing unit in the prose clause", spans);
     if (own.held) return support("unchecked", "period-mismatch", "a period of the prose figure's clause is stated inside a parenthetical that holds another figure", spans);
-    // AI-303 / C-6: a window the claim names is compared as a period (below), not as a metric word; a year-end base or start the claim
-    // names is compared as a base (final re-review).
+    // D-128: a window the claim names is compared as a period (below), not as a metric word; a year-end base or start the claim
+    // names is compared as a base.
     const ownWindowTokens = new Set([...own.periods, ...own.bases].filter((period) => period.kind === "window").map((period) => `window${period.key.toLowerCase()}`));
     const tokens = metricTokens(own.label, options.ignoreWords ?? [], { loose: true }).filter((word) => !ownWindowTokens.has(word));
-    // AI-305: the claim names a word of the source figure's own description when the claim's description holds it. The claim's
+    // D-129: the claim names a word of the source figure's own description when the claim's description holds it. The claim's
     // clause ends at "and"/"but"; a connector with no figure after it continues the description, as it does in a source sentence
     // ("invested over USD 76.7 billion in research and development since its inception").
     const named = [...new Set([...tokens, ...metricTokens(context(claim.text, quantity, stated, true).label, options.ignoreWords ?? [], { loose: true })])]
       .filter((word) => !ownWindowTokens.has(word));
-    // AI-302-V1 / OD-3: modality must match. Only the figure's own clause decides it, so a result figure never turns forward-looking
+    // D-128: modality must match. Only the figure's own clause decides it, so a result figure never turns forward-looking
     // (and never binds the guide) because a neighbouring clause of the claim says "expects" or "outlook".
     const claimForward = FORWARD_LOOKING.test(own.text);
     const candidates: SourceBinding[] = [];
@@ -2139,20 +2138,20 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       options.index?.set(excerpt, bindings);
       for (const binding of bindings) {
         if (binding.forwardLooking !== claimForward) continue;
-        // AI-503: a comparison base binds only a comparison base (a claim "increased from USD 25.8 billion" binds the source's base).
+        // D-130: a comparison base binds only a comparison base (a claim "increased from USD 25.8 billion" binds the source's base).
         if (binding.context.base !== own.base) continue;
         const sourceTokens = metricTokens(binding.context.label, options.ignoreWords ?? []);
         if (excerptNamesMetric(tokens, sourceTokens, [], [])) clauseCandidates.push(binding);
         if (excerptNamesMetric(tokens, sourceTokens, named, ownDescriptionTokens(binding.context.own, options.ignoreWords ?? []), ownDescriptionTokens(binding.context.ownAfter, options.ignoreWords ?? []))) candidates.push(binding);
       }
     }
-    // AI-305: the same judgement runs over the clause-rule candidates alone and over the own-description-filtered ones. The own description
+    // D-129: the same judgement runs over the clause-rule candidates alone and over the own-description-filtered ones. The own description
     // can only leave a claim unchecked: when it would give a different result from the clause rule alone, the claim is unchecked.
     const judge = (pool: SourceBinding[]): ClaimNumericSupport | { span: ClaimSourceSpan } => {
       if (pool.some((candidate) => candidate.context.periods.some((period) => period.key.startsWith("unestablished-date:")))) {
         return support("unchecked", "period-mismatch", "the source exact date is invalid or locale-ambiguous", pool.slice(0, 3).map((candidate) => candidate.span));
       }
-      // Final re-review (AI-303-V3): a figure that lost a period to a parenthetical holding another figure has periods that cannot be
+      // D-128: a figure that lost a period to a parenthetical holding another figure has periods that cannot be
       // read. It inherits no period, header or window, and any claim it could bind is unchecked, as for an invalid date above.
       if (pool.some((candidate) => candidate.context.held)) {
         return support("unchecked", "period-mismatch", "a source period is not unambiguously associated with this figure, so its period cannot be read",
@@ -2163,7 +2162,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       // D-66: a table cell is named by its column's date (with the window its
       // header states, when it states one) or by the excerpt's fiscal label for
       // that column; it is never read under the excerpt's period alone.
-      // AI-303-V3: a fiscal year-end claim naming the date of an FY or Q4 excerpt's own reporting date
+      // D-128: a fiscal year-end claim naming the date of an FY or Q4 excerpt's own reporting date
       // (its asOf) has its year-end read from the excerpt's title; any other date needs the clause to say so.
       const withoutTitleYearEnd = (candidate: SourceBinding, date: string | undefined): PeriodReference[] =>
         candidate.yearEnd && date !== undefined && date === candidate.span.asOf ? own.periods.filter((period) => period.key !== "FYE") : own.periods;
@@ -2188,7 +2187,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
         return ownPeriods.every((period) => candidate.context.periods.some((source) => source.key === period.key)) &&
           candidate.context.periods.every((period) => ownPeriods.some((stated) => stated.key === period.key));
       };
-      // AI-402: a base the claim names must be a base the source clause names; a table cell names none.
+      // D-128: a base the claim names must be a base the source clause names; a table cell names none.
       const basesMatch = (candidate: SourceBinding): boolean => own.bases.every((base) => candidate.context.bases.some((source) => source.key === base.key));
       const periodFilter = (list: SourceBinding[]): SourceBinding[] => list.filter((candidate) => candidate.column !== undefined
         ? own.bases.length === 0 && columnMatches(candidate, candidate.column)
@@ -2219,12 +2218,12 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
             equalValue(candidate.quantity, cell.quantity.value * scale);
         })))) matchingPeriods = dated;
       if (matchingPeriods.length === 0) {
-        // Final review (AI-303-V3): a prior fiscal year-end that no bound figure's own clause states is a period gap.
+        // D-128: a prior fiscal year-end that no bound figure's own clause states is a period gap.
         if (pool.length > 0 && own.periods.some((period) => period.key === PRIOR_FISCAL_YEAR_END)) {
           return support("unchecked", "period-mismatch", "the prose names a prior fiscal year-end that the source figure's own clause does not state",
             pool.slice(0, 3).map((candidate) => candidate.span));
         }
-        // One stated other period is a period mismatch (unverified, F-22); a
+        // One stated other period is a period mismatch (unverified, D-110); a
         // flattened table's header of several periods binds no column.
         if (own.periods.length > 0 && pool.length === 1 && pool[0].context.periods.length === 1) {
           return support("unchecked", "period-mismatch", "the uniquely bound source figure is for another period", [pool[0].span]);
@@ -2274,7 +2273,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
         if (own.direction.relation !== sourceDirection.relation) return support("unchecked", "text-context-mismatch", "a change magnitude and a resulting level are different numeric relations", [candidate.span]);
       }
       if (candidate.quantity.unit === null) return support("unchecked", "text-ambiguous", "the source figure's unit is not established", [candidate.span]);
-      // AI-403: as on the record path, the per-share basis may be named in the claim's words rather than after the figure. Only a
+      // D-129: as on the record path, the per-share basis may be named in the claim's words rather than after the figure. Only a
       // cell whose own row lead names a per-share basis takes it: a table declaration ("except per share data") is a scale rule,
       // never the row's description, and a decimal cell it relabels per-share is not thereby a per-share row.
       const claimed = candidate.quantity.unit === "currency-per-share" && candidate.column !== undefined &&
@@ -2287,13 +2286,13 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
         if (currency === null || sourceCurrency === null) return support("unchecked", "currency-mismatch", "the source or prose currency is not established", [candidate.span]);
         if (currency !== sourceCurrency) return support("unchecked", "currency-mismatch", "the bound source figure uses another currency", [candidate.span]);
       }
-      // AI-409: a source bound ("less than 1%", "over $76.7 billion") is not the exact figure, and a bound the source does not state is not either.
+      // D-129: a source bound ("less than 1%", "over $76.7 billion") is not the exact figure, and a bound the source does not state is not either.
       if (!boundSupports(quantity, candidate.quantity)) {
         return support("unchecked", "text-context-mismatch", "the source states only a bound, or the prose states a bound the source does not imply", [candidate.span]);
       }
       if (Math.abs(quantity.value - candidate.quantity.value) > (quantity.step + candidate.quantity.step) / 2 +
         1e-10 * Math.max(1, Math.abs(candidate.quantity.value))) {
-        // Final review (AI-409): a bound states no value, so two bounds at different figures do not conflict ("over $76.7 billion"
+        // D-129: a bound states no value, so two bounds at different figures do not conflict ("over $76.7 billion"
         // implies "over USD 70 billion"); only an exact claim against an exact source figure is contradicted by its value.
         if (quantity.bound !== null || candidate.quantity.bound !== null) {
           return support("unchecked", "text-context-mismatch", "the prose and the source state bounds at different figures; a bound establishes no value to compare", [candidate.span]);

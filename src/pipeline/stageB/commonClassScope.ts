@@ -8,7 +8,7 @@ import { parseFactPoints } from "@/edgar/xbrl";
 import type { CombinedClassEpsBasis, WeightedShareCounts } from "./securityBasis";
 import { quotePriceObservationDay } from "./priceCurrency";
 
-/** R9: narrowly admit an explicitly combined EPS note with matching filed counts. */
+/** Narrowly admit an explicitly combined EPS note with matching filed counts. */
 export function retainedCombinedClassEpsBasis(bundle: DataBundle, counts: WeightedShareCounts): CombinedClassEpsBasis | null {
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   if (!facts || !counts.periodEnd || counts.basic === null || counts.diluted === null) return null;

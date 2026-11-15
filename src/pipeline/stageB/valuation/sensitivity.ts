@@ -126,7 +126,13 @@ export interface GrowthMarginGrid {
   notes: string[];
 }
 
-/* D-60: Vary year-one growth and target margin while rerunning the full DCF and its domain guards. */
+/**
+ * D-60: the two inputs that decide the value. The WACC × g grid varies the two least decisive
+ * inputs; this one varies year-one growth (the reverse DCF's convergent-shift family, so the shift
+ * is gone by the final explicit year) against a sustained operating-margin shift. A cell whose
+ * margin would exceed the scenario ceiling (gross margin less the leanest operating-expense ratio
+ * on record) above the base path is null, not priced.
+ */
 export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOptions): GrowthMarginGrid {
   const growthShiftsPp = [...GROWTH_GRID_STEPS_PP];
   const marginShiftsPp = [...MARGIN_GRID_STEPS_PP];
@@ -195,7 +201,12 @@ export interface ReverseDcfResult {
   impliedGrowthPathPct?: number[] | null;
   /** Market-implied terminal EBIT margin (pct) — margin-fallback mode. */
   impliedTerminalMarginPct: number | null;
-  /* D-99: An unbracketed reverse solve reports only the bound established by the scan. */
+  /**
+   * D-99 (reverse DCF beyond the range): present only when the growth pre-scan found no root because
+   * the price lies above (or below) the DCF value at every evaluable year-one growth on the grid.
+   * `boundPct` is the grid end the price lies beyond, `perShareAtBound` the value there. No implied
+   * growth is inferred; `basis` states what the grid does establish.
+   */
   /** `rising`: value rises with growth across the whole grid, so the price implies growth beyond the range end. */
   growthOutsideRange?: { side: "above" | "below"; boundPct: number; perShareAtBound: number; rising: boolean; basis: string };
   notes: string[];
@@ -362,7 +373,7 @@ function reverseDcfCore(
   const shiftedPath = (g: number): number[] =>
     assumptions.growthPath.value.map((base, i) => base + (g - baseG1) * shiftWeights[i]);
 
-  /* D-99: An unbracketed reverse solve reports only the bound established by the scan. */
+  // D-99 (reverse DCF beyond the range): what an unbracketed growth scan establishes.
   let growthOutsideRange: ReverseDcfResult["growthOutsideRange"];
 
   const solveGrowth = (): ReverseDcfResult | null => {
@@ -376,7 +387,9 @@ function reverseDcfCore(
     const fs = xs.map(fG);
     const brackets = findBrackets(xs, fs);
     if (brackets.length === 0) {
-      /* D-99: An unbracketed reverse solve reports only the bound established by the scan. */
+      // D-99: with every grid value on one side of the price, the grid does establish something: no
+      // year-one growth in the range reaches the price. The implied rate is still not inferred; only
+      // which end it lies beyond, and only when value rises with growth across the whole grid.
       const values = fs.every((f) => f !== null) ? fs.map((f) => (f as number) + price) : null;
       const side = values === null ? null : values.every((v) => v < price) ? "above" : values.every((v) => v > price) ? "below" : null;
       let reason = `no root bracket for the fading year-one growth anchor on the [${lo}, ${hi}]% pre-scan grid; no outside-range growth is inferred because value may be non-monotone`;
