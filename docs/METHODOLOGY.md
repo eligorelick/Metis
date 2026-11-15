@@ -5,7 +5,7 @@ convention is this project's own choice rather than a standard.
 
 The current source declares report 1.100.0 / payload 1.112.0, Stage B `STAGE_B_2026_11_RELEASE_LEFTOVERS_85` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
-D-308: raw base-unit amounts in reader prose (seven or more whole digits, with or without cents, also at the end of a sentence or clause) print digit-grouped with at most two decimals, by the shared read-time view (`readerBaseUnits`); dates, accessions, hashes and leading-zero identifiers are untouched, the audit export keeps the raw record, and no figure changes. D-309: full support requires every scored grade to have all of its route-applicable evidence and free cash flow after stock-based compensation not to be withheld.
+D-308: raw base-unit amounts in reader prose (seven or more whole digits, with or without cents, also at the end of a sentence or clause) print digit-grouped with at most two decimals, by the shared read-time view (`readerBaseUnits`); dates, accessions, hashes, leading-zero identifiers, 8-digit basic dates and numbers after an identifier word (version, id, CIK number, no., #) are untouched; model-written paragraphs and the statements of an AI-written report are shown as written; the audit export keeps the raw record, and no figure changes. D-309: full support requires every scored grade to have all of its route-applicable evidence and no unexpected data gap on a valuation input or headline figure.
 
 D-304-D-306: a verified number must agree with its record at the shared reader display precision as well as registry precision. ROTE summary and signal rows carry the same model tangible-equity definition as detailed rows. SBC wording states a deduction only where disclosed, and forensic thresholds name quantities in words. Display changes leave calculations and score bands unchanged. Review round 1 requires exact-period filed proof before a negative SBC amount is admitted; an unproved negative quarter withholds trailing SBC and dependent after-SBC figures rather than treating a vendor sign as an issuer credit. Own-history ranks name valuation multiples rather than claiming every fallback is P/E.
 
@@ -8970,7 +8970,11 @@ support" with each limitation in plain words. "Every grade rests on complete rec
 a scored grade below 100% of the evidence that applies on its route (the reliability table's applicable evidence;
 signals and aspects the route does not apply are outside that share) is named with its share, and the typed
 `capital.fcf.sbc` entry (the latest fiscal year's stock-based compensation is not established, so free cash flow after
-it is withheld) is a limitation. No grade, score or letter floor changes. Missing evidence never establishes full support: a grade with no
+it is withheld) is a limitation. Review round 1: any other unexpected manifest entry on a valuation input or headline
+figure (`valuation.*`, `returns.wacc.*`, `capital.fcf.*`, net debt to EBITDA, interest coverage) limits support with
+one plain sentence chosen by its typed field, unless another limitation already names it (a route that does not apply
+the cash-flow model, a withheld or dated fair value, a blocked headline input, the tax-operand or SBC entry). On the
+release panel no report has full support under this rule. No grade, score or letter floor changes. Missing evidence never establishes full support: a grade with no
 recorded qualification, and a saved cash-flow valuation written before the tax-operand entry existed (report stamp
 below 1.98.0), read as limited. The tax-rate operands count as checked when the filed provision and pre-tax income
 replaced the vendor's or the vendor's agree with the reconciled filed earnings family (D-300 review round 1, the
