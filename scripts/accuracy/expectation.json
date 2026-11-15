@@ -1901,6 +1901,1920 @@
       "status": "match",
       "valueSha256": null,
       "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "not-established",
+      "valueSha256": "655eaed67bd4af83",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "not-established",
+      "valueSha256": "388e6c3b4c164b83",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "netIncome.ttm",
+      "status": "not-established",
+      "valueSha256": "e650cb0a04339e73",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "not-established",
+      "valueSha256": "e7eb8ebe51eb40b4",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "capex.ttm",
+      "status": "not-established",
+      "valueSha256": "f7feb530595b9ec7",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "fcf.ttm",
+      "status": "not-established",
+      "valueSha256": "d5aa81750574af7f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "not-established",
+      "valueSha256": "505fefffedc9174f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "ec5a1d9adfad9736",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "fv.startRevenue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "fv.taxRate",
+      "status": "not-established",
+      "valueSha256": "0775a4e2155c538c",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "fv.netDebt",
+      "status": "not-established",
+      "valueSha256": "fa8d085f548d346e",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "not-established",
+      "valueSha256": "5feceb66ffc86f38",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "lly-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "financeLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "fv.startRevenue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "fv.taxRate",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "fv.netDebt",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "wmt-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "revenue.fy",
+      "status": "mismatch",
+      "valueSha256": "c95757f5eef29630",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
+      "cause": "definition",
+      "note": "The report shows sales and other operating revenue; the filed Revenues (10-K 0000034088-26-000045, FY2025, 332,238M) is total revenues and other income, which adds equity-affiliate income and other income."
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "not-established",
+      "valueSha256": "2c7209baff8a353d",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "netIncome.fy",
+      "status": "mismatch",
+      "valueSha256": "d07073074d2d393c",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
+      "cause": "Metis error",
+      "note": "The free-cash-flow series holds consolidated profit by definition (D-212, D-238); the report shows the parent line NetIncomeLoss 28,844M instead of ProfitLoss 29,764M (10-K 0000034088-26-000045, FY2025), so non-controlling interests are left out."
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "not-established",
+      "valueSha256": "381109a25f38602d",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "not-established",
+      "valueSha256": "2c7209baff8a353d",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "netIncome.ttm",
+      "status": "mismatch",
+      "valueSha256": "d07073074d2d393c",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
+      "cause": "Metis error",
+      "note": "As netIncome.fy: the current-capital window shows the parent line NetIncomeLoss where consolidated ProfitLoss 29,764M is defined. The window itself ends at FY2025 because the report read no 2026 quarter (XOM became a successor registrant, CIK 2115436, Form 8-K12B 2026-07-01)."
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "fe0256793660e964",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "fv.startRevenue",
+      "status": "mismatch",
+      "valueSha256": "c95757f5eef29630",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
+      "cause": "definition",
+      "note": "Same as revenue.fy: the DCF starts from sales and other operating revenue, the filed Revenues line is total revenues and other income (10-K 0000034088-26-000045)."
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "fv.taxRate",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "not-established",
+      "valueSha256": "863bd3a42cbeeb1e",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "fv.netDebt",
+      "status": "not-established",
+      "valueSha256": "638aef7d873f7e9e",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "xom-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "mismatch",
+      "valueSha256": "6b59dcfe8911ec16",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
+      "cause": "definition",
+      "note": "The report uses the balance-sheet line LongTermInvestmentsAndReceivablesNet 45,317M (investments, advances and long-term receivables; 10-K 0000034088-26-000045 at 2025-12-31); the recipe reads LongTermInvestments 271M, a narrower element. The line includes receivables, so neither side is a clean investment total."
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "3119c625e35adff6",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "fv.startRevenue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "fv.taxRate",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "fv.netDebt",
+      "status": "not-established",
+      "valueSha256": "d71203f85ddabfe7",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "cat-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "mismatch",
+      "valueSha256": "1c55c87c751617e9",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
+      "cause": "definition",
+      "note": "Equals the filed subtotal CashCashEquivalentsAndShortTermInvestments 13,685M plus current MarketableSecurities 2,910M (10-Q 0001628280-26-067844 at 2026-10-02); the issuer's own subtotal excludes marketable securities."
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "efad367d123f6b0f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "fv.startRevenue",
+      "status": "mismatch",
+      "valueSha256": "f3771330b10bd3cc",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
+      "cause": "definition",
+      "note": "KO's trailing window 2025-09-27..2026-10-02 has 53 weeks; the report rescales the TTM to 52 weeks (filed 51,054M x 52/53), as for MU. No filed value exists for a 52-week window."
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "fv.taxRate",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "fv.netDebt",
+      "status": "not-established",
+      "valueSha256": "e1bfddbba8ddd41e",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "ko-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "mismatch",
+      "valueSha256": "e930f4188ccf84f4",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
+      "cause": "definition",
+      "note": "Equals EquityMethodInvestments 20,710M (10-Q 0001628280-26-067844 at 2026-10-02); the recipe also adds EquitySecuritiesWithoutReadilyDeterminableFairValueAmount 120M from the same filing, which the report does not count."
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "4cc2546b276adfb4",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "fv.startRevenue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "fv.taxRate",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "fv.netDebt",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "mismatch",
+      "valueSha256": "55ab328883427c63",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
+      "cause": "definition",
+      "note": "Equals MinorityInterest 6,033M plus RedeemableNoncontrollingInterestEquityCarryingAmount 1,416M (10-Q 0000731766-26-000266 at 2026-09-30): the report deducts redeemable NCI too; the recipe reads equity NCI only."
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unh-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "1ca7d7f44a477861",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "fv.startRevenue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "fv.taxRate",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "fv.netDebt",
+      "status": "not-established",
+      "valueSha256": "8b7ae462ee4aeb98",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "dis-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "not-established",
+      "valueSha256": "d29f22fa7d30f8d8",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "60f9d02040888b70",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "financeLeases.latest",
+      "status": "not-established",
+      "valueSha256": "5feceb66ffc86f38",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "fv.startRevenue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "fv.taxRate",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "fv.netDebt",
+      "status": "not-established",
+      "valueSha256": "f8a3dd725cf271e3",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "unp-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "not-established",
+      "valueSha256": "dd15b0c9b4c8caa3",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "netIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "capex.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "fcf.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "capex.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "fcf.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "fv.openingBookValue",
+      "status": "not-established",
+      "valueSha256": "0072bcc356f8835b",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "fv.incomeAvailableToCommon",
+      "status": "not-established",
+      "valueSha256": "9e90cdb42b0527eb",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "bac-data-only",
+      "figure": "fv.payoutRatio",
+      "status": "not-established",
+      "valueSha256": "9edf9df6415115b5",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "netIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "capex.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "fcf.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "capex.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "fcf.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "fv.openingBookValue",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "fv.incomeAvailableToCommon",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "met-data-only",
+      "figure": "fv.payoutRatio",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "capex.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "fcf.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "capex.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "fcf.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "mismatch",
+      "valueSha256": "4b5e7fa3c108fa18",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
+      "cause": "vendor value shown",
+      "note": "Equals CashAndCashEquivalentsAtCarryingValue 2,273.497M alone; the 10-Q 0001193125-26-436160 also tags ShortTermInvestments 1,000M at 2026-09-30 (decimals -8, with a matching 2026 purchase of short-term investments), which the report leaves out. Needs a look: if the line is on the balance sheet, the report omits it."
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "fv.ffo.netIncome",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "fv.ffo.depreciationAmortization",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "fv.ffo.gainsOnSale",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "fv.ffo.impairments",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "pld-data-only",
+      "figure": "fv.ffo.shares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "capex.fy",
+      "status": "mismatch",
+      "valueSha256": "5405770ccfa434bc",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
+      "cause": "definition",
+      "note": "Equals PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities 60,140M plus PurchaseOfIntangibleAssetsClassifiedAsInvestingActivities 29,973M (20-F 0000353278-26-000012, FY2025), as for TSM; the recipe reads PP&E purchases only."
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "fcf.fy",
+      "status": "mismatch",
+      "valueSha256": "a4c256c09e26d745",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
+      "cause": "definition",
+      "note": "Follows capital spending: filed operating cash flow 119,102M less PP&E and intangible purchases (20-F 0000353278-26-000012)."
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "not-established",
+      "valueSha256": "b8a758fb75947778",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "not-established",
+      "valueSha256": "4e78a5f46b07ba57",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "capex.ttm",
+      "status": "not-established",
+      "valueSha256": "c69c17ebc99ab95e",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "fcf.ttm",
+      "status": "not-established",
+      "valueSha256": "b78e3df08d092d91",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "not-established",
+      "valueSha256": "a589a56e7dddfb8c",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "bdefe273eaacab4d",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "fv.startRevenue",
+      "status": "not-established",
+      "valueSha256": "d4084ce62f6501f3",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "fv.taxRate",
+      "status": "not-established",
+      "valueSha256": "ad6afbfaff40dc39",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "not-established",
+      "valueSha256": "b940f8dced3bd70d",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "fv.netDebt",
+      "status": "not-established",
+      "valueSha256": "a582720f31798553",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "not-established",
+      "valueSha256": "5feceb66ffc86f38",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "fv.preferred",
+      "status": "not-established",
+      "valueSha256": "5feceb66ffc86f38",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
+    },
+    {
+      "case": "nvo-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)"
     }
   ]
 }

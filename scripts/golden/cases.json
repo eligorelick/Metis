@@ -1,5 +1,5 @@
 {
-  "about": "Same-report harness cases (scripts/golden). Inputs stay in the local application database and are never committed: this file lists only their SHA-256 identities. The snapshot hash is the run_input_snapshots content digest; analystOutput pins one stored synthesize artifact by job, generation, attempt and the SHA-256 of its stored outcome JSON. A case without analystOutput builds the data-only report (no AI). JPM (bank), PGR (insurer), O (equity REIT), DUK (regulated utility), TSM (Form 20-F filer), RIVN (loss-making with revenue) and VKTX (pre-revenue) are data-only captures in the check database; see docs/OPERATIONS.md.",
+  "about": "Same-report harness cases (scripts/golden). Inputs stay in the local application database and are never committed: this file lists only their SHA-256 identities. The snapshot hash is the run_input_snapshots content digest; analystOutput pins one stored synthesize artifact by job, generation, attempt and the SHA-256 of its stored outcome JSON. A case without analystOutput builds the data-only report (no AI). JPM (bank), PGR (insurer), O (equity REIT), DUK (regulated utility), TSM (Form 20-F filer), RIVN (loss-making with revenue) and VKTX (pre-revenue) are data-only captures in the check database, as are the twelve release-panel cases LLY, WMT, XOM, CAT, KO, UNH, DIS, UNP, BAC (bank), MET (insurer), PLD (REIT) and NVO (Form 20-F filer, DKK); see docs/OPERATIONS.md.",
   "cases": [
     { "id": "amzn-data-only", "snapshot": "868c3fcda60c41eaeada8b6de02e8e0d77ab000ed4f90913e9eb5e28c541acc9" },
     { "id": "figr-data-only", "snapshot": "b56ff3d235c81c71c176b5646af36b5d2212f1a458e06318ba49d0e018ef8b2a" },
@@ -14,6 +14,18 @@
     { "id": "tsm-data-only", "snapshot": "10d5dda40d3b0dd9a40783f2538d7a268aef1464d710b32654bf43f89eeb91d2" },
     { "id": "rivn-data-only", "snapshot": "a1cea2e063527600198059270d60b6c1b2c47a80de3fb65dfc627640b0a1a913" },
     { "id": "vktx-data-only", "snapshot": "20c1f991001b5f00467ba8085a39d86b047e5206dd824bcedff266bf8ad8368b" },
+    { "id": "lly-data-only", "snapshot": "82f8d16f8d2e0ed4a673f9891e7c9d3324369df07dd3ffb52e58a711cfa7a8cb" },
+    { "id": "wmt-data-only", "snapshot": "264b0491d6e3d2e9ac4bf338b0b84378bd0db89b1b5b71979936e4b0151f114a" },
+    { "id": "xom-data-only", "snapshot": "2ebe7023debe77c9a700e1641d24693aa65a84f3e67a6b4e2ad72ae16729ec40" },
+    { "id": "cat-data-only", "snapshot": "1fac631be669ab625db563cc005e0966225a17eba728fbdac108967ab8867f90" },
+    { "id": "ko-data-only", "snapshot": "6576ba2d4797f4459a171cfcc06fb05c88d73ed4628eead194a84e200cbda9e9" },
+    { "id": "unh-data-only", "snapshot": "b198996742b691c7f0d06c9ea3391bb75b07356105ed8269ed1733be54362efc" },
+    { "id": "dis-data-only", "snapshot": "7656c74fab9cbcce79b9155aa81af323afb2ba57a1782477b1159934f692b7ee" },
+    { "id": "unp-data-only", "snapshot": "aaee83bd81c051a24d35366061a5fb05ea6a60b4ab9b258021163f2507296892" },
+    { "id": "bac-data-only", "snapshot": "d24eaee7b40fad9b95a978d65fa969d222d4ead114f057b8cdb4ca8e9cd35998" },
+    { "id": "met-data-only", "snapshot": "9744d4f0e40b278f3ed91b8af28f9551fc6007cd3bbc2667ea79ab9605ea5fcd" },
+    { "id": "pld-data-only", "snapshot": "7ed01f82c03dc3f27dcbbecfdc9bb65167519b34be51c1a3f53534d70d347f15" },
+    { "id": "nvo-data-only", "snapshot": "7295b1d483947daefd7776d96c93d6d24445e1cc0c2f88da7b139411ea55fb62" },
     {
       "id": "amzn-fixed-analyst",
       "snapshot": "868c3fcda60c41eaeada8b6de02e8e0d77ab000ed4f90913e9eb5e28c541acc9",

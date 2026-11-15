@@ -576,7 +576,7 @@ Core coverage holds every Stage B and report-schema file to 85/75/85/85 (stateme
 
 ## Same-report check before a refactor
 
-`npm run golden:run` and `npm run golden:diff` show whether a code change leaves reports identical. They rebuild seventeen stored cases offline and compare two commits' output byte for byte: thirteen companies with saved run inputs. Each company gets a data-only report, and AMZN, META, MU and NVDA also get a report from their stored analyst output. For every case the harness pins the Stage B output, the Stage C payload and its fingerprint, the report JSON, the Markdown, print and audit Markdown exports, and the web page (the dossier layout) rendered from the saved-report reader. `scripts/golden/cases.json` lists the inputs by SHA-256 only.
+`npm run golden:run` and `npm run golden:diff` show whether a code change leaves reports identical. They rebuild twenty-nine stored cases offline and compare two commits' output byte for byte: twenty-five companies with saved run inputs (the release panel). Each company gets a data-only report, and AMZN, META, MU and NVDA also get a report from their stored analyst output. For every case the harness pins the Stage B output, the Stage C payload and its fingerprint, the report JSON, the Markdown, print and audit Markdown exports, and the web page (the dossier layout) rendered from the saved-report reader. `scripts/golden/cases.json` lists the inputs by SHA-256 only.
 
 ```powershell
 npm run golden:run -- --ref main --out tmp/golden/before
@@ -596,16 +596,17 @@ Which company covers which kind of report (the route and overlays are the ones `
 | Case | Kind | Route and overlays |
 | --- | --- | --- |
 | AMZN, META, MU, NVDA, QCOM | Ordinary US companies | general |
+| LLY, WMT, XOM, CAT, KO, UNH, DIS, UNP | Ordinary US companies across industries (pharma, retail, energy, industrials, staples, managed care, media, rail) | general |
 | FIGR | Recent IPO | general + recent-ipo |
-| JPM | Bank | bank |
-| PGR | Insurer | insurer |
-| O | Equity REIT | reit |
+| JPM, BAC | Bank | bank |
+| PGR, MET | Insurer (property and casualty; life) | insurer |
+| O, PLD | Equity REIT (net lease; industrial) | reit |
 | DUK | Regulated utility | general + regulated-utility |
-| TSM | Foreign filer (Form 20-F, ADR) | general + adr |
+| TSM, NVO | Foreign filer (Form 20-F, ADR; TSM in TWD, NVO in DKK, both IFRS) | general + adr |
 | RIVN | Loss-making company with revenue | general + unprofitable |
 | VKTX | Pre-revenue company (no revenue in any period) | general + unprofitable + pre-revenue |
 
-**The check database.** The seven newer cases (JPM to VKTX) were captured on 2026-11-12 into the check database (TSM was captured again on 2026-11-14 so its evidence includes the 2025 Form 20-F, D-275) at `%USERPROFILE%\metis-check\check.db`. It is a copy of a backup of the app database, kept only for this check. Captures never open or write the app's real database (under `%LOCALAPPDATA%`). Without `--db`, `golden:run` reads that real database (read-only) for any input not yet cached, so pass `--db` to use the check database instead. The older ten cases' inputs are in it too, so `--db "%USERPROFILE%\metis-check\check.db"` exports all seventeen.
+**The check database.** The seven newer cases (JPM to VKTX) were captured on 2026-11-12 into the check database (TSM was captured again on 2026-11-14 so its evidence includes the 2025 Form 20-F, D-275) at `%USERPROFILE%\metis-check\check.db`. It is a copy of a backup of the app database, kept only for this check. Captures never open or write the app's real database (under `%LOCALAPPDATA%`). Without `--db`, `golden:run` reads that real database (read-only) for any input not yet cached, so pass `--db` to use the check database instead. The older ten cases' inputs are in it too, so `--db "%USERPROFILE%\metis-check\check.db"` exports them all. The twelve release-panel cases (LLY to NVO) were captured on 2026-11-14 the same way, data-only at zero cost, after a backup of the check database (`check.db.pre-release.bak`). XOM's filings moved to a successor registrant (CIK 2115436, Form 8-K12B filed 2026-07-01); its report reads the XBRL history of the predecessor (CIK 34088), which is also the CIK its accuracy reference uses.
 
 To add a case:
 
