@@ -52,7 +52,9 @@ when the fair value is withheld or dated, and the dated reverse DCF or roll-forw
 valuation, grade or score changes. The demo fixture carries one synthetic `valuation.cet1Ratio` gap, which now limits
 support by itself (a new test pins that); the existing D-300 tests that mean "no other limitation" remove only that
 entry, and two wording controls on `valuation.dcf.note` and `capital.fcf.note` now assert the exact limitation list
-(the decoy wording is still not read as the tax-operand or SBC entry; a non-headline field stays full).
+(the decoy wording is still not read as the tax-operand or SBC entry; a non-headline field stays full). The exact-export digest in
+`tests/stageC.multiClaimReasoning.test.ts` now asserts that phrase once on Markdown and print and removes it before hashing,
+as it already does for the D-256 and D-282 lines; the pinned digests are unchanged.
 
 **Panel (same-report check, main `90c232c5`, 33 cases).** Before (main): Full support for AMZN (both), DIS, NVDA (both)
 and WMT. After: **no case has full support**; all 33 are Limited. Lines added to each case (all earlier reasons
