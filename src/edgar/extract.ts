@@ -1,32 +1,32 @@
 /**
  * 10-K / 10-Q section extraction — the 4-layer algorithm.
  *
- * Research basis (live-verified across AAPL, JPM, BAC, WFC, C, MXC, FRD,
- * Seneca; failure modes F1–F25):
+ * Research basis (live-verified across large-bank, technology and small-filer
+ * 10-Ks, including cross-reference-index and EX-13 exhibit layouts):
  *   - the EDGAR extraction contract
  *   - the EDGAR extraction contract (layered decision rule)
- *   - the bank-filing extraction contract (bank modes, F15–F25)
+ *   - the bank-filing extraction contract (bank modes)
  *
  * Layers:
- *   0. Citi mode — zero item headers anywhere; FORM 10-K CROSS-REFERENCE INDEX
+ *   0. Cross-reference-index mode (`layer0Citi`) — zero item headers anywhere; FORM 10-K CROSS-REFERENCE INDEX
  *      maps items → page ranges (possibly NON-contiguous); slice via the
- *      contents TOC whose link text is the page number (F20/F21).
+ *      contents TOC whose link text is the page number.
  *   1. Row-scoped TOC-anchor slicing — merge fragmented adjacent same-href <a>
- *      runs (F1), dedupe shared targets (F2), bind item-number cell to the row
- *      title link (F3); targets may be <div id>, <span id> or <a name>.
+ *      runs, dedupe shared targets, bind item-number cell to the row
+ *      title link; targets may be <div id>, <span id> or <a name>.
  *   2. Hardened header regex on stripped text — optional interposed run before
- *      the title (BAC F15), cross-reference rejection (F7/F7b/F16), monotonic
+ *      the title, cross-reference rejection, monotonic
  *      item ordering; LAST surviving match.
  *   3. MANDATORY stub detector (<2,500 chars OR incorporation phrasing in the
- *      first 400 chars) with redirects: same-doc mini-TOC (JPM), exhibit
- *      redirect signal targeting EX-13* (WFC/FRD; MD&A synonym "Financial
+ *      first 400 chars) with redirects: same-doc mini-TOC (bank layout), exhibit
+ *      redirect signal targeting EX-13* (bank and small-filer layouts; MD&A synonym "Financial
  *      Review"; quoted section names parsed from the stub), 10-Q Part II
  *      Item 1A → unchanged-from-10-K marker.
  *   4. Loud hard-fail — a stub is NEVER returned silently.
  *
  * This module is pure (no network). Exhibit redirects surface as a typed
  * error carrying everything the caller needs to fetch the EX-13 sibling via
- * providers/edgar.ts (filingIndexHeaders TYPE map — never filename/size, F17)
+ * providers/edgar.ts (filingIndexHeaders TYPE map — never filename/size)
  * and finish with extractFromExhibit().
  */
 
@@ -213,7 +213,7 @@ function safeFromCodePoint(cp: number, fallback: string): string {
 }
 
 /**
- * Remove iXBRL hidden content BEFORE any char counting (F13): <ix:header> /
+ * Remove iXBRL hidden content BEFORE any char counting: <ix:header> /
  * <ix:hidden> blocks and inline style="display:none" elements (balanced scan;
  * self-closing tags handled).
  */
@@ -335,8 +335,8 @@ export interface MergedAnchor {
 }
 
 /**
- * Collect <a href="#..."> anchors, merging ADJACENT same-target runs (F1:
- * Workiva fragments one logical link across several <a> elements). Runs are
+ * Collect <a href="#..."> anchors, merging ADJACENT same-target runs (a
+ * filing tool fragments one logical link across several <a> elements). Runs are
  * merged only when the gap contains no visible text and no cell boundary, so
  * separate item-number/title links in different cells stay distinct.
  */
@@ -354,7 +354,7 @@ export function mergedAnchors(html: string): MergedAnchor[] {
     if (prev !== null && prev.target === a.target && lastEnd >= 0) {
       // True fragmentation ("Item 1" + "C" + ".") has NOTHING between the <a>
       // elements — no text, no entities, no cell boundary. Separate item/title
-      // links to the same target (JPM main TOC) sit in different cells or have
+      // links to the same target (a bank's main TOC) sit in different cells or have
       // spacing text between them, so they stay distinct.
       const gap = html.slice(lastEnd, a.index);
       const gapClean = gap.replace(/<[^>]*>/g, "");
@@ -391,7 +391,7 @@ export interface TocEntry {
   part: 1 | 2 | null;
   /** Raw-HTML position of the row (or anchor for standalone entries). */
   rowIndex: number;
-  /** Printed page number when the row exposes one (Citi/WFC-style TOCs). */
+  /** Printed page number when the row exposes one (cross-reference and bank TOCs). */
   pageNo?: number;
 }
 
@@ -410,11 +410,11 @@ function partFromMarker(s: string): 1 | 2 | null {
 }
 
 /**
- * Row-scoped TOC parse (F2/F3/F21): one entry per distinct anchor in a row;
+ * Row-scoped TOC parse: one entry per distinct anchor in a row;
  * the item-number cell binds to the row's first anchor; titles come from the
  * anchor text or the nearest non-numeric cell; page numbers from numeric link
  * text or numeric cells. A whole-document pass over item-numbered anchor text
- * (AAPL style) fills anything rows missed.
+ * (TOC links outside table rows) fills anything rows missed.
  */
 export function parseTocEntries(html: string): TocEntry[] {
   const entries: TocEntry[] = [];
@@ -430,7 +430,7 @@ export function parseTocEntries(html: string): TocEntry[] {
     if (!quickAnchor && !quickPart) continue;
 
     // Cells with their raw-HTML spans so anchors can be bound by ADJACENCY —
-    // one <tr> may carry several TOC entries and cell order varies (F21).
+    // one <tr> may carry several TOC entries and cell order varies.
     const cells: { start: number; end: number; text: string }[] = [];
     const cellRe = /<t[dh]\b[^>]*\/>|<t[dh]\b[^>]*>[\s\S]*?<\/t[dh]>/gi;
     let c: RegExpExecArray | null;
@@ -498,7 +498,7 @@ export function parseTocEntries(html: string): TocEntry[] {
     }
   }
 
-  // Whole-document standalone pass (AAPL-style TOC links, fragmented runs).
+  // Whole-document standalone pass (TOC links outside rows, fragmented runs).
   const cap = Math.max(200_000, Math.floor(html.length * 0.4));
   const all = mergedAnchors(html.slice(0, cap));
   const haveItems = new Set(entries.filter((e) => e.item !== undefined).map((e) => `${e.item}|${e.part ?? ""}`));
@@ -708,8 +708,8 @@ function layer1Slice(html: string, entries: TocEntry[], spec: SectionSpec, notes
     }
     if (candidate !== undefined) {
       const start = pos.get(candidate.target) as number;
-      // Boundary: next ITEM entry at a strictly greater anchor position (F2:
-      // duplicate targets collapse; next *distinct* anchor bounds the slice).
+      // Boundary: next ITEM entry at a strictly greater anchor position
+      // (duplicate targets collapse; next *distinct* anchor bounds the slice).
       let end = html.length;
       for (const e of itemEntries) {
         const p = pos.get(e.target);
@@ -721,7 +721,7 @@ function layer1Slice(html: string, entries: TocEntry[], spec: SectionSpec, notes
     }
   }
 
-  // Title-only TOC variant (MXC): no item-numbered links anywhere.
+  // Title-only TOC variant: no item-numbered links anywhere.
   const kind = specKind(spec);
   const titleEntries = entries.filter((e) => e.item === undefined && e.title !== "");
   const candidates = titleEntries.filter((e) => titleMatchesKind(e.title, kind) && (pos.get(e.target) ?? -1) >= 0);
@@ -801,12 +801,12 @@ function itemIdHeaderPattern(id: string): string {
 
 const REJECT_BEFORE_RE = /(see|refer(?:s|red)?[\s]+to|described[\s]+in|discussed[\s]+in|under|in[\s]+part[\s]+[ivx\d])[\s]*["“”'(‘’]*[\s]*$/i;
 // NOTE: stub markers ("can be found in", "incorporated by reference") are
-// deliberately NOT candidate rejecters — they follow REAL headers on WFC/FRD
+// deliberately NOT candidate rejecters — they follow REAL headers on EX-13
 // wrapper stubs, and rejecting those would leave zero candidates and skip the
 // exhibit-redirect path. They are handled by the Layer-3 stub detector.
 // "above|below" gets a TIGHT window: cross-references put it immediately after
-// the quoted title (MXC: «"Item 1A. Risk Factors" above»), while real headers
-// can legitimately say "The discussion below addresses..." (BAC F16) further out.
+// the quoted title («"Item 1A. Risk Factors" above»), while real headers
+// can legitimately say "The discussion below addresses..." further out.
 // Bound to the ITEM REFERENCE, not to a 100-character prose window. A
 // cross-reference attaches these words directly to the reference — «"Item 1A.
 // Risk Factors" in this Annual Report», «see Item 1A. Risk Factors for a
@@ -826,8 +826,8 @@ const REJECT_AFTER_60_RE = /^[\s\S]{0,60}?\bon[\s]+page[s]?[\s]+\d/i;
 
 /**
  * Find surviving header candidates for one item on stripped text.
- * Pattern: Item <N>[.:]? + optional interposed run ≤120 chars (F15) + title.
- * Rejects cross-reference contexts (F7/F7b/F16).
+ * Pattern: Item <N>[.:]? + optional interposed run ≤120 chars + title.
+ * Rejects cross-reference contexts.
  */
 export function findHeaderCandidates(fullText: string, def: ItemDefLike, windowStart = 0, windowEnd = Number.MAX_SAFE_INTEGER, boundary = false): HeaderCandidate[] {
   const re = new RegExp(`\\bItem[\\s]+${itemIdHeaderPattern(def.id)}\\b[.:]?[\\s\\S]{0,120}?(?:${def.title.source})`, "gi");
@@ -917,7 +917,7 @@ function layer2Slice(fullText: string, spec: SectionSpec, notes: string[], requi
 /** Unlettered 20-F risk factors require standalone Item 3/4 boundaries. */
 function unletteredTwentyFRisk(pre: string, fullText: string): string | null {
   // Preserve block evidence: prose references are not headings. Inline
-  // formatting may split words (including TSMC's nested spans).
+  // formatting may split words (including nested spans).
   const inline = String.raw`(?:\s|&(?:#\d+|#x[\da-f]+|nbsp);|<\/?(?:span|b|strong|em|i)\b[^>]*>)*`;
   const standalone = (title: string): number[] => {
     const pattern = title.split(" ").join(inline);
@@ -1274,7 +1274,7 @@ const NOT_REQUIRED_RE =
 const UNCHANGED_10K_RE = /refer[\s]+to[\s\S]{0,220}?(?:form[\s]+10-?k|annual[\s]+report[\s]+on[\s]+form[\s]+10-?k)|no[\s]+material[\s]+changes[\s\S]{0,220}?10-?k/i;
 const EXHIBIT_PHRASE_RE = /annual[\s]+report[\s]+to[\s]+(?:share|stock)holders|exhibit[\s]+13|(?:attached|included)[\s]+as[\s]+exhibit/i;
 
-/** Section titles quoted inside a stub (WFC names its EX-13 target "Financial Review"). */
+/** Section titles quoted inside a stub (a bank names its EX-13 target "Financial Review"). */
 export function parseQuotedTitles(stub: string): string[] {
   const out: string[] = [];
   // Pair each quote style with its own closer. A single character class for all
@@ -1296,10 +1296,10 @@ export function parseQuotedTitles(stub: string): string[] {
 }
 
 /**
- * Same-doc redirect (JPM bank mode): find the annual-report contents TOC entry
+ * Same-doc redirect (bank mode): find the annual-report contents TOC entry
  * whose TITLE matches the section, slice its anchor → the next major-boundary
  * entry's anchor. The bare title also appears 50+ times as a running page
- * header — never bound by title occurrence, only by TOC anchors (F12).
+ * header — never bound by title occurrence, only by TOC anchors.
  */
 function tryMiniTocRedirect(
   html: string,
@@ -1358,7 +1358,7 @@ function tryMiniTocRedirect(
 }
 
 /**
- * JPM-style filings can embed the full annual report after the short Item 7
+ * Some bank filings embed the full annual report after the short Item 7
  * wrapper without an anchorable mini-TOC. The annual-report pages repeat a
  * "Form 10-K <page> Management's discussion and analysis" header, which is a
  * stronger redirect signal than a bare title occurrence. Bound the slice at
@@ -1390,7 +1390,7 @@ function tryAnnualReportPageHeaderRedirect(
 }
 
 // ---------------------------------------------------------------------------
-// Layer 0 — Citi cross-reference-index mode
+// Layer 0 — cross-reference-index mode
 // ---------------------------------------------------------------------------
 
 export interface CrossRefEntry {
@@ -1419,7 +1419,7 @@ function parsePageRanges(s: string): [number, number][] {
 /**
  * Parse the FORM 10-K CROSS-REFERENCE INDEX (item cells like "7." + title cell
  * + page-range cell, ranges possibly continued on following rows; rows carry
- * NO anchors) — F20.
+ * NO anchors).
  */
 export function parseCrossRefIndex(html: string): CrossRefEntry[] {
   // Scope row scanning to the region after the index heading so page-range-like
@@ -1480,7 +1480,7 @@ function layer0Citi(
   if (entry.notApplicable) return { notRequired: true };
   if (entry.pages.length === 0) return null;
 
-  // Contents-TOC entries: title + page number + anchor (Citi: page number is the link text).
+  // Contents-TOC entries: title + page number + anchor (in this mode the page number is the link text).
   const paged = entries.filter((e) => e.pageNo !== undefined && e.title !== "");
   if (paged.length === 0) return null;
   const pos = anchorPositions(html, paged);
@@ -1588,9 +1588,9 @@ function extractItemSection(html: string, spec: SectionSpec, opts: ExtractOption
   let startTarget: string | undefined;
   let zeroCandidates = true;
 
-  // Layer 0 FIRST for Citi-mode documents: zero item-numbered TOC entries plus
-  // a FORM 10-K CROSS-REFERENCE INDEX (F20). This must precede the title-only
-  // Layer-1 variant, because on Citi that variant would silently return a
+  // Layer 0 FIRST for cross-reference-index documents: zero item-numbered TOC entries plus
+  // a FORM 10-K CROSS-REFERENCE INDEX. This must precede the title-only
+  // Layer-1 variant, because on them that variant would silently return a
   // PARTIAL Item 7 (the cross-reference index maps it to NON-contiguous page
   // ranges that only layer 0 can assemble).
   const hasItemEntries = entries.some((e) => e.item !== undefined);
@@ -1678,12 +1678,12 @@ function extractItemSection(html: string, spec: SectionSpec, opts: ExtractOption
     return { ok: true, text: sectionText, method: "unchanged-from-10k", chars: sectionText.length, marker: "unchanged_from_10k", diagnostics };
   }
 
-  // "Not required." / "None." bodies (F10) — legitimate absence, disclosed loudly.
+  // "Not required." / "None." bodies — legitimate absence, disclosed loudly.
   if (sectionText.length < 600 && NOT_REQUIRED_RE.test(sectionText)) {
     return fail(diagnostics, new ExtractionError("not_required", `Item ${spec.item} body is "${sectionText.slice(-80).trim()}" — not required for this filer`));
   }
 
-  // 3a — same-doc mini-TOC redirect (JPM).
+  // 3a — same-doc mini-TOC redirect (bank layout).
   layersTried.push("layer3a-mini-toc");
   const exclude = new Set<string>(startTarget !== undefined ? [startTarget] : []);
   const redirected = tryMiniTocRedirect(pre, entries, specKind(spec), exclude, minChars, notes);
@@ -1704,8 +1704,8 @@ function extractItemSection(html: string, spec: SectionSpec, opts: ExtractOption
     }
   }
 
-  // 3b — exhibit redirect signal (FRD/WFC/Seneca). Caller resolves EX-13 via
-  // the index-headers TYPE map and calls extractFromExhibit().
+  // 3b: exhibit redirect signal. The caller resolves EX-13 via the index-headers
+  // TYPE map and calls extractFromExhibit().
   if (EXHIBIT_PHRASE_RE.test(sectionText)) {
     layersTried.push("layer3b-exhibit-redirect");
     const quoted = parseQuotedTitles(sectionText);
@@ -2187,7 +2187,7 @@ function recoverAnnualSection(
   }
   const headings = elements.filter(n => !n.hidden && !n.blockChild && /^(?:h[1-6]|p|div)$/.test(n.tag) &&
     !ancestor(n, "table") && !ancestor(n, "a"));
-  // Sony's item title is a two-cell, one-row layout table. A multirow TOC or
+  // One filer's item title is a two-cell, one-row layout table. A multirow TOC or
   // index cannot confer heading proof, nor can any row with a hyperlink.
   const layoutTitles = rows.filter(n => {
     const table = ancestor(n, "table");
@@ -2229,8 +2229,8 @@ function recoverAnnualSection(
   const itemHeads = [...headings, ...layoutTitles].map(n => ({ n, id: itemHeading(n) })).filter(h => h.id !== null)
     .sort((a, b) => a.n.start - b.n.start);
   // End proof needs an item number, not an exact SEC title; it can never
-  // establish a section start. It is deliberately broader than start proof (PR
-  // #88 review): a later item's heading ends the section whether a period, colon
+  // establish a section start. It is deliberately broader than start proof
+  // (D-185): a later item's heading ends the section whether a period, colon
   // or dash follows its number ("Item 1A: Risk Factors", "ITEM 1A—RISK FACTORS"),
   // whether or not a name anchor (not a link) wraps it, however a table row
   // splits it across one to four cells ("Item | 1A. | Risk Factors."), in a list
@@ -2246,7 +2246,7 @@ function recoverAnnualSection(
   const boundaryItem = (n: AppendixElement): { id: string; title: string } | null => linked(n) ? null : parseBoundary(nodeText(n));
   // A paragraph that opens with a later item's reference ("Item 1A. Risk Factors
   // below discusses ...", "Item 1A of this report describes ...") is prose, not
-  // that item's heading (PR #88 review). It is the item's standard title followed
+  // that item's heading (D-185). It is the item's standard title followed
   // by lowercase words, or text opening in lowercase. A variant or nonstandard
   // title, or a standard title with a parenthetical, still ends the section. The
   // exact standard title ends it in any capitalization ("Item 1A. risk factors.").
@@ -2308,7 +2308,7 @@ function recoverAnnualSection(
     if (idx >= 0 && starts.length === 1) {
       const start = starts[0]!.n;
       // Element ends are exclusive: a next-item heading that starts exactly where
-      // this one ends bounds an empty section; it must not be passed over (PR #88 review).
+      // this one ends bounds an empty section; it must not be passed over (D-185).
       const end = boundaries.find(h => h.n.start >= start.end && seq.slice(idx + 1).some(d => d.id === h.id));
       if (end) {
         const result = accept(text(start.start, end.n.start), "structured-item", "closed standalone item headings bound the complete item, including subsections");
@@ -2349,7 +2349,7 @@ function recoverAnnualSection(
       const nearHeading = (id: string, title: string) => {
         const dest = target(id);
         if (!dest) return null;
-        // A line holding a hyperlink is contents, not a chapter heading (PR #88 review).
+        // A line holding a hyperlink is contents, not a chapter heading (D-185).
         const found = headings.filter(h => key(nodeText(h)) === key(title) && Math.abs(h.start - dest.start) < 2_000 &&
           !/<a\b[^>]*\bhref\s*=/i.test(pre.slice(h.start, h.end)) &&
           (h.end <= dest.start ? text(h.end, dest.start) === "" : h.start >= dest.start && text(dest.start, h.start) === ""));
@@ -3094,10 +3094,10 @@ export interface ExhibitExtractOptions {
 
 /**
  * Extract a section from an EX-13 / annual-report exhibit document.
- * Route 1: title-based row-scoped TOC slicing (WFC EX-13 — cell order varies,
- * page number may be the link text, F21).
+ * Route 1: title-based row-scoped TOC slicing (a bank EX-13 — cell order varies,
+ * page number may be the link text).
  * Route 2: title-only heading match on stripped text — FIRST ALL-CAPS/heading
- * occurrence (FRD; decoy titles appear AFTER the real header there), sliced to
+ * occurrence (decoy titles can appear AFTER the real header), sliced to
  * the next major heading or EOF.
  */
 export function extractFromExhibit(exhibitHtml: string, opts: ExhibitExtractOptions): ExtractResult {

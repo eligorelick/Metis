@@ -110,7 +110,7 @@ function conversionRollforward(text: string, names: readonly string[]): Conversi
 }
 
 /**
- * N2: a deliberately narrow alternative to the inline cover layouts.
+ * D-149: a deliberately narrow alternative to the inline cover layouts.
  * A primary balance sheet explicitly counts every equally participating class
  * at its report date, in unscaled shares; the SAME filing states their current
  * identical dividend/liquidation rights. Names, voting rights and conversion
@@ -173,7 +173,7 @@ function retainedStatementEconomicEvidence(bundle: DataBundle): EconomicShareEvi
   if (names.length < 2 || new Set(names).size !== names.length || !names.includes(quoteLabels[0]!)) return existing;
   // A plain or otherwise unsupported common-stock count is not silently lost.
   if ((equity.match(/\bcommon stock\b/gi) ?? []).length !== names.length) return existing;
-  // L1: independently parsed cover observations must bijectively name the
+  // D-154: independently parsed cover observations must bijectively name the
   // same filing's balance-sheet classes; an unknown or missing member refuses.
   const inventories = (bundle.edgar.economicShareInventory ?? []).filter(s => s.source.filingDate === d.filingDate && s.source.documentUrl === d.documentUrl);
   const cover = inventories.flatMap(s => s.observations ?? []).filter(o => o.asOf > d.reportDate);

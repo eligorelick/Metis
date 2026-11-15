@@ -4,8 +4,8 @@
  * Every concept chain in src/edgar/statements.ts reads its tag list from this
  * table, so a taxonomy review has one place to look and one stamp to update.
  * Order matters: within a line item the first tag present for the period wins,
- * unless it is below a component the line item declares (`unlessBelow`, audit
- * 2026-10-27 FIN-510): a synonym below its own filed component is a subset line,
+ * unless it is below a component the line item declares (`unlessBelow`,
+ * D-134): a synonym below its own filed component is a subset line,
  * not the total, so the next synonym is tried. Floors compare the same period
  * only. `DepreciationDepletionAndAmortization` is additionally floored by
  * `DepreciationAndAmortization` (`unlessBelowTag`), never the reverse.
@@ -15,7 +15,7 @@
  * live taxonomy fetch — the same names resolved at live issuers during the
  * 21-issuer keyless sweep of 2026-09-02). The preferred-stock carrying-value
  * elements and the intangible-asset parts were added on 2026-10-13 and
- * checked against JPM's live companyfacts (D-42). `InterestExpense` was deprecated by
+ * checked against a large bank's live companyfacts (D-42). `InterestExpense` was deprecated by
  * the 2024 taxonomy in favour of `InterestExpenseNonoperating` and
  * `InterestExpenseOperating`; it stays in the chain because filers on older
  * taxonomy versions still tag it.
@@ -104,7 +104,7 @@ export const PRETAX_EXCLUDING_EQUITY_METHOD_TAG =
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments";
 
 /**
- * FIN-401: total costs and expenses, read only to test whether revenue less
+ * D-147: total costs and expenses, read only to test whether revenue less
  * costs reconciles to a pretax base that excludes equity-method income (the
  * equity-method result then sits inside revenue). Never a chain line item.
  */
@@ -113,7 +113,7 @@ export const COSTS_AND_EXPENSES_TAG = "CostsAndExpenses";
 export const TOTAL_INCOME_EXPENSE_TAGS = [COSTS_AND_EXPENSES_TAG, "BenefitsLossesAndExpenses"] as const;
 /** Nonservice benefit expense is a filed nonoperating adjustment, not a tolerance. */
 export const NONSERVICE_BENEFIT_EXPENSE_TAG = "NetPeriodicDefinedBenefitsExpenseReversalOfExpenseExcludingServiceCostComponent";
-/** Direct consolidated totals eligible for an N3/N4b whole-row switch. */
+/** Direct consolidated totals eligible for a D-151/D-155 whole-row switch. */
 export const FILED_REVENUE_TOTAL_TAGS = ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet"] as const;
 
 export const INCOME_BEFORE_TAX_TAGS: readonly string[] = [
@@ -123,8 +123,8 @@ export const INCOME_BEFORE_TAX_TAGS: readonly string[] = [
 
 /**
  * The two children of the pretax total in the taxonomy's calculation
- * (domestic + foreign). Some filers tag only these in the tax note; Oracle's
- * FY2026 10-K is one (audit 2026-10-22 B-32).
+ * (domestic + foreign). Some filers tag only these in the tax note
+ * (D-103).
  */
 export const INCOME_BEFORE_TAX_COMPONENT_TAGS: readonly string[] = [
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesDomestic",
@@ -133,8 +133,7 @@ export const INCOME_BEFORE_TAX_COMPONENT_TAGS: readonly string[] = [
 
 /**
  * Depreciation and intangibles amortization as separate lines, for filers
- * that tag no combined D&A (Microsoft, Alphabet, Oracle, Intel, Tesla; audit
- * 2026-10-22 B-7). Depreciation comes first: it stands alone when no
+ * that tag no combined D&A (D-103). Depreciation comes first: it stands alone when no
  * amortization is tagged for the period.
  */
 export const DEPRECIATION_COMPONENT_TAGS: readonly string[] = ["Depreciation", "AmortizationOfIntangibleAssets"];
@@ -186,10 +185,9 @@ export const INTEREST_EXPENSE_STAND_INS: readonly TagStandIn[] = [
  * taxonomy's income-statement calculation: `InvestmentIncomeInterest` is a
  * child of `NonoperatingIncomeExpense`, so it is subtracted on its own only
  * when the aggregate is absent. `OtherNonoperatingIncomeExpense` is its sibling
- * under the aggregate (the "other" line beside interest, DQC_0181; D-134 OD-2),
+ * under the aggregate (the "other" line beside interest, DQC_0181; D-134),
  * so the same rule applies: with no aggregate filed, a filer that tags it has the
- * result taken out of the derived EBIT, named with its amount (audit 2026-10-27
- * FIN-509).
+ * result taken out of the derived EBIT, named with its amount (D-134).
  *
  * `notWhenBaseTag` names base tags whose OWN DEFINITION excludes this item, so
  * subtracting it would remove money the base never held. Equity-method results
@@ -223,7 +221,7 @@ export const EBIT_NON_OPERATING_ADJUSTMENTS: readonly EbitNonOperatingAdjustment
  * `NonoperatingIncomeExpense`. When a filer tags both, "pretax + interest −
  * aggregate" would add back an interest expense the aggregate already removed,
  * so the interest is not added: pretax less the aggregate is the EBIT (see
- * `EBIT_INTEREST_INSIDE_AGGREGATE`; audit 2026-10-22 B-39, it was withheld).
+ * `EBIT_INTEREST_INSIDE_AGGREGATE`; before D-105 it was withheld).
  */
 export const INTEREST_INSIDE_NONOPERATING_TAG = "InterestExpenseNonoperating";
 
@@ -239,7 +237,7 @@ export const EBIT_INTEREST_INSIDE_AGGREGATE = {
     "already excludes it; where the filer's aggregate leaves its interest out, the figure understates EBIT by that " +
     "interest",
   /**
-   * The nesting is read from the PERIOD (audit 2026-10-27 FIN-508): the part
+   * The nesting is read from the PERIOD (D-134): the part
    * labelled `partLabel` is left out too when another filing tags this period's
    * interest as `partTag`, whichever interest element served the row.
    */
@@ -253,7 +251,7 @@ export const EBIT_INTEREST_INSIDE_AGGREGATE = {
 
 /**
  * A period that files the `NonoperatingIncomeExpense` aggregate and no interest
- * element at all (audit 2026-10-27 FIN-507; D-134 extends B-39 to it). The
+ * element at all (D-134 extends the D-105 rule to it). The
  * interest part of the derived EBIT is then not required: pretax income less
  * the aggregate is the EBIT, and `disclose` says what that rests on.
  */
@@ -290,8 +288,8 @@ export const EBIT_AGGREGATE_MAY_HOLD_INTEREST =
 
 /**
  * The caveat a derived EBIT carries when `OtherNonoperatingIncomeExpense` was
- * subtracted and an interest expense was added back (audit 2026-10-27 FIN-509,
- * D-134 OD-2). The element is by definition the "other" line beside separately
+ * subtracted and an interest expense was added back (D-134). The element is
+ * by definition the "other" line beside separately
  * tagged interest, but companyfacts carries no calculation linkbase, so a filer
  * that tags an interest-inclusive total under it cannot be told apart. The
  * amount is stated because the error is exactly the net interest added back.
@@ -347,11 +345,11 @@ export const LINE_ITEM_TAGS = {
     "InvestmentIncomeInterest",
     "InvestmentIncomeInterestAndDividend",
     "InterestAndDividendIncomeOperating",
-    // The bank twin of the tag above: JPM's total interest income.
+    // The bank twin of the tag above: a bank's total interest income.
     "InterestIncomeOperating",
   ]),
-  // A bank's interest income is its operating total, as the vendor field carries it (audit 2026-10-27
-  // FIN-510-V1): InvestmentIncomeInterest at a bank is securities interest inside that total, so the
+  // A bank's interest income is its operating total, as the vendor field carries it (D-134):
+  // InvestmentIncomeInterest at a bank is securities interest inside that total, so the
   // operating elements come first. The non-bank order above is unchanged.
   bankInterestIncome: entry([
     "InterestIncomeOperating",
@@ -369,31 +367,31 @@ export const LINE_ITEM_TAGS = {
   netIncomeConsolidated: entry(CONSOLIDATED_NET_INCOME_TAGS),
   // Total NCI income only. NetIncomeLossAttributableToNonredeemableNoncontrollingInterest
   // is the nonredeemable part: beside redeemable NCI it would understate outside
-  // owners' earnings and overstate the parent's (PR #86 review), so it is not read.
+  // owners' earnings and overstate the parent's (P5), so it is not read.
   netIncomeAttributableToNoncontrollingInterest: entry(["NetIncomeLossAttributableToNoncontrollingInterest",
     "MinorityInterestInNetIncomeLossOfConsolidatedEntities"]),
   netIncomeAvailableToCommon: entry(["NetIncomeLossAvailableToCommonStockholdersBasic"]),
   netIncomeFromContinuingOperations: entry(["IncomeLossFromContinuingOperations"]),
   netIncomeFromDiscontinuedOperations: entry(["IncomeLossFromDiscontinuedOperationsNetOfTax"]),
   // Total D&A contains total depreciation and the amortization of intangibles,
-  // so a combined tag below either is a subset line (audit 2026-10-27 FIN-510).
+  // so a combined tag below either is a subset line (D-134).
   depreciationAndAmortization: entry(
     ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationAmortizationAndAccretionNet"],
     undefined,
     DEPRECIATION_COMPONENT_TAGS,
     // DepreciationAndAmortization is the other combined D&A element: beside it, a
-    // DepreciationDepletionAndAmortization below it is the subset (MCD's quarters).
+    // DepreciationDepletionAndAmortization below it is the subset (one filer's quarters).
     // Not the reverse, so there is no cycle.
     { DepreciationDepletionAndAmortization: ["DepreciationAndAmortization"] },
   ),
   // A filer with no dilutive securities can tag one figure for both bases with
   // the combined elements; each is the basic and the diluted figure at once
-  // (audit 2026-10-22 B-35).
+  // (D-105).
   eps: entry(["EarningsPerShareBasic", "EarningsPerShareBasicAndDiluted"]),
   epsDiluted: entry(["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"]),
   // EPS from continuing and discontinued operations: a filer with no
   // discontinued result may tag only the continuing figure, which is then the
-  // net figure (audit 2026-10-22 FCX-4).
+  // net figure (D-112).
   epsContinuingOperations: entry(["IncomeLossFromContinuingOperationsPerBasicShare"]),
   epsDilutedContinuingOperations: entry(["IncomeLossFromContinuingOperationsPerDilutedShare"]),
   epsDiscontinuedOperations: entry([
@@ -430,7 +428,7 @@ export const LINE_ITEM_TAGS = {
   cashAndCashEquivalentsIncludingRestricted: entry(["CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"]),
   restrictedCashAndCashEquivalents: entry(["RestrictedCashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalents"]),
   restrictedCashAndCashEquivalentsNoncurrent: entry(["RestrictedCashAndCashEquivalentsNoncurrent"]),
-  // Audit 2026-10-22 B-43: restrictions tagged as restricted cash only, read
+  // D-105: restrictions tagged as restricted cash only, read
   // as unrestricted cash's subtrahends after the cash-and-equivalents forms.
   restrictedCashCurrent: entry(["RestrictedCashCurrent"]),
   restrictedCashNoncurrent: entry(["RestrictedCashNoncurrent"]),
@@ -440,9 +438,9 @@ export const LINE_ITEM_TAGS = {
     "AvailableForSaleSecuritiesDebtSecuritiesCurrent",
     "InterestBearingDepositsInBanks",
     // The taxonomy's current debt securities of every class (available for
-    // sale, held to maturity, trading). NVIDIA's balance-sheet marketable
-    // securities moved here from MarketableSecuritiesCurrent with its FY2026
-    // 10-K (39.065B at 2026-01-25); last, so a period that tags an element
+    // sale, held to maturity, trading). A filer's balance-sheet marketable
+    // securities can move here from MarketableSecuritiesCurrent with a new
+    // 10-K; last, so a period that tags an element
     // above keeps it.
     "DebtSecuritiesCurrent",
   ]),
@@ -457,16 +455,16 @@ export const LINE_ITEM_TAGS = {
   goodwill: entry(["Goodwill"]),
   /**
    * The tagged total of intangibles other than goodwill. A filer without it
-   * (JPM) tags the finite-lived and indefinite-lived pieces separately; the
+   * (a large bank) tags the finite-lived and indefinite-lived pieces separately; the
    * taxonomy defines the two as disjoint, so `intangibleAssetsParts` sums the
    * ones present. The parts step runs only when the total misses, so a piece
    * is never added to a total that already contains it. Taking the
-   * finite-lived piece alone (as this did until 2026-10-13) dropped JPM's
-   * indefinite-lived intangibles (1.3B FY2025, 1.2B FY2024) and overstated
+   * finite-lived piece alone (as this did before D-42) dropped that bank's
+   * indefinite-lived intangibles (about 1.3B a year) and overstated
    * its tangible common equity by that much. Mortgage servicing rights
    * (`ServicingAssetAtFairValueAmount`) are deliberately NOT a part: the
-   * tangible-common-equity convention, JPM's own included, keeps them in TCE.
-   * FMP's `intangibleAssets` does include them (JPM FY2025 11.73B = ~2.56B
+   * tangible-common-equity convention, the bank's own included, keeps them in TCE.
+   * FMP's `intangibleAssets` does include them (in one year 11.73B = ~2.56B
    * other intangibles + 9.17B MSRs), so for a mortgage servicer the EDGAR and
    * FMP figures legitimately differ.
    */
@@ -474,7 +472,7 @@ export const LINE_ITEM_TAGS = {
   intangibleAssetsParts: entry(["FiniteLivedIntangibleAssetsNet", "IndefiniteLivedIntangibleAssetsExcludingGoodwill"]),
   /**
    * Investments held beyond a year: the filed total first. A filer without one
-   * (Amazon carries its Anthropic and OpenAI stakes in "Other assets") tags the
+   * (one carries its private-company stakes in "Other assets") tags the
    * pieces, which `longTermInvestments` in statements.ts sums. Only elements
    * the taxonomy defines as non-current are pieces: the undivided
    * `AvailableForSaleSecuritiesDebtSecurities` total usually also holds
@@ -495,23 +493,23 @@ export const LINE_ITEM_TAGS = {
   /** The current portion of long-term debt; the maturity-schedule figure stands in only when both miss. */
   currentMaturitiesOfLongTermDebt: entry(["LongTermDebtCurrent", COMBINED_CURRENT_DEBT_TAG], [MATURITIES_STAND_IN]),
   /**
-   * Chevron's 10-Qs tag their long-term debt only as the last element, which
-   * holds current maturities and finance leases (audit 2026-10-22 B-15);
+   * Some filers' 10-Qs tag their long-term debt only as the last element, which
+   * holds current maturities and finance leases (D-100);
    * `resolveDebtOverlaps` nets both overlaps out.
    */
   longTermDebt: entry(["LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations", "LongTermDebt", "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"]),
   /**
-   * All noncurrent notes and loans, excluding their current portion: Oracle's
-   * balance-sheet line (audit 2026-10-22 B-14). Its current portion is the
+   * All noncurrent notes and loans, excluding their current portion: one
+   * filer's balance-sheet line (D-100). Its current portion is the
    * notes-and-loans current tag, else the notes one.
    */
   longTermNotesAndLoans: entry(["LongTermNotesAndLoans"]),
   longTermNotesAndLoansCurrent: entry(["NotesAndLoansPayableCurrent", "NotesPayableCurrent"]),
   /**
    * Financing debt for a filer that tags none of the `longTermDebt` aggregates
-   * (audit 2026-10-19, O-1/SNOW-1). Realty Income and NNN tag their unsecured
-   * notes and term loans as `NotesPayable`/`LoansPayable`, Snowflake its only
-   * debt as `ConvertibleDebtNoncurrent`, Progressive its debt as
+   * (D-97). Some REITs tag their unsecured notes and term loans as
+   * `NotesPayable`/`LoansPayable`, a software filer its only debt as
+   * `ConvertibleDebtNoncurrent`, an insurer its debt as
    * `DebtLongtermAndShorttermCombinedAmount`; without these the debt total was
    * leases and commercial paper alone. The combined amount is all debt; each
    * family below is one instrument class, inclusive total first, then its
@@ -530,7 +528,7 @@ export const LINE_ITEM_TAGS = {
    * The current portions that the noncurrent variants above exclude. Notes due
    * within a year move from `ConvertibleDebtNoncurrent` to
    * `ConvertibleDebtCurrent`, so composing the noncurrent tag alone would drop
-   * them silently (audit review of O-1/SNOW-1).
+   * them silently (D-97).
    */
   longTermDebtNotesCurrent: entry(["NotesPayableCurrent", "SeniorNotesCurrent", "LongTermNotesPayableCurrent"]),
   longTermDebtLoansCurrent: entry(["LoansPayableCurrent", "LongTermLoansPayableCurrent"]),
@@ -556,10 +554,10 @@ export const LINE_ITEM_TAGS = {
   /**
    * The carrying value first. `PreferredStockValue` is the par or stated
    * value; a filer that carries its preferred at par plus paid-in capital tags
-   * an APIC-inclusive element instead. JPM has tagged only
+   * an APIC-inclusive element instead. A large bank has tagged only
    * `PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount` since 2009
    * (20,045M FY2025, 20,050M FY2024: the face-of-balance-sheet figure FMP also
-   * reports), so until 2026-10-13 its preferred resolved to nothing and its
+   * reports), so before D-42 its preferred resolved to nothing and its
    * tangible common equity kept ~20B of preferred inside it (D-42).
    */
   preferredStock: entry([
@@ -583,7 +581,7 @@ export const LINE_ITEM_TAGS = {
 
   // --- cash flow ------------------------------------------------------------
   cashflowNetIncome: entry([...CONSOLIDATED_NET_INCOME_TAGS, "NetIncomeLoss"]),
-  // R9: allocated GAAP expense is a separate basis, never a cash-flow add-back fallback.
+  // D-164: allocated GAAP expense is a separate basis, never a cash-flow add-back fallback.
   stockBasedCompensation: entry(["ShareBasedCompensation"]),
   changeInWorkingCapital: entry(["IncreaseDecreaseInOperatingCapital"]),
   operatingCashFlow: entry([
