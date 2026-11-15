@@ -1002,8 +1002,8 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     weightDebt = weightDebtAmount / (mcap + weightDebtAmount);
     notes.push(
       latestDebt !== null
-        ? `debt weight uses ${inputs.totalDebtLatestBasis ?? "the latest book totalDebt"} as market-value proxy; the effective cost of debt divides interest by ${base.debtBasis ?? "the average balance"}`
-        : `debt weight uses ${inputs.totalDebtBasis ?? "book totalDebt (avg of latest two periods)"} as market-value proxy`,
+        ? `debt weight uses ${inputs.totalDebtLatestBasis ?? "the latest book total debt"} as market-value proxy; the effective cost of debt divides interest by ${base.debtBasis ?? "the average balance"}`
+        : `debt weight uses ${inputs.totalDebtBasis ?? "book total debt (average of the latest two periods)"} as market-value proxy`,
     );
   }
 
@@ -1098,7 +1098,7 @@ export interface WaccDisclosure {
 
 const BETA_METHOD_LABEL = `Blume-adjusted (${BLUME_RAW_WEIGHT.toFixed(3)}·raw + ${BLUME_MEAN_WEIGHT.toFixed(3)}), clamped [${BETA_CLAMP[0]}, ${BETA_CLAMP[1]}]`;
 const WEIGHTS_BASIS_LABEL =
-  "market-value weights: equity = current market capitalization, debt = book totalDebt (average of the latest two balance sheets) as the market-value proxy";
+  "market-value weights: equity = current market capitalization, debt = book total debt (average of the latest two balance sheets) as the market-value proxy";
 
 const pctOrNa = (v: number | null): string => (v === null ? "n/a" : `${fmt(v)}%`);
 
@@ -1107,7 +1107,7 @@ export function waccDisclosure(result: WaccResult): WaccDisclosure {
   const rfAsOf = result.asOf?.riskFreeRate ?? null;
   const erpSourceLabel =
     result.erpSource === "vendor"
-      ? `FMP market-risk-premium (${result.erpCountry ?? "US"} totalEquityRiskPremium)`
+      ? `FMP market-risk-premium (${result.erpCountry ?? "US"} total equity risk premium)`
       : result.erpSource === "damodaran-fallback"
         ? `${ERP_FALLBACK.source} (static fallback)`
         : null;
@@ -1935,7 +1935,7 @@ export function computeRoic(
     const terminalTax = normalizedEbit > 0
       ? (t ?? (normalizedEbit !== ebit && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry).pct / 100 : null)) : 0;
     if (t === null) {
-      rootCauses.set(row.date, !isFiniteNumber(row.incomeBeforeTax) || row.incomeBeforeTax! <= 0 ? "incomeBeforeTax is missing or non-positive" : "incomeTaxExpense is missing");
+      rootCauses.set(row.date, !isFiniteNumber(row.incomeBeforeTax) || row.incomeBeforeTax! <= 0 ? "pre-tax income is missing or non-positive" : "income tax expense is missing");
       gaps.push({
         field: "returns.roic.taxRate",
         reason: `${row.date}: an observed effective tax rate could not be computed — NOPAT and ROIC suppressed for this period`,

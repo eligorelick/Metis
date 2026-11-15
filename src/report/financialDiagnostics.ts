@@ -77,24 +77,34 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
 type CurrentCapital = NonNullable<NonNullable<ComputedMetrics["capital"]>["current"]>;
 
 /**
- * D-298 (P10, P20): on the TTM basis, say which trailing flows this window
- * admitted and which it withholds, instead of calling every flow complete.
- * Read from the snapshot's typed values: a withheld flow is null there, and
- * every figure built on it is withheld too.
+ * D-298 (P10, P20): on the TTM basis, name exactly which trailing flows this
+ * window admitted and which it did not establish, and the figures that rest on
+ * a missing flow (so they are withheld). Read from the snapshot's typed values;
+ * no sentence claims that every flow is complete.
  */
 export function trailingFlowStatement(current: Pick<CurrentCapital, "netIncome" | "ebitda" | "cashBridge">): string {
-  const flows: [string, number | null][] = [
-    ["operating cash flow", current.cashBridge.operatingCashFlow],
-    ["cash capital expenditure", current.cashBridge.cashCapitalExpenditure],
-    ["consolidated net income", current.netIncome ?? null],
-    ["EBITDA", current.ebitda ?? null],
+  const present = {
+    ocf: current.cashBridge.operatingCashFlow !== null,
+    capex: current.cashBridge.cashCapitalExpenditure !== null,
+    income: (current.netIncome ?? null) !== null,
+    ebitda: (current.ebitda ?? null) !== null,
+    sbc: (current.cashBridge.stockBasedCompensation ?? null) !== null,
+  };
+  const names: [keyof typeof present, string][] = [["ocf", "operating cash flow"], ["capex", "cash capital expenditure"],
+    ["income", "consolidated net income"], ["ebitda", "EBITDA"], ["sbc", "stock-based compensation"]];
+  const list = (items: string[]) => items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+  const admitted = names.filter(([key]) => present[key]).map(([, name]) => name);
+  const missing = names.filter(([key]) => !present[key]).map(([, name]) => name);
+  const fcf = present.ocf && present.capex;
+  const withheld = [
+    ...(fcf ? [] : ["FCF"]),
+    ...(fcf && present.sbc ? [] : ["FCF after SBC", "SBC share of FCF"]),
+    ...(fcf && present.income ? [] : ["FCF conversion"]),
+    ...(present.ebitda ? [] : ["net debt / EBITDA"]),
   ];
-  const withheld = flows.filter(([, value]) => value === null).map(([name]) => name);
-  if (withheld.length === 0) return "Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled.";
-  const admitted = flows.filter(([, value]) => value !== null).map(([name]) => name);
-  const list = (names: string[]) => names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-  return `${admitted.length > 0 ? `TTM ${list(admitted)} ${admitted.length === 1 ? "is" : "are"} used with the corresponding current balance; ` : ""}` +
-    `TTM ${list(withheld)} ${withheld.length === 1 ? "is" : "are"} not established for this window, so the figures built on ${withheld.length === 1 ? "it" : "them"} are withheld; annual historical series remain separately labeled.`;
+  const head = admitted.length > 0 ? `TTM flows admitted for this window: ${list(admitted)}.` : "No TTM flow is admitted for this window.";
+  const tail = missing.length === 0 ? "" : ` Not established for this window: ${list(missing)}${withheld.length > 0 ? `, so ${list(withheld)} ${withheld.length === 1 ? "is" : "are"} withheld` : ""}.`;
+  return `${head}${tail} Annual historical series remain separately labeled.`;
 }
 
 export function applyFinancialDiagnostics(report: Report, computed: ComputedMetrics, bundle?: DataBundle, options: {pendingVerification?:boolean; executiveEvidence?: ExecutiveDecisionEvidence} = {}): Report {

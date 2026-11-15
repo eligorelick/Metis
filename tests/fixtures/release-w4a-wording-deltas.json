@@ -2,6 +2,43 @@
  {
   "path": [
    "returns",
+   "wacc",
+   "debtBasis"
+  ],
+  "before": "book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted)",
+  "after": "book total debt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted)"
+ },
+ {
+  "path": [
+   "returns",
+   "wacc",
+   "debtWeightBasis"
+  ],
+  "before": "book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted)",
+  "after": "book total debt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted)"
+ },
+ {
+  "path": [
+   "returns",
+   "waccInputs",
+   "weights",
+   "basis"
+  ],
+  "before": "market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted)",
+  "after": "market-value weights: equity = current market capitalization, debt = book total debt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book total debt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted)"
+ },
+ {
+  "path": [
+   "returns",
+   "waccInputs",
+   "summary"
+  ],
+  "before": "WACC 8.18%: risk-free 4% (fmp:treasury-rates.year10, observation 2026-07-04); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))",
+  "after": "WACC 8.18%: risk-free 4% (fmp:treasury-rates.year10, observation 2026-07-04); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book total debt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book total debt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+ },
+ {
+  "path": [
+   "returns",
    "roic",
    "series",
    2,
@@ -57,6 +94,24 @@
  },
  {
   "path": [
+   "returns",
+   "notes",
+   2
+  ],
+  "before": "WACC 8.18%: risk-free 4% (fmp:treasury-rates.year10, observation 2026-07-04); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))",
+  "after": "WACC 8.18%: risk-free 4% (fmp:treasury-rates.year10, observation 2026-07-04); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book total debt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book total debt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+ },
+ {
+  "path": [
+   "capital",
+   "fcf",
+   "basis"
+  ],
+  "before": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric.",
+  "after": "Free cash flow = operating cash flow + capital expenditure (the provider records capex as negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
+ },
+ {
+  "path": [
    "capital",
    "netDebtToEbitda",
    "note"
@@ -67,11 +122,60 @@
  {
   "path": [
    "capital",
+   "interestCoverage",
+   "note"
+  ],
+  "before": "interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m",
+  "after": "interest expense = 0 treated as undisclosed (the provider writes zero for undisclosed) — coverage n/m"
+ },
+ {
+  "path": [
+   "capital",
    "buybackPriceAnalysis",
    "note"
   ],
   "before": "HEURISTIC: the proxy assumes shares were repurchased at each fiscal year's average price (average daily market cap ÷ basic weighted-average shares, diluted as a disclosed fallback); its premium/discount to today's quote measures price appreciation since the repurchases, not timing, and is not graded. Timing (D-61, graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent",
   "after": "HEURISTIC: the proxy assumes shares were repurchased at each fiscal year's average price (average daily market cap ÷ basic weighted-average shares, diluted as a disclosed fallback); its premium/discount to today's quote measures price appreciation since the repurchases, not timing, and is not graded. Timing (graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent"
+ },
+ {
+  "path": [
+   "capital",
+   "notes",
+   3
+  ],
+  "before": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric.",
+  "after": "Free cash flow = operating cash flow + capital expenditure (the provider records capex as negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
+ },
+ {
+  "path": [
+   "capital",
+   "gaps",
+   0,
+   "reason"
+  ],
+  "before": "interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m",
+  "after": "interest expense = 0 treated as undisclosed (the provider writes zero for undisclosed) — coverage n/m"
+ },
+ {
+  "path": [
+   "valuation",
+   "assumptions",
+   "wacc",
+   "basis"
+  ],
+  "before": "WACC 8.18%: risk-free 4% (fmp:treasury-rates.year10, observation 2026-07-04); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))",
+  "after": "WACC 8.18%: risk-free 4% (fmp:treasury-rates.year10, observation 2026-07-04); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book total debt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book total debt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+ },
+ {
+  "path": [
+   "valuation",
+   "assumptions",
+   "sbc",
+   "value",
+   "basis"
+  ],
+  "before": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric.",
+  "after": "Free cash flow = operating cash flow + capital expenditure (the provider records capex as negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
  },
  {
   "path": [
@@ -168,6 +272,61 @@
   "path": [
    "valuation",
    "multiples",
+   "multiples",
+   0,
+   "basis"
+  ],
+  "before": "price / epsDiluted (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum. Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 100M); the market-cap multiples sit on the 100M shares the quoted market cap implies, and the diluted count is within 0.1% of that count.",
+  "after": "price / diluted EPS (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum. Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 100M); the market-cap multiples sit on the 100M shares the quoted market cap implies, and the diluted count is within 0.1% of that count."
+ },
+ {
+  "path": [
+   "valuation",
+   "multiples",
+   "multiples",
+   1,
+   "basis"
+  ],
+  "before": "EV / (operatingIncome + D&A), TTM-computed — vendor ebitda field not trusted. 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 9,900,000,000; EV on retained debt basis 9,900,000,000. Balance basis: latest annual balance sheet 2025-12-31. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+  "after": "EV / (operating income + D&A), TTM-computed — the vendor EBITDA field is not used. 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 9,900,000,000; EV on retained debt basis 9,900,000,000. Balance basis: latest annual balance sheet 2025-12-31. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count."
+ },
+ {
+  "path": [
+   "valuation",
+   "multiples",
+   "multiples",
+   3,
+   "basis"
+  ],
+  "before": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+  "after": "market cap / (operating cash flow + capital expenditure) (latest annual FY 2025-12-31 — TTM suppressed; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count."
+ },
+ {
+  "path": [
+   "valuation",
+   "multiples",
+   "multiples",
+   4,
+   "basis"
+  ],
+  "before": "marketCap / common equity (latest annual balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+  "after": "market cap / common equity (latest annual balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count."
+ },
+ {
+  "path": [
+   "valuation",
+   "multiples",
+   "multiples",
+   5,
+   "basis"
+  ],
+  "before": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 40000000 and intangibleAssets 10000000 (source monetary units; vendor composition unverified unless stated).  (latest annual balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known). Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+  "after": "market cap / (common equity - goodwill - intangible assets); deducts goodwill 40000000 and intangible assets 10000000 (source monetary units; vendor composition unverified unless stated).  (latest annual balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known). Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count."
+ },
+ {
+  "path": [
+   "valuation",
+   "multiples",
    "peerCoverage",
    "methodology",
    3
@@ -240,6 +399,46 @@
   ],
   "before": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
   "after": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
+ },
+ {
+  "path": [
+   "projections",
+   "series",
+   0,
+   "assumptions",
+   2
+  ],
+  "before": "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+  "after": "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact period start and end dates are saved on each verified forecast point; leap-day anniversaries clamp to February end."
+ },
+ {
+  "path": [
+   "projections",
+   "series",
+   2,
+   "assumptions",
+   2
+  ],
+  "before": "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+  "after": "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact period start and end dates are saved on each verified forecast point; leap-day anniversaries clamp to February end."
+ },
+ {
+  "path": [
+   "gaps",
+   6,
+   "reason"
+  ],
+  "before": "interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m",
+  "after": "interest expense = 0 treated as undisclosed (the provider writes zero for undisclosed) — coverage n/m"
+ },
+ {
+  "path": [
+   "gaps",
+   13,
+   "reason"
+  ],
+  "before": "interestCoverage withheld: interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m. EBIT / interest expense (computed.capital.current.interestCoverage) is missing or refused; interest expense (computed.capital.current.interestExpense) is missing or refused. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
+  "after": "interestCoverage withheld: interest expense = 0 treated as undisclosed (the provider writes zero for undisclosed) — coverage n/m. EBIT / interest expense (computed.capital.current.interestCoverage) is missing or refused; interest expense (computed.capital.current.interestExpense) is missing or refused. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled."
  },
  {
   "path": [

@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.95.0",
+    "specVersion": "1.96.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.95.0",
+    "pipelineVersion": "1.96.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8506944444444444,
@@ -912,7 +912,7 @@
     "segments": {
       "product": [
         {
-          "name": "Segment (name not matched to its record)",
+          "name": "Segment (name not established)",
           "revenue": {
             "value": 650000000,
             "unit": "currency",
@@ -927,7 +927,7 @@
           "sharePct": null
         },
         {
-          "name": "Segment (name not matched to its record)",
+          "name": "Segment (name not established)",
           "revenue": {
             "value": 350000000,
             "unit": "currency",
@@ -944,7 +944,7 @@
       ],
       "geographic": [
         {
-          "name": "Segment (name not matched to its record)",
+          "name": "Segment (name not established)",
           "revenue": {
             "value": 1000000000,
             "unit": "currency",
@@ -2011,14 +2011,14 @@
           "asOf": "2025-12-31"
         },
         {
-          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. TTM operating cash flow, cash capital expenditure and EBITDA are used with the corresponding current balance; TTM consolidated net income is not established for this window, so the figures built on it are withheld; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
+          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. TTM flows admitted for this window: operating cash flow, cash capital expenditure and EBITDA. Not established for this window: consolidated net income and stock-based compensation, so FCF after SBC, SBC share of FCF and FCF conversion are withheld. Annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
           "label": "JUDGMENT",
           "sourceId": "computed.capital.current",
           "source": "computed.capital.current",
           "asOf": "2026-03-31"
         },
         {
-          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. TTM operating cash flow, cash capital expenditure and EBITDA are used with the corresponding current balance; TTM consolidated net income is not established for this window, so the figures built on it are withheld; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
+          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. TTM flows admitted for this window: operating cash flow, cash capital expenditure and EBITDA. Not established for this window: consolidated net income and stock-based compensation, so FCF after SBC, SBC share of FCF and FCF conversion are withheld. Annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
           "label": "JUDGMENT",
           "source": "computed.capital.current",
           "asOf": "2026-03-31"
@@ -2225,7 +2225,7 @@
         {
           "name": "WACC (discount rate)",
           "value": "8.2%",
-          "basis": "WACC 8.18%: risk-free 4% (fred:DGS10, observation 2026-07-02); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2026-03-31), the one the EV bridge nets (lease evidence: 2026-03-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+          "basis": "WACC 8.18%: risk-free 4% (fred:DGS10, observation 2026-07-02); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book total debt on the retained calculation basis, the latest balance (2026-03-31), the one the EV bridge nets (lease evidence: 2026-03-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book total debt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
         },
         {
           "name": "revenue growth (yr1 → yrN)",
@@ -2752,7 +2752,7 @@
     "multiples": [
       {
         "name": "P/E (TTM)",
-        "basis": "price / epsDiluted (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum. Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 100M); the market-cap multiples sit on the 100M shares the quoted market cap implies, and the diluted count is within 0.1% of that count.",
+        "basis": "price / diluted EPS (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum. Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 100M); the market-cap multiples sit on the 100M shares the quoted market cap implies, and the diluted count is within 0.1% of that count.",
         "current": 17.77777777777778,
         "peerMedian": null,
         "peerCount": null,
@@ -2762,7 +2762,7 @@
       },
       {
         "name": "EV/EBITDA",
-        "basis": "EV / (operatingIncome + D&A), TTM-computed — vendor ebitda field not trusted. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2026-03-31. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+        "basis": "EV / (operating income + D&A), TTM-computed — the vendor EBITDA field is not used. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2026-03-31. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 10.620689655172415,
         "peerMedian": null,
         "peerCount": null,
@@ -2782,7 +2782,7 @@
       },
       {
         "name": "P/FCF (before SBC)",
-        "basis": "marketCap / (operatingCashFlow + capitalExpenditure) (TTM; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+        "basis": "market cap / (operating cash flow + capital expenditure) (TTM; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 17.77777777777778,
         "peerMedian": null,
         "peerCount": null,
@@ -2792,7 +2792,7 @@
       },
       {
         "name": "P/B",
-        "basis": "marketCap / common equity (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+        "basis": "market cap / common equity (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 6.153846153846154,
         "peerMedian": null,
         "peerCount": null,
@@ -2802,7 +2802,7 @@
       },
       {
         "name": "P/TBV",
-        "basis": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 40000000 and intangibleAssets 10000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known). Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
+        "basis": "market cap / (common equity - goodwill - intangible assets); deducts goodwill 40000000 and intangible assets 10000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known). Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 6.808510638297872,
         "peerMedian": null,
         "peerCount": null,
@@ -3928,7 +3928,7 @@
       },
       {
         "field": "capital.interestCoverage",
-        "reason": "interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m",
+        "reason": "interest expense = 0 treated as undisclosed (the provider writes zero for undisclosed) — coverage n/m",
         "severity": "info"
       },
       {
@@ -3968,7 +3968,7 @@
       },
       {
         "field": "scores.balanceSheet.interestCoverage",
-        "reason": "interestCoverage withheld: interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m. EBIT / interest expense (computed.capital.current.interestCoverage) is missing or refused; interest expense (computed.capital.current.interestExpense) is missing or refused.",
+        "reason": "interestCoverage withheld: interest expense = 0 treated as undisclosed (the provider writes zero for undisclosed) — coverage n/m. EBIT / interest expense (computed.capital.current.interestCoverage) is missing or refused; interest expense (computed.capital.current.interestExpense) is missing or refused.",
         "severity": "info"
       },
       {
@@ -7953,7 +7953,7 @@
         "traceKind": "source-cited"
       },
       {
-        "claim": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. TTM operating cash flow, cash capital expenditure and EBITDA are used with the corresponding current balance; TTM consolidated net income is not established for this window, so the figures built on it are withheld; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
+        "claim": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. TTM flows admitted for this window: operating cash flow, cash capital expenditure and EBITDA. Not established for this window: consolidated net income and stock-based compensation, so FCF after SBC, SBC share of FCF and FCF conversion are withheld. Annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
         "outcome": "unverified",
         "validationStatus": "cited",
         "numericSupportStatus": "cited",
@@ -10724,7 +10724,7 @@
         "assumptions": [
           "Base path is the DCF forward trajectory (year-one revenue from consensus, 8.77% growth; consensus sets year one of 10; then a convergent fade to 2.5% terminal growth).",
           "Bull/bear shift year-one growth by ±1.59pp and the year-one margin by ±0pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (unavailable), applied only when it moves with the scenario.",
-          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact period start and end dates are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
           "Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta 1.59pp; margin delta 0pp. Revenue or FCF paths may cross.",
           "Weighted path = 0.25·bull + 0.5·base + 0.25·bear, the fixed display prior."
         ],
@@ -11100,7 +11100,7 @@
         "assumptions": [
           "Base path is the DCF forward trajectory (year-one revenue from consensus, 8.77% growth; consensus sets year one of 10; then a convergent fade to 2.5% terminal growth).",
           "Bull/bear shift year-one growth by ±1.59pp and the year-one margin by ±0pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (unavailable), applied only when it moves with the scenario.",
-          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact period start and end dates are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
           "Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta 1.59pp; margin delta 0pp. Revenue or FCF paths may cross.",
           "Weighted path = 0.25·bull + 0.5·base + 0.25·bear, the fixed display prior."
         ],
@@ -11464,7 +11464,7 @@
         "assumptions": [
           "Base path is the DCF forward trajectory (year-one revenue from consensus, 8.77% growth; consensus sets year one of 10; then a convergent fade to 2.5% terminal growth).",
           "Bull/bear shift year-one growth by ±1.59pp and the year-one margin by ±0pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (unavailable), applied only when it moves with the scenario.",
-          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact period start and end dates are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
           "Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta 1.59pp; margin delta 0pp. Revenue or FCF paths may cross.",
           "Weighted path = 0.25·bull + 0.5·base + 0.25·bear, the fixed display prior.",
           "PROJECTED FCF is unlevered free cash flow (FCFF), consistent with the DCF (NOPAT − reinvestment); stock-based compensation is an expense inside that EBIT, so FCFF is after stock-based compensation.",
@@ -12475,7 +12475,7 @@
         "assumptions": [
           "Base path is the DCF forward trajectory (year-one revenue from consensus, 8.77% growth; consensus sets year one of 10; then a convergent fade to 2.5% terminal growth).",
           "Bull/bear shift year-one growth by ±1.59pp and the year-one margin by ±0pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (unavailable), applied only when it moves with the scenario.",
-          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+          "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-31), not fiscal years or company guidance periods. Exact period start and end dates are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
           "Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta 1.59pp; margin delta 0pp. Revenue or FCF paths may cross.",
           "Weighted path = 0.25·bull + 0.5·base + 0.25·bear, the fixed display prior.",
           "Operating EPS = (forward operating EBIT − zero interest expense from the evidenced debt-free balance as of 2026-03-31, held flat) × (1 − that year's DCF tax rate) ÷ diluted shares with applied change 0%/yr (year-one net income / EBIT 0.79). Interest income, investment gains and other non-operating items are excluded, so this is operating EPS, not a forecast of GAAP diluted EPS."

@@ -9,7 +9,7 @@ it("names the loss overlay trigger without asserting that positive free cash flo
   for (const r of b.statements.incomeQuarterly.value.data.rows) r.netIncome = -1;
   const c = runStageB(b);
   expect(c.valuation.kind).toBe("dcf-suppressed");
-  expect(c.fairValue.reasons[0]!.reason).toMatch(/netIncome=-4.*ttm/);
+  expect(c.fairValue.reasons[0]!.reason).toMatch(/net income -4.*ttm/);
   expect(c.fairValue.reasons[0]!.reason).not.toContain("structurally negative");
 });
 

@@ -402,7 +402,7 @@ const DAY_MS = 86_400_000;
 export const SBC_SUBTRACTED_FROM_FCF = true;
 
 const FCF_SBC_BASIS =
-  "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation " +
+  "Free cash flow = operating cash flow + capital expenditure (the provider records capex as negative), MINUS stock-based compensation " +
   "(house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, " +
   "\"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; " +
   "the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. " +
@@ -733,7 +733,7 @@ export function computeCapital(
     } else if (cf.length > 0) {
       gaps.push({
         field: "capital.maintenanceCapex",
-        reason: "depreciationAndAmortization missing/≤0 on latest cash-flow row — capex split heuristic unavailable",
+        reason: "depreciation and amortization missing/≤0 on latest cash-flow row — capex split heuristic unavailable",
         severity: "info",
       });
     }
@@ -881,7 +881,7 @@ export function computeCapital(
       if (intExp === null) {
         note =
           intRaw === 0
-            ? "interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m"
+            ? "interest expense = 0 treated as undisclosed (the provider writes zero for undisclosed) — coverage n/m"
             : "interest expense missing — coverage n/m";
         gaps.push({
           field: "capital.interestCoverage",
@@ -1083,7 +1083,7 @@ export function computeCapital(
     } else if (inc.length > 0) {
       gaps.push({
         field: "capital.shareCountTrend",
-        reason: "fewer than two periods of weightedAverageShsOutDil — share trend unavailable",
+        reason: "fewer than two periods of diluted weighted-average shares — share trend unavailable",
         severity: "warn",
       });
     }

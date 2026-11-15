@@ -21,10 +21,10 @@ original versions and bytes; source merge does not deploy or publish a release.
 ## Unreleased - Reader wording at the producers (D-296-D-299) (2026-11-14)
 
 - Data-only reports say "This report was built without an AI connection, so no AI analysis ran." instead of naming the API-key variable; the saved model label is "none (no AI connection)" (D-296).
-- Basis, note and gap text no longer quotes decision ids, the net-debt method label or raw field names; it names the rule, the setting (`METIS_EV_INCLUDE_LEASES`, `METIS_STATEMENT_SOURCE`) and the figure in words (D-296, revising D-228's frozen wording).
+- Basis, note and gap text no longer quotes decision ids, the net-debt method label or raw field names in fixed formulas and reasons; it names the rule, the setting (`METIS_EV_INCLUDE_LEASES`, `METIS_STATEMENT_SOURCE`, `METIS_JUDGE_ORDER`) and the figure in words (D-296, revising D-228's frozen wording). Saved reports and retained run inputs keep their bytes; a read-time view shows their retired phrases in the current words.
 - A withheld dividend-payout year with no source is a disclosed gap, not an "ambiguous legacy citation"; a withheld operating margin names its period and sits with the quarterly trend (D-297).
 - 20-F/40-F filers get a foreign-filer note (6-K results releases are not read) instead of the domestic Item 2.02 8-K note; the TTM capital basis names the flows it admitted and the ones withheld (D-298).
-- Product-line headings named by the issuer's own filing excerpt stand; the fallback heading is "Product line"; segment row names are the record's own key or withheld (D-299, revising D-271). TSM's "[member]" labels are unchanged: no filed label is retained (needs a lead decision).
+- Product-line headings stand only on code-owned names (unchanged rule); an unnamed heading reads "Product line". A segment row's name is its cited record's label when period, currency, unit and amount match, else "Segment (name not established)". A trailing XBRL "[Member]" marker is removed from segment labels (D-299).
 - Report 1.96.0, payload 1.110.0, Stage B `STAGE_B_2026_11_READER_WORDING_83`, pipeline `stage-c-1.6.51`; no figure changes.
 
 ## Unreleased - Statement marks, value-first conflicts, feed citations and coverage operands (P12, P18, P19, P20, P22, D-282..D-285) (2026-11-14)

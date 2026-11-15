@@ -26,6 +26,7 @@ import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptio
 import { comparePeerFundamentals } from "@/pipeline/peers";
 import { buildFilingDisclosures, newerPeriodicFiling, newerResultsRelease, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
 import { newerFilingSentence, newerResultsSentence } from "@/report/filingDisclosurePresentation";
+import { withRetiredGapWording } from "@/report/retiredReaderWording";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
@@ -2084,7 +2085,7 @@ function totalDebtSnapshot(
     : "the latest two fiscal-year-end balances" + (quarterPair
       ? ` (so TTM interest is measured against fiscal-year-end debt; the quarter-end pair (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)}) is not used: ${quarterPair.map(refusal).find(Boolean)})`
       : interestBasis === "ttm" ? " (no quarter-end balance four quarters back, so TTM interest is measured against fiscal-year-end debt)" : "");
-  const basis = `book totalDebt on the retained calculation basis, average of ${which}${scope.length ? ` (retained lease coverage: ${scope.join(" ").replace(/\.$/, "")})` : ""}` +
+  const basis = `book total debt on the retained calculation basis, average of ${which}${scope.length ? ` (retained lease coverage: ${scope.join(" ").replace(/\.$/, "")})` : ""}` +
     (excluded.length ? `; only complete balances used (${used.map(row => isoDay(row.date)).join(" and ") || "none"})${exclusion}` : "") +
     (newest && latestComplete && latestComplete !== newest ? `; the newest balance (${isoDay(newest.date)}) is not used for the debt weight, which uses the latest complete balance` : "");
   const currency = establishedRowsCurrency(used, currencyEvidence);
@@ -2099,7 +2100,7 @@ function totalDebtSnapshot(
   const latestCurrency = latestComplete ? establishedRowsCurrency([latestComplete], currencyEvidence) : null;
   const latest = latestComplete && latestCurrency !== null && latestCurrency === currency ? {
     latest: bookDebtOnLeaseBasis(latestComplete, includeOperatingLeases).value,
-    latestBasis: "book totalDebt on the retained calculation basis, the latest " + (excluded.length ? "complete " : "") + "balance (" + isoDay(latestComplete.date) + ")" +
+    latestBasis: "book total debt on the retained calculation basis, the latest " + (excluded.length ? "complete " : "") + "balance (" + isoDay(latestComplete.date) + ")" +
       (latestComplete === newest ? ", the one the EV bridge nets" : "; the newer withheld balance is not used; its EV bridge remains withheld") +
       " (lease evidence: " + leaseEvidenceNote({ ...latestComplete, leaseEvidenceContext },
         { removed: bookDebtOnLeaseBasis(latestComplete, includeOperatingLeases).leaseRemoved ? num(latestComplete.operatingLeaseLiability) : null }).replace(/\.$/, "") +
@@ -2353,6 +2354,8 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
+  // D-296 (P21): gap reasons a retained bundle recorded at fetch time read in current words; the stored bundle is unchanged.
+  bundle = { ...bundle, gaps: withRetiredGapWording(bundle.gaps) };
   bundle = withCashFlowSbcBasis(withPrimaryCapitalBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))))));
   bundle = balanceIntegrityView(bundle);
   const statementEvidence = statementEvidenceEntries(bundle);

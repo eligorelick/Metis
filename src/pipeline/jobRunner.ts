@@ -29,6 +29,7 @@
  * via settings/model resolution). Never import from a client component.
  */
 
+import { withRetiredGapWording } from "@/report/retiredReaderWording";
 import { PIPELINE_VERSION } from "@/report/versions";
 import { createHash, randomUUID } from "node:crypto";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
@@ -5376,7 +5377,7 @@ function collectMissingData(
   computed: ComputedMetrics | null,
   extra: readonly ManifestEntry[] = [],
 ): ManifestEntry[] {
-  const all: ManifestEntry[] = [...bundle.gaps, ...validation.gaps, ...extra];
+  const all: ManifestEntry[] = [...withRetiredGapWording(bundle.gaps), ...validation.gaps, ...extra];
   if (computed !== null) all.push(...computed.gaps);
   // Dedup by field+reason, keep the highest severity first.
   const seen = new Set<string>();

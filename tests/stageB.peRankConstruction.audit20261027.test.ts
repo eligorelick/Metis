@@ -6,7 +6,7 @@ const pe = (input: MultiplesFrameworkInputs) => multiplesFramework("general", in
 describe("FIN-505 P/E rank construction", () => {
   it("ranks the construction of the selected derived history while retaining displayed diluted P/E", () => {
     const p = pe(issuer(1.04));
-    expect(p.basis).toMatch(/^price \/ epsDiluted/);
+    expect(p.basis).toMatch(/^price \/ diluted EPS/);
     expect(p.current).toBeCloseTo(26,10);
     expect(p.ownHistory!.p50).toBeCloseTo(25,9);
     expect(p.ownHistory!.percentileRank).toBeCloseTo(50,6);
@@ -26,7 +26,7 @@ describe("FIN-505 P/E rank construction", () => {
   it("keeps equal-count and already-common-income ranks; vendor history ranks displayed P/E", () => {
     expect(pe(issuer(1)).ownHistory!.percentileRank).toBeCloseTo(50,6);
     const common = pe(issuer(1.04,{epsDiluted:null}));
-    expect(common.basis).toMatch(/^marketCap \/ common income/);
+    expect(common.basis).toMatch(/^market cap \/ common income/);
     expect(common.ownHistory!.rankedCurrent).toBeUndefined();
     expect(common.ownHistory!.percentileRank).toBeCloseTo(50,6);
     const rows = Array.from({length:8},(_,i)=>({date:`2025-0${i+1}-28`,priceToEarningsRatio:22+i}));

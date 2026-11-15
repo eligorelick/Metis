@@ -2132,13 +2132,13 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     m0 = latestAnnualMargin.marginPct;
     m0Source = `latest annual FY ${latestAnnualMargin.date}`;
     notes.push(`TTM EBIT margin unavailable — base margin set to ${m0Source}, within 15 months of ${marginCutoff}`);
-    gaps.push(gapEntry("valuation.dcf.ttmEbitMargin", `TTM operatingIncome or revenue missing; using ${m0Source} before the 5y median`, "warn"));
+    gaps.push(gapEntry("valuation.dcf.ttmEbitMargin", `TTM operating income or revenue missing; using ${m0Source} before the 5y median`, "warn"));
   }
   if (m0 === null && median5y !== null) {
     m0 = median5y;
     m0Source = "5y median";
     notes.push("TTM EBIT margin unavailable — base margin set to 5y median (fallback)");
-    gaps.push(gapEntry("valuation.dcf.ttmEbitMargin", "TTM operatingIncome or revenue missing", "warn"));
+    gaps.push(gapEntry("valuation.dcf.ttmEbitMargin", "TTM operating income or revenue missing", "warn"));
   }
   if (m0 === null) {
     gaps.push(
@@ -4713,7 +4713,7 @@ export function multiplesFramework(
   if (!financialsRoute && inc && cashFlowDaElsewhere) {
     gaps.push(gapEntry("valuation.multiples.ebitda", `no income-statement D&A, and the cash-flow D&A covers ${period(cf!)}, not ${period(inc)} — EBITDA (computed) withheld rather than adding two periods`, "info"));
   } else if (!financialsRoute && inc && !isNum(dAndA)) {
-    gaps.push(gapEntry("valuation.multiples.ebitda", "depreciationAndAmortization missing — EBITDA (computed) unavailable", "info"));
+    gaps.push(gapEntry("valuation.multiples.ebitda", "depreciation and amortization missing — EBITDA (computed) unavailable", "info"));
   }
   const fcf = deriveFcf(cf?.operatingCashFlow, cf?.capitalExpenditure);
   const capital = commonHolderCapital(inc, bal);
@@ -4898,7 +4898,7 @@ export function multiplesFramework(
 
   // --- Current multiples from raw fields ------------------------------------
   let eps = posOrNull(inc?.epsDiluted);
-  let epsBasis = "price / epsDiluted";
+  let epsBasis = "price / diluted EPS";
   // Audit 2026-10-22 B-20: why price / diluted EPS did not produce the P/E, named in its basis.
   let epsUnused = isNum(inc?.epsDiluted)
     ? "diluted EPS for the period is not positive"
@@ -4915,8 +4915,8 @@ export function multiplesFramework(
       gaps.push(gapEntry("valuation.multiples.peTtm.securityBasis", reason, "warn"));
     } else if (inc.epsSecurityBasis === "ordinary") {
       eps *= security.ordinarySharesPerQuotedUnit;
-      epsBasis = `price per ADS / (ordinary epsDiluted x ${security.ordinarySharesPerQuotedUnit} ordinary shares per ADS) (verified basis ${security.sourceIds.join(", ")}, effective ${security.effectiveFrom})`;
-    } else epsBasis = "price per ADS / epsDiluted already per quoted ADS (no second ratio adjustment)";
+      epsBasis = `price per ADS / (ordinary diluted EPS x ${security.ordinarySharesPerQuotedUnit} ordinary shares per ADS) (verified basis ${security.sourceIds.join(", ")}, effective ${security.effectiveFrom})`;
+    } else epsBasis = "price per ADS / diluted EPS already per quoted ADS (no second ratio adjustment)";
   }
   // Audit 2026-10-22 B-8: when the classes carry different economic weights,
   // a filed diluted EPS is per share of one class whose identity the filing
@@ -5200,22 +5200,22 @@ export function multiplesFramework(
   const basisByKey: Record<MultipleKey, string> = {
     peTtm: (price !== null && eps !== null
       ? `${epsBasis} (${incomeBasisLabel})`
-      : `marketCap / common income (${incomeBasisLabel}; aggregate basis; ${capital.incomeBasis}); diluted EPS not used: ${price === null ? "no quote price" : epsUnused}`) + denominatorText +
+      : `market cap / common income (${incomeBasisLabel}; aggregate basis; ${capital.incomeBasis}); diluted EPS not used: ${price === null ? "no quote price" : epsUnused}`) + denominatorText +
       (price !== null && eps !== null && inc?.basis !== "annual" && inc?.epsDilutedBasis === "sum-quarterly-diluted-eps"
         ? ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum."
         : ""),
-    evToEbitda: `EV / (operatingIncome + D&A), ${incomeBasisLabel}-computed — vendor ebitda field not trusted. ${evBridgeBasis} Balance basis: ${balanceBasisLabel}.` +
+    evToEbitda: `EV / (operating income + D&A), ${incomeBasisLabel}-computed — the vendor EBITDA field is not used. ${evBridgeBasis} Balance basis: ${balanceBasisLabel}.` +
       (ebitdaLowerBound === null ? "" : ` ${ebitdaLowerBound}.`),
     evToSales: `EV / revenue (${incomeBasisLabel}). ${evBridgeBasis}`,
     priceToFcf:
-      `marketCap / (operatingCashFlow + capitalExpenditure) (${cashFlowBasisLabel}; FMP capex negative) — free cash flow BEFORE ` +
+      `market cap / (operating cash flow + capital expenditure) (${cashFlowBasisLabel}; the provider records capex as negative) — free cash flow BEFORE ` +
       "stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is " +
       "ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed",
 
-    priceToBook: `marketCap / common equity (${balanceBasisLabel}; ${capital.equityBasis}); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness`,
-    priceToTbv: `marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill ${bal?.goodwill ?? "unavailable"} and intangibleAssets ${bal?.intangibleAssets ?? "unavailable"} (source monetary units; vendor composition unverified unless stated). ${bal?.tangibleBookDeductionBasis ?? ""} (${balanceBasisLabel}; ${capital.equityBasis}; undisclosed preferred assumed zero only when no material preferred amount is known)`,
-    priceToFfo: "marketCap / FFO (approx., caller-provided)",
-    priceToAffo: "marketCap / AFFO (rough, caller-provided)",
+    priceToBook: `market cap / common equity (${balanceBasisLabel}; ${capital.equityBasis}); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness`,
+    priceToTbv: `market cap / (common equity - goodwill - intangible assets); deducts goodwill ${bal?.goodwill ?? "unavailable"} and intangible assets ${bal?.intangibleAssets ?? "unavailable"} (source monetary units; vendor composition unverified unless stated). ${bal?.tangibleBookDeductionBasis ?? ""} (${balanceBasisLabel}; ${capital.equityBasis}; undisclosed preferred assumed zero only when no material preferred amount is known)`,
+    priceToFfo: "market cap / FFO (approx., caller-provided)",
+    priceToAffo: "market cap / AFFO (rough, caller-provided)",
   };
   const multiples: MultipleStat[] = keys.map((key) => {
     if (key === "evToSales" && inputs.revenueEligibilityReason) {
@@ -6388,7 +6388,7 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
 
   notes.push(
     inputs.ffoBasis ??
-      "FFO (approx.) = netIncome + D&A — gains on property sales / RE impairments not netted (no tagged lines)",
+      "FFO (approx.) = net income + D&A — gains on property sales / RE impairments not netted (no tagged lines)",
   );
   notes.push(
     inputs.affoBasis ??
@@ -6432,7 +6432,7 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
   let impliedCapRatePct: number | null = null;
   if (noi !== null && ev !== null && ev > 0) {
     impliedCapRatePct = (noi / ev) * 100;
-    notes.push("implied cap rate = NOI(approx = operatingIncome + D&A) / EV — a sketch, not an appraisal");
+    notes.push("implied cap rate = NOI (approx. = operating income + D&A) / EV — a sketch, not an appraisal");
   } else {
     gaps.push(gapEntry("valuation.reit.impliedCapRate", "NOI not derivable (or EV missing) — implied cap rate disclosed as gap", "info"));
   }
@@ -6849,7 +6849,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     ? inputs.multiples.quote.marketCap / inputs.multiples.quote.price : null;
   const multiplesShareBasis = compareShareBasis(inputs.dilutedShares, quoteShares, inputs.employeeTrustShares, shareScopeOwner);
   if (multiplesShareBasis !== null) {
-    const onMarketCap = (key: MultipleKey, basis: string) => key !== "peTtm" || basis.startsWith("marketCap /");
+    const onMarketCap = (key: MultipleKey, basis: string) => key !== "peTtm" || basis.startsWith("market cap /");
     const quoteDay = inputs.multiples.quote.priceAsOf;
     const withSentence = (basis: string, marketCap: boolean): string => {
       const sentence = shareBasisSentence(multiplesShareBasis, marketCap, quoteDay);

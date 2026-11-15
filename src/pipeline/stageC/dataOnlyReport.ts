@@ -60,7 +60,7 @@ import { establishedCurrency } from "@/report/format";
 import { fairValueDegradedText, fairValueReferenceText } from "@/report/fairValueText";
 import { formatScore } from "@/report/scoreText";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
-import { admittedGeography } from "@/edgar/segmentFacts";
+import { admittedGeography, withoutMemberMarker } from "@/edgar/segmentFacts";
 import {
   applyDcfDisplay,
   applyFairValue,
@@ -801,7 +801,7 @@ function segmentRows(
     if (primaryBasis) revenue.verificationNote = primaryBasis;
 
     rows.push({
-      name,
+      name: withoutMemberMarker(name),
       revenue,
       sharePct: null,
     });

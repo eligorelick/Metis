@@ -163,7 +163,7 @@ describe("computeGrowth — CAGR exactness and windows", () => {
     expect(p1?.startValue).toBe(100);
     expect(p1?.endValue).toBe(120);
     expect(p1?.cagrPct).toBeCloseTo(20, 10);
-    expect(res.notes.join(" ")).toContain("operatingCashFlow + capitalExpenditure");
+    expect(res.notes.join(" ")).toContain("operating cash flow + capital expenditure");
   });
 
   it("margin series is oldest→newest with an exact regression slope", () => {
@@ -1112,7 +1112,7 @@ describe("computeCapital — zero-as-null and denominator guards", () => {
     const income = [{ ...capIncome[0], interestExpense: 0 }];
     const res = computeCapital(income, capCashflow, capBalance, [], { price: null }, USD_QUOTE);
     expect(res.interestCoverage.value).toBeNull();
-    expect(res.interestCoverage.note).toContain("zero-for-undisclosed");
+    expect(res.interestCoverage.note).toContain("treated as undisclosed (the provider writes zero for undisclosed)");
     expect(res.gaps.some((g) => g.field === "capital.interestCoverage")).toBe(true);
   });
 
@@ -1358,7 +1358,7 @@ describe("waccDisclosure — every WACC input named with its source and date", (
     });
     const d = waccDisclosure(res);
     expect(d.riskFree).toEqual({ pct: 4, seriesId: "fred:DGS10", asOf: "2026-07-03" });
-    expect(d.erp).toEqual({ pct: 5, source: "FMP market-risk-premium (US totalEquityRiskPremium)", asOf: "2026-07-02" });
+    expect(d.erp).toEqual({ pct: 5, source: "FMP market-risk-premium (US total equity risk premium)", asOf: "2026-07-02" });
     expect(d.costOfDebt.method).toBe("effective");
     expect(d.taxRate).toEqual({ fraction: 0.21, basis: "FMP ratios-ttm effectiveTaxRateTTM" });
     expect(d.weights.equity).toBeCloseTo(0.9, 12);
@@ -1652,7 +1652,7 @@ describe("audit 2026-09-06 — WACC notes state the method and the basis that ac
   it("keeps the default labels when the caller states no basis", () => {
     const res = computeWacc({ ...waccBase, interestExpenseTtm: 40 });
     expect(res.notes.join(" ")).toMatch(/on TTM \(/);
-    expect(res.notes.join(" ")).toMatch(/debt weight uses book totalDebt \(avg of latest two periods\)/);
+    expect(res.notes.join(" ")).toMatch(/debt weight uses book total debt \(average of the latest two periods\)/);
     expect(waccDisclosure(res).weights.basis).toMatch(/average of the latest two balance sheets/);
   });
 });

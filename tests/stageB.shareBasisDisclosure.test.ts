@@ -295,7 +295,7 @@ describe("D-265 review thread: a restored loss-period divisor is not the EPS cou
     if (out.valuation.kind !== "dcf") throw new Error("expected the DCF route");
     const rows = out.valuation.multiples.multiples;
     const pe = rows.find((m) => m.key === "peTtm")?.basis ?? "";
-    expect(pe).toMatch(/^price \/ epsDiluted/);
+    expect(pe).toMatch(/^price \/ diluted EPS/);
     expect(pe).toMatch(/Share basis: price \/ diluted EPS sits on weighted-average diluted shares \(latest filed 98\.5M\); the market-cap multiples sit on the 100M shares the quoted market cap implies, and the diluted count is 1\.5% below that count\./);
     expect(pe).not.toMatch(/99\.5M/);
     for (const row of rows.filter((m) => m.key !== "peTtm" && m.current !== null)) {

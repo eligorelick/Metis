@@ -206,8 +206,8 @@ describe("the P/E basis names the formula that ran (audit 2026-10-22 B-20)", () 
   it("names price / diluted EPS alone when diluted EPS covers the window", () => {
     const { computed, report: r } = report(completeCurrencyBundle({ annualCurrency: "USD" }));
     const basis = multiple(computed, "peTtm").basis;
-    expect(basis).toMatch(/^price \/ epsDiluted \(TTM\)/);
-    expect(basis).not.toMatch(/fallback|marketCap \/ common income/);
+    expect(basis).toMatch(/^price \/ diluted EPS \(TTM\)/);
+    expect(basis).not.toMatch(/fallback|market cap \/ common income|marketCap/);
     expect(keyDataRows(r).find((row) => row.label === "P/E (TTM)")?.note).toBeUndefined();
   });
 
@@ -217,9 +217,9 @@ describe("the P/E basis names the formula that ran (audit 2026-10-22 B-20)", () 
     const { computed, report: r } = report(bundle);
     const pe = multiple(computed, "peTtm");
     expect(pe.current).not.toBeNull();
-    expect(pe.basis).toMatch(/^marketCap \/ common income \(TTM; /);
+    expect(pe.basis).toMatch(/^market cap \/ common income \(TTM; /);
     expect(pe.basis).toContain("diluted EPS not used: diluted EPS is not available for every quarter of the period");
-    expect(pe.basis).not.toMatch(/price \/ epsDiluted|fallback/);
+    expect(pe.basis).not.toMatch(/price \/ diluted EPS|epsDiluted|fallback/);
     const row = keyDataRows(r).find((x) => x.label === "P/E (TTM)");
     expect(row?.note).toBe("market cap / common income, not price / diluted EPS");
     for (const text of surfaces(r)) expect(text).toContain("market cap / common income, not price / diluted EPS");

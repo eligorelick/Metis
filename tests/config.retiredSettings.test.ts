@@ -147,14 +147,16 @@ describe("a clean METIS_-only environment parses exactly as before (D-228)", () 
 
 describe("source scan: no src file reads a THESIS_ environment name (D-228)", () => {
   /**
-   * The only THESIS_ text allowed in src: the rejection list in the namespace
-   * owner, and the frozen judge-prompt key that still spells the old name
-   * (rewording it changes prompt bytes). Each is an exact line. Reader text
-   * names the current METIS_ settings (D-296 revises D-228's frozen wording).
+   * The only THESIS_ text allowed in src is the rejection list in the namespace
+   * owner (and the retired-wording view's table of old phrases, checked below).
+   * Reader text and the judge prompt name the current METIS_ settings (D-296
+   * revises D-228's frozen wording).
    */
   const FROZEN_LINES: Readonly<Record<string, readonly string[]>> = {
-    "src/pipeline/stageC/judgeProtocol.ts": [
-      "export const JUDGE_ORDER_ENV_KEY = \"THESIS_JUDGE_ORDER\";",
+    "src/report/retiredReaderWording.ts": [
+      '[/THESIS_EV_INCLUDE_LEASES=1/g, "METIS_EV_INCLUDE_LEASES=1"],',
+      '[/THESIS_STATEMENT_SOURCE=/g, "METIS_STATEMENT_SOURCE="],',
+      '[/THESIS_JUDGE_ORDER=/g, "METIS_JUDGE_ORDER="],',
     ],
   };
 

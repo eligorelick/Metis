@@ -1155,7 +1155,8 @@ describe("payload determinism + provenance", () => {
       delete current.interestCoverageUnverifiedOperands;
       priorCapital.interestCoverage = coverage;
       priorCapital.current = current;
-      expect(sha256Text(JSON.stringify(priorCapital)).slice(0,16)).toBe("345abeca6e98de5e");
+      // D-296: re-pinned after a leaf comparison against main 570807e4 (four note/basis strings, no number).
+      expect(sha256Text(JSON.stringify(priorCapital)).slice(0,16)).toBe("0bc2ff332534d2f1");
       // Every top-level key in its serialized order; finance keys are pinned leaf by leaf above.
       return Object.entries(written).map(([key, value]) =>
         finance.has(key) ? `${key} (frozen record)` : `${key} ${sha256Text(JSON.stringify(value)).slice(0, 16)}`);
@@ -1166,8 +1167,8 @@ describe("payload determinism + provenance", () => {
       "route 67088d486e79efec",
       "degradation f591b71ec31aefa2",
       "growth 3b108cfa32943129",
-      "returns 5837ec4162747280",
-      "capital 345a2ead5990f0ce", // D-272 cashDividendPayout and D-282 coverage qualification are new; preceding capital hash asserted above.
+      "returns 9943437b00a0aa1d", // D-296: basis and note text in words; leaf-compared against main 570807e4, no number moved.
+      "capital c0b800ede596d9fc", // D-272 cashDividendPayout and D-282 coverage qualification are new; preceding capital hash asserted above (D-296: text only).
       "forensics 0d59d3ffecb6f45c",
       "technicals 0d0c7b3f39a71e07",
       "valuation (frozen record)",
@@ -1179,7 +1180,7 @@ describe("payload determinism + provenance", () => {
       "fairValue (frozen record)",
       "suppressed 4f53cda18c2baa0c",
       "notes 2e5b1aca5def94d8",
-      "gaps b08c0a088161e229", // D-261: named gaps for missing score operands; financial subtrees unchanged.
+      "gaps 2e53f185952ca7ee", // D-261: named gaps for missing score operands; D-296: one reason in words; financial subtrees unchanged.
     ];
     expect(digests(buildInputs())).toEqual(expected);
     expect(digests(buildFreshInputs())).toEqual(expected);

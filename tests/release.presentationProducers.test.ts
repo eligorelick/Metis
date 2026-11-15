@@ -11,10 +11,18 @@ import { isQuarterlyTrendNote } from "@/report/filingDisclosurePresentation";
 import { foreignResultsNote, isForeignAnnualForm, isNoResultsEightKNote, noResultsEightKNote } from "@/providers/currentReports";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { trailingFlowStatement } from "@/report/financialDiagnostics";
-import { boundSegmentName, gateProductLineHeadings, issuerFilingNamesHeading, UNBOUND_SEGMENT_NAME } from "@/pipeline/stageC/passes";
+import { boundSegmentName, bundleSegmentNameKeys, gateProductLineHeadings, UNBOUND_SEGMENT_NAME } from "@/pipeline/stageC/passes";
+import { segmentRecordCitations, type SegmentRecordCitation } from "@/pipeline/stageC/payload";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
+import { withoutMemberMarker } from "@/edgar/segmentFacts";
 import type { DataBundle } from "@/pipeline/types";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { retiredReaderWording, withRetiredReaderWording } from "@/report/retiredReaderWording";
+import { withStoredReportView } from "@/report/storedReportView";
+import { runStageB } from "@/pipeline/compute";
+import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
+import type { ContextPayload } from "@/pipeline/stageC/payload";
+import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 
 const ROOT = process.cwd();
 
@@ -142,78 +150,182 @@ describe("D-298 (R33): a 20-F/40-F filer is told what is missing in its own term
   });
 });
 
-describe("D-298 (R34): the TTM basis states which flows are admitted", () => {
-  const bridge = (ocf: number | null, capex: number | null) => ({ operatingCashFlow: ocf, cashCapitalExpenditure: capex }) as never;
-  it("keeps the complete-flows sentence only when every flow is present (control)", () => {
-    expect(trailingFlowStatement({ netIncome: 5, ebitda: 9, cashBridge: bridge(7, -2) })).toBe(
-      "Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled.");
+describe("D-298 (R34): the TTM basis names exactly which flows are admitted and withheld", () => {
+  const bridge = (ocf: number | null, capex: number | null, sbc: number | null = 1) => ({ operatingCashFlow: ocf, cashCapitalExpenditure: capex, stockBasedCompensation: sbc }) as never;
+  it("lists every admitted flow and never claims completeness (control: all present)", () => {
+    const text = trailingFlowStatement({ netIncome: 5, ebitda: 9, cashBridge: bridge(7, -2) });
+    expect(text).toBe("TTM flows admitted for this window: operating cash flow, cash capital expenditure, consolidated net income, EBITDA and stock-based compensation. Annual historical series remain separately labeled.");
+    expect(text).not.toMatch(/Complete|complete/);
+  });
+  it("names a missing SBC add-back and the SBC figures it withholds (utility, railroad or retailer shape)", () => {
+    expect(trailingFlowStatement({ netIncome: 5, ebitda: 9, cashBridge: bridge(7, -2, null) })).toBe(
+      "TTM flows admitted for this window: operating cash flow, cash capital expenditure, consolidated net income and EBITDA. " +
+      "Not established for this window: stock-based compensation, so FCF after SBC and SBC share of FCF are withheld. Annual historical series remain separately labeled.");
   });
   it("names a withheld consolidated earnings denominator (foreign or multi-scope shape)", () => {
-    const text = trailingFlowStatement({ netIncome: null, ebitda: 9, cashBridge: bridge(7, -2) });
-    expect(text).not.toMatch(/^Complete/);
-    expect(text).toContain("TTM operating cash flow, cash capital expenditure and EBITDA are used with the corresponding current balance");
-    expect(text).toContain("TTM consolidated net income is not established for this window, so the figures built on it are withheld");
+    expect(trailingFlowStatement({ netIncome: null, ebitda: 9, cashBridge: bridge(7, -2) })).toContain(
+      "Not established for this window: consolidated net income, so FCF conversion is withheld.");
   });
-  it("names withheld cash capex (REIT or pre-revenue shape)", () => {
-    const text = trailingFlowStatement({ netIncome: 5, ebitda: null, cashBridge: bridge(7, null) });
-    expect(text).toContain("TTM cash capital expenditure and EBITDA are not established for this window, so the figures built on them are withheld");
+  it("names withheld cash capex and EBITDA (REIT or pre-revenue shape)", () => {
+    expect(trailingFlowStatement({ netIncome: 5, ebitda: null, cashBridge: bridge(7, null) })).toContain(
+      "Not established for this window: cash capital expenditure and EBITDA, so FCF, FCF after SBC, SBC share of FCF, FCF conversion and net debt / EBITDA are withheld.");
   });
 });
 
-describe("D-299 (R37): product-line headings", () => {
-  const fact = (text: string, source: string) => ({ text, label: "FACT" as const, source, asOf: "2026-06-30" });
-  it("admits a proper name an issuer filing excerpt writes", () => {
-    const item = { productLine: "Zelvora", claims: [fact("The 10-Q states the company launched Zelvora in the second quarter.", "edgar:10-Q item2")] };
-    expect(issuerFilingNamesHeading(item)).toBe(true);
-    expect(gateProductLineHeadings([item], new Set())![0]!.productLine).toBe("Zelvora");
-    const multi = { productLine: "Advanced Packaging Services", claims: [fact("Advanced Packaging Services grew with demand.", "edgar:20-F item4")] };
-    expect(issuerFilingNamesHeading(multi)).toBe(true);
+describe("D-299 (R37): product-line headings stand only on code-owned names", () => {
+  const fact = (text: string, source = "edgar:10-K item1") => ({ text, label: "FACT" as const, source, asOf: "2026-02-20" });
+  // Review round 1 repros: an issuer-filing citation alone never makes model text a heading.
+  it.each([
+    ["Verandol Dominates The Market", "No reviewed source establishes that Verandol Dominates The Market."],
+    ["Invented Franchise", "Invented Franchise treats migraine."],
+    ["Competitor Brand", "The company competes against Competitor Brand."],
+  ])("refuses %s, named only by a cited claim", (heading, text) => {
+    expect(gateProductLineHeadings([{ productLine: heading, claims: [fact(text)] }], new Set())![0]!.productLine).toBe(UNNAMED_PRODUCT_LINE_HEADING);
   });
-  it("refuses a sentence, a web-only naming claim and an unnamed heading (controls)", () => {
-    const sentence = { productLine: "Verandol dominates the market", claims: [fact("No reviewed source establishes that Verandol dominates the market.", "edgar:10-K item1")] };
-    expect(issuerFilingNamesHeading(sentence)).toBe(false);
-    const web = { productLine: "Zelvora", claims: [fact("Zelvora launched.", "https://news.example.com/zelvora")] };
-    expect(issuerFilingNamesHeading(web)).toBe(false);
-    expect(gateProductLineHeadings([web], new Set())![0]!.productLine).toBe(UNNAMED_PRODUCT_LINE_HEADING);
-    const copied = { productLine: LEGACY_UNNAMED_PRODUCT_LINE_HEADING, claims: [fact(`${LEGACY_UNNAMED_PRODUCT_LINE_HEADING} rose.`, "edgar:10-K item1")] };
-    expect(issuerFilingNamesHeading(copied)).toBe(false);
+  it("keeps a heading that is a code-owned segment or filed member name (control)", () => {
+    const names = bundleSegmentNameKeys({ segmentation: {
+      product: { ok: true, value: { data: { rows: [{ date: "2025-12-31", data: { Zelvora: 10 } }] } } },
+      geographic: { ok: false },
+    } } as unknown as Parameters<typeof bundleSegmentNameKeys>[0]);
+    expect(gateProductLineHeadings([{ productLine: "Zelvora", claims: [fact("Zelvora grew.")] }], names)![0]!.productLine).toBe("Zelvora");
+  });
+  it("uses a neutral fallback heading; the earlier placeholder is never a name", () => {
+    expect(UNNAMED_PRODUCT_LINE_HEADING).toBe("Product line");
+    const copied = { productLine: LEGACY_UNNAMED_PRODUCT_LINE_HEADING, claims: [fact(`${LEGACY_UNNAMED_PRODUCT_LINE_HEADING} rose.`)] };
     expect(productLineNamedInClaims(copied)).toBe(false);
   });
-  it("uses a neutral fallback heading", () => {
-    expect(UNNAMED_PRODUCT_LINE_HEADING).toBe("Product line");
+});
+
+describe("D-299 (R38): a segment row's name comes from the record it cites", () => {
+  const record = (over: Partial<SegmentRecordCitation> = {}): SegmentRecordCitation => ({ id: "payload.segments.product-cloud-services",
+    kind: "product", name: "Cloud Services", value: 1_200_000_000, unit: "currency", currency: "USD", period: "2025-12-31", ...over });
+  const row = (revenue: Record<string, unknown>) => ({ name: "Cloud computing powerhouse",
+    revenue: { value: 1_200_000_000, unit: "currency", currency: "USD", asOf: "2025-12-31", source: "payload.segments.product-cloud-services", ...revenue } as never });
+  it("binds the cited record's own name when its date, currency, unit and amount agree", () => {
+    expect(boundSegmentName(row({}), [record()], "product")).toBe("Cloud Services");
+    expect(boundSegmentName(row({ period: "2025-12-31", asOf: "2026-02-01", value: 1_200_000_000.0001 }), [record()], "product")).toBe("Cloud Services");
+    const quarter = record({ id: "payload.segment-revenue.geography-united-states-revenue-quarter-ended-2026-07-26", kind: "geographic",
+      name: "United States (quarter ended 2026-07-26)", value: 600, period: "2026-07-26" });
+    expect(boundSegmentName(row({ value: 600, period: "2026-07-26", source: quarter.id }), [quarter], "geographic")).toBe("United States (quarter ended 2026-07-26)");
+  });
+  it("withholds the name unless the cited record establishes it (review round 1 repros and controls)", () => {
+    const records = [record()];
+    // An amount that matches some record, but the row cites another source.
+    expect(boundSegmentName(row({ source: "edgar:unrelated-revenue" }), records, "product")).toBe(UNBOUND_SEGMENT_NAME);
+    expect(boundSegmentName(row({ source: "fmp:other-record", period: "2025-12-31" }), records, "product")).toBe(UNBOUND_SEGMENT_NAME);
+    // No stated date or currency, another date, currency, unit or amount, or another kind of axis.
+    expect(boundSegmentName(row({ asOf: null, period: null }), records, "product")).toBe(UNBOUND_SEGMENT_NAME);
+    expect(boundSegmentName(row({ currency: null }), records, "product")).toBe(UNBOUND_SEGMENT_NAME);
+    expect(boundSegmentName(row({ period: "2024-12-31" }), records, "product")).toBe(UNBOUND_SEGMENT_NAME);
+    expect(boundSegmentName(row({ currency: "EUR" }), records, "product")).toBe(UNBOUND_SEGMENT_NAME);
+    expect(boundSegmentName(row({ unit: "%" }), records, "product")).toBe(UNBOUND_SEGMENT_NAME);
+    expect(boundSegmentName(row({ value: 1_200 }), records, "product")).toBe(UNBOUND_SEGMENT_NAME);
+    expect(boundSegmentName(row({}), records, "geographic")).toBe(UNBOUND_SEGMENT_NAME);
+    expect(boundSegmentName(row({}), [], "product")).toBe(UNBOUND_SEGMENT_NAME);
+  });
+  it("lists each segment record under the payload's own citation id, leaving out a duplicated id", () => {
+    const bundle = completeCurrencyBundle({});
+    (bundle as { segmentation: unknown }).segmentation = {
+      product: { ok: true, value: { source: "fmp", endpoint: "x", asOf: "2025-12-31", fetchedAt: "x", data: { rows: [{ date: "2025-12-31", reportedCurrency: "USD", data: { "Wafer [member]": 900, "Cloud-Services": 5, "Cloud Services": 6 } }] } } },
+      geographic: { ok: false, gap: { field: "g", reason: "none", severity: "info" } },
+    };
+    const ids = segmentRecordCitations(bundle).filter(r => r.kind === "product").map(r => [r.id, r.name]);
+    expect(ids).toEqual([["payload.segments.product-wafer-member", "Wafer"]]);
   });
 });
 
-describe("D-299 (R38): a segment row's name is the record's own", () => {
-  const record = (data: Record<string, number>, date = "2025-12-31", currency = "USD") =>
-    ({ ok: true, value: { source: "fmp", endpoint: "x", asOf: date, fetchedAt: "x", data: { rows: [{ date, reportedCurrency: currency, data }] } } }) as never;
-  it("binds the name of the one entry whose amount is the row's revenue", () => {
-    const res = record({ "Cloud Services": 1_200_000_000, Devices: 300_000_000 });
-    expect(boundSegmentName({ name: "Cloud computing powerhouse", revenue: { value: 1_200_000_000, period: "2025-12-31", currency: "USD" } }, res)).toBe("Cloud Services");
-    expect(boundSegmentName({ name: "Devices", revenue: { value: 300_000_000.0001, period: null, currency: null } }, res)).toBe("Devices");
+describe("D-299 (R32): the trailing XBRL [Member] marker is label syntax", () => {
+  it("strips the whole trailing marker in any case, keeping the filer's own label", () => {
+    expect(withoutMemberMarker("Wafer [member]")).toBe("Wafer");
+    expect(withoutMemberMarker("Europe Middle East and Africa [Member]")).toBe("Europe Middle East and Africa");
+    expect(withoutMemberMarker("Other Products  [MEMBER] ")).toBe("Other Products");
   });
-  it("binds a quarterly row to the filed segment table's member label for that quarter", () => {
-    const filed = { ok: true, value: { data: { axes: [{ axis: "srt:StatementGeographicalAxis", axisLabel: "Geography", currency: "USD",
-      quarters: [{ start: "2026-04-27", end: "2026-07-26" }, { start: "2026-01-26", end: "2026-04-26" }],
-      rows: [{ member: "country:US", label: "United States", values: [600, 500], childOf: null }, { member: "x:OtherMember", label: "Other", values: [12, 600], childOf: null }],
-      total: [612, 1100], priorPresentation: [], derivedCells: 0, residualCells: 0 }] } } } as never;
-    const empty = record({});
-    expect(boundSegmentName({ name: "US region", revenue: { value: 600, period: "2026-07-26", currency: "USD" } }, empty, filed, "geographic")).toBe("United States (quarter ended 2026-07-26)");
-    expect(boundSegmentName({ name: "Other", revenue: { value: 600, period: "2026-04-26", currency: "USD" } }, empty, filed, "geographic")).toBe("Other (quarter ended 2026-04-26)");
-    // Control (review): a product row never takes a label from the geographic axis.
-    expect(boundSegmentName({ name: "Cloud", revenue: { value: 600, period: "2026-07-26", currency: "USD" } }, empty, filed, "product")).toBe(UNBOUND_SEGMENT_NAME);
-    // Controls: a quarter the table does not hold, another currency, or no period.
-    expect(boundSegmentName({ name: "US", revenue: { value: 600, period: "2026-10-25", currency: "USD" } }, empty, filed, "geographic")).toBe(UNBOUND_SEGMENT_NAME);
-    expect(boundSegmentName({ name: "US", revenue: { value: 600, period: "2026-07-26", currency: "EUR" } }, empty, filed, "geographic")).toBe(UNBOUND_SEGMENT_NAME);
-    expect(boundSegmentName({ name: "US", revenue: { value: 600 } }, empty, filed, "geographic")).toBe(UNBOUND_SEGMENT_NAME);
+  it("leaves other text alone (controls)", () => {
+    expect(withoutMemberMarker("Membership fees")).toBe("Membership fees");
+    expect(withoutMemberMarker("Member services [member] plan")).toBe("Member services [member] plan");
+    expect(withoutMemberMarker("[member]")).toBe("[member]");
+    expect(withoutMemberMarker("Data Center")).toBe("Data Center");
   });
-  it("withholds the name with no single matching entry, another period or another currency (controls)", () => {
-    const tie = record({ North: 50, South: 50 });
-    expect(boundSegmentName({ name: "North", revenue: { value: 50 } }, tie)).toBe(UNBOUND_SEGMENT_NAME);
-    const res = record({ Wafers: 900 });
-    expect(boundSegmentName({ name: "Wafers", revenue: { value: 800 } }, res)).toBe(UNBOUND_SEGMENT_NAME);
-    expect(boundSegmentName({ name: "Wafers", revenue: { value: 900, period: "2024-12-31" } }, res)).toBe(UNBOUND_SEGMENT_NAME);
-    expect(boundSegmentName({ name: "Wafers", revenue: { value: 900, currency: "TWD" } }, res)).toBe(UNBOUND_SEGMENT_NAME);
-    expect(boundSegmentName({ name: "Wafers", revenue: { value: 900 } }, undefined)).toBe(UNBOUND_SEGMENT_NAME);
+
+  // A stored payload keeps the provider's label ("product: Wafer [member]") and its id; the printed row name is the
+  // marker-free label, so the verifier reads a segment record's label both ways.
+  const segment = (label: string, id: string): NumericProvenanceRecord => ({
+    id, label, kind: "provider", value: 1_000_000, unit: "currency", currency: "USD",
+    period: null, asOf: "2025-12-31", origin: "payload", formulaVersion: "test", displayPrecision: 4,
+  } as NumericProvenanceRecord);
+  async function verifyRow(rec: NumericProvenanceRecord, name: string) {
+    const n = { value: rec.value, unit: "currency", currency: "USD", source: rec.id, sourceId: rec.id, asOf: rec.asOf, verified: false };
+    const result = await runVerifyPass({ runPass: async () => { throw new Error("no model"); } } as unknown as PassDeps,
+      { provenanceRegistry: [rec], citationRegistry: [], filings: [] } as unknown as ContextPayload, { row: { name, revenue: n } });
+    return result.log.find((entry) => entry.evidenceKind === "number")!;
+  }
+  it("verifies a marker-free row name against its marked segment record", async () => {
+    expect(await verifyRow(segment("product: Wafer [member]", "payload.segments.product-wafer-member"), "Wafer"))
+      .toMatchObject({ outcome: "verified" });
+    expect(await verifyRow(segment("geographic: Europe Middle East and Africa [member]", "payload.segments.geographic-europe-middle-east-and-africa-member"), "Europe Middle East and Africa"))
+      .toMatchObject({ outcome: "verified" });
+  });
+  it("still refuses another segment's name, and reads a non-segment record's label as written (controls)", async () => {
+    expect(await verifyRow(segment("product: Wafer [member]", "payload.segments.product-wafer-member"), "Other Products"))
+      .toMatchObject({ outcome: "unverified", reason: "text-context-mismatch" });
+    expect(await verifyRow(segment("product: Data Center", "payload.segments.product-data-center"), "Gaming"))
+      .toMatchObject({ outcome: "unverified", reason: "text-context-mismatch" });
+  });
+});
+
+describe("D-296 (R28/R39): retained historical text reads in current words; stored bytes are kept", () => {
+  const RETIRED = {
+    gap: "vendor longTermInvestments read as undisclosed at 2 balance dates; filled with the D-98 chain from the same-period filing, the vendor value retained in the raw row: 2017-12-31 212M.",
+    reason: "ANTHROPIC_API_KEY not configured",
+    model: "none (no ANTHROPIC_API_KEY)",
+    netDebt: "NET_DEBT_V3: total debt 10.0B less cash 2.0B",
+    basis: "price / epsDiluted",
+    ebitda: "EV / (operatingIncome + D&A), house-computed — vendor ebitda field not trusted.",
+    lease: "Operating leases excluded (ASC 842; D-25); set THESIS_EV_INCLUDE_LEASES=1 to include them.",
+    judge: "Judge order: THESIS_JUDGE_ORDER=bear-first.",
+  };
+
+  it("rewrites each retired phrase and nothing else", () => {
+    expect(retiredReaderWording(RETIRED.gap)).toBe(
+      "vendor longTermInvestments read as undisclosed at 2 balance dates; filled with the filed noncurrent-investment tag chain from the same-period filing, the vendor value retained in the raw row: 2017-12-31 212M.");
+    expect(retiredReaderWording(RETIRED.reason)).toBe(NO_KEY_SKIP_REASON);
+    expect(retiredReaderWording(RETIRED.model)).toBe(NO_KEY_MODEL_LABEL);
+    expect(retiredReaderWording(RETIRED.netDebt)).toBe("house net-debt basis: total debt 10.0B less cash 2.0B");
+    expect(retiredReaderWording(RETIRED.basis)).toBe("price / diluted EPS");
+    expect(retiredReaderWording(RETIRED.ebitda)).toBe("EV / (operating income + D&A), house-computed — the vendor EBITDA field is not used.");
+    expect(retiredReaderWording(RETIRED.lease)).toBe("Operating leases excluded (ASC 842); set METIS_EV_INCLUDE_LEASES=1 to include them.");
+    expect(retiredReaderWording(RETIRED.judge)).toBe("Judge order: METIS_JUDGE_ORDER=bear-first.");
+    // Controls: current wording, a decision id outside a retired phrase, and figures pass unchanged.
+    for (const text of ["price / diluted EPS", "See D-98 in the log.", "Revenue 1,234.5M (FY2024)", "house rule D-999 applies"]) {
+      expect(retiredReaderWording(text)).toBe(text);
+    }
+  });
+
+  it("rewrites a stored-shape report's strings only, leaves the input bytes alone, and keeps a current report unchanged", () => {
+    const current = demoReport();
+    expect(withRetiredReaderWording(current)).toEqual(current);
+    const stored = demoReport();
+    stored.appendix.missingData.push({ field: "statements.balance.longTermInvestments", reason: RETIRED.gap } as never);
+    (stored.meta as unknown as Record<string, unknown>).model = RETIRED.model;
+    const bytes = JSON.stringify(stored);
+    const view = withStoredReportView(stored);
+    expect(JSON.stringify(stored)).toBe(bytes);
+    const text = JSON.stringify(view);
+    expect(text).not.toContain("D-98");
+    expect(text).not.toContain("ANTHROPIC_API_KEY");
+    expect(view.appendix.missingData.at(-1)!.reason).toContain("the filed noncurrent-investment tag chain");
+    const numbers = (value: unknown): unknown[] => typeof value === "number" ? [value]
+      : Array.isArray(value) ? value.flatMap(numbers)
+      : value !== null && typeof value === "object" ? Object.values(value).flatMap(numbers) : [];
+    expect(numbers(withRetiredReaderWording(stored))).toEqual(numbers(stored));
+    expect(numbers(stored).length).toBeGreaterThan(100);
+  });
+
+  it("reads a retained bundle's fetch-time gap reason in current words at Stage B", () => {
+    const bundle = completeCurrencyBundle({});
+    const retained = { ...bundle, gaps: [...bundle.gaps, { field: "statements.balance.longTermInvestments", reason: RETIRED.gap, severity: "info" as const }] } as DataBundle;
+    const gaps = runStageB(retained).gaps.filter((gap) => gap.field === "statements.balance.longTermInvestments");
+    expect(gaps.map((gap) => gap.reason)).toEqual([retiredReaderWording(RETIRED.gap)]);
+    expect(retained.gaps.at(-1)!.reason).toBe(RETIRED.gap);
   });
 });
