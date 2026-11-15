@@ -3,6 +3,7 @@
  * pass result, billed-attempt and usage shapes, the injected PipelinePasses bundle and its hooks,
  * the durable launch-authority capability an adapter declares, and the report-assembly input.
  * Types, one constant and the typed bull/bear failure; no runtime state.
+ * Governed by P23 (paid work is bounded and billed once) and P24 (failures and retries stated as observed).
  */
 
 import { type VerifyReservationCapability } from "@/providers/anthropic";

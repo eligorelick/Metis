@@ -2,6 +2,7 @@
  * Stage B bundle row helpers, split out of compute.ts: unwrap a bundle member (a FetchResult) to its
  * admitted rows, read a finite number, string or ISO day, and match rows across statements by
  * fiscal-period date. Pure; every Stage B module reads its rows through these.
+ * Governed by P1 (a row stands only for its stated period) and P20 (every row keeps its source).
  */
 
 import { admittedStatementRow } from "@/providers/fmp";

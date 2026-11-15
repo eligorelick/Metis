@@ -2,6 +2,7 @@
  * The Stage C pass contract, split out of passes.ts: usage, message and outcome shapes, the
  * run-pass request and streaming function types, the injected dependencies and the pass result.
  * Types only.
+ * Governed by P18 (models never author a number) and P23 (paid work is bounded).
  */
 
 import type { ManifestEntry } from "@/types/core";
