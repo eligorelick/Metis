@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.92.0",
+    "specVersion": "1.93.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.92.0",
+    "pipelineVersion": "1.93.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8501742160278746,
@@ -924,8 +924,7 @@
             "verified": false,
             "verificationNote": "[unverified] text-source"
           },
-          "sharePct": null,
-          "shareWithheldReason": "no-same-period-revenue"
+          "sharePct": null
         },
         {
           "name": "Support",
@@ -940,8 +939,7 @@
             "verified": false,
             "verificationNote": "[unverified] text-source"
           },
-          "sharePct": null,
-          "shareWithheldReason": "no-same-period-revenue"
+          "sharePct": null
         }
       ],
       "geographic": [
@@ -958,8 +956,7 @@
             "verified": false,
             "verificationNote": "[unverified] text-source"
           },
-          "sharePct": null,
-          "shareWithheldReason": "no-same-period-revenue"
+          "sharePct": null
         }
       ]
     },

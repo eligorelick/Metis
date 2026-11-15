@@ -149,10 +149,10 @@ describe("new version stamps", () => {
     expect(specVersionBefore(REPORT_SPEC_VERSION, ANNUALIZATION_CONVENTION_SPEC)).toBe(false);
   });
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.92.0"); // D-278: conflict notes name the record metric
+    expect(REPORT_SPEC_VERSION).toBe("1.93.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations
     expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
     expect(PAYLOAD_VERSION).toBe("1.106.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
-    expect(PIPELINE_VERSION).toBe("stage-c-1.6.47"); // D-277: filed segment heading names
+    expect(PIPELINE_VERSION).toBe("stage-c-1.6.48"); // D-285: whole-feed news citations re-cited or removed
     expect(INSIDER_ROLES_READ_FROM).toBe("1.56.0"); // AI-116 frozen display cutoff
     expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_11_COMPLETE_RATIO_INPUTS_79"); // D-267 part 1: same-date fallback; D-260 candidate identity
     expect(SCORE_BANDS_VERSION).toBe("SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE");
@@ -191,7 +191,7 @@ describe("new version stamps", () => {
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.92.0"); // D-278: conflict notes name the record metric
+    expect(newReport().meta.specVersion).toBe("1.93.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     expect(payload.payloadVersion).toBe("1.106.0"); // D-267 part 1: same-date fallback; D-260 candidate identity

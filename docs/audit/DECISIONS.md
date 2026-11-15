@@ -11,6 +11,167 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-285 - A whole-feed news citation names one article or the statement is removed (2026-11-14)
+
+P20 and P22 (release item R8; findings K33, A13). Owners: `src/pipeline/stageC/payload.ts` (`newsSection` keeps
+`articles`; `reciteFeedClaims`; `newsArticleCitationId`, registered in `attachProvenanceRegistry`), called first in the
+verify pass (`src/pipeline/stageC/passes.ts`); reader label in `src/report/presentation.ts` (`sourceLabel`).
+
+**Problem.** A statement could cite `fmp:news` (or `finnhub:news`, `fmp:press-release`) on a date. That names a feed,
+not an article: a reader cannot find what supports it. Re-renders at main showed NVDA 1, JPM 7, LLY 5 and TSM 15 such
+citations, judgments included.
+
+**Rule.** The news section keeps, beside each note it shows the writer, the row's feed, date, publisher, title and
+link (pipeline-owned; the prompt text is unchanged). Before verification, a statement citing a whole feed on a date is
+re-cited to the one payload article of that feed and date when exactly one exists and has a link: its citation names
+the publisher, title and link, and is registered so it verifies as the feed tag did. Otherwise (two or more articles
+that day, none, or no link) the statement is removed and a `removed` log entry says why. No title, wording or near
+date is matched. A list item left with no statements in a list that needs one (a catalyst's or risk's reasoning, a
+development's facts, a moat or product-line claim list) is removed with it; a model-written flag row whose source is a
+whole feed is removed. A saved report's bare feed tag reads "News feed (no single article identified)" (read time).
+
+**Before and after (same-report check, main c06ee7a5, 33 panel cases).** No panel date held exactly one article, so
+every feed-cited statement was removed: JPM #64 6, LLY #65 3, LLY #63 11, META 1, NVDA 1, TSM #66 15 (statements
+and one TSM technical flag); the reports' `fmp:news` citations go from NVDA 1, JPM 7, LLY 5, LLY #63 9, TSM 15 to 0.
+Among them are the audited K2 and K7 (the LLY Hims development and its judgment). Data-only cases are unchanged (they
+carry no model statements). The removed statements were news paraphrases, not filed facts; no figure changes.
+
+**Version.** Pipeline `stage-c-1.6.48`; report spec 1.93.0 (shared with D-282..D-284). Payload stays 1.106.0: the
+model's payload text is byte-identical (golden `payload.txt` unchanged in all 33 cases); the frozen Stage C payload
+record gains only `$.payload.news.articles` (refresh-log entry D-285).
+
+**Tests.** `tests/d282.statementMarks.test.ts`: one article re-cited with publisher, title and link; two articles on
+the date and an article without a link removed, with the emptied catalyst; controls (a filing citation and a web
+citation) untouched; the verify pass logs the removal and verifies the re-cited statement against its article id.
+
+**Limits.** Feed rows the payload did not show (sampled out or past the budget) cannot be cited. A date with several
+articles drops a possibly correct statement; that is the cost of no fuzzy binding.
+
+## D-284 - A sensitivity-grid parameter is not a conflict with the headline record (2026-11-14)
+
+P19 (release item R5; finding A5, the K13 class). Owner: `src/pipeline/stageC/claimEvidence.ts`
+(`buildPlainFigureIndex` label parameters, `labelParameterFor`, used in `checkPlainFigures`).
+
+**Problem.** JPM's valuation paragraph quoted its own grid's most favourable cell ("an 8.6% cost of equity") and
+printed "(Differs from the record: 8.6% stated, 9.6% recorded; 8.6% stated, 14.6% recorded.)": the figure was bound
+to the headline cost of equity and terminal ROE, although the grid cell's own record label states "cost of equity
+8.6%".
+
+**Rule.** A code record's label that states a parameter beside its metric words (a grid cell's "× cost of equity
+8.6%") is code-owned evidence for that figure. Before a figure is reported as differing from a record, it is read
+against those stated parameters: equal value at the stated precision (the owner's `equalValue`), same unit, and every
+parameter metric word named by the figure's own description. Then it is a value match with context unconfirmed (no
+note, never a confirmation); otherwise the existing conflict or "not matched" result stands. The same reading may
+answer an otherwise unmatched figure, except after a dropped candidate (the D-278 rule is kept). No tolerance is added.
+
+**Before and after.** JPM #64 `valuation.reverseDcf.narrative`: "(Differs from the record: 8.6% stated, 9.6% recorded;
+8.6% stated, 14.6% recorded. Not matched to a source: 27.96%.)" becomes "(Not matched to a source: 27.96%.)". No
+other case changes from this rule.
+
+**Tests.** `tests/d282.statementMarks.test.ts`: a bank grid label answers a quoted grid cost of equity; control: a
+cost of equity no record or label states keeps its visible note.
+
+## D-283 - The value-only figure check reads only code-owned evidence (2026-11-14)
+
+P18 and P19 (release item R4; finding A2). Revises D-197. Owner: the plain-figure index the verify pass builds
+(`src/pipeline/stageC/passes.ts`, the `buildPlainFigureIndex` call).
+
+**Problem.** AMZN's verdict paragraph said "The reverse DCF needs 58.9% year-one revenue growth" two lines from the
+code's 50.7%, with no note: the audit logged "Value matched; context not confirmed: ... 58.9% ...". The only 58.9 in
+the run was the model's own key number and executive-summary claim, which D-197 had put in the value index together
+with the analysts' retained cases and research notes.
+
+**Rule.** The value-only lookup reads the numeric records, retained filing and transcript text and the provider's news
+rows. The report's claims and the analysts' cases and research notes are model-written and no longer count, so a
+figure found only there is reported "Not matched to a source" (visible). Confirmations and conflicts are unchanged.
+
+**Before and after.** Plain-figure value matches that become "not matched": AMZN 12 to 11 (the verdict's 58.9%),
+LLY #63 43 to 39, LLY #65 23 to 22, NVDA 23 to 21, TSM #66 28 to 25; each gains a visible note. No figure, status or
+validated-statement count changes.
+
+**Test revisions (D-197 behaviour replaced; assertions at least as strict).** `tests/stageC.plainFigureOutcomes.test.ts`:
+filing, transcript and news text still value-match; research, case and claim text must now give "Not matched to a
+source"; the no-promotion test takes its value from a news row. `tests/stageC.plainFigures.test.ts`: an invalid
+claim's figure is now "untraced" instead of value-matched.
+
+## D-282 - Plain marks on every surface; a conflict is never shown as fact (2026-11-14)
+
+P18, P19 and P22 (release items R1, R2, R3; findings A1, A3, A14, K8). Revises D-264's legend. Owners:
+`src/report/verificationMarks.ts` (legend, mark words, `claimTag`, figure conflicts), `src/report/presentation.ts`
+(`withModelProseMarks`, `citedMark`), `src/report/readerPreparation.ts` (step order), `src/pipeline/stageC/provenance.ts`
+(`matchProvenanceRecord`) and `src/pipeline/stageC/claimEvidence.ts` (`valueConflictAtRecordDate`, called from the
+verify pass).
+
+**Rules.**
+1. *Legend and marks.* The top of every AI-written report says what each mark means: validated = code checked it
+   against its record; not confirmed = written by the AI, not checked, may be wrong; JUDGMENT = the AI's opinion,
+   facts in it not checked; contradicted = conflicts with the record. "[unverified]" and "[qualitative]" both now read
+   "[not confirmed]" (both meant code did not check the statement). A FACT or ESTIMATE with no check entry of its own
+   reads "[not confirmed]" instead of carrying no mark.
+2. *Model-written paragraphs.* The verdict paragraph, each grade's one-line reason and interpretation (grade strip and
+   sections), debate resolutions, reverse-DCF and market-share narratives, the technical read (momentum, levels,
+   relative strength), scenario commentary and model-written conditions, and macro relevance lines end with
+   "[not confirmed]" on the app, Markdown and print surfaces. Code-written text (data-only reports, modeled-condition
+   lines, the code-built trend line) is not marked. Read time only (P21): saved reports get the marks too.
+3. *Contradicted statements.* A FACT or ESTIMATE whose check found a value conflict is shown under a CONTRADICTED tag,
+   never under the bold FACT or ESTIMATE tag. Its stored label and log entry are unchanged.
+4. *Table figures.* A model figure that does not equal its record at stored precision reads "not confirmed" in the
+   Cited column (it read "untraced"; the app showed only a dot), and one whose value conflicts with its record reads
+   "contradicted".
+5. *Value before date.* The id, unit, currency and period pin one record. A figure or claim whose cited date also
+   differs is now read for its value: if it differs from the record even at its own stated rounding (P19's
+   display-rounding rule, half a unit of the last stated decimal; no new tolerance), it is a value conflict
+   (contradicted). An equal or correctly rounded value with another date stays a date mismatch (unverified).
+
+**Before and after (same-report check, main c06ee7a5, 33 cases: 25 data-only, 8 fixed-analyst).** Stage B and the
+payload text are byte-identical in every case. The 25 data-only cases change only in the report and pipeline stamps
+(no legend, no marks: their text is code-written). Fixed-analyst reports replay stored analyst text against current
+figures (L13):
+
+| Case | validated statements | contradicted statements | contradicted figures | CONTRADICTED tags | paragraph and cell marks |
+|---|---|---|---|---|---|
+| AMZN | 35 -> 35 | 2 -> 3 (reverse-DCF 58.9% against the record's 50.73%) | 7 -> 10 (DCF $116.12 against $124.18, reverse-DCF 58.9%, grid maximum, ROIC/WACC drift) | 3 | 77 |
+| META | 44 -> 44 | 0 -> 0 | 9 -> 12 | 0 | 79 |
+| MU | 37 -> 37 | 13 -> 13 | 2 -> 5 (DCF $5,000.09 against $3,981.13, and drift) | 10 | 88 |
+| NVDA | 34 -> 34 | 3 -> 4 | 1 -> 3 | 4 | 75 |
+| JPM #64 | 33 -> 33 | 0 -> 0 | 0 -> 0 | 0 | 219 |
+| LLY #65 | 111 -> 111 | 0 -> 0 | 0 -> 0 | 0 | 162 |
+| LLY #63 | 77 -> 77 | 2 -> 2 | 22 -> 22 | 1 | 169 |
+| TSM #66 | 32 -> 32 | 1 -> 1 | 0 -> 0 | 1 | 180 |
+
+No statement gains "validated"; the confirmed-statement counts are unchanged in every case. The new contradicted
+figures are model key-number and table values whose stored value differs from the current record (replay drift, or
+the model's own wrong number such as AMZN's $116.12) that the date-first check had called "untraced". META's P/E
+29.7x (record 23.8x) and TSM's 324.0x (no record; D-280 withholds it) read "not confirmed".
+
+**Test revisions (reworded or stricter only).** Mark words in `tests/report.claimStatusMarks`,
+`report.companyMarketAnalysis`, `stageC.multiClaimReasoning` and `stageC.claimEvidence.sourcePeriods`; Cited-cell
+words in `report.export.printHtml`, `report.history.export`, `report.periodStatusPresentation` and
+`report.trustPresentation`; the legend phrase in `report.presentation.d62`; the step pins and hand-written chains in
+`report.readerPreparation`; the reader export digests in the `stageC.multiClaimReasoning` snapshot (the audit digest is
+unchanged). Each still asserts the exact mark or cell; the claim-status test now also asserts that the logged
+validated and contradicted claims carry exactly their marks on every surface and that no old status word appears.
+
+**Version.** Report spec 1.93.0 (with D-283..D-285); pipeline `stage-c-1.6.48` (D-285); payload, Stage B and score
+bands unchanged. Stamp checklist: the METHODOLOGY declared-versions sentence, `npm run sample:build`,
+`npm run freeze:refresh` (stagec-payload under D-285, audit-fixture stamps under D-282), the CHANGELOG header and the
+pins in `tests/report.versionStamps`, `tests/jobRunner` and `tests/stageC.payload.passes`.
+
+**Accuracy check.** 25 cases, 328 match / 17 mismatch / 120 gap / 70 not-established: every figure as expected (run
+with the panel branch's accuracy files, restored afterwards).
+
+**Not done here (lead decision).**
+- R10 / K19: LLY's TTM interest coverage 27.3x still reads "[validated]" while its quarterly interest operands are
+  "kept unverified". Inheriting that qualification needs a typed operand qualification carried from enrichment (the
+  vendor interest rows have no `fieldProvenance`) through Stage B current capital into the provenance record, so the
+  verifier can refuse validation (P12). That is a Stage B and record change, not a verifier rule; left for a separate
+  package.
+- K40 (TSM "range brackets 58.6%") and K28 (JPM "bull, base and bear values are the grid"): both are JUDGMENT
+  statements, covered by the legend's judgment line. The range is not stated in the sentence and the scenario claim
+  names no record, so a check would have to read meaning from words; none is added.
+- R6 (K1: LLY 34.0% against 33.9%, JPM 55.1% against 55.0%) and R7 (K22: LLY accrual 0.3x against 29%) already fail
+  closed (metric or period not established) and now read "[not confirmed]"; no conflict rule is added.
+
 ## D-279 - A vendor EV is shown only in an established currency; identifiers are never compacted (2026-11-14)
 
 P4 and P22. Owners: `src/pipeline/marketData.ts` (`providerEnterpriseValueRefusal`, using the P4 owner's
@@ -2414,7 +2575,7 @@ The new pretax 281 / restructuring 50 control and the ambiguous pretax 280 / res
 
 Dated follow-up (2026-11-14, final A1, P1/P10): the zero-restructuring regression failed on 0855db38 because both memberships yielded 300 but were counted twice. Candidate identity now uses exact numeric equality, without changing the existing one-dollar reconciliation predicate. Zero restructuring computes 300; restructuring 1 with pretax 280 keeps a gap because 299 and 300 both match. An aggregate operating-cost control computes 300 independently of child membership. All synthetic controls passed. No company-specific conditions were added. Same-report results against pinned main 57ba3f54 are recorded with D-267 part 1 below.
 
-## D-264 - Reader presentation across company types (2026-11-13)
+## D-264 - Reader presentation across company types (2026-11-13) (Revised by D-282)
 
 Principles P22 (one shared presentation rule), P21 (immutable saved reports),
 P18 (code owns labels) and P20 (retain evidence and dates). The local LLY #63
@@ -14356,7 +14517,7 @@ time from the stored aspects, so saved reports get it without being rewritten.
 Aspects the route gives no weight to are not mentioned, and fully scored
 composites read exactly as before. No score, band or stamp changes.
 
-## D-197 - Check AI-written figures and bind executive grades to office tenure (2026-11-04)
+## D-197 - Check AI-written figures and bind executive grades to office tenure (2026-11-04) (Revised by D-283)
 
 The independent C/D audit demonstrated unchecked financial figures in plain
 reader strings, execution grades supported by results before appointment,

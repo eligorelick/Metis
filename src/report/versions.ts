@@ -241,7 +241,11 @@
 // 1.90.0 (D-278, P19): a "Differs from the record" note needs the figure to name only the record's metric.
 // 1.91.0 (D-279, P4): a vendor enterprise value is shown only when its same-date balance establishes the listing currency; otherwise it is withheld with its cause.
 // 1.92.0 (D-280, P7/P10/P13): shared filed-aware TTM interest admission and typed segment-share refusals.
-export const REPORT_SPEC_VERSION = "1.92.0" as const;
+// 1.93.0 (D-282..D-285, P18/P19/P20/P22): a value conflict outranks a wrong cited date, a contradicted statement
+// shows a CONTRADICTED tag, model-written statements and paragraphs carry plain marks, the value-only figure check
+// reads only code-owned text, grid parameters are not headline conflicts, and whole-feed news citations name one
+// article or are removed.
+export const REPORT_SPEC_VERSION = "1.93.0" as const;
 
 /**
  * Current payload format version.
@@ -416,7 +420,8 @@ export const PAYLOAD_VERSION = "1.106.0" as const;
 // 1.6.45 (D-271): sector-neutral business checklist for the analysts and judge, research order (market and competitors
 // before news), the judge writes the business story, and generation replaces a product-line heading its claims do not name.
 // 1.6.46 (D-277): include code-built filed segment labels in the whole-name heading gate.
-export const PIPELINE_VERSION = "stage-c-1.6.47" as const;
+// 1.6.48 (D-285): the verify pass re-cites a whole-feed news citation to its one payload article or removes it.
+export const PIPELINE_VERSION = "stage-c-1.6.48" as const;
 
 /** The evidence-rules contract this build writes on new reports. */
 export const EVIDENCE_CONTRACT_VERSION = "EVIDENCE_CONTRACT_1" as const;

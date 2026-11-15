@@ -3729,5 +3729,43 @@
       "$.projection.report.business.segments.geographic[0].shareWithheldReason.$auditUndefined",
       "$.projection.report.business.segments.geographic[1].shareWithheldReason.$auditUndefined"
     ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "stagec-payload",
+    "decision": "D-285",
+    "reason": "D-285: the news section keeps each shown row's feed, date, publisher, title and link so a whole-feed citation can be re-cited to its one article; prompt text unchanged",
+    "scope": [
+      "$.payload.news.articles"
+    ],
+    "beforeSha256": "ffe9a12fdb0db9dbc271050e8acce5720a504da870fc0d421aa5fe0f2283919a",
+    "afterSha256": "1ae1c5817ed10761193c16c8f438e4c85f3b45f9a10c7dc4c648a24a821537fa",
+    "changedLeaves": 5,
+    "changedPaths": [
+      "$.payload.news.articles[0].feed",
+      "$.payload.news.articles[0].date",
+      "$.payload.news.articles[0].publisher",
+      "$.payload.news.articles[0].title",
+      "$.payload.news.articles[0].url"
+    ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "audit-fixture",
+    "decision": "D-282",
+    "reason": "D-282..D-285: report spec 1.93.0 and pipeline stage-c-1.6.48 stamps move with the statement-mark, value-first conflict and feed-citation rules",
+    "scope": [
+      "$.projection.report.meta.specVersion",
+      "$.projectionSha256",
+      "$.fixtureIdentity.reportSha256",
+      "$.projection.report.meta.pipelineVersion"
+    ],
+    "beforeSha256": "6a2d8508ea6cb4616bcdb5842989cfc9cb5f544a2923f12bdd3c596211d40db6",
+    "afterSha256": "d2a5599852786ddc9f681d383f457ad0b3b553f377dc4ff5c4a1c496a83b23cf",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

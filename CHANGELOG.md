@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.92.0** and
+Current source declares application **0.1.0**, report spec **1.93.0** and
 payload **1.106.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -17,6 +17,14 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Statement marks, value-first conflicts and feed citations (P18, P19, P20, P22, D-282..D-285) (2026-11-14)
+
+- The legend at the top says plainly what each mark means; "[unverified]" and "[qualitative]" now read "[not confirmed]"; every model-written paragraph and table cell ends with "[not confirmed]"; a contradicted statement shows a CONTRADICTED tag, never a bold FACT (D-282).
+- A table figure that does not match its record reads "not confirmed" or "contradicted" in words; a wrong cited date no longer hides a value conflict with the one record the id names (D-282).
+- The value-only figure check reads only code-owned evidence, never the report's own claims or analyst notes (D-283, revises D-197); a grid parameter stated in a code record's label is not a conflict with the headline record (D-284).
+- A statement citing a whole news feed is re-cited to its one payload article (publisher, title, link) or removed (D-285).
+- Report 1.93.0, pipeline `stage-c-1.6.48`; payload, Stage B and score bands unchanged. Validated statement counts and every Stage B figure are unchanged; accuracy is unchanged.
 
 ## Unreleased - Vendor EV currency and filing identifiers (P4, P22, D-279) (2026-11-14)
 

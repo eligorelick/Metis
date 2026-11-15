@@ -9015,7 +9015,10 @@
     "news": {
       "title": "Recent news & press releases (snippets)",
       "figures": [],
-      "notes": ["2026-07-03 [news] Reuters: Apple ships new product — The company launched a device. [fmp:news · 2026-07-03]"]
+      "notes": ["2026-07-03 [news] Reuters: Apple ships new product — The company launched a device. [fmp:news · 2026-07-03]"],
+      "articles": [
+        {"feed": "fmp:news", "date": "2026-07-03", "publisher": "Reuters", "title": "Apple ships new product", "url": null}
+      ]
     },
     "validationFlags": [
       "[SKIPPED] FMP↔XBRL cross-check: companyfacts unavailable: fixture gap",
