@@ -237,7 +237,17 @@ export function executiveCardClaims(e: Executive, claims: SourcedClaim[], shared
   const eligible = e.grade === "not-assessed" && e.credibilityGrade === "not-assessed" ? claims.filter(c => c.label === "FACT") : claims;
   // Exact company-action duplicates remain in the shared chronology and audit.
   return eligible.filter(c => !sharedCompanyClaims.some(shared => shared.text === c.text && shared.label === c.label &&
-    citationSourceId(shared) === citationSourceId(c) && shared.asOf === c.asOf)).map(c => withReaderText(c, companyRecordText(e.name, c.text)));
+    citationSourceId(shared) === citationSourceId(c) && shared.asOf === c.asOf)).map(c => companyRecordClaim(e, c, "card"));
+}
+
+/**
+ * D-302: only the typed-metric buckets (ROUTE 1: capital allocation and guidance
+ * against actuals) hold company figures written "<Name>: ..."; compensation,
+ * insider activity and reasoning describe the person and keep their wording.
+ */
+export function companyRecordClaim(e: Executive, claim: SourcedClaim, form: "card" | "named"): SourcedClaim {
+  const typed = [...(e.evidence.capitalAllocation ?? []), ...(e.evidence.guidanceVsActuals ?? [])].includes(claim);
+  return typed ? withReaderText(claim, companyRecordText(e.name, claim.text, form)) : claim;
 }
 
 /** Reader wording that opens a company figure stated during an officer's tenure (D-302). */

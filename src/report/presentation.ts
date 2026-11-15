@@ -152,8 +152,8 @@ import {
 } from "@/report/format";
 import type { ManifestEntry } from "@/types/core";
 import { BUSINESS_STORY_HEADING, productLineNamingClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
-import { claimStatusMark, withReaderText } from "@/report/verificationMarks";
-import { companyRecordText } from "@/report/executiveDecisions";
+import { claimStatusMark } from "@/report/verificationMarks";
+import { companyRecordClaim } from "@/report/executiveDecisions";
 import { citationAsOf, citationSourceId } from "@/pipeline/stageC/citations";
 import { findDirectionWords } from "@/pipeline/stageC/consistency";
 import { developmentClaims, managementActionClaims, RECENT_DEVELOPMENTS_HEADING } from "@/report/qualitativeAnalysis";
@@ -1258,7 +1258,7 @@ export function executiveGroups(executives: readonly ExecutiveRecord[], withCont
   // recognizes ...".
   // D-302 (R35): an officer-name prefix on a company figure reads as the company's record during that tenure.
   const notAssessedClaims = notAssessed.flatMap((e) => [...e.reasoning, ...EXECUTIVE_EVIDENCE_GROUPS.flatMap((group) => e.evidence[group.key] ?? [])]
-    .filter((claim) => claim.label === "FACT").map((claim) => withReaderText(claim, companyRecordText(e.name, claim.text, "named"))));
+    .filter((claim) => claim.label === "FACT").map((claim) => companyRecordClaim(e, claim, "named")));
   return { assessed, notAssessed, notAssessedLines, notAssessedClaims };
 }
 

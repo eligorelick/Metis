@@ -219,8 +219,11 @@ describe("company record during an officer's tenure (D-302, R35)", () => {
     const report = loadTask28Fixture();
     for (const e of report.leadership.executives) { e.grade = "not-assessed"; e.credibilityGrade = "not-assessed"; }
     const exec = report.leadership.executives[1]!;
-    exec.evidence = { capitalAllocation: [fact(`${exec.name}: revenue for FY2025 was USD 3.000 billion.`)] };
+    // Control: compensation describes the person and keeps its wording.
+    exec.evidence = { capitalAllocation: [fact(`${exec.name}: revenue for FY2025 was USD 3.000 billion.`)], compensation: [fact(`${exec.name}: base salary was USD 1.0 million.`)] };
     for (const text of surfaces(ReportSchema.parse(report))) {
+      expect(text).toContain(`${exec.name}: base salary was USD 1.0 million.`);
+      expect(text).not.toContain(`tenure of ${exec.name}: base salary`);
       expect(text).toContain(`Company record during the tenure of ${exec.name}: revenue for FY2025`);
       // Every occurrence of the officer-prefixed sentence is the company-record form.
       expect(text.split(`${exec.name}: revenue for FY2025`).length).toBe(text.split(`tenure of ${exec.name}: revenue for FY2025`).length);
