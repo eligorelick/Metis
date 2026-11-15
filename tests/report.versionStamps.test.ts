@@ -149,7 +149,7 @@ describe("new version stamps", () => {
     expect(specVersionBefore(REPORT_SPEC_VERSION, ANNUALIZATION_CONVENTION_SPEC)).toBe(false);
   });
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.99.0"); // D-304-D-306 round 1: release definitions, labels and negative-SBC admission
+    expect(REPORT_SPEC_VERSION).toBe("1.100.0"); // D-308/D-309: reader amounts and complete-evidence full support
     expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
     expect(PAYLOAD_VERSION).toBe("1.112.0"); // D-304-D-306 round 1: release definitions, labels and negative-SBC admission
     expect(PIPELINE_VERSION).toBe("stage-c-1.6.53"); // D-304-D-306 round 1: release definitions, labels and negative-SBC admission
@@ -191,7 +191,7 @@ describe("new version stamps", () => {
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.99.0"); // D-304-D-306 round 1: release definitions, labels and negative-SBC admission
+    expect(newReport().meta.specVersion).toBe("1.100.0"); // D-308/D-309: reader amounts and complete-evidence full support
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     expect(payload.payloadVersion).toBe("1.112.0"); // D-304-D-306 round 1: release definitions, labels and negative-SBC admission

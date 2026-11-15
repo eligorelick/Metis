@@ -40,11 +40,17 @@ export function lenderConventionTables(report: Report): ReportAuditTable[] {
   return explanation ? [{ heading: "Lender conventions", headers: [], rows: [], note: explanation }] : [];
 }
 
-/** Group raw base-unit amounts without touching dates, accessions, hashes or decimals. */
+/**
+ * Group raw base-unit amounts (seven or more whole digits) without touching dates, accessions, hashes or
+ * identifiers. D-308 (P22): an amount with cents ("31234567890.12", "2208355468.988709 ADS") and an amount that
+ * ends a sentence ("SBC of 270000000.") or a clause ("31234567890.12, UNADJUSTED") are grouped too, at most two
+ * decimals, the exact-amount format the reported-FCF sentence already prints ("-1,234,000,000"). Text only: no
+ * stored number changes. A digit run with a leading zero is an identifier, never an amount, and is left as written.
+ */
 export function readerBaseUnits(text: string): string {
-  return text.replace(/(?<![\w./:,\-])-?\d{7,15}(?![\w.,/:-])/g, (value: string, offset: number) =>
+  return text.replace(/(?<![\w./:,\-])-?(?!0\d)\d{7,15}(?:\.\d+)?(?![\w/:-]|[.,]\d)/g, (value: string, offset: number) =>
     /\b(?:seed|hash|fingerprint|accession|CIK)\s*[:=]?\s*$/i.test(text.slice(Math.max(0, offset - 30), offset))
-      ? value : Number(value).toLocaleString("en-US"));
+      ? value : Number(value).toLocaleString("en-US", { maximumFractionDigits: 2 }));
 }
 
 /** A refused input's retained evidence is useful even when there is no model output. */

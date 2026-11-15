@@ -3050,7 +3050,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.99.0"); // D-304-D-306 round 1: release definitions, labels and negative-SBC admission
+    expect(report.meta.specVersion).toBe("1.100.0"); // D-308/D-309: reader amounts and complete-evidence full support
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

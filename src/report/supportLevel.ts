@@ -17,7 +17,7 @@ import type { Report, SourcedClaim } from "@/report/schema";
 import type { ManifestEntry } from "@/types/core";
 import { claimStatusMark } from "@/report/verificationMarks";
 import { TAX_OPERAND_EVIDENCE_SINCE_SPEC, specVersionBefore } from "@/report/versions";
-import { DCF_TAX_OPERANDS_FIELD } from "@/report/assessment";
+import { DCF_TAX_OPERANDS_FIELD, evidencePercentText } from "@/report/assessment";
 import { claimEchoKey } from "@/report/presentation";
 
 export { DCF_TAX_OPERANDS_FIELD };
@@ -51,6 +51,7 @@ export type SupportLimitationCode =
   | "headline-input-withheld" | "operating-scope-unverified" | "cash-only-liquidity"
   | "foreign-interim-vendor" | "ads-eps-derived" | "predecessor-history" | "filing-not-retrieved"
   | "tax-operands-vendor" | "tax-evidence-not-recorded" | "grade-evidence-missing" | "grade-evidence-limited"
+  | "grade-evidence-partial" | "fcf-after-sbc-withheld"
   | "current-valuation-unavailable" | "grade-qualification-not-recorded";
 
 export interface SupportLimitation { code: SupportLimitationCode; text: string }
@@ -85,6 +86,23 @@ const GRADE_NAME: Readonly<Record<string, string>> = {
 function gradeList(aspects: readonly string[]): string {
   const names = aspects.map(aspect => GRADE_NAME[aspect] ?? "one");
   return names.length === 1 ? `${names[0]} grade` : `${names.slice(0, -1).join(", ")} and ${names.at(-1)} grades`;
+}
+
+/** "a", "a and b", "a, b and c". */
+function listText(items: readonly string[]): string {
+  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
+/** Scored, weighted grades with a recorded route-applicable share below 100% (D-309), in grade order. */
+function partialGrades(scores: Report["scores"] | undefined, named: readonly string[]): Array<{ aspect: string; share: number }> {
+  if (!scores?.aspects) return [];
+  return Object.keys(GRADE_NAME).flatMap(aspect => {
+    const score = scores.aspects[aspect as keyof typeof scores.aspects];
+    const share = score?.applicableCompleteness;
+    if (!score || score.score === null || score.band === null || (scores.composite?.weights?.[aspect as keyof typeof scores.aspects] ?? 0) <= 0 ||
+      typeof share !== "number" || !Number.isFinite(share) || share >= 1 || named.includes(aspect)) return [];
+    return [{ aspect, share }];
+  });
 }
 
 function headlineInputLabel(field: string): string {
@@ -153,6 +171,15 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
   }
   if (missingGrades.length > 0) add("grade-evidence-missing", `the ${gradeList(missingGrades)} ${missingGrades.length === 1 ? "has" : "have"} no evidence that applies on this company's route`);
   if (limitedGrades.length > 0) add("grade-evidence-limited", `the ${gradeList(limitedGrades)} ${limitedGrades.length === 1 ? "rests" : "rest"} on limited evidence`);
+  // D-309 (P12, P19; revises D-300): "every grade rests on complete recorded evidence" holds only at 100%. A scored
+  // grade below all of the evidence that applies on its route (`applicableCompleteness`; signals and aspects the
+  // route does not apply are outside that denominator, P14) limits support, named with its share. No grade, score or
+  // letter floor changes. A saved aspect without the share already reads as unrecorded (its qualification is unknown).
+  const partial = partialGrades(report.scores, [...missingGrades, ...limitedGrades]);
+  if (partial.length > 0) {
+    add("grade-evidence-partial", `the ${gradeList(partial.map(item => item.aspect))} ${partial.length === 1 ? "rests" : "rest"} on ` +
+      `${listText(partial.map(item => evidencePercentText(item.share)))} of the evidence that applies on this company's route`);
+  }
   const gaps: readonly ManifestEntry[] = report.appendix.missingData;
   // Review round 1 (D-300): the cash-flow valuation's tax rate is a headline input. Its operands are
   // checked against a filing unless the typed manifest entry says otherwise; a saved report written
@@ -165,6 +192,11 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
   // statementEvidenceEntries (assessment.ts) writes these two typed fields.
   if (gaps.some(gap => gap.field === "statements.foreignInterim")) add("foreign-interim-vendor", "interim figures from Form 6-K are vendor data not checked against a filing");
   if (gaps.some(gap => gap.field === "statements.adsEps")) add("ads-eps-derived", "earnings per ADS are derived from ordinary-share EPS, not a filed per-ADS amount");
+  // D-309: the house free-cash-flow figure is after stock-based compensation; Stage B's typed `capital.fcf.sbc`
+  // entry records that it is withheld (the latest fiscal year's compensation is not established).
+  if (gaps.some(gap => gap.field === "capital.fcf.sbc" && gap.expected !== true)) {
+    add("fcf-after-sbc-withheld", "stock-based compensation is not established for the latest fiscal year, so free cash flow after it is withheld");
+  }
   if (gaps.some(gap => gap.field === "edgar.predecessor")) add("predecessor-history", "successor issuer: history before the reorganization comes from the predecessor's filings or is not included");
   const filings = [...new Set(gaps.filter(gap => gap.severity === "critical" && gap.expected !== true && gap.field.startsWith("edgar.")).map(gap => filingLabel(gap.field)))];
   if (filings.length > 0) add("filing-not-retrieved", `not retrieved from the filings: ${filings.length === 1 ? filings[0] : `${filings.slice(0, -1).join(", ")} and ${filings.at(-1)}`}; statements that need ${filings.length === 1 ? "it" : "them"} are not covered`);

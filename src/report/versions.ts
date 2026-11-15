@@ -255,7 +255,10 @@
 // D-304-D-306: reader-precision verification, summary ROTE definitions and typed SBC wording.
 // 1.98.0 (D-300-D-303, P8/P12/P19/P22): every surface states the support level (grade qualifications, typed
 // headline-input evidence and agreeing filed tax-rate operands) and the confirmed share; brief parts describe this report.
-export const REPORT_SPEC_VERSION = "1.99.0" as const;
+// 1.100.0 (D-308, D-309, P12/P19/P22): reader text groups base-unit amounts with cents or at a sentence end; full
+// support only when every scored grade has all of its route-applicable evidence and free cash flow after SBC is
+// not withheld. Read time only: no figure, grade or score changes; stored reports keep their bytes.
+export const REPORT_SPEC_VERSION = "1.100.0" as const;
 
 /**
  * Current payload format version.
