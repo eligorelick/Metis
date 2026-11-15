@@ -7,7 +7,8 @@ import { reportToPrintBody } from "@/report/export/printHtml";
 import { readerBaseUnits, withReaderConventions } from "@/report/readerConventions";
 import { SUPPORT_LEVELS, supportLevel, supportLevelText } from "@/report/supportLevel";
 import { REPORT_SPEC_VERSION } from "@/report/versions";
-import { ReportSchema, type FairValue, type Report } from "@/report/schema";
+import { ReportSchema, type FairValue, type Report, type TracedNumber } from "@/report/schema";
+import { consensusTables, figureRow } from "@/report/presentation";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { loadTask28Fixture } from "./helpers/task28Report";
 import { readableHtml } from "./helpers/uiParityContract";
@@ -73,6 +74,34 @@ describe("raw base-unit amounts in reader text (D-308, check 3)", () => {
     }
     // The stored report keeps its bytes (P21): the view is read-time only.
     expect(report.valuation.dcf.assumptions[0]!.basis).toBe(raw.unadjusted);
+  });
+
+  it("sweep: basis lists, a signal's fallback reason, a route metric's formula period and an unestablished-currency consensus cell", () => {
+    const report = ReportSchema.parse(loadTask28Fixture());
+    report.fairValue = { ...fairValue, status: "suppressed", perShare: null, upsidePct: null,
+      basis: ["Observed trigger: unprofitable overlay applied: net income -1973000000 (ttm), operating cash flow -1629000000 (ttm)."] } as FairValue;
+    const signal = { id: "peOwnHistoryRank", raw: 1, unit: "rank", transformedScore: 50, signalWeight: 1, evidenceFraction: 1, effectiveCompositeWeightPct: 0,
+      contributionPoints: 0, family: "valuation", asOf: null, period: null, startDate: null, endDate: null, windowYears: null, operands: [],
+      fallbackReason: "P/E not ranked: pre-tax income 104926000000 (TTM) includes non-operating income of 41214000000, 39.28% of pre-tax income." };
+    report.scores!.aspects.valuation = { ...report.scores!.aspects.valuation, signals: [signal] } as never;
+    const view = withReaderConventions(report);
+    expect(view.fairValue!.basis[0]).toBe("Observed trigger: unprofitable overlay applied: net income -1,973,000,000 (ttm), operating cash flow -1,629,000,000 (ttm).");
+    expect(view.scores!.aspects.valuation.signals![0]!.fallbackReason).toBe("P/E not ranked: pre-tax income 104,926,000,000 (TTM) includes non-operating income of 41,214,000,000, 39.28% of pre-tax income.");
+
+    // A route metric whose period cell states its formula (a lender shape), and a control with a plain period.
+    const metric = (period: string): TracedNumber => ({ value: 0.5, unit: "%", source: "computed.routeMetrics.ncoToAverageLoans", asOf: "2025-12-31", verified: true, period });
+    expect(figureRow(metric("net charge-offs 3631000000 (ChargeOffTag) / average loans 940767500000 (LoanTag) at 2025-12-31 × 100")).period)
+      .toBe("net charge-offs 3,631,000,000 (ChargeOffTag) / average loans 940,767,500,000 (LoanTag) at 2025-12-31 × 100");
+    expect(figureRow(metric("FY2025")).period).toBe("FY2025");
+
+    // Provider consensus rows: an unestablished currency keeps its words with a formatted amount; a known currency is unchanged (control).
+    const row = (currency: string | null) => ({ date: "2026-01-30", periodStart: "2025-10-01", periodEnd: "2025-12-31", asOf: "2026-01-30", currency,
+      values: { revenueActual: 21904190000, revenueEstimated: 21069820000, revenueDifference: 834370000, epsActual: 1.2345, epsEstimated: 1.1, epsDifference: 0.1345 } });
+    report.marketData = { ...report.marketData!, estimates: [], estimateCurrency: null, resultsHistory: [row(null), row("USD")] } as Report["marketData"];
+    const [unknown, known] = consensusTables(report)[0]!.rows;
+    expect(unknown!.slice(2, 8)).toEqual(["21.90B (currency unestablished)", "21.07B (currency unestablished)", "834.37M (currency unestablished)",
+      "1.23 (currency unestablished)", "1.10 (currency unestablished)", "0.13 (currency unestablished)"]);
+    expect(known!.join(" ")).not.toContain("currency unestablished");
   });
 });
 

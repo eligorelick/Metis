@@ -69,7 +69,9 @@ export function withReaderConventions(report: Report): Report {
   function visit(value: unknown, path: string): unknown {
     if (typeof value === "string") {
       const text = readerConventionText(value, path);
-      return /\.(?:note|basis|reason|oneLineWhy|definition|enterpriseValueNote|multiplesBasis)$|\.(?:notes|assumptions)\.\d+$/.test(path) ? readerBaseUnits(text) : text;
+      // D-308 sweep: basis lists (fair value, scenario targets), the scenario interpretation and a signal's fallback
+      // reason carry the same producer amounts as the fields already listed.
+      return /\.(?:note|basis|reason|oneLineWhy|definition|enterpriseValueNote|multiplesBasis|interpretation|fallbackReason|ownHistoryBasis|earningsCaveat)$|\.(?:notes|assumptions|basis)\.\d+$/.test(path) ? readerBaseUnits(text) : text;
     }
     if (Array.isArray(value)) return value.map((v, i) => visit(v, `${path}.${i}`));
     if (!value || typeof value !== "object") return value;

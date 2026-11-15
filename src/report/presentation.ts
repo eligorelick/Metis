@@ -618,7 +618,8 @@ export function figureValueText(n: Pick<TracedNumber, "value" | "unit" | "curren
 }
 
 export function figureRow(n: TracedNumber, label?: string): FigureRow {
-  const period = tracedPeriodLabel(n.period, n.periodContext).replace(/^not supplied; /, "");
+  // D-308: a route metric's period cell can state its formula operands in base units; group them (P22).
+  const period = readerBaseUnits(tracedPeriodLabel(n.period, n.periodContext).replace(/^not supplied; /, ""));
   return {
     label: label ?? metricLabel(n.source,n.unit),
     value: figureValueText(n),
@@ -1718,7 +1719,7 @@ export function consensusTables(report: Report): BodyTable[] {
   if (md.resultsHistory?.length) tables.push({
     heading: "Reported results versus provider consensus (last four reports)",
     headers: ["Report date", "Fiscal window", "Revenue actual", "Revenue estimate", "Difference", "Provider EPS actual (accounting basis unverified)", "Provider EPS estimate (accounting basis unverified)", "EPS difference (accounting basis unverified)", "Source / as-of"],
-    rows: md.resultsHistory.map(r => [r.date, r.periodStart && r.periodEnd ? `${r.periodStart} to ${r.periodEnd}` : r.fiscalLabel ? `${r.fiscalLabel}${r.periodEnd ? `; ended ${r.periodEnd}` : ""} (start unestablished)` : "Unestablished", ...Object.entries(r.values).map(([key,v]) => v === null ? "Unavailable: input or currency not established" : r.currency ? money(v,r.currency,key.startsWith("eps")) : `${v} (currency unestablished)`), `fmp:earnings / ${r.asOf ?? "unavailable"}`]),
+    rows: md.resultsHistory.map(r => [r.date, r.periodStart && r.periodEnd ? `${r.periodStart} to ${r.periodEnd}` : r.fiscalLabel ? `${r.fiscalLabel}${r.periodEnd ? `; ended ${r.periodEnd}` : ""} (start unestablished)` : "Unestablished", ...Object.entries(r.values).map(([key,v]) => v === null ? "Unavailable: input or currency not established" : r.currency ? money(v,r.currency,key.startsWith("eps")) : `${key.startsWith("eps") ? formatNumber(v, 2) : formatLargeNumber(v)} (currency unestablished)`), `fmp:earnings / ${r.asOf ?? "unavailable"}`]),
     note: "Differences are provider actual minus provider estimate. Report dates are not fiscal period boundaries. Provider EPS accounting basis unverified; never compare with GAAP EPS. Missing operands remain gaps.",
   });
 
