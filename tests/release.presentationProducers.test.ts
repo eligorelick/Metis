@@ -12,7 +12,7 @@ import { foreignResultsNote, isForeignAnnualForm, isNoResultsEightKNote, noResul
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { trailingFlowStatement } from "@/report/financialDiagnostics";
 import { boundSegmentName, bundleSegmentNameKeys, gateProductLineHeadings, UNBOUND_SEGMENT_NAME } from "@/pipeline/stageC/passes";
-import { segmentRecordCitations, type SegmentRecordCitation } from "@/pipeline/stageC/payload";
+import { assembleContextPayload, segmentRecordCitations, type SegmentRecordCitation } from "@/pipeline/stageC/payload";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { withoutMemberMarker } from "@/edgar/segmentFacts";
 import type { DataBundle } from "@/pipeline/types";
@@ -356,4 +356,32 @@ it.each([1_000_000.00001,-1_000_000.00001,999_999.99999,1_000.00001])("D-304 acc
   const result=await runVerifyPass({runPass:async()=>{throw new Error("no model");}} as unknown as PassDeps,
     {provenanceRegistry:[rec],citationRegistry:[],filings:[]} as unknown as ContextPayload,{n});
   expect((result.verifiedReport as {n:typeof n}).n.verified).toBe(true);
+});
+
+
+it.each([
+ {name:"multiple boundary",unit:"x",canonical:"ratio" as const,record:12.049974,stated:12.05,verified:false},
+ {name:"multiple control",unit:"x",canonical:"ratio" as const,record:12.050026,stated:12.05,verified:true},
+ {name:"per-share boundary",unit:"currency/share",canonical:"currency-per-share" as const,record:12.004974,stated:12.005,verified:false},
+ {name:"per-share control",unit:"currency/share",canonical:"currency-per-share" as const,record:12.005026,stated:12.005,verified:true},
+ {name:"scaled money",unit:"USD millions: Operating cash flow",canonical:"currency" as const,record:12.05e6,stated:12.05,verified:true},
+ {name:"scaled money wrong",unit:"USD millions: Operating cash flow",canonical:"currency" as const,record:12.05e6,stated:12.06,verified:false},
+])("D-304 display control: $name",async c=>{
+ const monetary=c.canonical!=="ratio";
+ const rec:NumericProvenanceRecord={id:"computed.test.operating-cash-flow",label:"Operating cash flow",kind:"computed",value:c.record,unit:c.canonical,currency:monetary?"USD":null,period:null,asOf:"2025-12-31",origin:"computed.test",formulaVersion:"test",displayPrecision:4};
+ const n={value:c.stated,unit:c.unit,currency:rec.currency,source:rec.id,asOf:rec.asOf,verified:false};
+ const result=await runVerifyPass({runPass:async()=>{throw new Error("no model");}} as unknown as PassDeps,{provenanceRegistry:[rec],citationRegistry:[],filings:[]} as unknown as ContextPayload,{n});
+ expect((result.verifiedReport as {n:typeof n}).n.verified).toBe(c.verified);
+});
+
+it("D-306 keeps an unproved negative quarter out of statement evidence without mutating the input",()=>{
+ const bundle=completeCurrencyBundle({});
+ if(!bundle.statements.cashflowQuarterly.ok)throw new Error("fixture");
+ const row=bundle.statements.cashflowQuarterly.value.data.rows[0]!;row.stockBasedCompensation=-2;
+ const computed=runStageB(bundle), payload=assembleContextPayload(bundle,computed,{checks:[],flags:[],gaps:[]});
+ const cells=payload.statements.flatMap(b=>b.lineItems.filter(l=>l.lineItem==="SBC, cash-flow add-back").flatMap(l=>l.byPeriod)).filter(c=>c.period===row.date);
+ expect(cells.length).toBeGreaterThan(0);expect(cells.every(c=>c.value===null)).toBe(true);
+ expect(payload.provenanceRegistry).toBeDefined();
+ expect(payload.provenanceRegistry!.some(r=>r.id===`payload.statements.cash-flow-quarterly.${row.date}.sbc-cash-flow-add-back`)).toBe(false);
+ expect(row.stockBasedCompensation).toBe(-2);
 });

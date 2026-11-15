@@ -4,6 +4,7 @@ import { attachCurrentCapital, cashFlowBridge, debtBridge } from "@/pipeline/sta
 import { runStageB, ttmIncome } from "@/pipeline/compute";
 import { completeCurrencyBundle, M } from "./helpers/currencyBundle";
 
+const filedSbcProof = (date:string) => ({reportedCurrency:"USD",fieldProvenance:{stockBasedCompensation:{source:"edgar" as const,unit:"USD",periodStart:date.slice(0,4)+"-01-01",periodEnd:date,observedAt:"2027-03-01",tags:["us-gaap/ShareBasedCompensation"],filings:[{accn:"synthetic",filed:"2027-02-01",form:"10-K"}]}}});
 const annual = () => computeCapital([{ date: "2025-12-31", revenue: 100, operatingIncome: 40, netIncome: 30, interestExpense: 1 }], [{ date: "2025-12-31", operatingCashFlow: 50, capitalExpenditure: -10, depreciationAndAmortization: 5, stockBasedCompensation: 5 }], [{ date: "2025-12-31", totalDebt: 20, cashAndShortTermInvestments: 15 }], [], { price: null });
 const income = { date: "2026-06-30", revenue: 120, operatingIncome: 30, netIncome: 20, interestExpense: 2 };
 const cash = { date: "2026-06-30", operatingCashFlow: 40, capitalExpenditure: -25, depreciationAndAmortization: 6, stockBasedCompensation: 9, financeLeasePrincipalPayments: 3, issuerFreeCashFlow: 12, issuerFreeCashFlowDefinition: "Issuer cash definition includes finance-lease principal" };
@@ -194,7 +195,7 @@ describe("capital grading snapshot", () => {
   });
 
   it("preserves negative operating cash flow and negative SBC credits without taking magnitudes", () => {
-    const result = attachCurrentCapital(annual(),{income,cashFlow:{...cash,operatingCashFlow:-10,stockBasedCompensation:-2},balance,currency:"USD"});
+    const result = attachCurrentCapital(annual(),{income,cashFlow:{...cash,...filedSbcProof(cash.date),operatingCashFlow:-10,stockBasedCompensation:-2},balance,currency:"USD"});
     expect(result.current).toMatchObject({fcfBeforeSbc:-35,fcfConversionBeforeSbc:-1.75,sbcPctOfFcf:null});
     expect(result.current?.cashBridge).toMatchObject({standardizedFcf:-35,leaseAdjustedFcf:-38,afterSbcStandardizedFcf:-33,afterSbcIssuerFcf:14,stockBasedCompensation:-2});
   });
@@ -202,7 +203,7 @@ describe("capital grading snapshot", () => {
   it("retains true zeros, while missing SBC/principal leave their adjustments unavailable", () => {
     expect(cashFlowBridge({...cash,operatingCashFlow:0,capitalExpenditure:0,stockBasedCompensation:0,financeLeasePrincipalPayments:0})).toMatchObject({standardizedFcf:0,leaseAdjustedFcf:0,afterSbcStandardizedFcf:0});
     expect(cashFlowBridge({...cash,stockBasedCompensation:null,financeLeasePrincipalPayments:null})).toMatchObject({standardizedFcf:15,leaseAdjustedFcf:null,afterSbcStandardizedFcf:null,afterSbcIssuerFcf:null});
-    expect(cashFlowBridge({...cash,stockBasedCompensation:-2})).toMatchObject({afterSbcStandardizedFcf:17});
+    expect(cashFlowBridge({...cash,...filedSbcProof(cash.date),stockBasedCompensation:-2})).toMatchObject({afterSbcStandardizedFcf:17});
   });
 
   it.each([-3,Number.NaN,Number.POSITIVE_INFINITY])("does not add an invalid finance-lease principal %s back to FCF", principal => {
@@ -321,4 +322,16 @@ it.each(["USD", "EUR"])("admits an exact filed zero in the %s trailing interest 
   expect(ttmIncome(rows)?.interestExpense).toBe(6*M);
   rows[1]!.fieldProvenance!.interestExpense!.periodEnd="2025-12-30";
   expect(ttmIncome(rows)?.interestExpense).toBeNull();
+});
+
+
+it("D-306 refuses an unproved negative SBC operand and all after-SBC bridge figures",()=>{
+  expect(cashFlowBridge({...cash,stockBasedCompensation:-2})).toMatchObject({stockBasedCompensation:null,afterSbcStandardizedFcf:null,afterSbcIssuerFcf:null});
+  expect(cashFlowBridge({...cash,stockBasedCompensation:2})).toMatchObject({stockBasedCompensation:2,afterSbcStandardizedFcf:13});
+});
+
+it("D-306 refuses negative SBC with another period or currency and preserves proved credits",()=>{
+ expect(cashFlowBridge({...cash,...filedSbcProof("2025-12-31"),stockBasedCompensation:-2}).stockBasedCompensation).toBeNull();
+ expect(cashFlowBridge({...cash,...filedSbcProof(cash.date),reportedCurrency:"EUR",stockBasedCompensation:-2}).stockBasedCompensation).toBeNull();
+ expect(cashFlowBridge({...cash,...filedSbcProof(cash.date),stockBasedCompensation:-2}).afterSbcStandardizedFcf).toBe(17);
 });

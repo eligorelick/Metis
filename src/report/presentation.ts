@@ -440,6 +440,7 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
 /** A short reader label for a computed signal id ("revenueCagr" → "Revenue CAGR"). */
 export function signalLabel(id: string): string {
   const fixed: Record<string, string> = {
+    peOwnHistoryRank: "Valuation multiple own-history rank",
     revenueCagr: "Revenue CAGR", operatingMarginSlope: "Operating-margin slope", epsCagr: "EPS CAGR",
     fcfCagr: "FCF CAGR", dcfUpside: "DCF upside", reverseImpliedVsAchievable: "Reverse-DCF implied vs achievable growth",
     roicVsWaccSpread: "ROIC − fiscal-year-end WACC spread", piotroskiF: "Piotroski F (share of signals)",

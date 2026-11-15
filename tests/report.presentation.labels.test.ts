@@ -105,3 +105,7 @@ it.each([
   expect(annualSegmentHeading("Geographic",rows,false)).toBe(`Geographic segments (${words}; shares withheld)`);
   expect(annualSegmentHeading("Product",rows,true)).toContain(`(${words}; shares withheld)`);
 });
+
+it("D-306 does not call a fallback valuation-multiple history rank P/E",()=>{
+ expect(signalLabel("peOwnHistoryRank")).toBe("Valuation multiple own-history rank");
+});

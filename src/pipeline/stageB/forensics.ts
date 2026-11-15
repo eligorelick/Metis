@@ -1177,7 +1177,7 @@ export function computeBeneish(current: ForensicsPeriod, prior: ForensicsPeriod,
   // TATA — PRIMARY: cash-flow construction (Hribar–Collins; research §4.2)
   const niT = continuingNetIncome(current.income);
   if (niT !== null && nv(current.income?.netIncomeFromContinuingOperations) === null) {
-    notes.push("TATA: netIncomeFromContinuingOperations unavailable — netIncome used (fallback).");
+    notes.push("TATA: net income from continuing operations unavailable — net income used (fallback).");
   }
   const cfoT = nv(current.cashFlow?.netCashProvidedByOperatingActivities);
   const taT = posOrNull(current.balance?.totalAssets);

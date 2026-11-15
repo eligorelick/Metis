@@ -1,3 +1,4 @@
+import { restoreReleaseLeftoversGolden } from "./helpers/publicPolishGolden";
 import * as filingDisclosureProducer from "@/pipeline/filingDisclosures";
 import { validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
 import { unavailableValuationUseFixture } from "./helpers/valuationUse";
@@ -1162,6 +1163,9 @@ describe("payload determinism + provenance", () => {
       priorCapital.current = current;
       // D-296: re-pinned after a leaf comparison against main 570807e4 (four note/basis strings, no number).
       expect(sha256Text(JSON.stringify(priorCapital)).slice(0,16)).toBe("0bc2ff332534d2f1");
+      // D-306 round 1 changes only the TATA fallback wording in this subtree.
+      // Restore exactly the reviewed text and retain the prior complete value hash.
+      expect(sha256Text(JSON.stringify(restoreReleaseLeftoversGolden(written.forensics))).slice(0,16)).toBe("0d59d3ffecb6f45c");
       // Every top-level key in its serialized order; finance keys are pinned leaf by leaf above.
       return Object.entries(written).map(([key, value]) =>
         finance.has(key) ? `${key} (frozen record)` : `${key} ${sha256Text(JSON.stringify(value)).slice(0, 16)}`);
@@ -1172,9 +1176,9 @@ describe("payload determinism + provenance", () => {
       "route 67088d486e79efec",
       "degradation f591b71ec31aefa2",
       "growth 3b108cfa32943129",
-      "returns 9943437b00a0aa1d", // D-296: basis and note text in words; leaf-compared against main 570807e4, no number moved.
+      "returns ad829fbdbe35dcde", // D-306 round 1: four WACC basis/note strings name the provider rate; financial values unchanged.
       "capital 893645110f3f4c7d", // D-272 cashDividendPayout, D-282 coverage qualification and D-295 debtDefinition are new; preceding capital hash asserted above (D-296: text only).
-      "forensics 0d59d3ffecb6f45c",
+      "forensics a9e8c1b536e8edee", // D-306 round 1: TATA names continuing and total net income; old subtree hash asserted above.
       "technicals 0d0c7b3f39a71e07",
       "valuation (frozen record)",
       "financialMetrics 116fd090c9036a74",
@@ -1311,7 +1315,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.112.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
+    expect(first.payloadVersion).toBe("1.112.0"); // D-304-D-306 round 1: release definitions, labels and negative-SBC admission
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -3046,7 +3050,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.99.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
+    expect(report.meta.specVersion).toBe("1.99.0"); // D-304-D-306 round 1: release definitions, labels and negative-SBC admission
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

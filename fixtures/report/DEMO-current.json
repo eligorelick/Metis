@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Larkspur Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.98.0",
+    "specVersion": "1.99.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.98.0",
+    "pipelineVersion": "1.99.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8506944444444444,
@@ -2247,7 +2247,7 @@
         {
           "name": "WACC (discount rate)",
           "value": "8.2%",
-          "basis": "WACC 8.18%: risk-free 4% (fred:DGS10, observation 2026-07-02); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book total debt on the retained calculation basis, the latest balance (2026-03-31), the one the EV bridge nets (lease evidence: 2026-03-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book total debt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+          "basis": "WACC 8.18%: risk-free 4% (fred:DGS10, observation 2026-07-02); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (Provider trailing effective tax rate (observed)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book total debt on the retained calculation basis, the latest balance (2026-03-31), the one the EV bridge nets (lease evidence: 2026-03-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book total debt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
         },
         {
           "name": "revenue growth (yr1 → yrN)",
@@ -2297,7 +2297,7 @@
         {
           "name": "free cash flow, SBC treatment",
           "value": "180.0M (unadjusted)",
-          "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; SBC was not disclosed, so it is not deducted from the reported free-cash-flow metric. The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-31: 180000000, UNADJUSTED — stock-based compensation was not disclosed."
+          "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; SBC is not established, so it is not deducted from the reported free-cash-flow metric. The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-31: 180000000, UNADJUSTED — stock-based compensation is not established."
         }
       ],
       "sensitivityGrid": [
@@ -3177,7 +3177,7 @@
       "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk.",
       "Negative accruals mean cash flows exceed the earnings numerator on the disclosed construction. Large negative values warrant business-model, working-capital and cash-flow scope review; magnitude alone is not an accounting-integrity red flag.",
       "Cash-flow vs balance-sheet accrual ratios diverge by 30.5pp — balance-sheet deltas may reflect M&A/divestiture/FX rather than earnings quality (Hribar–Collins 2002); house-rule divergence threshold 10pp.",
-      "TATA: netIncomeFromContinuingOperations unavailable — netIncome used (fallback).",
+      "TATA: net income from continuing operations unavailable — net income used (fallback).",
       "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only.",
       "DSRI set to neutral 1.0 — inputs missing (Beneish's own missing-data convention, paper p.12).",
       "AQI set to neutral 1.0 — inputs missing (Beneish's own missing-data convention, paper p.12).",

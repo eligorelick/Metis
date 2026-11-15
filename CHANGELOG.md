@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - D-304-D-306
 
+- Review round 1: complete multiple, TATA, WACC and liquidity wording; attach the same model definition to ROTE sensitivity and P/TBV rows; name fallback own-history signals as valuation-multiple ranks. Unproved negative SBC is withheld with its dependent after-SBC amounts, while filed credits retain their sign.
 - Refuse a numeric checkmark when intermediate rounding disagrees with the exact record at reader precision (R6).
 - Carry the model tangible-equity definition beside moat ROTE summaries, cards and app signals (R18).
 - State SBC deductions only where disclosed; name scoring and forensic thresholds in words (R22/R28).

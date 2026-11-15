@@ -96,6 +96,7 @@ describe("synthetic accounting-route integration panel", () => {
     expect(report.fairValue).toMatchObject({ status: "available", method: "excess-return" });
     expect(report.valuation.dcf.perShare).toEqual(report.fairValue?.perShare);
     expect(report.valuation.dcf.sensitivityGrid).toEqual([]);
+    for (const row of report.routeMetrics?.metrics ?? []) if (["pTbv","rote","justifiedPTbv","premiumToJustified"].includes(row.key)) expect(row.basis).toContain(MODEL_TANGIBLE_COMMON_BASIS);
     expect(report.valuation.dcf.assumptions).toEqual([]);
     expect(computed.capital.fcf.latestFcf).toBeNull();
     expect(computed.returns.roic.series).toEqual([]);

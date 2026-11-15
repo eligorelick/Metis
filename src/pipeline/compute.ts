@@ -1,3 +1,5 @@
+import { admittedSbc, negativeSbcRefusal } from "@/pipeline/stageB/financialValues";
+import { MODEL_TANGIBLE_COMMON_BASIS } from "@/pipeline/stageB/returns";
 import { withReleaseQuarterEarnings } from "./releaseQuarterEarnings";
 import { forwardAnnualEstimates } from "./forwardEstimates";
 import { statementEvidenceEntries, withAssessmentQualification, financialEvidenceQualifications } from "@/report/assessment";
@@ -694,6 +696,8 @@ function toCapitalIncome(r: FmpIncomeStatementRow): CapitalIncomeRow {
 
 function toCapitalCashFlow(r: FmpCashFlowRow): CapitalCashFlowRow {
   return {
+    reportedCurrency: str(r.reportedCurrency),
+    fieldProvenance: r.fieldProvenance,
     date: String(r.date ?? ""),
     acceptedDate: str(r.acceptedDate),
     filingDate: str(r.filingDate),
@@ -2787,9 +2791,13 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
 
   const sumCurrentFlow = (field: keyof FmpCashFlowRow): number | null => {
     if (!ttmCf || !currencies.ttmCashFlowUsable || !cashFlowWindowAdmitted) return null;
-    const values = cashflowQuarterly.slice(0,4).map(row => num(row[field]));
+    const values = cashflowQuarterly.slice(0,4).map(row => field === "stockBasedCompensation" ? admittedSbc(row) : num(row[field]));
     return values.every((v): v is number => v !== null) ? values.reduce((sum,v)=>sum+v,0) : null;
   };
+  if (!filedSbc) for (const row of cashflowQuarterly.slice(0,4)) {
+    const reason = negativeSbcRefusal(row);
+    if (reason) ttmGaps.push({field:"compute.ttmCashFlow.stockBasedCompensation",reason,severity:"warn"});
+  }
   const currentBalance = [balanceQuarterly[0], balanceAnnual[0]].filter((r): r is FmpBalanceSheetRow => r !== undefined)
     .sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
   // Consolidated cash cannot be divided by a mixture of parent and total profit.
@@ -2823,6 +2831,8 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     cashFlow: ttmCf && currencies.ttmCashFlowUsable ? { ...ttmCf,
       netIncome: consolidatedConversionIncome, freeCashFlow: sumCurrentFlow("freeCashFlow"),
       stockBasedCompensation: filedSbc?.value ?? sumCurrentFlow("stockBasedCompensation"),
+      reportedCurrency: latestCash?.reportedCurrency,
+      ...(filedSbc ? {fieldProvenance:{stockBasedCompensation:{source:"edgar" as const, unit:latestCash!.reportedCurrency!,periodStart:filedSbc.start,periodEnd:filedSbc.end,observedAt:bundle.builtAt,tags:[`us-gaap/${filedSbc.tag}`],filings:filedSbc.points.map(p=>({accn:p.accn,filed:p.filed,form:p.form}))}}} : {}),
       financeLeasePrincipalPayments: sumCurrentFlow("financeLeasePrincipalPayments"), issuerFreeCashFlow: sumCurrentFlow("issuerFreeCashFlow"),
     } : null,
     balance: currentBalance ? toCapitalBalance(currentBalance, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null,
@@ -3625,6 +3635,7 @@ export function routeMetricsBlock(computed: ComputedMetrics): RouteMetrics | nul
     (acc, m) => (m.asOf !== null && (acc === null || m.asOf > acc) ? m.asOf : acc),
     null,
   );
+  for (const row of rows) if (["pTbv","rote","justifiedPTbv","premiumToJustified"].includes(row.key)) row.basis += ` ${MODEL_TANGIBLE_COMMON_BASIS}`;
   return { route: fm.route, metrics: rows, notes, asOf };
 }
 
@@ -3866,9 +3877,9 @@ function computeReturns(
     // WS6 (D-19): name which tax-rate source actually supplied it.
     effectiveTaxRateBasis:
       vendorTaxRate !== null && num(ratiosTtm?.effectiveTaxRateTTM) !== null
-        ? "FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)"
+        ? "Provider trailing effective tax rate (observed)"
         : vendorTaxRate !== null && num(ratiosTtm?.effectiveTaxRate) !== null
-          ? "FMP ratios effectiveTaxRate (observed effective rate)"
+          ? "Provider effective tax rate (observed)"
           : statementTax.basis,
     riskFreeSeriesId: rf.seriesId,
     erpAsOf: sourcedOf(bundle.marketRiskPremium)?.asOf ?? null,

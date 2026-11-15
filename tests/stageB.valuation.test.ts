@@ -1,3 +1,4 @@
+import { MODEL_TANGIBLE_COMMON_BASIS } from "@/pipeline/stageB/returns";
 /**
  * Stage B — valuation engine tests (own DCF, sensitivity grid, reverse DCF,
  * multiples framework, excess-return + REIT sector models, route dispatch).
@@ -2774,4 +2775,13 @@ describe("multiplesFramework — own-history empirical percentile rank", () => {
     expect(gap?.reason).toContain("rank the current multiple among the issuer's own quarters");
     expect(gap?.reason).not.toContain("percentile");
   });
+});
+
+
+it("D-305 carries the model definition beside ROTE sensitivity rows, with common ROE control",()=>{
+ const base={bookValue:1000,currentRoePct:15,costOfEquityPct:10,payoutRatioPct:50,years:10,dilutedShares:100};
+ const rote=excessReturnModel({...base,currentRoeBasis:"fiscal-year-rote",currentRoeAsOf:"2025-12-31"});
+ expect(rote.startCoeGrid?.notes.join(" ")).toContain(MODEL_TANGIBLE_COMMON_BASIS);
+ const roe=excessReturnModel({...base,currentRoeBasis:"fiscal-year-common-roe",currentRoeAsOf:"2025-12-31"});
+ expect(roe.startCoeGrid?.notes.join(" ")).not.toContain(MODEL_TANGIBLE_COMMON_BASIS);
 });
