@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.99.0** and
+Current source declares application **0.1.0**, report spec **1.100.0** and
 payload **1.112.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -17,6 +17,12 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Reader amounts and complete-evidence full support (P12, P19, P22, D-308, D-309) (2026-11-15)
+
+- Raw base-unit amounts no longer reach reader text: an amount with cents, a fractional share count, or an amount that ends a sentence or clause prints digit-grouped with at most two decimals on the app, Markdown and print (the unadjusted reported free cash flow, the bank and insurer residual-income continuing value and opening book, scenario fixed inputs and equity-bridge claims, the ADS share-basis check, the SBC amount after the reported free cash flow, data-gap reasons, the unprofitable-overlay trigger, the P/E-not-ranked operands, bank key-number formulas, the preferred-capital note, and consensus rows whose currency is unestablished). Read-time view only: no figure changes, saved reports keep their bytes and are formatted when read, and the audit export keeps the raw record (D-308).
+- "Full support" now holds only when its definition is true: every scored grade has all of the evidence that applies on the company's route, and free cash flow after stock-based compensation is not withheld. Otherwise the report is "Limited support" and names each partial grade with its share ("the valuation and moat grades rest on 70.0% and 75.0% of the evidence that applies on this company's route") or the withheld free cash flow. No grade, score or letter floor changes. On the release panel only AMZN and NVDA keep full support (D-309, revises D-300).
+- Report 1.100.0; payload, Stage B, pipeline and score bands unchanged.
 
 ## Unreleased - D-304-D-306
 

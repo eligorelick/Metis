@@ -5014,5 +5014,22 @@
       "$.projection.report.valuation.multiples[3].basis",
       "$.projection.report.scores.aspects.quality.note"
     ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "audit-fixture",
+    "decision": "D-309",
+    "reason": "D-308/D-309 move the report spec stamp to 1.100.0 for read-time reader amounts and complete-evidence full support; only the stamp and its digest change",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "ffa310c888684b5ca441d74a7cc4a6de21f8f43877f2810dabce47ab8aaa0f5e",
+    "afterSha256": "1c282b2cbc8cab1e902101ba5e1ec52cacc7a3671a9af66ad2aedc5e821805c4",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]
