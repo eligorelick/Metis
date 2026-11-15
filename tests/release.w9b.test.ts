@@ -421,6 +421,22 @@ describe("Step 4 period and diagnostic reader regressions (D-310, D-312)", () =>
     }
   });
 
+  it("keeps recorded FX precision in both assumption and multiples bases on every surface (D-312 review)", () => {
+    const r = loadTask28Fixture();
+    const basis = "FX inputs use 0.006712345 USD per JPY; native value 148.979234. Growth was 12.3456%.";
+    r.valuation.multiplesBasis = basis;
+    r.valuation.dcf.assumptions[0]!.basis = basis;
+    const original = JSON.stringify(r);
+    for (const text of surfaces(r)) {
+      expect(text.split("0.006712345 USD per JPY").length).toBeGreaterThanOrEqual(3);
+      expect(text.split("native value 148.979234").length).toBeGreaterThanOrEqual(3);
+      expect(text).toContain("Growth was 12.3%.");
+      expect(text).not.toContain("native value 148.98");
+    }
+    expect(reportToAuditMarkdown(r)).toContain(basis);
+    expect(JSON.stringify(r)).toBe(original);
+  });
+
   it("applies the vocabulary on all saved-report surfaces and preserves audit identifiers", () => {
     const report = loadTask28Fixture();
     const raw = "FinancingReceivableAllowanceForCreditLossExcludingAccruedInterest";

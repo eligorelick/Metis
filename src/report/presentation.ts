@@ -10,7 +10,7 @@ import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTimin
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 import { LENDER_DEBT_PERIMETER_LABEL } from "@/pipeline/stageB/lenderCashFlow";
 import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
-import { IDENTIFIER_CONTEXT, readerBaseUnits, readerConventionText, unavailableCashFlowModel } from "@/report/readerConventions";
+import { IDENTIFIER_CONTEXT, isStoredRateValue, readerBaseUnits, readerConventionText, unavailableCashFlowModel } from "@/report/readerConventions";
 
 /** Only a recorded check may annotate a field; saved reports are never rechecked at display time. */
 export function withPlainFigureNotes(report: Report): Report {
@@ -786,7 +786,8 @@ export function pruneTable(
  */
 export function compactLongIntegers(text: string): string {
   return text.split(/((?:https?:\/\/|www\.)[^\s<>"']+)/i).map((part, index) => index % 2 === 1 ? part
-    : part.replace(/(^|[^\d.,\-])(-?[1-9]\d{9,})(?!\d|[.,]\d|-\d)/g, (_, lead: string, digits: string) => `${lead}${formatLargeNumber(Number(digits))}`)
+    : part.replace(/(^|[^\d.,\-])(-?[1-9]\d{9,})(?!\d|[.,]\d|-\d)/g, (match, lead: string, digits: string, offset: number) =>
+      isStoredRateValue(part, offset + lead.length, digits.length) ? match : `${lead}${formatLargeNumber(Number(digits))}`)
       .replace(/([\dKMBT])\s+reporting-currency units/g, "$1 (reporting currency)")
       .replace(/\(reporting-currency units\)/g, "(reporting currency)")).join("");
 }
@@ -2139,6 +2140,7 @@ function smallOrTwoDecimals(value: number): string {
  * ("4.250% Notes") or an exact-to-the-million amount ("USD 7.771 billion") is
  * left as written. Ratio claims (FCF conversion, accrual ratios) retain their
  * wording; displayClaimText may disclose a compatible typed cited measure.
+ * D-312 review: stored FX rates and native observations retain their digits.
  */
 export function readerPrecision(text: string, source?: string): string {
   // A source name cannot recover precision rounded away by the model or
@@ -2151,6 +2153,7 @@ export function readerPrecision(text: string, source?: string): string {
   return out.replace(
     /(?<![\w.:/-])(-?)(\d+)\.(\d+)(?!\.?\d)(\s?(?:x|×)(?![A-Za-z0-9])|%| percentage points?\b| pp\b| (?:trillion|billion|million|thousand)\b| per share\b)?/g,
     (match, sign: string, whole: string, fraction: string, unit: string | undefined, offset: number, whole_text: string) => {
+      if (isStoredRateValue(whole_text, offset, match.length)) return match;
       // D-308 review round 1: a version, id or CIK number is an identifier, not a figure to round.
       if (IDENTIFIER_CONTEXT.test(whole_text.slice(Math.max(0, offset - 40), offset))) return match;
       const decimals = fraction.length;
