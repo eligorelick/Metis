@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.96.0** and
+Current source declares application **0.1.0**, report spec **1.97.0** and
 payload **1.110.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -25,7 +25,13 @@ original versions and bytes; source merge does not deploy or publish a release.
 - A withheld dividend-payout year with no source is a disclosed gap, not an "ambiguous legacy citation"; a withheld operating margin names its period and sits with the quarterly trend (D-297).
 - 20-F/40-F filers get a foreign-filer note (6-K results releases are not read) instead of the domestic Item 2.02 8-K note; the TTM capital basis names the flows it admitted and the ones withheld (D-298).
 - Product-line headings stand only on code-owned names (unchanged rule); an unnamed heading reads "Product line". A segment row's name is its cited record's label when period, currency, unit and amount match, else "Segment (name not established)". A trailing XBRL "[Member]" marker is removed from segment labels (D-299).
-- Report 1.96.0, payload 1.110.0, Stage B `STAGE_B_2026_11_READER_WORDING_83`, pipeline `stage-c-1.6.51`; no figure changes.
+- Report 1.97.0, payload 1.110.0, Stage B `STAGE_B_2026_11_READER_WORDING_83`, pipeline `stage-c-1.6.51`; no figure changes.
+
+## Unreleased - Corrected debt composition and complete ADS labels (P3, P18, P22, D-294/D-295) (2026-11-15)
+
+- The current debt definition travels with Stage B's corrected balance result, beside the lease note; a raw provider row cannot override a rebuilt filed composition. Synthetic regressions distinguish current aliases, a different raw total, and a different date.
+- Provider share-count rows retain the ADS basis even when class scope is unverified or limited; the code-owned diluted/basic share-gap note names its established ADS basis. Ordinary counts retain their wording.
+- Report spec 1.96.0 follows W1's 1.95.0; payload 1.109.0, Stage B `_82` and pipeline stage-c-1.6.50 remain W1's current versions. No arithmetic or admission rule changes.
 
 ## Unreleased - Statement marks, value-first conflicts, feed citations and coverage operands (P12, P18, P19, P20, P22, D-282..D-285) (2026-11-14)
 
@@ -47,6 +53,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Report 1.94.0, payload 1.108.0, Stage B `STAGE_B_2026_11_COMPLETE_RATIO_INPUTS_81`, pipeline `stage-c-1.6.49`; score bands unchanged.
 
 ## Unreleased - Model-value move check and the LLY trace (P16, P17, P27, D-281, D-291) (2026-11-14)
+
+- D-292..D-295 (P3/P7/P8/P13/P15/P18/P20/P22): disclose combined PP&E/intangible spending, filed investment/liquidity and redeemable-minority scope, period-specific debt lease basis, ADS-equivalent counts and the model tangible-capital convention across report surfaces. Figures and scoring remain unchanged. Unreconciled annual provider revenue is distinguished from the captured filed total under the lead's R12 decision.
 
 - New `npm run golden:value-check BEFORE AFTER`: prints every golden case's model value before and after with its percentage move, and fails when a value moves more than 10% either way (the owner's limit), appears, disappears or changes unit, unless an approval names a decision entry that names the company (D-291, R43). Documented beside golden:diff in docs/OPERATIONS.md.
 - D-281 records the exact bridge of the Eli Lilly model value from 518.37 (#63) to 739.34 (#65): +143.71 from the D-260/D-267 date-consistency correction, +77.11 from the four-year terminal-return rule after D-268 admitted FY2025's return, +0.15 from the September short-term investments; zero residual, no remaining error (R42). The terminal-return switch is a disclosed house convention.

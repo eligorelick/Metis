@@ -1153,6 +1153,11 @@ describe("payload determinism + provenance", () => {
       expect([coverage.unverifiedOperands, current.interestCoverageUnverifiedOperands]).toEqual([["ebit", "interestExpense"], ["ebit", "interestExpense"]]);
       delete coverage.unverifiedOperands;
       delete current.interestCoverageUnverifiedOperands;
+      // D-295: corrected-row debt wording is metadata; keep all preceding capital bytes pinned.
+      const debtBridge = { ...(current.debtBridge as Record<string, unknown>) };
+      expect(debtBridge.debtDefinition).toBe("lease treatment not established from the filing");
+      delete debtBridge.debtDefinition;
+      current.debtBridge = debtBridge;
       priorCapital.interestCoverage = coverage;
       priorCapital.current = current;
       // D-296: re-pinned after a leaf comparison against main 570807e4 (four note/basis strings, no number).
@@ -1168,7 +1173,7 @@ describe("payload determinism + provenance", () => {
       "degradation f591b71ec31aefa2",
       "growth 3b108cfa32943129",
       "returns 9943437b00a0aa1d", // D-296: basis and note text in words; leaf-compared against main 570807e4, no number moved.
-      "capital c0b800ede596d9fc", // D-272 cashDividendPayout and D-282 coverage qualification are new; preceding capital hash asserted above (D-296: text only).
+      "capital 893645110f3f4c7d", // D-272 cashDividendPayout, D-282 coverage qualification and D-295 debtDefinition are new; preceding capital hash asserted above (D-296: text only).
       "forensics 0d59d3ffecb6f45c",
       "technicals 0d0c7b3f39a71e07",
       "valuation (frozen record)",
@@ -3041,7 +3046,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.96.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
+    expect(report.meta.specVersion).toBe("1.97.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

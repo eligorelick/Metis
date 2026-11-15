@@ -138,6 +138,8 @@ export interface QuoteInput {
  * number that is off by the FX rate or the ADS ratio.
  */
 export interface CapitalOptions {
+  /** Share basis established by the filer-share-unit resolver, after conversion. */
+  shareUnit?: "ADS-equivalent" | null;
   /** Issuer-admitted, retained facts only; used to identify conversion windows. */
   companyFacts?: CompanyFacts | null;
   asOf?: string;
@@ -994,7 +996,7 @@ export function computeCapital(
       note: conversionReason ?? (
         overhangPct === null
           ? `Dilution overhang unavailable: ${missing.length > 0 ? missing.join(" and ") + " not disclosed" : "no annual income statement"}.`
-          : `Weighted-average diluted/basic share gap: diluted ${fmt(diluted as number)} vs basic ${fmt(basic as number)} shares ` +
+          : `Weighted-average diluted/basic share gap: diluted ${fmt(diluted as number)} vs basic ${fmt(basic as number)} ${options.shareUnit === "ADS-equivalent" ? "ADS-equivalent shares" : "shares"} ` +
             `for the fiscal period ending ${latestInc?.date ?? "?"} — a ${fmt(overhangPct)}% gap. This period-average EPS denominator difference is not an outstanding award pool or a measure of current economic dilution. ` +
             "Antidilutive options, RSUs and convertibles are excluded from diluted EPS by the filer."),
     };
@@ -1388,3 +1390,24 @@ export function computeCapital(
   }
   return result;
 }
+
+/** D-292 (P13, P20): describe the retained filed spending family without changing it. */
+export function capexDefinition(tags: readonly string[]): string | null {
+  if (tags.some(tag => /Intangible/i.test(tag))) return tags.some(tag => /PropertyPlantAndEquipment/i.test(tag))
+    ? "cash spending on property, plant and equipment plus intangible assets; standardized FCF deducts this combined spending"
+    : "cash spending on intangible assets only; standardized FCF deducts this spending";
+  if (tags.length === 1 && ["ifrs-full/PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities", "us-gaap/PaymentsToAcquirePropertyPlantAndEquipment"].includes(tags[0]!))
+    return "cash spending on property, plant and equipment only; standardized FCF deducts this spending";
+  return null;
+}
+
+export function sharedCapexDefinition(definitions: readonly (string | null | undefined)[]): string {
+  if (definitions.length === 0 || definitions.some(d => !d)) return "Cash-spending definition is not established for every period in this measure.";
+  return new Set(definitions).size === 1 ? definitions[0]! : "Cash-spending definitions differ across periods; see the annual rows.";
+}
+export const CAPEX_DEFINITION_FAMILIES = [
+  ["ifrs-full/PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities", "ifrs-full/PurchaseOfIntangibleAssetsClassifiedAsInvestingActivities"],
+  ["us-gaap/PaymentsToAcquirePropertyPlantAndEquipment", "us-gaap/PaymentsToAcquireIntangibleAssets"],
+  ["ifrs-full/PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"],
+  ["us-gaap/PaymentsToAcquirePropertyPlantAndEquipment"],
+] as const;

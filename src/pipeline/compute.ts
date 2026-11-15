@@ -31,7 +31,7 @@ import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { operatingIncomeEvidenceForNonMargins, operatingIncomeForNonMargins, operatingMarginBasis, withFiledIncomeWindow, withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
-import { withFilerShareUnits } from "@/pipeline/shareUnits";
+import { quotedShareUnit, withFilerShareUnits } from "@/pipeline/shareUnits";
 import { filedAnnualNciEarnings, filedSingleProfitWindow } from "@/pipeline/nciEarnings";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
@@ -2762,6 +2762,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
       reportedCurrency: str(incomeAnnual[0]?.reportedCurrency),
       quoteCurrency: str(profile?.currency),
       isAdr: typeof profile?.isAdr === "boolean" ? profile.isAdr : null,
+      shareUnit: quotedShareUnit(bundle),
       repurchaseExecutions: repurchaseExecutions.rows,
       companyFacts,
       asOf: bundle.builtAt,

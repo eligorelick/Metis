@@ -149,7 +149,7 @@ describe("new version stamps", () => {
     expect(specVersionBefore(REPORT_SPEC_VERSION, ANNUALIZATION_CONVENTION_SPEC)).toBe(false);
   });
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.96.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
+    expect(REPORT_SPEC_VERSION).toBe("1.97.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
     expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
     expect(PAYLOAD_VERSION).toBe("1.110.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
     expect(PIPELINE_VERSION).toBe("stage-c-1.6.51"); // D-296-D-299: reader wording at the producers, record-bound segment names
@@ -191,7 +191,7 @@ describe("new version stamps", () => {
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.96.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
+    expect(newReport().meta.specVersion).toBe("1.97.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     expect(payload.payloadVersion).toBe("1.110.0"); // D-296-D-299: reader wording at the producers, record-bound segment names

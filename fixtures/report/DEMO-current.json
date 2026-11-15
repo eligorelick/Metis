@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.96.0",
+    "specVersion": "1.97.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.96.0",
+    "pipelineVersion": "1.97.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8506944444444444,
@@ -1172,7 +1172,8 @@
               "source": "computed.growth.fcfCagrs",
               "asOf": "2025-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for every period in this measure."
             }
           }
         ]
@@ -1482,7 +1483,8 @@
               "source": "computed.returns.rote",
               "asOf": "2024-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Model tangible equity = parent equity minus the provider's goodwill and intangible-asset fields and preferred stock; what those fields contain is not checked against the filing."
             }
           },
           {
@@ -1495,7 +1497,8 @@
               "source": "computed.returns.rote",
               "asOf": "2025-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Model tangible equity = parent equity minus the provider's goodwill and intangible-asset fields and preferred stock; what those fields contain is not checked against the filing."
             }
           }
         ]
@@ -1616,7 +1619,8 @@
               "source": "computed.capital.fcf",
               "asOf": "2023-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1630,7 +1634,8 @@
               "source": "computed.capital.fcf",
               "asOf": "2024-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1643,7 +1648,8 @@
               "sourceId": "computed.capital-cash.latest-fcf-after-sbc-house-default",
               "source": "computed.capital-cash.latest-fcf-after-sbc-house-default",
               "asOf": "2025-12-31",
-              "verified": true
+              "verified": true,
+              "definition": "Cash-spending definition is not established for this period."
             }
           }
         ]
@@ -1662,7 +1668,8 @@
               "source": "computed.capital.fcf.beforeSbc",
               "asOf": "2023-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1676,7 +1683,8 @@
               "source": "computed.capital.fcf.beforeSbc",
               "asOf": "2024-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1707,7 +1715,8 @@
               "source": "computed.capital.fcf.conversion",
               "asOf": "2023-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1720,7 +1729,8 @@
               "source": "computed.capital.fcf.conversion",
               "asOf": "2024-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1750,7 +1760,8 @@
               "source": "computed.capital.fcf.conversionBeforeSbc",
               "asOf": "2023-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1763,7 +1774,8 @@
               "source": "computed.capital.fcf.conversionBeforeSbc",
               "asOf": "2024-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1793,7 +1805,8 @@
               "source": "computed.capital.capexIntensity",
               "asOf": "2023-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1806,7 +1819,8 @@
               "source": "computed.capital.capexIntensity",
               "asOf": "2024-12-31",
               "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verificationNote": "[unverified] unknown-source",
+              "definition": "Cash-spending definition is not established for this period."
             }
           },
           {
@@ -1818,7 +1832,8 @@
               "sourceId": "computed.capital-cash.capex-revenue-latest",
               "source": "computed.capital-cash.capex-revenue-latest",
               "asOf": "2025-12-31",
-              "verified": true
+              "verified": true,
+              "definition": "Cash-spending definition is not established for this period."
             }
           }
         ]
@@ -1970,7 +1985,8 @@
           "sourceId": "computed.capital.current.debtBridge.totalDebtIncludingLeases",
           "source": "computed.capital.current.debtBridge.totalDebtIncludingLeases",
           "asOf": "2026-03-31",
-          "verified": true
+          "verified": true,
+          "definition": "lease treatment not established from the filing"
         },
         {
           "value": 120000000,
@@ -2054,7 +2070,8 @@
           "sourceId": "computed.capital.current.cashBridge.cashCapitalExpenditure",
           "source": "computed.capital.current.cashBridge.cashCapitalExpenditure",
           "asOf": "2026-03-31",
-          "verified": true
+          "verified": true,
+          "definition": "Cash-spending definition is not established for every period in this measure."
         },
         {
           "value": 180000000,
@@ -2064,7 +2081,8 @@
           "sourceId": "computed.capital.current.cashBridge.standardizedFcf",
           "source": "computed.capital.current.cashBridge.standardizedFcf",
           "asOf": "2026-03-31",
-          "verified": true
+          "verified": true,
+          "definition": "Cash-spending definition is not established for every period in this measure."
         },
         {
           "value": -0.41379310344827586,
@@ -2104,7 +2122,8 @@
           "source": "computed.capital.capexIntensity",
           "asOf": "2025-12-31",
           "verified": false,
-          "verificationNote": "[unverified] unknown-source"
+          "verificationNote": "[unverified] unknown-source",
+          "definition": "Cash-spending definition is not established for this period."
         },
         {
           "value": -0.187356,
@@ -2114,7 +2133,8 @@
           "source": "computed.capital.capexIntensity",
           "asOf": "2025-12-31",
           "verified": false,
-          "verificationNote": "[unverified] unknown-source"
+          "verificationNote": "[unverified] unknown-source",
+          "definition": "Cash-spending definition is not established for every period in this measure."
         },
         {
           "value": 0.8,
@@ -2124,7 +2144,8 @@
           "source": "computed.capital.maintenanceVsGrowthCapex",
           "asOf": "2025-12-31",
           "verified": false,
-          "verificationNote": "[unverified] unknown-source"
+          "verificationNote": "[unverified] unknown-source",
+          "definition": "Cash-spending definition is not established for this period."
         },
         {
           "value": 0.839815,
@@ -2134,7 +2155,8 @@
           "source": "computed.capital.maintenanceVsGrowthCapex",
           "asOf": "2025-12-31",
           "verified": false,
-          "verificationNote": "[unverified] unknown-source"
+          "verificationNote": "[unverified] unknown-source",
+          "definition": "Cash-spending definition is not established for every period in this measure."
         }
       ]
     },

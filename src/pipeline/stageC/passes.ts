@@ -1405,6 +1405,8 @@ function normalizeCitationFields(raw: unknown): unknown {
     if (key === "sourceId" && (value === null || (typeof value === "string" && value.trim().length === 0))) continue;
     next[key] = normalizeCitationFields(value);
   }
+  // D-295 review (P18): a figure definition is written only by deterministic code.
+  if (typeof next.value === "number" && typeof next.unit === "string") delete next.definition;
   // FIG / Sonnet 5.5: a canonical sourceId with source:"" is already a
   // citation, but the required legacy field rejected the whole paid answer.
   // Copy only a syntactically valid ID on a claim/number; provenance and truth

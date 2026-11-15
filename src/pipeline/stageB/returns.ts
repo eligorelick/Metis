@@ -2227,6 +2227,8 @@ export function computeRoicVsWaccSpread(
   };
 }
 
+/** D-295 (P13): the model convention is distinct from issuer-adjusted tangible capital. */
+export const MODEL_TANGIBLE_COMMON_BASIS = "Model tangible equity = parent equity minus the provider's goodwill and intangible-asset fields and preferred stock; what those fields contain is not checked against the filing.";
 
 /** D-288 review: the same year-end hurdle used by terminal-return evidence. */
 export function computeFiscalRoicVsWaccSpread(roicPct: number | null, currentWaccPct: number | null, date: string | null, history: WaccHistoryResult): RoicVsWaccSpread {

@@ -4494,6 +4494,33 @@
   },
   {
     "date": "2026-11-15",
+    "target": "audit-fixture",
+    "decision": "D-295",
+    "reason": "D-295 confirmation: report 1.96.0 and code-owned optional figure definitions change audit metadata, preserving every calculation.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion",
+      "$.projection.stageB.capital.current.debtBridge.debtDefinition",
+      "$.projection.report.balanceSheet.debtProfile.numbers[1].definition",
+      "$.projection.report.balanceSheet.coverage.numbers[2].definition",
+      "$.projection.report.balanceSheet.coverage.numbers[3].definition",
+      "$.projection.report.balanceSheet.coverage.numbers[5].definition"
+    ],
+    "beforeSha256": "68f704a7f36830be4c722ec48778d4afcadcd2f29a3ff329454e5e79c5937a8a",
+    "afterSha256": "71083e7e3297eeefc6d22094889e406f485e2ca2147c5f1a5b77f055ba798a53",
+    "changedLeaves": 7,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion",
+      "$.projection.stageB.capital.current.debtBridge.debtDefinition",
+      "$.projection.report.balanceSheet.debtProfile.numbers[1].definition",
+      "$.projection.report.balanceSheet.coverage.numbers[2].definition",
+      "$.projection.report.balanceSheet.coverage.numbers[3].definition",
+      "$.projection.report.balanceSheet.coverage.numbers[5].definition"
+    ]
+  },
+  {
+    "date": "2026-11-15",
     "target": "stagec-payload",
     "decision": "D-296",
     "reason": "D-296 to D-299 reader wording: basis, note and gap text name rules and fields in words; payload version stamp moved; text leaves and byte counts only, no figure changes",
@@ -4633,8 +4660,8 @@
       "$.projection.report.scores.aspects.moat.note",
       "$.projection.report.marketData.estimateCurrencyBasis"
     ],
-    "beforeSha256": "68f704a7f36830be4c722ec48778d4afcadcd2f29a3ff329454e5e79c5937a8a",
-    "afterSha256": "50792be8d45b1ac69920df8a83d7c497e00ea25744ff42466e059ceb02af36fe",
+    "beforeSha256": "71083e7e3297eeefc6d22094889e406f485e2ca2147c5f1a5b77f055ba798a53",
+    "afterSha256": "26ec44abfdc9cd0338f754d2732a1c68c66b59215a96a67f8a6abde48b425cb1",
     "changedLeaves": 121,
     "changedPaths": [
       "$.projectionSha256",

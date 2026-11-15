@@ -116,3 +116,9 @@ export function indicatedDividendYield(bundle: DataBundle, declaration: { amount
     declaredPerShare:declaration.amount, paymentsPerYear:payments, ordinarySharesPerQuotedUnit:ratio, price,quoteDate,
     basis,quoteSource:bundle.quote?.ok ? `${bundle.quote.value.source}: ${bundle.quote.value.endpoint}` : "Quote unavailable",declarationAsOf:declaration.declarationAsOf,source:declaration.source,currency:quoteCurrency,reason};
 }
+
+/** D-294 (P3): count labels follow independently proved quoted-security units. */
+export function quotedShareUnit(bundle: DataBundle): "ADS-equivalent" | null {
+  const profile = bundle.profile?.ok ? bundle.profile.value.data.rows[0] : null;
+  return profile?.isAdr === true && resolveForeignShareRatio(bundle).basis !== null ? "ADS-equivalent" : null;
+}

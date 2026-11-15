@@ -246,9 +246,12 @@
 // shows a CONTRADICTED tag, model-written statements and paragraphs carry plain marks, the value-only figure check
 // reads only code-owned text, grid parameters are not headline conflicts, and whole-feed news citations name one
 // article or are removed; a coverage ratio whose operands filings do not establish is shown but never validated.
-// 1.96.0 (D-296-D-299, P10/P18/P20/P22): reader text names rules and settings in words; dated and typed
+
+// D-292..D-295 review: source-bounded figure definitions and wrapping shared presentation.
+// 1.96.0 (D-292..D-295, P3/P18/P22): code-owned figure definitions, corrected-row debt composition and complete ADS count labels.
+// 1.97.0 (D-296-D-299, P10/P18/P20/P22): reader text names rules and settings in words; dated and typed
 // withheld-margin, foreign-filer and TTM-flow notes; record-bound segment names; neutral product-line heading.
-export const REPORT_SPEC_VERSION = "1.96.0" as const;
+export const REPORT_SPEC_VERSION = "1.97.0" as const;
 
 /**
  * Current payload format version.

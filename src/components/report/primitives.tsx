@@ -224,6 +224,7 @@ export function TracedFigure({
     muted: "text-muted",
   };
   return (
+    <>
     <span
       className={`inline-flex items-center gap-1 ${className ?? ""}`}
       title={`${unitLabel(n.unit) ? `${unitLabel(n.unit)} · ` : ""}${n.source}${n.asOf ? ` · as of ${n.asOf}` : ""}`}
@@ -239,6 +240,8 @@ export function TracedFigure({
         </span>
       )}
     </span>
+    {n.definition && <span className="mt-0.5 block whitespace-normal break-words text-left font-sans text-[10px] leading-snug text-muted">{n.definition}</span>}
+    </>
   );
 }
 

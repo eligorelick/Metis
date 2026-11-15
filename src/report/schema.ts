@@ -342,6 +342,8 @@ export const TracedNumberSchema = z
     /** null = not yet verified; set by the verification pass. */
     verified: z.boolean().nullable(),
     verificationNote: z.string().optional(),
+    /** Code-owned definition of the retained figure (D-292..D-295). */
+    definition: z.string().optional(),
   })
   .strict();
 export type TracedNumber = z.infer<typeof TracedNumberSchema>;
@@ -1162,6 +1164,8 @@ export const DcfSchema = z
       sharesOutstandingAtQuote: z.number().optional(),
       /** D-265: why a diluted divisor below the quote count differs from it (absent when at or above it, and on older reports). */
       shareBasisNote: z.string().optional(),
+      shareUnit: z.literal("ADS-equivalent").optional(),
+      minorityInterestDefinition: z.string().optional(),
       /** E-5: how the NCI deducted in minorityInterest was sized. */
       noncontrollingBasis: z.string().optional(),
       noncontrollingBook: z.number().optional(),
@@ -2670,6 +2674,7 @@ export const MarketDataSchema = z
       marketCapOrigin: z.enum(["computed", "provider"]).optional(),
     }).strict().nullable(),
     shares: z.object({
+      shareUnit: z.literal("ADS-equivalent").optional(),
       outstanding: NullableNumber, float: NullableNumber, freeFloatPct: NullableNumber, asOf: z.string().nullable(),
       /** The float measurement can predate the separately reported outstanding count. */
       floatAsOf: z.string().nullable().optional(),
@@ -3370,9 +3375,10 @@ export function removeVerifierOwnedRequestFields<T>(schema: T): T {
       ) {
         delete props.verified;
         delete props.verificationNote;
+        delete props.definition;
         if (Array.isArray(obj.required)) {
           obj.required = (obj.required as string[]).filter(
-            (key) => key !== "verified" && key !== "verificationNote",
+            (key) => key !== "verified" && key !== "verificationNote" && key !== "definition",
           );
         }
       }
