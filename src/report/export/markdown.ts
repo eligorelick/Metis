@@ -1,3 +1,4 @@
+import { unavailableLiquidityTable } from "@/report/presentation";
 import { claimTag, FACT_STATUS_LEGEND, hasFactStatusMarks } from "@/report/verificationMarks";
 import { OFFICE_CONTEXT_LINK, GUIDANCE_CONTEXT_LINK } from "@/report/executiveDecisions";
 import { prepareReportForSurface } from "@/report/readerPreparation";
@@ -546,6 +547,7 @@ function renderBalanceSheet(bs: BalanceSheet, report: Pick<Report, "filingDisclo
     if (numbers) lines.push(numbers, "");
   };
   group("Debt profile", bs.debtProfile);
+  lines.push(...auditTableBlocks(unavailableLiquidityTable(bs.debtProfile.commentary)));
   group("Coverage", bs.coverage);
   group("Capex trajectory", bs.capexTrajectory);
   // D-63 commitments and guarantees, in their home section.

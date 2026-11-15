@@ -406,7 +406,9 @@ function fundamentalsSections(
     singleRow(r.wacc.withheld ? `Cost of equity (the ${computed.route.base} route values equity at the cost of equity; no WACC or cost of debt is used)` : "Cost of equity",
       "latest", r.wacc.costOfEquityPct, "%", "computed.returns.wacc.costOfEquity", r.wacc.asOf?.riskFreeRate ?? null),
     singleRow("Pre-tax cost of debt", "latest", r.wacc.costOfDebtPct, "%", `computed.returns.wacc.costOfDebt(${r.wacc.costOfDebtMethod})`, r.wacc.asOf?.statements ?? null),
-    singleRow("ROIC − WACC spread", "latest", r.roicVsWacc.spreadPctPts, "pp", "computed.returns.roicVsWacc", r.roic.asOf),
+    // D-288 (P13): the spread uses the WACC at the ROIC's own fiscal year end, not the latest WACC row above.
+    singleRow("WACC at fiscal year end (risk-free rate at that date; beta, equity risk premium and weights current)", r.roicVsWacc.asOf ?? "fiscal year end", r.roicVsWacc.waccPct ?? null, "%", "computed.returns.roicVsWacc.waccPct", r.roicVsWacc.asOf ?? null),
+    singleRow("ROIC − fiscal-year-end WACC spread", r.roicVsWacc.asOf ?? "fiscal year end", r.roicVsWacc.spreadPctPts, "pp", "computed.returns.roicVsWacc", r.roicVsWacc.asOf ?? r.roic.asOf),
   ]);
 
   const fcf = present([

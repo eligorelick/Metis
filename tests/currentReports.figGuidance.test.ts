@@ -1,6 +1,8 @@
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
 import { describe, expect, it } from "vitest";
 import { parseGuidance, parseGuidanceSentence } from "@/edgar/currentReports";
-import { buildEarningsReleaseRecord, collectCurrentReports } from "@/providers/currentReports";
+import { buildEarningsReleaseRecord, collectCurrentReports, CURRENT_REPORTS_VERSION, orderedEarningsReleases, revalidateGuidance } from "@/providers/currentReports";
 import type { EdgarClient, EdgarFiling } from "@/providers/edgar";
 
 // Retained FIG EX-99.1 wording, accession 0001628280-26-053331, filed 2026-08-05.
@@ -130,5 +132,41 @@ describe("current-report guidance extraction disclosures", () => {
     expect(result.releases[0]?.guidance).toBeNull();
     expect(result.notes.join(" ")).toMatch(/no structured guidance.*extract/i);
     expect(result.notes.join(" ")).not.toMatch(/no outlook section/);
+  });
+});
+
+
+describe("D-289 compact guidance survives retained-item admission", () => {
+  const build = (releaseText: string) => buildEarningsReleaseRecord({filing,releaseUrl,commentaryUrl:null,releaseText,commentaryText:null,includeNarrative:true});
+  it("keeps all three compact rows after ordering and preserves the next-quarter anchor", () => {
+    const release=build(FIG_RELEASE);
+    const ordered=orderedEarningsReleases([release]);
+    expect(ordered[0]!.guidance?.items).toEqual(release.guidance!.items);
+    expect(ordered[0]!.guidance?.items).toHaveLength(3);
+    const bundle=completeCurrencyBundle({quarterlyRevenue:370.1});
+    bundle.builtAt="2026-08-06T00:00:00.000Z";
+    if(!bundle.statements.incomeQuarterly.ok)throw Error("fixture");
+    Object.assign(bundle.statements.incomeQuarterly.value.data.rows[0]!,{date:"2026-06-30",period:"Q2",fiscalYear:2026});
+    bundle.edgar!.currentReports={ok:true,value:{source:"edgar",endpoint:releaseUrl,asOf:filing.filingDate,fetchedAt:bundle.builtAt,
+      data:{version:CURRENT_REPORTS_VERSION,releases:[release],events:[],notes:[]}}};
+    expect(nextPeriodRevenueGuidance(bundle)).toMatchObject({low:373e6,mid:374e6,high:375e6,periodEnd:"2026-09-30",currency:"USD"});
+  });
+  it("uses the same compact grammar for an unrelated issuer shape", () => {
+    const release=build("Second Quarter 2026 Results. Revenue for the quarter ended June 30, 2026 was $390 million. Third Quarter 2026 Outlook: Revenue between $400 million and $420 million. Conference Call Details: today.");
+    expect(orderedEarningsReleases([release])[0]!.guidance?.items).toMatchObject([{metric:"revenue",low:400e6,mid:410e6,high:420e6}]);
+  });
+  it("keeps a sentence-parser outlook that begins with a compact metric name", () => {
+    const release=build(FIG_RELEASE);
+    const items=parseGuidanceSentence("Revenue outlook of $400 million for the third quarter of 2026.",null);
+    expect(items).toHaveLength(1);
+    expect(revalidateGuidance({...release,guidance:{...release.guidance!,items}}).guidance?.items).toEqual(items);
+  });
+  it("withholds a malformed compact row and a row conflicting with its retained dated context", () => {
+    const release=build(FIG_RELEASE);const item=release.guidance!.items[0]!;
+    for(const sentence of ["Revenue between $373 million and the high three hundreds.","Revenue between $373 million and $375 million, for full year 2026."]) {
+      const result=revalidateGuidance({...release,guidance:{...release.guidance!,items:[{...item,sentence}]}});
+      expect(result.guidance?.items).toEqual([]);
+      expect(result.guidance?.unparsed).toContain(sentence);
+    }
   });
 });

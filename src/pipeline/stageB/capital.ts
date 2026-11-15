@@ -59,12 +59,12 @@ export interface CapitalIncomeRow extends FiscalDatedRow {
   weightedAverageShsOutDil?: number | null;
   /** Basic weighted-avg shares — matches marketCap's (undiluted) base for the buyback proxy. */
   weightedAverageShsOut?: number | null;
-  /** D-286 (P19): coverage operands that exact-period filed evidence establishes
+  /** D-282 (P19): coverage operands that exact-period filed evidence establishes
    * for this row's own window (set by the statement mapping). Absent = none. */
   filedCoverageOperands?: readonly CoverageOperand[];
 }
 
-/** D-286: the two operands of EBIT interest coverage. */
+/** D-282: the two operands of EBIT interest coverage. */
 export type CoverageOperand = "ebit" | "interestExpense";
 
 export interface CapitalCashFlowRow {
@@ -320,7 +320,7 @@ export interface CapitalResult {
     value: number | null;
     ebit: number | null;
     interestExpense: number | null;
-    /** D-286 (P12, P19): operands of the computed ratio that no exact-period
+    /** D-282 (P12, P19): operands of the computed ratio that no exact-period
      * filed evidence establishes. Present only on a computed value; the value
      * is shown but no number citing it can verify. */
     unverifiedOperands?: CoverageOperand[];
@@ -549,7 +549,7 @@ function filedConversionInWindow(options: CapitalOptions, startDate: string, end
 // computeCapital
 // ---------------------------------------------------------------------------
 
-/** D-286 (P19): the operands of a computed coverage ratio that the row's own
+/** D-282 (P19): the operands of a computed coverage ratio that the row's own
  * filed evidence does not establish, in a fixed order. */
 export function coverageOperandsUnverified(row: Pick<CapitalIncomeRow, "filedCoverageOperands">): CoverageOperand[] {
   return (["ebit", "interestExpense"] as const).filter(operand => !row.filedCoverageOperands?.includes(operand));
@@ -910,7 +910,7 @@ export function computeCapital(
       if (sbcVal === null) {
         gaps.push({
           field: "capital.sbc",
-          reason: "stockBasedCompensation missing on latest cash-flow row",
+          reason: "Stock-based compensation is not disclosed for the latest cash-flow period",
           severity: "info",
         });
       }

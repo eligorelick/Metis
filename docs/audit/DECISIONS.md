@@ -263,6 +263,127 @@ D-260/D-267 removed it. No product change. Reproduction: the offline replays and
 locally with the release evidence (not committed: they contain vendor data). D-291 adds the check that would have
 stopped this move for a decision entry.
 
+
+## D-290 - State vendor, framework and derived-share limitations where figures appear (2026-11-14)
+
+Review round 1 correction: foreign-interim admission is keyed on retained Form 6-K coverage plus a vendor quarter with no filed XBRL quarter for that period, regardless of ADR or accounting taxonomy. The framework clause applies only to IFRS. Each note has its own field gap; the ADS precision note does not enter the cash bridge or the interim gap. The P12 owner/schema has no vendor-unverified grade qualification code. Per the lead's stop rule, no new code is added: the incorrect financial-evidence-blocked assignment is removed, while the reader labels remain. A typed vendor grade qualification is pending the lead's code decision.
+
+P12, P3, P20, P22; release R19, R24-R26. `report/assessment.ts:statementEvidenceNotes` owns the shared foreign-interim and ADS qualification. Quarterly statement notes, the current cash bridge and grade qualifications consume it. An IFRS ADR with vendor interim revenue has no established common annual/interim accounting framework: its interim, TTM and derived fourth-quarter series are explicitly vendor data, not checked against a filing. This does not prove the frameworks identical. ADS EPS rebuilt from rounded ordinary EPS is labelled derived (ordinary EPS times ADS ratio), never an exact filed ADS amount. The existing ratio and rounding policies are unchanged; dimensioned ADS admission remains outside this change. D-279's precision limitation remains in force.
+
+R19: the tax-path owner carries an explicit operand qualification supplied by the calculation view when its constituent statement rows lack filed tax/pre-tax provenance. QCOM's filed window is tax provision 1,952M over pre-tax income 11,212M (17.4099%), from FY 7,122M less 4,136M less prior-year provision 1,034M; pre-tax FY 12,663M plus 8,241M less 9,692M, using IncomeTaxExpenseBenefit and IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest, 10-K 0000804328-25-000085 (FY2025, filed 2025-11-05) and 10-Q 0000804328-26-000086 (current/prior YTD ending 2026-06-28/2025-06-29, filed 2026-07-29). The report's quarter-sum tax operand differs; it remains vendor data with that limitation beside the forecast tax rate. No tolerance changes and no claim that the quarter sum is filed.
+
+Approved changes: TSM and NVO interim/framework notes and Provisional qualifications; TSM derived ADS precision note. Every other panel company is evaluated by the same rule. Tax paths lacking proved operands receive the vendor qualification, including QCOM; amounts do not change under this decision. Filed IFRS annual statements are not relabelled vendor interim. Historical stored bytes are unchanged.
+
+## D-289 - Reparse retained guidance sentences during report construction (2026-11-14)
+
+Compact-guidance review follow-up: revalidation replays the parser that admitted the retained shape. Compact ranges reuse their dated-outlook fiscal period and compact grammar; conventional sentences retain the sentence grammar, and span-backed table rows retain their table parser. FIG's EX-99.1 accession 0001628280-26-053331 (2026-08-05) has three valid compact rows that the sentence-only revalidation had dropped. Ordering now retains all three, restoring Q3 FY2026 revenue of USD 373-375M (midpoint 374M) as the next-period revenue anchor. Malformed ranges and explicit periods conflicting with the retained outlook period remain withheld. Failing-first FIG and unrelated-issuer controls cover this path; the META 15-17% negative-point correction remains covered. This restores the existing D-289 admission contract without changing the schema or version stamps.
+
+Review round 1 record of newly admitted results-against-guidance rows: reparsing also restores META's Q3 FY2026 revenue guide of USD 61-64B (midpoint 62.5B), Q2 USD 58-61B (59.5B) and Q1 USD 53.5-56.5B (55B), from EX-99.1 accessions 0001628280-26-050596 (2026-07-29), 0001628280-26-028364 (2026-04-29) and 0001628280-26-003832 (2026-01-28). These retained passages replace unscaled point parses, so the results-against-prior-guidance table and its company-level track record now contain three comparable quarters. Their calculations and verification are rebuilt; prior analyst prose remains fixed.
+
+P9, P21; release R27. Owner: `providers/currentReports.ts:revalidateGuidance`, consumed by the common release ordering path. Frozen parsed guidance is not authoritative over its retained sentence: reparse by metric, basis, unit and fiscal period. An ambiguous or unreadable sentence is withheld and retained in the unparsed notes. Structurally parsed table rows with retained cell and header spans remain with the table parser. The META retained passage says the tax rate is between 15-17%; EX-99.1 accession 0001628280-26-066700. The corrected guidance table shows low 15%, midpoint 16%, high 17%, range, replacing the retired negative point parse. The same passage states fourth-quarter revenue of 73-76 billion USD (midpoint 74.5 billion); the retained unscaled point parse had excluded that row, and reparsing now admits the stated range. No numeric guess or snapshot mutation.
+
+## D-288 - Refuse a spread whose dates do not agree (2026-11-14)
+
+Review round 1 LEAD DECISION supersedes the initial different-date withholding below: pair each fiscal ROIC with its existing same-year waccByFiscalYear point, the same point consumed by terminal-return evidence. Disclose: "WACC at fiscal year end: risk-free rate at that date; beta, equity risk premium and weights current". This is a risk-free-rebased hurdle, not a fully historical beta/ERP/weight observation. Withhold only if an input is missing or that year has no history point, naming the actual cause. Missing inputs precede date checks. The older D-261 override only handles missing inputs, so it cannot erase a both-present history refusal. Scoring operands read the same paired hurdle as the displayed spread. The initial refusal outcomes below are historical and are superseded by the review table.
+
+P1, P13; release R23. Owner: `pipeline/stageB/returns.ts:computeRoicVsWaccSpread`. The calculation caller supplies fiscal ROIC and the observed WACC risk-free date. Different or missing dates withhold the spread with both dates and a plain reason. Neither input nor the separately dated WACC history changes. This deliberately withholds current-WACC/fiscal-ROIC comparisons throughout the panel, including LLY, AMZN and NVDA, instead of presenting them under one fiscal label. Synthetic aligned-date and differing-date controls exercise the rule. WACC history is not misrepresented as fully historical WACC merely because its risk-free rate was rebased.
+
+### D-288 review round 1 panel outcomes
+
+Each numeric column is pinned main 6099d305 / prior PR 0a157f52 / reviewed implementation. Spreads are percentage points; composites use unchanged scoring bands. Every changed score band is listed, including changes from the prior PR's blanket spread refusal. Each admitted comparison reads the existing WACC history point for the ROIC series' own fiscal year; missing points remain gaps.
+
+| Case | Spread: main / prior PR / review | Composite: main / prior PR / review | Every score-band change |
+|---|---|---|---|
+| amzn-data-only | 10.1894 / unavailable / 10.9902 | 56.12 / 54.15 / 56.23 | prior PR .aspects.quality.band: C to B; prior PR .composite.band: D to C |
+| amzn-fixed-analyst | 10.1894 / unavailable / 10.9902 | 56.12 / 54.15 / 56.23 | prior PR .aspects.quality.band: C to B; prior PR .composite.band: D to C |
+| bac-data-only | unavailable / unavailable / unavailable | 55.28 / 55.28 / 55.28 | unchanged |
+| cat-data-only | unavailable / unavailable / unavailable | 58.29 / 58.29 / 58.29 | unchanged |
+| dis-data-only | 2.4221 / unavailable / 3.1573 | 58.01 / 57.24 / 58.17 | unchanged |
+| duk-data-only | unavailable / unavailable / unavailable | 57.3 / 57.3 / 57.3 | unchanged |
+| figr-data-only | unavailable / unavailable / unavailable | 53.53 / 53.53 / 53.53 | unchanged |
+| jpm-data-only | unavailable / unavailable / unavailable | 56.47 / 56.47 / 56.47 | unchanged |
+| jpm64-fixed-analyst | unavailable / unavailable / unavailable | 56.28 / 56.28 / 56.28 | unchanged |
+| ko-data-only | 11.004 / unavailable / 11.9098 | 55.99 / 53.92 / 56.11 | prior PR .aspects.quality.band: C to B; prior PR .composite.band: D to C |
+| lly-data-only | 31.9405 / unavailable / 32.8538 | 66.01 / 63.81 / 66.01 | prior PR .aspects.quality.band: C to B |
+| lly63-fixed-analyst | unavailable / unavailable / unavailable | 62.9 / 65.07 / 65.07 | main .aspects.valuation.band: F to None; main .assessments.businessQuality.band: B to C; main .assessments.valuation.band: F to None |
+| lly65-fixed-analyst | 31.9405 / unavailable / 32.8538 | 66.01 / 63.81 / 66.01 | prior PR .aspects.quality.band: C to B |
+| met-data-only | unavailable / unavailable / unavailable | 53.03 / 53.03 / 53.03 | unchanged |
+| meta-data-only | unavailable / unavailable / unavailable | 60 / 60 / 60 | unchanged |
+| meta-fixed-analyst | unavailable / unavailable / unavailable | 60 / 60 / 60 | unchanged |
+| mu-data-only | 93.7259 / unavailable / 93.9157 | 77.91 / 75.71 / 77.91 | unchanged |
+| mu-fixed-analyst | 93.7259 / unavailable / 93.9157 | 77.91 / 75.71 / 77.91 | unchanged |
+| nvda-data-only | 136.7791 / unavailable / 137.5183 | 75.97 / 73.77 / 75.97 | prior PR .aspects.quality.band: D to C |
+| nvda-fixed-analyst | 136.7791 / unavailable / 137.5183 | 75.97 / 73.77 / 75.97 | prior PR .aspects.quality.band: D to C |
+| nvo-data-only | 31.3668 / unavailable / 32.267 | 66.59 / 63.32 / 65.53 | prior PR .aspects.quality.band: D to C |
+| o-data-only | unavailable / unavailable / unavailable | 51.09 / 51.09 / 51.09 | unchanged |
+| pgr-data-only | unavailable / unavailable / unavailable | 59.72 / 59.72 / 59.72 | unchanged |
+| pld-data-only | unavailable / unavailable / unavailable | 51.32 / 51.32 / 51.32 | unchanged |
+| qcom-data-only | unavailable / unavailable / unavailable | 56.96 / 56.96 / 56.96 | unchanged |
+| rivn-data-only | unavailable / unavailable / unavailable | 45.97 / 45.97 / 45.97 | unchanged |
+| tsm-data-only | 40.5855 / unavailable / 41.5033 | 71.7 / 68.44 / 70.64 | prior PR .composite.band: C to B |
+| tsm66-fixed-analyst | 40.5855 / unavailable / 41.5033 | 71.7 / 68.44 / 70.64 | prior PR .composite.band: C to B |
+| unh-data-only | 3.2266 / unavailable / 3.9909 | 56.08 / 55.06 / 56.25 | prior PR .aspects.quality.band: D to C |
+| unp-data-only | unavailable / unavailable / unavailable | 53.57 / 52.51 / 52.51 | unchanged |
+| vktx-data-only | unavailable / unavailable / unavailable | 45.53 / 45.53 / 45.53 | unchanged |
+| wmt-data-only | 8.0763 / unavailable / 8.9059 | 53.29 / 50.53 / 52.34 | unchanged |
+| xom-data-only | 0.7089 / unavailable / 1.6183 | 55.02 / 53.49 / 54.09 | main .composite.band: C to D |
+
+
+## D-287 - Missing SBC and incomplete liquidity are gaps (2026-11-14)
+
+Review round 1: a filed ShortTermInvestments of zero is not a witness of an omitted investment; only positive facts can trigger this refusal. Quarterly table captions carry the vendor qualification. A refused combined-liquidity total occupies an Unavailable row with a plain reason in app, Markdown and print. FCF series name periods with no SBC deduction rather than claiming all periods are after-SBC; reader gap text names stock-based compensation, not implementation fields. LLY #63 (lly63-fixed-analyst) moves from composite 62.9 to 65.07 after the valuation aspect becomes unscored, following D-200's existing neutral-shrinkage policy; no scoring penalty or guard is invented. Its prior 662.08 USD/share model value disappears under this decision because the combined liquidity is unproved (2026-09-30 investment witness, 10-Q 0000059478-26-000108).
+
+P7, P10, P11; release R21-R22. Owner: `edgar/financialEnrichment.ts`, reused at the cash-flow calculation boundary. A vendor SBC zero without an exact-period filed fact or retained filed proof is undisclosed and withheld, including when issuer facts are unavailable. Direct filed zeros, nonzero vendor observations and existing sticky refusals retain their separate admission rules. No absent amount becomes zero. This reaches the DUK, NVO, UNP, WMT and XOM shapes in the release brief.
+
+A zero-investment vendor split cannot establish complete combined liquidity beside an admitted investment witness merely because cash itself agrees. The existing liquidity refusal now also checks that previously bypassed shape. PLD's 2026-09-30 10-Q 0001193125-26-436160 tags cash 2,273.497M and ShortTermInvestments 1,000M; without balance-sheet presentation proof of a disjoint complete total, combined liquidity and dependent net debt/valuation are withheld. We do not admit a summed total on note evidence alone. Existing fully admitted combined totals remain admitted.
+
+## D-286 - Read historical profit against its own retained issuer (2026-11-14)
+
+Review round 1 provenance correction: when the selected facts are the retained predecessor's, field provenance uses that predecessor receipt's fetchedAt, not the successor companyfacts response timestamp. Period, filing and issuer selection are unchanged.
+
+P5, P8; release R20. Owner: `edgar/issuerFacts.ts:statementIssuerFacts`, shared by annual cash-flow admission and common-earnings supplementation. An explicitly identified historical row may use the retained predecessor's facts only when its CIK matches that facts payload and the retained predecessor evidence was observed by the cutoff. This establishes the historical row's issuer, not successor continuity or current financial coverage. Unrelated and future predecessor evidence are controls. The supplementation owner also rejects a row naming another issuer.
+
+XOM's historical vendor rows explicitly name CIK 34088 while the current SEC response names successor CIK 2115436. Previously D-212/D-238 read only successor facts, missing the historical consolidated profit. FY2025 10-K 0000034088-26-000045 states NetIncomeLoss (parent) 28,844M and ProfitLoss (consolidated) 29,764M. The cash-flow conversion denominator and current-capital denominator now use 29,764M. The same filing's comparative ProfitLoss replaces the parent NetIncomeLoss in FY2023 (36,010M to 37,354M) and FY2024 (33,680M to 35,063M); historical and downstream ratio changes follow that single scope rule. No entity-wide fallback, ticker condition or new tolerance is introduced.
+
+Release implementation stamps: report 1.93.0, payload 1.107.0, Stage B COMPLETE_RATIO_INPUTS_80, pipeline stage-c-1.6.48. Saved reports remain immutable. The release panel comparison records all 25 issuers and eight fixed-analyst cases, including unchanged controls; subsequent entries below describe older behavior.
+
+
+### Initial PR outcomes (spread/composite columns superseded by D-288 review table)
+
+All 25 issuers were rebuilt on identical retained inputs against main c06ee7a5f7149b4502ad8da26f5ac5e9214fb76b. The following records the changed computed comparison and its scoring consequence, plus withheld/qualified inputs. A gap does not assert a replacement amount. SBC includes annual and current-window effects: a single unproved zero also withholds an incomplete nonzero window sum. Retired spreads below were different-date comparisons, not filed fiscal spreads. No new numerical valuation is asserted from these qualifications.
+
+| Company | ROIC/WACC comparison before to after | SBC before to after | Computed composite before to after | Other approved effect |
+|---|---|---|---|---|
+| AMZN | 10.1894 pp to withheld | unchanged | 56.12 to 54.15 | vendor tax operand label |
+| BAC | unchanged | unchanged | unchanged | no other figure change |
+| CAT | unchanged | unchanged | unchanged | vendor tax operand label |
+| DIS | 2.4221 pp to withheld | unchanged | 58.01 to 57.24 | vendor tax operand label |
+| DUK | unchanged | unproved amount/window to gap | unchanged | no other figure change |
+| FIGR | unchanged | unchanged | unchanged | no other figure change |
+| JPM | unchanged | unchanged | unchanged | no other figure change |
+| KO | 11.0040 pp to withheld | unchanged | 55.99 to 53.92 | vendor tax operand label |
+| LLY | 31.9405 pp to withheld | unchanged | 66.01 to 63.81 | vendor tax operand label |
+| MET | unchanged | unproved amount/window to gap | unchanged | no other figure change |
+| META | unchanged | unchanged | unchanged | no other figure change |
+| MU | 93.7259 pp to withheld | unchanged | 77.91 to 75.71 | no other figure change |
+| NVDA | 136.7791 pp to withheld | unchanged | 75.97 to 73.77 | vendor tax operand label |
+| NVO | 31.3668 pp to withheld | unproved amount/window to gap | 66.59 to 63.32 | foreign interim/framework qualification; vendor tax operand label |
+| O | unchanged | unchanged | unchanged | no other figure change |
+| PGR | unchanged | unchanged | unchanged | no other figure change |
+| PLD | unchanged | unchanged | unchanged | incomplete combined liquidity to gap |
+| QCOM | unchanged | unchanged | unchanged | vendor tax operand label |
+| RIVN | unchanged | unchanged | unchanged | no other figure change |
+| TSM | 40.5855 pp to withheld | unproved amount/window to gap | 71.7 to 68.44 | foreign interim/framework qualification; derived ADS precision; vendor tax operand label |
+| UNH | 3.2266 pp to withheld | unchanged | 56.08 to 55.06 | vendor tax operand label |
+| UNP | unchanged | unproved amount/window to gap | 53.57 to 52.51 | vendor tax operand label |
+| VKTX | unchanged | unchanged | unchanged | no other figure change |
+| WMT | 8.0763 pp to withheld | unproved amount/window to gap | 53.29 to 50.53 | vendor tax operand label |
+| XOM | 0.7089 pp to withheld | unproved amount/window to gap | 55.02 to 53.49 | filed consolidated profit; SBC gap; vendor tax operand label |
+
+Eight fixed-analyst cases also replayed: AMZN, META, MU, NVDA, JPM #64, LLY #65, TSM #66 and LLY #63. Their source/gap/scoring changes follow the same rules; stored analyst text remains fixed and verification is recalculated. META's tax-guidance range is reparsed under D-289. LLY #63 is the D-287 sibling of PLD: an unproved zero investment split beside the 2026-09-30 AvailableForSaleSecuritiesDebtSecuritiesCurrent family witness in 10-Q 0000059478-26-000108 previously bypassed admission. Its combined liquidity, net-debt-dependent DCF, model value, projection series and scenario targets become gaps, with the investment-scope reason. Its prior computed model value 662.08 USD/share is withheld; no replacement valuation is invented. The newer LLY data-only and #65 cases retain their independent liquidity admission.
+
+Frozen synthetic controls were deliberately refreshed under D-288/D-290. Seventeen exact before/after observations in `tests/fixtures/release-w3-forensic-deltas.json` pin the spread refusal, its scoring consequence and tax wording before restoring the preceding forensic whole-result hash. This is a test-only historical comparison; production output is never restored.
+
 ## D-279 - A vendor EV is shown only in an established currency; identifiers are never compacted (2026-11-14)
 
 P4 and P22. Owners: `src/pipeline/marketData.ts` (`providerEnterpriseValueRefusal`, using the P4 owner's
@@ -1085,6 +1206,8 @@ reviewer's rule. Such a call is now a counted failed action that is never a sour
 asserted in its own test. Rejection for a missing final event is unchanged.
 
 ## D-268 - Bounded carrying investment subtotals (2026-11-14; independent review corrections)
+
+Revised by D-287 for the vendor zero-investment bypass: an investment witness now withholds an unproved combined total even when cash itself agrees. Filed combined totals and carrying-total admission rules are unchanged.
 
 P2, P5, P7, P8, P10, P11, P20 and P27. Revises D-261's investment evidence
 boundary and D-236's covered-filing acquisition policy. The independent review

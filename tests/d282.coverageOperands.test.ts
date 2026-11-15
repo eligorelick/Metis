@@ -5,14 +5,14 @@ import { admitFiledInterestExpense } from "@/edgar/financialEnrichment";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { FmpIncomeStatementRow } from "@/providers/fmp";
 
-// D-286 (P12, P19): EBIT interest coverage carries a typed qualification from
+// D-282 (P12, P19): EBIT interest coverage carries a typed qualification from
 // its exact operands; the value is unchanged.
 const income = (operands: CapitalIncomeRow["filedCoverageOperands"], date = "2025-12-31"): CapitalIncomeRow => ({
   date, revenue: 100, operatingIncome: 30, ebit: 30, interestExpense: 1.1, netIncome: 20, ...(operands ? { filedCoverageOperands: operands } : {}),
 });
 const annual = (row: CapitalIncomeRow) => computeCapital([row], [], [], [], { price: null });
 
-describe("D-286 coverage operand qualification", () => {
+describe("D-282 coverage operand qualification", () => {
   it("qualifies the annual ratio by its unestablished operands and keeps the value", () => {
     const full = annual(income(["ebit", "interestExpense"]));
     expect(full.interestCoverage.value).toBeCloseTo(30 / 1.1, 10);

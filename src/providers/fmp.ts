@@ -216,7 +216,7 @@ export interface FmpStatementRow extends FmpRawRow {
   period?: string;
   fieldProvenance?: Record<string, StatementFieldProvenance>;
   fieldConflicts?: Record<string, StatementFieldConflict>;
-  /** D-286 (P19): the exact-period filed interest expense the retained vendor
+  /** D-282 (P19): the exact-period filed interest expense the retained vendor
    * amount agrees with. Calculation view only; absent means unverified. */
   interestExpenseAgreement?: StatementFieldProvenance;
 }

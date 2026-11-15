@@ -1147,6 +1147,14 @@ describe("payload determinism + provenance", () => {
       // D-272: keep the preceding capital bytes pinned separately from the new disclosure.
       const priorCapital={...(written.capital as Record<string,unknown>)};
       delete priorCapital.cashDividendPayout;
+      // D-282 (R10): the coverage qualification is the only capital addition; every other byte stays pinned.
+      const coverage = { ...(priorCapital.interestCoverage as Record<string, unknown>) };
+      const current = { ...(priorCapital.current as Record<string, unknown>) };
+      expect([coverage.unverifiedOperands, current.interestCoverageUnverifiedOperands]).toEqual([["ebit", "interestExpense"], ["ebit", "interestExpense"]]);
+      delete coverage.unverifiedOperands;
+      delete current.interestCoverageUnverifiedOperands;
+      priorCapital.interestCoverage = coverage;
+      priorCapital.current = current;
       expect(sha256Text(JSON.stringify(priorCapital)).slice(0,16)).toBe("345abeca6e98de5e");
       // Every top-level key in its serialized order; finance keys are pinned leaf by leaf above.
       return Object.entries(written).map(([key, value]) =>
@@ -1158,8 +1166,8 @@ describe("payload determinism + provenance", () => {
       "route 67088d486e79efec",
       "degradation f591b71ec31aefa2",
       "growth 3b108cfa32943129",
-      "returns 04acba1118ea2ecc",
-      "capital 249342fbfd071cd5", // D-272: only cashDividendPayout is new; preceding capital hash asserted above.
+      "returns 5837ec4162747280",
+      "capital 345a2ead5990f0ce", // D-272 cashDividendPayout and D-282 coverage qualification are new; preceding capital hash asserted above.
       "forensics 0d59d3ffecb6f45c",
       "technicals 0d0c7b3f39a71e07",
       "valuation (frozen record)",
@@ -1171,7 +1179,7 @@ describe("payload determinism + provenance", () => {
       "fairValue (frozen record)",
       "suppressed 4f53cda18c2baa0c",
       "notes 2e5b1aca5def94d8",
-      "gaps a35ea1ec529c528f", // D-261: named gaps for missing score operands; financial subtrees unchanged.
+      "gaps b08c0a088161e229", // D-261: named gaps for missing score operands; financial subtrees unchanged.
     ];
     expect(digests(buildInputs())).toEqual(expected);
     expect(digests(buildFreshInputs())).toEqual(expected);
@@ -1297,7 +1305,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.106.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
+    expect(first.payloadVersion).toBe("1.109.0"); // D-282 (R10): coverage operand qualification
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1940,10 +1948,10 @@ describe("payload budget helpers", () => {
     const { payload, computed } = buildInputs();
     const current = computed.capital.current!;
     expect(current).toBeDefined();
-    // D-286: the fixture's vendor EBIT and interest have no filed evidence, so
+    // D-282: the fixture's vendor EBIT and interest have no filed evidence, so
     // the shown coverage registers unestablished, never as a verifiable number.
     expect(current.interestCoverageUnverifiedOperands).toEqual(["ebit", "interestExpense"]);
-    expect(payload.provenanceRegistry.some((record) => record.id === "computed.capital.current.interestCoverage")).toBe(false);
+    expect(payload.provenanceRegistry!.some((record) => record.id === "computed.capital.current.interestCoverage")).toBe(false);
     expect(payload.citationRegistry).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "computed.capital.current.interestCoverage", kind: "payload-unestablished", asOf: current.asOf }),
     ]));
@@ -1954,11 +1962,11 @@ describe("payload budget helpers", () => {
     ]));
   });
 
-  it("D-286: coverage is a verifiable number only when filed evidence establishes both operands, annual and TTM", () => {
+  it("D-282: coverage is a verifiable number only when filed evidence establishes both operands, annual and TTM", () => {
     // Filed evidence for each row's own period: operating income (filed tag) and
     // interest expense the vendor amount agrees with.
     const proof = (end: string, start: string, tag: string) => ({ source: "edgar" as const, unit: "USD", periodStart: start, periodEnd: end, tags: [`us-gaap/${tag}`],
-      filings: [{ form: "10-Q", accn: `0000320193-${end}`, filed: end }] });
+      filings: [{ form: "10-Q", accn: `0000320193-${end}`, filed: end }], observedAt: "2026-07-01T00:00:00Z" });
     const established = (interest: boolean) => {
       const bundle = fixtureBundle();
       for (const family of [bundle.statements.incomeAnnual, bundle.statements.incomeQuarterly]) {
@@ -1978,7 +1986,7 @@ describe("payload budget helpers", () => {
     expect(full.computed.capital.current?.basis).toBe("ttm");
     expect(full.computed.capital.current?.interestCoverageUnverifiedOperands).toBeUndefined();
     for (const id of ["computed.capital.interestCoverage", "computed.capital.current.interestCoverage"]) {
-      expect(full.payload.provenanceRegistry.some((record) => record.origin === id)).toBe(true);
+      expect(full.payload.provenanceRegistry!.some((record) => record.origin === id)).toBe(true);
       expect(full.payload.citationRegistry?.some((record) => record.id === id)).toBe(false);
     }
     // Partially established: filed EBIT, vendor-only interest. The value is
@@ -1989,7 +1997,7 @@ describe("payload budget helpers", () => {
     expect(partial.computed.capital.current?.interestCoverage).toBe(full.computed.capital.current?.interestCoverage);
     expect(partial.computed.capital.current?.interestCoverageUnverifiedOperands).toEqual(["interestExpense"]);
     for (const id of ["computed.capital.interestCoverage", "computed.capital.current.interestCoverage"]) {
-      expect(partial.payload.provenanceRegistry.some((record) => record.origin === id || record.id === id)).toBe(false);
+      expect(partial.payload.provenanceRegistry!.some((record) => record.origin === id || record.id === id)).toBe(false);
       expect(partial.payload.citationRegistry).toEqual(expect.arrayContaining([expect.objectContaining({ id, kind: "payload-unestablished" })]));
     }
     // The value stays displayed: the figure row keeps its label and value and
@@ -2822,7 +2830,7 @@ describe("final assembled report verification", () => {
     // numbers are the judge's deliberately-untraceable "analyst memory" fixtures.
     const unverified = numbers.filter((number) => number.verified !== true);
     expect(unverified.length).toBeGreaterThan(0); // the fixture's untraceable ones
-    // D-286: the one exception is the coverage built on the fixture's vendor-only
+    // D-282: the one exception is the coverage built on the fixture's vendor-only
     // EBIT and interest; it is shown and stays unconfirmed (gap-source-number).
     expect(unverified.filter((number) => number.source !== "analyst memory").map((number) => [number.source, number.verificationNote]))
       .toEqual([["computed.capital.current.interestCoverage", "[unverified] gap-source-number"]]);
@@ -3029,7 +3037,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.93.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations
+    expect(report.meta.specVersion).toBe("1.95.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations, coverage operands
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

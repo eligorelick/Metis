@@ -111,7 +111,7 @@ describe("payload registration: each figure's own currency evidence", () => {
     // No statement row establishes a currency, so the DCF and FCF (which
     // combine statements and years) are withheld rather than stated in USD.
     // (Until 2026-09-30 they ran and were registered as currency unknown.)
-    for (const label of ["DCF per share", "latest FCF (after SBC, house default)"]) {
+    for (const label of ["DCF per share", "latest FCF (before SBC; compensation undisclosed)"]) {
       expect(figure(payload, label).value).toBeNull();
       expect(record(payload, label)).toBeUndefined();
     }

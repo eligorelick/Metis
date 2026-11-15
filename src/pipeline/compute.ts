@@ -1,6 +1,6 @@
 import { withReleaseQuarterEarnings } from "./releaseQuarterEarnings";
 import { forwardAnnualEstimates } from "./forwardEstimates";
-import { withAssessmentQualification, financialEvidenceQualifications } from "@/report/assessment";
+import { statementEvidenceEntries, withAssessmentQualification, financialEvidenceQualifications } from "@/report/assessment";
 import { resolveForeignValuation, translateValuationInputs, translateProjectionInputs, type ForeignValuationBasis } from "@/pipeline/foreignCurrency";
 import { derivedMarketCapShareDate, isDerivedMarketCapRow } from "@/pipeline/keyless";
 import { convertibleInstrumentsAt, foldConvertiblePreferred } from "@/pipeline/stageB/convertibles";
@@ -83,7 +83,7 @@ import {
   computeRote,
   incomeAvailableToCommon,
   computeDupont,
-  computeRoicVsWaccSpread,
+  computeFiscalRoicVsWaccSpread,
   type WaccResult,
   type WaccOperatingEvidence,
   type RoicResult,
@@ -178,7 +178,7 @@ import { withComputationContext } from "@/edgar/computationContext";
 import { buildStatementsFromCompanyFacts, longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason, uncashedDebtCollapseReason } from "@/edgar/debtCompleteness";
 import { filedReceivablesCandidates } from "@/edgar/receivables";
-import { admittedIssuerFacts, confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { statementIssuerFacts, admittedIssuerFacts, confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
 import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
 import { quarterlyOpeningBook, resolvePreferredCapital } from "@/pipeline/stageB/excessReturnBook";
@@ -645,7 +645,7 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
   };
 }
 
-/** D-286 (P19): interest expense established for the row's own period end:
+/** D-282 (P19): interest expense established for the row's own period end:
  * the filed amount replaced the vendor's, or the vendor's agrees with it. */
 function filedInterestOperand(row: FmpIncomeStatementRow): boolean {
   const end = isoDay(row.date);
@@ -654,7 +654,7 @@ function filedInterestOperand(row: FmpIncomeStatementRow): boolean {
   return corrected?.source === "edgar" && corrected.periodEnd === end || row.interestExpenseAgreement?.periodEnd === end;
 }
 
-/** D-286: EBIT is established only when the selected operating numerator is the filed or reconciled one. */
+/** D-282: EBIT is established only when the selected operating numerator is the filed or reconciled one. */
 function filedCoverageOperands(row: { operatingIncome?: number | null; operatingIncomeEvidence?: WaccOperatingEvidence },
   selectedEbit: number | null, interestFiled: boolean): CoverageOperand[] {
   const ebitFiled = selectedEbit !== null && selectedEbit === num(row.operatingIncome) && row.operatingIncomeEvidence?.status === "filed-or-reconciled";
@@ -892,7 +892,7 @@ export interface TtmIncome {
   nonMarginOperatingIncome?: number | null;
   operatingIncomeBasis?: string;
   operatingIncomeEvidence?: WaccOperatingEvidence;
-  /** D-286: every quarter's interest expense is established for its own period end. */
+  /** D-282: every quarter's interest expense is established for its own period end. */
   interestExpenseFiled?: true;
   depreciationAndAmortization: number | null;
   netIncome: number | null;
@@ -2263,11 +2263,19 @@ function filedCommonEarningsView(bundle: DataBundle): DataBundle {
   const facts = admitted.value.data;
   const balances = [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)];
   const cash = [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)];
-  const supplemented = supplementCommonEarnings(bundle.statements.incomeAnnual, bundle.statements.balanceAnnual, facts,
-    bundle.builtAt.slice(0, 10), admitted.value.fetchedAt,
-    row => (row.cik == null || Number(row.cik) === facts.cik) && preferredClaimsInFlow(commonFlowScope(row, "netIncome", "annual"), balances, cash));
-  return supplemented.gaps.length === 0 ? bundle
-    : { ...bundle, statements: { ...bundle.statements, incomeAnnual: supplemented.income }, gaps: [...bundle.gaps, ...supplemented.gaps] };
+  const input = bundle.statements.incomeAnnual;
+  if (!input.ok) return bundle;
+  const gaps: ManifestEntry[] = [];
+  const rows = input.value.data.rows.map(row => {
+    const rowFacts = statementIssuerFacts(bundle.symbol, bundle.edgar, row.cik, bundle.builtAt) ?? facts;
+    const supplemented = supplementCommonEarnings({ ...input, value: { ...input.value, data: { ...input.value.data, rows: [row] } } },
+      bundle.statements.balanceAnnual, rowFacts, bundle.builtAt.slice(0, 10), rowFacts === facts ? admitted.value.fetchedAt : bundle.edgar.predecessor!.fetchedAt,
+      candidate => (candidate.cik == null || Number(candidate.cik) === rowFacts.cik) && preferredClaimsInFlow(commonFlowScope(candidate, "netIncome", "annual"), balances, cash));
+    gaps.push(...supplemented.gaps);
+    return supplemented.income.ok ? supplemented.income.value.data.rows[0]! : row;
+  });
+  return gaps.length === 0 ? bundle : { ...bundle, statements: { ...bundle.statements,
+    incomeAnnual: { ...input, value: { ...input.value, data: { ...input.value.data, rows } } } }, gaps: [...bundle.gaps, ...gaps] };
 }
 
 /** D-198: one calculation view; the acquired statements and immutable reports retain their filed values. */
@@ -2347,6 +2355,12 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   if (!support.supported) throw new UnsupportedInstrumentError(support);
   bundle = withCashFlowSbcBasis(withPrimaryCapitalBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))))));
   bundle = balanceIntegrityView(bundle);
+  const statementEvidence = statementEvidenceEntries(bundle);
+  const statementQualifications = statementEvidence.map(entry => entry.detail);
+  notes.push(...statementQualifications);
+  if (statementQualifications.length) bundle = { ...bundle, gaps: [...bundle.gaps,
+    ...statementEvidence.map(entry => ({ field: entry.field, reason: entry.detail, severity: "info" as const }))] };
+
   bundle = preferredCapitalView(bundle);
   bundle = filedCommonEarningsView(bundle);
   const operatingDispositions = operatingDispositionView(bundle);
@@ -2790,7 +2804,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     // D-31 / FIN-112: like the annual capital input, EBIT stays on operating income.
     // An incomplete trailing operating flow is unknown, never vendor EBIT or an annual substitute.
     income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, netIncome: consolidatedConversionIncome, operatingIncome: operatingIncomeForNonMargins(ttmInc), ebit: operatingIncomeForNonMargins(ttmInc),
-      // D-286: a filed exact window or four established quarters establish the TTM interest.
+      // D-282: a filed exact window or four established quarters establish the TTM interest.
       filedCoverageOperands: filedCoverageOperands(ttmInc, operatingIncomeForNonMargins(ttmInc), ttmInc.interestExpenseFiled === true || ttmInc.filedIncomeFlows?.interestExpense !== undefined) } : null,
     preserveAnnualCashBasis: ttmInc?.nonMarginOperatingIncome !== undefined,
     cashFlow: ttmCf && currencies.ttmCashFlowUsable ? { ...ttmCf,
@@ -2804,6 +2818,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     annualBalance: balanceAnnual[0] ? toCapitalBalance(balanceAnnual[0], leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null,
   });
 
+  if (capital.current) capital.current.cashBridge.definition += statementEvidence.filter(entry => entry.field === "statements.foreignInterim").map(entry => ` ${entry.detail}`).join("");
   if (lendingCashFlow) applyLenderCapitalApplicability(capital, lendingCashFlow.reason);
   if (lendingCashFlow?.debtPerimeter && capital.current?.asOf === lendingCashFlow.asOf) {
     const p = lendingCashFlow.debtPerimeter;
@@ -3241,7 +3256,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   // it withholds an applicable signal. Route-suppressed signals are not gaps.
   const latestRoicGap = returns.roic.gaps.find(gap => gap.field === `returns.roic.${returns.roic.asOf}`)
     ?? returns.roic.gaps.find(gap => gap.field === "returns.roic");
-  if (balanceAnnual.some(row => row.cashConflictReconciled) && returns.roicVsWacc.spreadPctPts === null && !policy.suppress.includes("roicVsWacc")) {
+  if ((returns.roic.latestRoicPct === null || returns.wacc.waccPct === null) && balanceAnnual.some(row => row.cashConflictReconciled) && returns.roicVsWacc.spreadPctPts === null && !policy.suppress.includes("roicVsWacc")) {
     const causes = [returns.roic.latestRoicPct === null ? latestRoicGap?.reason ?? "latest fiscal-year ROIC is unavailable" : null,
       returns.wacc.waccPct === null ? returns.wacc.gaps.find(gap => gap.severity === "critical")?.reason
         ?? returns.wacc.gaps[0]?.reason ?? "WACC is unavailable" : null].filter(Boolean).join("; ");
@@ -3973,7 +3988,6 @@ function computeReturns(
     : null;
   if (commonReturnTtm !== null) notes.push(commonReturnTtm.basisText);
   const dupont = computeDupont(returnsIncome, returnsBalance);
-  const roicVsWacc = computeRoicVsWaccSpread(roic.latestRoicPct, wacc.waccPct);
 
   // WS6 (D-19): recompute the WACC at each ROIC fiscal year end from that
   // year's own FRED observation. The bundle fetches DGS10 five years back, so
@@ -3985,6 +3999,8 @@ function computeReturns(
     riskFreeObservations(bundle),
     { seriesId: WACC_HISTORY_RF_SERIES_ID },
   );
+  const roicVsWacc = computeFiscalRoicVsWaccSpread(roic.latestRoicPct, wacc.waccPct, roic.series.at(-1)?.date ?? roic.asOf, waccHistory);
+  notes.push(roicVsWacc.note);
   const waccInputs = waccDisclosure(wacc);
   if (equityScope.approximation) waccInputs.summary += ` ${conversionRightsNote(equityScope.approximation)}`;
   notes.push(waccInputs.summary);
@@ -4378,6 +4394,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         operatingPerimeterRefusal: equityWindowRows.find(r=>r.operatingPerimeterRefusal)?.operatingPerimeterRefusal,
         grossProfit: ttmInc.grossProfit ?? null,
         // D-237 (P13): the DCF reads this field only as the tax rate's denominator.
+        taxEvidenceBasis: equityWindowRows.every(row => row.fieldProvenance?.incomeTaxExpense && row.fieldProvenance?.incomeBeforeTax) ? undefined : "Tax rate operands: vendor data, not checked against a filing",
         incomeBeforeTax: ttmInc.taxRatePretaxIncome,
         incomeTaxExpense: ttmInc.incomeTaxExpense,
       }
@@ -4392,6 +4409,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           grossProfitBasis: inc0.fieldConflicts?.grossProfit?.usable===false ? inc0.fieldConflicts.grossProfit.reason : undefined,
           operatingPerimeterRefusal: inc0.operatingPerimeterRefusal,
           grossProfit: num(inc0.grossProfit),
+          taxEvidenceBasis: inc0.fieldProvenance?.incomeTaxExpense && inc0.fieldProvenance?.incomeBeforeTax ? undefined : "Tax rate operands: vendor data, not checked against a filing",
           incomeBeforeTax: effectiveTaxPretaxIncome(inc0),
           incomeTaxExpense: num(inc0.incomeTaxExpense),
         }

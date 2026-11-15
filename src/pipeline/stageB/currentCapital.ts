@@ -56,7 +56,7 @@ export interface CurrentCapitalSnapshot {
   ebitdaComputed?: true;
   netDebtToEbitda: number | null; netDebt: number | null; ebitda: number | null;
   interestCoverage: number | null; fcfConversionBeforeSbc: number | null; sbcPctOfFcf: number | null;
-  /** D-286 (P12): the shown coverage's operands no exact-window filed evidence establishes. */
+  /** D-282 (P12): the shown coverage's operands no exact-window filed evidence establishes. */
   interestCoverageUnverifiedOperands?: CoverageOperand[];
   ebit?: number | null; interestExpense?: number | null; fcfBeforeSbc?: number | null; netIncome?: number | null;
   cashBridge: CashFlowBridge; debtBridge: DebtBridge;

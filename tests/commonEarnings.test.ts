@@ -249,3 +249,10 @@ describe("D-251: filed common earnings for a year whose preferred stock was rede
     expect(after.gaps[0]!.reason).toMatch(/beside outstanding preferred stock or noncontrolling interests/);
   });
 });
+
+
+it("D-286 never supplements a row naming a different issuer", () => {
+  const out = supplementCommonEarnings(env([{ cik: "999", date: "2025-12-31", reportedCurrency: "USD" }]),
+    env([{ date: "2025-12-31", minorityInterest: 20 }]), facts([FY2025]), "2026-10-14");
+  expect(rowsOf(out.income)[0]?.netIncomeAvailableToCommon).toBeUndefined();
+});

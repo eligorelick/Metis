@@ -2200,12 +2200,15 @@ export function computeDupont(
 export interface RoicVsWaccSpread {
   /** ROIC − WACC in percentage points (positive = value creation). Null when either is null. */
   spreadPctPts: number | null;
+  waccPct?: number | null;
+  asOf?: string | null;
   note: string;
 }
 
 export function computeRoicVsWaccSpread(
   roicPct: number | null,
   waccPct: number | null,
+  dates?: { roic: string | null; wacc: string | null },
 ): RoicVsWaccSpread {
   if (!isFiniteNumber(roicPct) || !isFiniteNumber(waccPct)) {
     return {
@@ -2213,8 +2216,24 @@ export function computeRoicVsWaccSpread(
       note: "ROIC vs WACC spread unavailable — one or both inputs missing",
     };
   }
+  // D-288 (P1): a current hurdle is not a fiscal-year observation.
+  if (dates && (!dates.roic || !dates.wacc || dates.roic !== dates.wacc)) return {
+    spreadPctPts: null,
+    note: `ROIC vs WACC spread withheld: ROIC date ${dates.roic ?? "unavailable"} and WACC date ${dates.wacc ?? "unavailable"} are not established on one date.`,
+  };
   return {
     spreadPctPts: roicPct - waccPct,
     note: `spread = ROIC ${fmt(roicPct)}% − WACC ${fmt(waccPct)}% (positive = returns above cost of capital)`,
   };
+}
+
+
+/** D-288 review: the same year-end hurdle used by terminal-return evidence. */
+export function computeFiscalRoicVsWaccSpread(roicPct: number | null, currentWaccPct: number | null, date: string | null, history: WaccHistoryResult): RoicVsWaccSpread {
+  if (!isFiniteNumber(roicPct) || !isFiniteNumber(currentWaccPct)) return computeRoicVsWaccSpread(roicPct, currentWaccPct);
+  const point = history.points.find(point => point.date === date);
+  if (!point || point.waccPct === null) return { spreadPctPts: null, note: `ROIC vs WACC spread withheld: no WACC history point for ${date ?? "the fiscal year"}; ${history.missing.find(point => point.date === date)?.reason ?? "a same-year hurdle is not established"}.` };
+  const spread = computeRoicVsWaccSpread(roicPct, point.waccPct);
+  return { ...spread, waccPct: point.waccPct, asOf: date,
+    note: `${spread.note}. WACC at fiscal year end: risk-free rate at that date; beta, equity risk premium and weights current. Fiscal year end ${date}; risk-free observation ${point.riskFreeAsOf}.` };
 }

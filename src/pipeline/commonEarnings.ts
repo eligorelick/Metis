@@ -125,7 +125,7 @@ export function supplementCommonEarnings(
   // D-251: years filled only because preferred claims existed during the year (none at its end).
   const redeemed: string[] = [];
   const rows = income.value.data.rows.map((row) => {
-    if (typeof row.date !== "string") return row;
+    if (typeof row.date !== "string" || row.cik != null && Number(row.cik) !== facts.cik) return row;
     // The filed fact is read from the USD unit only.
     if (row.reportedCurrency !== undefined && row.reportedCurrency !== null && row.reportedCurrency !== "USD") return row;
     const bal = balance.value.data.rows.find((b) => b.date === row.date);
