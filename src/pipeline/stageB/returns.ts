@@ -160,7 +160,7 @@ export const WACC_FLOOR_OVER_RF_PCT = 1;
 export const WACC_CEILING_PCT = 20;
 /**
  * A WACC clamp is disclosed as a manifest warn when it moves the rate by at
- * least this many percentage points (audit 2026-07-11 #5). Below this, a barely
+ * least this many percentage points (P20). Below this, a barely
  * biting floor/ceiling is not a data-quality problem and would only dilute the
  * manifest; the clamp is still recorded in clampsApplied either way.
  */
@@ -217,10 +217,10 @@ export interface WaccInputs {
    * proxy for the debt WEIGHT. Absent ⇒ the average is used for the weight too.
    */
   totalDebtLatest?: number | null;
-  /** Audit 2026-10-22 C-1: why the average is unavailable, for the critical gap. */
+  /** D-105: why the average is unavailable, for the critical gap. */
   totalDebtUnavailable?: string | null;
   /**
-   * Audit 2026-10-29 (AMZN #51, VAL-4): `totalDebtUnavailable` names a refusal
+   * D-133: `totalDebtUnavailable` names a refusal
    * of debt the balance sheet carries. The gap then states the refusal, never
    * "missing" or the debt-free caveat, which is only for a balance with no debt.
    */
@@ -229,9 +229,9 @@ export interface WaccInputs {
   /** Current market cap (currency units) — market-value equity weight. */
   marketCap: number | null;
   /**
-   * Review m5 (2026-10-29): why the market cap is withheld, when the issuer's
+   * Why the market cap is withheld, when the issuer's
    * economic share scope is unresolved. The weights gap then says withheld,
-   * with this reason, never "missing".
+   * with this reason, never "missing" (P20).
    */
   marketCapWithheld?: string | null;
   /** Effective tax rate as a FRACTION (FMP ratios.effectiveTaxRate, e.g. 0.183). */
@@ -243,7 +243,7 @@ export interface WaccInputs {
   /** Use the financial-service spread table (banks/insurers/capital markets). Default false. */
   isFinancial?: boolean;
   /**
-   * Audit 2026-10-22 B-31: the route ("bank", "insurer", "reit-mortgage") when
+   * D-104: the route ("bank", "insurer", "reit-mortgage") when
    * it values equity at the cost of equity alone. The cost of equity is
    * computed; the WACC and the cost of debt are withheld, since nothing on the
    * route uses them.
@@ -383,7 +383,7 @@ export interface WaccResult {
   betaRegressionUnavailable?: string | null;
   /** D-60: what the debt WEIGHT divided by, when it differs from debtBasis (the latest balance). */
   debtWeightBasis?: string | null;
-  /** Audit 2026-10-22 B-31: why the WACC and cost of debt were withheld on an equity-valued route. */
+  /** D-104: why the WACC and cost of debt were withheld on an equity-valued route. */
   withheld?: string;
 }
 
@@ -437,8 +437,8 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
       `cost of equity unavailable (raw beta ${betaRaw === null ? "missing" : fmt(betaRaw)} is null/≤0/>${BETA_RAW_MAX})`,
     );
     // Disclose the missing→meaningful substitution in the manifest (not just a
-    // note), so it reaches the appendix and can inform confidence (audit
-    // 2026-07-11 #5). Beta is material to the cost of equity and thus the DCF.
+    // note), so it reaches the appendix and can inform confidence (P20). Beta
+    // is material to the cost of equity and thus the DCF.
     gaps.push({
       field: "returns.wacc.beta",
       reason: `raw beta ${
@@ -528,9 +528,9 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     taxRateUsed = null;
   }
 
-  // Audit 2026-10-22 B-31: a route valued on the cost of equity alone has no
+  // D-104: a route valued on the cost of equity alone has no
   // use for a WACC, and its interest expense (deposits, policy reserves, repo)
-  // over its debt is not a borrowing cost (BAC printed 22.7%). Neither is
+  // over its debt is not a borrowing cost. Neither is
   // computed, so neither can reach a surface — also when the cost of equity
   // itself is missing an input below.
   const withheld = inputs.equityOnlyRoute
@@ -749,7 +749,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     // Neither can establish a cost of debt; only a positive figure is usable.
     const intExpRaw = isFiniteNumber(inputs.interestExpenseTtm) ? inputs.interestExpenseTtm : null;
     const intExp = intExpRaw !== null && intExpRaw > 0 ? intExpRaw : null;
-    // The issuer's own last-disclosed rate. Some filers (Apple from FY2024)
+    // The issuer's own last-disclosed rate. Some filers
     // stop breaking interest expense out of "other income/(expense), net";
     // every provider then carries 0 and no source has the figure. Their debt
     // has not vanished, and the rate they paid the last time they disclosed it
@@ -909,7 +909,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
   const mcap = isFiniteNumber(inputs.marketCap) && inputs.marketCap > 0 ? inputs.marketCap : null;
   let weightCurrency = comparePriceCurrency(inputs.reportedCurrency, inputs.quoteCurrency);
   const minorQuote = minorUnitQuote(inputs.quoteCurrency);
-  // B6 pre-flight publication ruling: preserve only a weight admitted by the
+  // D-137: preserve only a weight admitted by the
   // previous case-folding comparison. Do not admit an existing FX/unknown-unit
   // refusal, rescale the cap, or replace WACC with CoE. Price comparisons still refuse it.
   if (hasDebt && mcap !== null && !weightCurrency.comparable && minorQuote !== null &&
@@ -995,7 +995,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     // D-60: weights are a CURRENT capital structure, so the debt leg is the
     // latest balance — the one the EV bridge nets — when supplied; the average
     // stays the denominator of the effective cost of debt, which divides a
-    // full year of interest. NVDA averaged $20.9B against a $33.4B bridge.
+    // full year of interest.
     const latestDebt = isFiniteNumber(inputs.totalDebtLatest) && inputs.totalDebtLatest >= 0 ? inputs.totalDebtLatest : null;
     const weightDebtAmount = latestDebt ?? debtAvg;
     weightEquity = mcap / (mcap + weightDebtAmount);
@@ -1035,7 +1035,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     );
     // A bound headline WACC materially changes the DCF discount rate. Disclose
     // it in the manifest (not only clampsApplied, which has no other consumer)
-    // when the adjustment is material (audit 2026-07-11 #5).
+    // when the adjustment is material (P20).
     if (waccFloor - waccRawPct >= WACC_MATERIAL_CLAMP_PP) {
       gaps.push({
         field: "returns.wacc.clamp",
@@ -1175,7 +1175,7 @@ export function waccDisclosure(result: WaccResult): WaccDisclosure {
 export interface WaccYearPoint {
   /** Fiscal year end the WACC applies to. */
   date: string;
-  /** Null on a route valued at the cost of equity (audit 2026-10-22 B-31). */
+  /** Null on a route valued at the cost of equity (D-104). */
   waccPct: number | null;
   riskFreePct: number;
   /** Date of the risk-free observation used (on or before the fiscal year end). */
@@ -1226,7 +1226,7 @@ export function waccByFiscalYear(
     notes: [`per-fiscal-year WACC unavailable: ${reason}`],
     gaps,
   });
-  // Audit 2026-10-22 B-31: no WACC is used on the route, so there is no
+  // D-104: no WACC is used on the route, so there is no
   // history of one; the excess-return evidence compares each year's return
   // with the current cost of equity.
   if (wacc.withheld !== undefined) {
@@ -1343,7 +1343,7 @@ export interface ReturnsBalanceRow extends PreferredCapitalInputs {
   cashConflictReconciled?: true;
   cashBasis?: "cash-only";
   commonEquityPeriodEnd?: string | null;
-  /** The admission's refusals, so a refused total debt is named (KNW-03/KNW-04). */
+  /** The admission's refusals, so a refused total debt is named (D-133). */
   fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
   fieldProvenance?: import("./leaseScope").LeaseScopeRow["fieldProvenance"];
   shortTermDebt?: number | null;
@@ -1375,8 +1375,8 @@ export interface ReturnsBalanceRow extends PreferredCapitalInputs {
   intangibleAssets?: number | null;
   preferredStock?: number | null;
   /**
-   * Temporary (mezzanine) equity: financing capital outside the equity fields above (audit 2026-10-27
-   * FIN-119-V1; `temporaryEquityClaims` reads and admits these three fields, `fieldConflicts` carries a refusal).
+   * Temporary (mezzanine) equity: financing capital outside the equity fields above (D-135;
+   * `temporaryEquityClaims` reads and admits these three fields, `fieldConflicts` carries a refusal).
    */
   temporaryEquity?: number | null;
   temporaryEquityAttributableToParent?: number | null;
@@ -1400,7 +1400,7 @@ export interface RoicYear {
   /** Effective tax fraction used for NOPAT that year (clamped). */
   taxRateUsed: number | null;
   /**
-   * AMZN audit 2026-10-20 finding 9: present only when pre-tax income was not
+   * D-99 (loss-year ROIC): present only when pre-tax income was not
    * positive while operating income was, so NOPAT was taxed at the D-58
    * marginal-rate floor instead of an effective rate; says so and why.
    */
@@ -1493,7 +1493,7 @@ function yearTaxRate(row: ReturnsIncomeRow, notes: string[]): number | null {
 
 /**
  * Invested capital = totalDebt + temporary equity + consolidated equity - cash, which is
- * exactly `netDebt + consolidated equity + temporary equity` (FIN-119-V1: redeemable
+ * exactly `netDebt + consolidated equity + temporary equity` (D-135: redeemable
  * preferred and redeemable NCI are financing capital, the cash is netted). It therefore routes through the house net-debt
  * resolver rather than open-coding a cash convention: netting
  * cashAndCashEquivalents ALONE (the old behaviour) overstated invested capital
@@ -1506,7 +1506,7 @@ function investedCapital(
   b: ReturnsBalanceRow,
   notes: string[],
   includeOperatingLeases: boolean,
-  /** KNW-03: the refusal of a debt or capital input that exists, for the manifest; "debt" for the balance's debt, "cash" for its cash basis. */
+  /** D-133: the refusal of a debt or capital input that exists, for the manifest; "debt" for the balance's debt, "cash" for its cash basis. */
   refusals: { reason: string; kind: "debt" | "cash" | "temporary-equity" }[] = [],
   /** What a temporary-equity refusal means for the caller's year (the withheld year, or a prior balance feeding an average). */
   temporaryEquityConsequence = "ROIC withheld.",
@@ -1544,7 +1544,7 @@ function investedCapital(
     refusals.push({ reason: leaseConflict, kind: "debt" });
     return null;
   }
-  // FIN-119-V1: a refused or contradictory temporary-equity operand leaves the capital unknown, never zero (D-87).
+  // D-135: a refused or contradictory temporary-equity operand leaves the capital unknown, never zero (D-87).
   // The kind is not "debt", so it never turns the WACC-balance critical rule on.
   const temporary = temporaryEquityClaims(b);
   if (temporary !== null && temporary.refusal !== null) {
@@ -1566,7 +1566,7 @@ function investedCapital(
   // stays, as it does there.
   let debt = b.totalDebt;
   if (!includeOperatingLeases) {
-    // FIN-303-V1 (D-97 item 3): the CODE-1 proof the EV bridge, the WACC debt leg and net debt already require.
+    // D-135 (D-97 item 3): the lease-scope proof the EV bridge, the WACC debt leg and net debt already require.
     const leaseOut = operatingLeaseOutOfDebt(b, false);
     if (leaseOut.amount > 0) {
       debt = b.totalDebt - leaseOut.amount;
@@ -1686,22 +1686,22 @@ export interface RoicOptions {
    */
   includeOperatingLeases?: boolean;
   /**
-   * KNW-03 (audit 2026-10-29, AMZN #51; fix round 1, I-1): the balance whose
+   * D-133: the balance whose
    * debt refusal withheld the WACC, when one did. The manifest entry for
    * years withheld by a refused input is critical only when that same balance
    * refusal withholds the latest fiscal year's ROIC; a warning otherwise.
    */
   waccRefusal?: { date: string } | null;
   /**
-   * FIN-119-V1: balance dates whose temporary-equity enrichment was withheld
+   * D-135: balance dates whose temporary-equity enrichment was withheld
    * (`temporaryEquityUnknownAt`): the year keeps its invested capital with no
    * redeemable claim and the notes say the claim could not be established.
    */
   temporaryEquityUnknownDates?: string[];
   /**
    * Issuer domicile (ISO 3166 alpha-2) for the D-58 marginal-rate floor that
-   * taxes a pre-tax-loss year's positive operating income (AMZN audit
-   * 2026-10-20 finding 9). Absent ⇒ the global minimum alone.
+   * taxes a pre-tax-loss year's positive operating income (D-99, loss-year
+   * ROIC). Absent ⇒ the global minimum alone.
    */
   domicileCountry?: string | null;
 }
@@ -1921,10 +1921,10 @@ export function computeRoic(
     if (!isFiniteNumber(row.operatingIncome) && isFiniteNumber(row.ebit)) {
       yearNotes.push("operatingIncome missing — ebit field used");
     }
-    // AMZN audit 2026-10-20 finding 9: a pre-tax loss beside positive
-    // operating income (Amazon FY2022: a non-operating Rivian mark against
-    // +$12.2B of operating income) has no effective rate, and suppressing the
-    // year let the moat's ROIC floor skip it. NOPAT taxes the operating income
+    // D-99 (loss-year ROIC): a pre-tax loss beside positive operating income
+    // (a non-operating mark-to-market loss against operating profit) has no
+    // effective rate, and suppressing the year would let the moat's ROIC floor
+    // skip it. NOPAT taxes the operating income
     // at the D-58 marginal-rate floor the DCF's terminal tax already uses.
     const pretax = row.incomeBeforeTax;
     const lossYearFloor = ebit > 0 && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry) : null;
@@ -2045,7 +2045,7 @@ export function computeRoic(
       field: "returns.roic",
       reason: `ROIC withheld for ${newestFirst.length} fiscal year${newestFirst.length === 1 ? "" : "s"} whose debt or capital input was refused: ` +
         newestFirst.map(({ date, reason }) => `${date}: ${reason}`).join("; "),
-      // I-1: critical only when the latest year falls to the very balance refusal that withholds the WACC.
+      // D-133: critical only when the latest year falls to the very balance refusal that withholds the WACC.
       severity: latestRefusal !== null && latestRefusal.kind === "debt" && options.waccRefusal != null &&
         latestRefusal.balanceDate === options.waccRefusal.date.slice(0, 10) ? "critical" : "warn",
     });
