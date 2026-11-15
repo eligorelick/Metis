@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Corrected debt composition and complete ADS labels (P3, P18, P22, D-294/D-295) (2026-11-15)
 
+- R45-R47, R49-R51: correct sign-in web research and speed claims; publish dated route measurements, current validation and limitations; archive validation history. No calculation or stamp changes.
+
 - The current debt definition travels with Stage B's corrected balance result, beside the lease note; a raw provider row cannot override a rebuilt filed composition. Synthetic regressions distinguish current aliases, a different raw total, and a different date.
 - Provider share-count rows retain the ADS basis even when class scope is unverified or limited; the code-owned diluted/basic share-gap note names its established ADS basis. Ordinary counts retain their wording.
 - Report spec 1.96.0 follows W1's 1.95.0; payload 1.109.0, Stage B `_82` and pipeline stage-c-1.6.50 remain W1's current versions. No arithmetic or admission rule changes.

@@ -14,9 +14,7 @@ Windows. Install the lockfile with `npm ci`, copy `.env.example` to `.env`,
 then run `npm run dev`. Production needs `npm run build` before `npm start`;
 `npm run app` does both, and rebuilds only when the build is missing or its
 inputs changed (it records the build id and input fingerprint of the last
-successful build in `.local/app-build.json`). The development server adds
-debugging work to every page, so a long saved report opens several times faster
-from the production build.
+successful build in `.local/app-build.json`). The production build avoids development debugging work; no controlled speed comparison has been measured.
 Both npm server commands bind to `127.0.0.1`; the usual URL is
 `http://127.0.0.1:3000`. No separate database migration command is required for
 normal startup: `src/db/index.ts` creates tables and applies guarded compatibility
@@ -619,6 +617,8 @@ To add a case:
 5. Add the company to `scripts/accuracy/companies.json` and rebuild the filed reference (next section).
 
 ## Accuracy check beside the same-report check
+
+The real-company inputs for both checks are private local data and are not included in a public clone. Outsiders cannot reproduce these two panel checks from the clone alone. CI runs offline synthetic tests. An accuracy pass means no disallowed regression against the checked-in expectations, not that every figure matches a filing. Read match, mismatch, gap and not-established counts separately: gaps are withheld report figures; not-established means the checker lacks a proven reference.
 
 The same-report check proves a change left reports *unchanged*; it does not prove they are *correct*. `npm run accuracy:check` compares the headline figures of every data-only case in a `golden:run` folder with the values the company filed with the SEC, and fails when a change makes any figure less accurate.
 
