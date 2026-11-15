@@ -148,7 +148,7 @@ const HEADLINE_GAP_TEXT: ReadonlyArray<readonly [RegExp, string]> = [
   [/^returns\.wacc\.economicClassBasis$/, "the equity weight of the discount rate rests on an unresolved economic share scope"],
   [/^returns\.wacc\.effectiveTaxRate/, "the discount rate's tax rate is not an observed effective rate"],
   [/^returns\.wacc\.history$/, "the ROIC-versus-WACC history uses the current discount rate for years without their own"],
-  [/^capital\.netDebtToEbitda$/, "net debt to EBITDA is withheld because net debt is not established"],
+  [/^capital\.netDebtToEbitda$/, "net debt to EBITDA is withheld"],
   [/^capital\.interestCoverage$/, "interest coverage is withheld"],
   [/^capital\.fcf/, "a free-cash-flow figure is withheld or qualified"],
 ];
