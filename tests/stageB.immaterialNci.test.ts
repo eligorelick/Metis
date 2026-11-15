@@ -73,7 +73,7 @@ describe("METHODOLOGY states the NCI rules the code applies (audit DOC-1)", () =
   });
 
   it("states the 1% materiality floor the code uses", () => {
-    const valuation = readFileSync(path.join(process.cwd(), "src", "pipeline", "stageB", "valuation.ts"), "utf8");
+    const valuation = readFileSync(path.join(process.cwd(), "src", "pipeline", "stageB", "valuation", "multiples.ts"), "utf8");
     expect(valuation).toMatch(/IMMATERIAL_NCI_SHARE_OF_EQUITY = 0\.01;/);
     expect(doc).toContain("exceeds 1% of consolidated equity");
   });
