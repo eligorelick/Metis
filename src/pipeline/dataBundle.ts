@@ -687,8 +687,7 @@ function rowKey(row: FmpRawRow, field: string): string {
 
 /**
  * Segmentation endpoints structurally return nothing for many issuers — they
- * simply don't disclose product/geo revenue splits in a form FMP carries
- * (INTU's geographic split was absent in 16 of 19 audited reports). An empty
+ * simply don't disclose product/geo revenue splits in a form FMP carries. An empty
  * result is EXPECTED for such filers, not a data-quality incident: flag it so
  * the manifest can count it separately instead of inflating the headline gap
  * count on every report. Transport/plan errors keep their original gap.
@@ -758,11 +757,11 @@ export function deriveNextEarnings(
   if (!earnings.ok) {
     return gapResult(field, `earnings history unavailable: ${earnings.gap.reason}`, "info", earnings.gap.attemptedSources, earnings.gap.expected);
   }
-  // A row dated today can already be REPORTED: Finnhub's JPM calendar of
-  // 2026-10-13 listed {2026-10-13, epsActual 5.75, revenueActual 50.172B, bmo}
-  // beside {2027-01-14, epsActual null}, and the date filter alone picked the
-  // quarter JPM had published that morning as its "next" report. A row that
-  // carries an actual figure is history, whatever its date.
+  // A row dated today can already be REPORTED: a calendar can list today's
+  // date with epsActual and revenueActual filled beside a later row with
+  // epsActual null, and the date filter alone would pick the quarter published
+  // that morning as the "next" report. A row that carries an actual figure is
+  // history, whatever its date (P2).
   const reported = (r: FmpEarningsRow): boolean =>
     (typeof r.epsActual === "number" && Number.isFinite(r.epsActual)) ||
     (typeof r.revenueActual === "number" && Number.isFinite(r.revenueActual));
@@ -782,8 +781,8 @@ export function deriveNextEarnings(
   // downstream freshness and as-of comparison saw it as newer than data
   // observed later. The event date itself stays in the datum (`data.date`).
   // D-63: the envelope's asOf is not that date either — for an earnings
-  // history it is the newest REPORTED row (NVDA, 2026-10-15: "2026-08-26"),
-  // so the payload printed a past date beside the next earnings date. The
+  // history it is the newest REPORTED row, so the payload would print a past
+  // date beside the next earnings date. The
   // calendar was observed when it was fetched, never later than today.
   const fetchedDay = typeof earnings.value.fetchedAt === "string" ? earnings.value.fetchedAt.slice(0, 10) : "";
   const observed = isValidIsoDate(fetchedDay)
@@ -1079,8 +1078,8 @@ function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>,
 
 /**
  * D-66: the annual notes — 10-K Item 8 cut at its notes heading, or Item 15
- * when Item 8 only refers there (NVIDIA: "set forth in our Consolidated
- * Financial Statements and Notes thereto included in Part IV, Item 15") —
+ * when Item 8 only refers there ("set forth in our Consolidated Financial
+ * Statements and Notes thereto included in Part IV, Item 15") —
  * ending at the schedules or exhibit index.
  */
 async function annualNotes(
@@ -1197,7 +1196,7 @@ export function selectAnnualFiling(
   // Neither on file: name both forms (reporting only the 20-F miss made a
   // domestic filer look foreign), and the one situation that leaves a listed
   // large cap with no annual report at all — a successor registrant (Form
-  // 8-K12B; ExxonMobil Holdings Corp took over the XOM ticker in July 2026)
+  // 8-K12B; a new holding company that took over the listed ticker, D-14)
   // whose predecessor's filings sit under a CIK EDGAR does not link.
   const successor = sub.data.recentFilings.find((f) => f.form.trim() === "8-K12B");
   return gapResult(
@@ -1216,8 +1215,8 @@ export function selectAnnualFiling(
 const UNLINKED_PREDECESSOR = " — its predecessor's annual reports live under another CIK that EDGAR does not link";
 
 /**
- * A successor's no-annual-report gap once its predecessor is resolved (audit
- * 2026-10-22 B-36): the predecessor is named, not called unlinked, and the
+ * A successor's no-annual-report gap once its predecessor is resolved (D-112):
+ * the predecessor is named, not called unlinked, and the
  * gap says why its 10-K is not read in the registrant's place.
  */
 export function withResolvedPredecessor<T>(result: FetchResult<T>, predecessor: { cik10: string; name: string | null } | null): FetchResult<T> {
@@ -1268,7 +1267,7 @@ function eightKsWithItem(sub: Sourced<EdgarSubmissions>, item: string): FetchRes
  * Max wall-clock ms for "parse the annual filing + extract the risk section" before the review section
  * (MD&A) is skipped with a disclosed gap instead of risking the route's
  * response-time budget (page.tsx sets maxDuration=120). Large bank filings
- * (e.g. JPM's ~12.9M-char 10-K) can otherwise blow past that ceiling.
+ * (a 10-K of over ten million characters) can otherwise blow past that ceiling.
  */
 export const DEFAULT_EDGAR_SECTION_BUDGET_MS = 60_000;
 
@@ -1342,13 +1341,13 @@ async function buildEdgarBundle(
     ? discoverFiledEarningsAnnouncement(edgar, String(cik), sub.value.data.recentFilings, symbol, nowIso.slice(0, 10), nowIso,
       {cik:String(cik),canonicalName:sub.value.data.name,verifiedWebsite:""})
     : Promise.resolve([]);
-  // Audit work package 3: 8-K releases/commentary and material-event items,
+  // D-63: 8-K releases/commentary and material-event items,
   // and segment revenue by quarter from the periodic XBRL instances. Both run
   // beside the section extraction below; neither throws (failures are gaps).
   const pCurrentReports = sub.ok && filingDisclosures
     ? settle(`edgar.currentReports(${symbol})`, collectCurrentReports(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10), sub.value.endpoint))
     : null;
-  // Audit 2026-10-22 B-23: the same instances carry each filing's own facts,
+  // D-112: the same instances carry each filing's own facts,
   // merged below where companyfacts has not yet caught up with the filing.
   const instanceFacts: InstanceFacts[] = [];
   const readInstance = (filing: EdgarFiling, xml: string): void => {
@@ -1405,7 +1404,7 @@ async function buildEdgarBundle(
 
     // Annual filing: one document fetch, two section extractions sharing ONE parse.
     // extractSection's hidden-block-strip + TOC/anchor parse is the expensive
-    // part on large filings (e.g. JPM's ~12.9M-char 10-K); Item 1A and Item 7
+    // part on large filings (a 10-K of over ten million characters); Item 1A and Item 7
     // come from the identical HTML, so parsing once and reusing it for both
     // avoids doing that work twice. Extraction runs sequentially (not
     // Promise.all — extractSection is synchronous/CPU-bound, so Promise.all
@@ -1695,7 +1694,7 @@ async function buildEdgarBundle(
   };
 }
 
-/** Audit 2026-10-22 B-23: the disclosure of each filing merged into companyfacts. */
+/** D-112: the disclosure of each filing merged into companyfacts. */
 export function companyFactsInstanceEntries(instances: CompanyFactsInstances | undefined): ManifestEntry[] {
   if (instances === undefined) return [];
   // D-236 (P9, P10): a filing companyfacts lacks whose instance could not be
@@ -1728,7 +1727,7 @@ export function companyFactsInstanceEntries(instances: CompanyFactsInstances | u
 }
 
 /**
- * Audit 2026-10-22 B-23: companyfacts plus the periodic filings it has not
+ * D-112: companyfacts plus the periodic filings it has not
  * caught up with, read from their XBRL instances. Every merged point carries
  * its own filing's accession, form and date, so the statements built from it
  * cite the 10-Q; the endpoint names the instances and the as-of date moves to
@@ -1768,14 +1767,14 @@ export function withNewerFilings(
 const MAX_PREDECESSOR_HEADER_READS = 4;
 
 /**
- * WS4 (D-14): resolve a successor registrant's predecessor and fetch its facts.
+ * D-14: resolve a successor registrant's predecessor and fetch its facts.
  *
  * Entered only in the one situation that needs it: the registrant filed a Form
  * 8-K12B AND its own companyfacts payload carries no us-gaap history.
  *
  * The 8-K12B is the trigger, not the answer. It says the registrant is a
- * successor; it does not necessarily say whose, and for the case this was built
- * for it does not — ExxonMobil Holdings' 8-K12B carries one FILER block, itself.
+ * successor; it does not necessarily say whose: an 8-K12B can carry one FILER
+ * block, the successor itself.
  * `predecessorCandidates` ranks the filings whose headers are worth reading
  * (the 8-K12B, then periodic reports, then filings riding on another
  * registrant's registration statement) and they are read in order until one
@@ -1894,7 +1893,7 @@ export interface BuildDataBundleOptions {
    */
   fredFetch?: FredSeriesFetch;
   /**
-   * Audit 2026-10-22 B-4: the risk-free rate's last two sources (the last good
+   * D-111: the risk-free rate's last two sources (the last good
    * cached DGS10 observation, then the U.S. Treasury par yield curve), asked
    * only when DGS10 and FMP treasury both had no value. On by default; a run
    * with an injected `fred` or `fredFetch` gets it only when this is given, so
@@ -1956,7 +1955,7 @@ export function planLimitManifestEntry(
 
 /**
  * One entry naming every valuation-critical FMP member that its rate limit
- * still refused after the bounded wait (AMZN audit 2026-10-20, finding 2). The
+ * still refused after the bounded wait (D-98, rate limits). The
  * member gaps say the same thing one by one; this one says what it does to the
  * valuation, so the coverage section names the cause instead of a bare
  * "unavailable". Substitutes, where the keyless layer found any, carry their
@@ -2104,7 +2103,7 @@ export async function buildDataBundle(
   // Provider token buckets pace the actual requests (http.ts limiters).
   progress("fetch: FMP statements, metrics, analysts, ownership, prices");
   const pQuote = settle(`fmp.quote(${sym})`, fmp.quote(sym));
-  // AMZN audit 2026-10-20, finding 2: the members the valuation depends on
+  // D-98 (rate limits): the members the valuation depends on
   // wait out a short FMP rate-limit pause once instead of failing on the first
   // HTTP 429 (FMP_RATE_LIMIT_WAIT_BUDGET_MS bounds the wait).
   const critical = <T>(call: () => Promise<FetchResult<T>>): Promise<FetchResult<T>> => fmp.retryRateLimited(call);
@@ -2306,7 +2305,7 @@ export async function buildDataBundle(
     gicsSector,
     attribution: FRED_ATTRIBUTION,
   };
-  // B-4: when FRED DGS10 and FMP treasury both have no value, the last good
+  // D-111: when FRED DGS10 and FMP treasury both have no value, the last good
   // cached DGS10 observation (ten business days at most) and then the
   // Treasury's own par yield curve stand in, each disclosed with its date.
   const riskFreeFallbackFetch =
@@ -2536,7 +2535,7 @@ export async function buildDataBundle(
     const quarterlyIncome = enrichIncomeClassification(statements.incomeQuarterly, facts, "quarter", builtAt, { bankRevenue: bankStatementRouting(edgarBundle.registrant ?? null), securitiesRevenue: edgarBundle.sic === "6211" });
     statements = { ...statements, balanceAnnual: annual.balance, cashflowAnnual: annual.cashflow, balanceQuarterly: quarterly.balance, cashflowQuarterly: quarterly.cashflow,
       incomeAnnual: annualIncome.income, incomeQuarterly: quarterlyIncome.income };
-    // Review m6: one completion and one stakes entry for both families, each listing its dates.
+    // P20: one completion and one stakes entry for both families, each listing its dates.
     keylessGaps.push(...annual.gaps, ...quarterly.gaps, ...balanceAdmissionEntries([...annual.admissions, ...quarterly.admissions]),
       ...annualIncome.gaps, ...quarterlyIncome.gaps);
   }
@@ -2695,8 +2694,7 @@ export async function buildDataBundle(
   // The analysis cutoff is the end of acquisition, not the start of the build.
   // A live fetch is stamped when it completes, so a cutoff taken before the
   // first request refused the very SEC facts this build fetched, and a cache
-  // miss valued the same filings differently from a cache hit (audit
-  // 2026-10-19, PGR-1). Provider clients keep their own clocks, so a stamp a
+  // miss valued the same filings differently from a cache hit (D-97). Provider clients keep their own clocks, so a stamp a
   // little past this clock still belongs to this build; a stamp further ahead
   // is not trusted to move the analysis date.
   const startedAt = nowDate.getTime();
