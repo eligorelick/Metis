@@ -75,6 +75,7 @@ export const INTERNAL_COMMANDS = new Set([
   "test:product",
   "golden:run",
   "golden:diff",
+  "golden:value-check",
   "accuracy:check",
   "accuracy:fetch",
   "report:drift",
