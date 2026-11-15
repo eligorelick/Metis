@@ -32,6 +32,9 @@ export function withPlainFigureNotes(report: Report): Report {
 
 /** D-282: the mark a model-written paragraph or table cell carries; the legend explains it. */
 export const MODEL_PROSE_MARK = `[${CLAIM_STATUS_WORDS.unverified}]`;
+/** D-282 review round 2 (lead decision): the caption on every AI-authored table, card or row group, on every
+ * surface. Its titles, dates and ratings are the AI's; a cell inside it that code checked keeps its own mark. */
+export const AI_BLOCK_CAPTION = "Written by the AI; not checked by code.";
 
 const GRADE_PROSE_KEYS = ["oneLineWhy", "interpretation"] as const;
 const GRADED_SECTIONS = ["fundamentals", "balanceSheet", "valuation", "quality", "technicals", "leadership"] as const;

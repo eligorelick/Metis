@@ -3,7 +3,7 @@ import { OFFICE_CONTEXT_LINK, GUIDANCE_CONTEXT_LINK } from "@/report/executiveDe
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { reverseDcfValueText, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
 import { VALUATION_WITHHELD_TEXT, scenarioTargetsCaveat, valuationHeadlineView, valuationNoModelWithheldText, valuationScenarioView } from "@/report/presentation";
-import { macroDisplayRows, type MacroDisplayRow } from "@/report/presentation";
+import { AI_BLOCK_CAPTION, isModelWrittenReport, macroDisplayRows, type MacroDisplayRow } from "@/report/presentation";
 import { shownDataState } from "@/report/completeness";
 import { unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, unavailableModelInputTables } from "@/report/readerConventions";
 import { displayedProvenanceCoverage } from "@/report/presentation";
@@ -540,7 +540,12 @@ export function BusinessBriefBlock({ report }: { report: Report }) {
 }
 
 /** Q1: dated recent developments, read after the executive summary. Absent on saved reports. */
-export function RecentDevelopmentsBlock({ developments }: { developments: NonNullable<Verdict["recentDevelopments"]> }) {
+/** D-282 review round 2 (lead decision): the caption on an AI-authored table, card or row group, as a whole. */
+export function AiBlockCaption({ show }: { show?: boolean }) {
+  return show ? <p className="ai-block text-[10px] italic leading-snug text-muted">{AI_BLOCK_CAPTION}</p> : null;
+}
+
+export function RecentDevelopmentsBlock({ developments, aiAuthored = false }: { developments: NonNullable<Verdict["recentDevelopments"]>; aiAuthored?: boolean }) {
   return (
     <div className="border border-edge bg-panel">
       <div className="border-b border-edge px-3 py-1.5">
@@ -550,7 +555,8 @@ export function RecentDevelopmentsBlock({ developments }: { developments: NonNul
         {developments.summary.length > 0 && <ClaimList claims={developments.summary} />}
         {developments.items.length === 0 ? (
           <div className="text-[11px] text-faint">{NO_RECENT_DEVELOPMENTS}</div>
-        ) : (
+        ) : (<>
+          <AiBlockCaption show={aiAuthored} />
           <ol className="flex flex-col">
             {developments.items.map((item, i) => {
               const dir = DIRECTION_META[item.direction];
@@ -570,19 +576,20 @@ export function RecentDevelopmentsBlock({ developments }: { developments: NonNul
               );
             })}
           </ol>
-        )}
+        </>)}
       </div>
     </div>
   );
 }
 
 /** Q1: dated actions by the CEO, other executives or the board. Absent on saved reports. */
-function ManagementActionsBlock({ actions }: { actions: NonNullable<Leadership["managementActions"]> }) {
+function ManagementActionsBlock({ actions, aiAuthored = false }: { actions: NonNullable<Leadership["managementActions"]>; aiAuthored?: boolean }) {
   return (
     <SubBlock id="report-management-actions" label={MANAGEMENT_ACTIONS_HEADING}>
       {actions.length === 0 ? (
         <div className="text-[11px] text-faint">{NO_MANAGEMENT_ACTIONS}</div>
-      ) : (
+      ) : (<>
+        <AiBlockCaption show={aiAuthored} />
         <ol className="flex flex-col gap-2">
           {actions.map((item, i) => (
             <li key={i} className="border border-edge bg-raised px-2.5 py-2">
@@ -595,7 +602,7 @@ function ManagementActionsBlock({ actions }: { actions: NonNullable<Leadership["
             </li>
           ))}
         </ol>
-      )}
+      </>)}
     </SubBlock>
   );
 }
@@ -1350,7 +1357,9 @@ export function QualityFlags({
   index,
   openReasoning,
   grading = {},
+  aiAuthored = false,
 }: {
+  aiAuthored?: boolean;
   quality: Quality;
   index: number;
   openReasoning?: boolean;
@@ -1419,6 +1428,7 @@ export function QualityFlags({
           <div className="text-[11px] text-faint">No flags were raised by the checks with available inputs. Unavailable or inapplicable checks are disclosed above and in the missing-data manifest.</div>
         ) : (
           <div className="flex flex-col gap-1.5">
+            <AiBlockCaption show={aiAuthored} />
             {sortedFlags.map((flag, i) => (
               <div
                 key={i}
@@ -1518,6 +1528,7 @@ export function TechnicalsSection({
       {technicals.flags.length > 0 && (
         <SubBlock label="flags">
           <div className="flex flex-col gap-1.5">
+            <AiBlockCaption show={report !== undefined && isModelWrittenReport(report)} />
             {technicals.flags.map((flag, i) => (
               <div
                 key={i}
@@ -1540,7 +1551,7 @@ export function TechnicalsSection({
  * §7.8 Leadership & governance (graded)
  * ======================================================================== */
 
-function ExecutiveCard({ exec, context }: { exec: Executive; context?: ExecutiveOfficeContext }) {
+function ExecutiveCard({ exec, context, aiAuthored = false }: { exec: Executive; context?: ExecutiveOfficeContext; aiAuthored?: boolean }) {
   const reason = context?.note ?? executiveAssessmentNote(exec);
   return (
     <div className="flex flex-col border border-edge bg-raised">
@@ -1552,6 +1563,7 @@ function ExecutiveCard({ exec, context }: { exec: Executive; context?: Executive
           <div className="truncate text-[10px] text-faint">
             {exec.title}
           </div>
+          <AiBlockCaption show={aiAuthored} />
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <div className="flex flex-col items-center gap-0.5">
@@ -1623,7 +1635,7 @@ export function LeadershipSection({
         {leadership.executives.length === 0 && <p className="text-[11px] text-faint">No individual executive assessment recorded.</p>}
         <div className="grid gap-3 lg:grid-cols-2">
           {groups.assessed.map((exec, i) => (
-            <ExecutiveCard key={i} exec={exec} context={contexts.get(exec)} />
+            <ExecutiveCard key={i} exec={exec} context={contexts.get(exec)} aiAuthored={report.appendix !== undefined && isModelWrittenReport({ appendix: report.appendix })} />
           ))}
           {groups.notAssessed.length > 0 && (
             <div className="flex flex-col gap-2 border border-edge bg-raised px-2.5 py-2">
@@ -1634,7 +1646,7 @@ export function LeadershipSection({
           )}
         </div>
       </SubBlock>
-      {leadership.managementActions !== undefined && <ManagementActionsBlock actions={leadership.managementActions} />}
+      {leadership.managementActions !== undefined && <ManagementActionsBlock actions={leadership.managementActions} aiAuthored={report.appendix !== undefined && isModelWrittenReport({ appendix: report.appendix })} />}
       {roster.roster.length > 0 && <SubBlock label="Provider executive roster"><ClaimList claims={roster.roster} /></SubBlock>}
       <div className="grid gap-4 lg:grid-cols-2">
         <SubBlock label="Insider activity" semanticToken="insider activity">
@@ -1724,13 +1736,14 @@ export function CompetitiveSection({
   report = {},
   grading = {},
 }: {
-  report?: Pick<Report, "filingDisclosures"> & Partial<Pick<Report, "valuation" | "meta">>;
+  report?: Pick<Report, "filingDisclosures"> & Partial<Pick<Report, "valuation" | "meta" | "appendix">>;
   grading?: SectionGrading;
   competitive: Competitive;
   index: number;
   openReasoning?: boolean;
 }) {
   const peerList = providerPeerListPresentation({ competitive, valuation: report.valuation, meta: report.meta });
+  const aiAuthored = report.appendix !== undefined && isModelWrittenReport({ appendix: report.appendix });
   return (
     <SectionFrame id="competitive" index={index} title="Competitive · Moat">
       <GradeReasoning
@@ -1744,6 +1757,7 @@ export function CompetitiveSection({
         <ClaimList claims={competitive.competitors} />
       </SubBlock>}
       <SubBlock label="moat sources">
+        <AiBlockCaption show={aiAuthored && competitive.moatAssessment.length > 0} />
         <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
           {competitive.moatAssessment.map((m, i) => (
             <div
@@ -1764,6 +1778,7 @@ export function CompetitiveSection({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <SubBlock label={peerList.heading}>
           {peerList.note && <p className="text-[11px] leading-snug text-muted">{peerList.note}</p>}
+          {!peerList.hideTable && <AiBlockCaption show={aiAuthored && competitive.peerTable.length > 0} />}
           {!peerList.hideTable && <PeerTable peers={competitive.peerTable} />}
         </SubBlock>
         <SubBlock label="market-share direction">
@@ -1810,7 +1825,10 @@ export function CatalystsRisksPanel({
   index,
   dataOnly = false,
   extraTables = [],
+  aiAuthored = false,
 }: {
+  /** D-282 review round 2: caption the AI-written catalyst and risk lists. */
+  aiAuthored?: boolean;
   catalystsRisks: CatalystsRisks;
   index?: number;
   dataOnly?: boolean;
@@ -1862,7 +1880,8 @@ export function CatalystsRisksPanel({
           </div>
           {sortedCatalysts.length === 0 ? (
             <div className="text-[11px] text-faint">{dataOnly ? "Not assessed — no completed analyst assessment is available." : "No catalysts recorded."}</div>
-          ) : (
+          ) : (<>
+            <AiBlockCaption show={aiAuthored} />
             <ol className="flex flex-col">
               {sortedCatalysts.map((c, i) => {
                 const dir = DIRECTION_META[c.direction];
@@ -1912,7 +1931,7 @@ export function CatalystsRisksPanel({
                 );
               })}
             </ol>
-          )}
+          </>)}
         </div>
 
         {/* Risks matrix + list */}
@@ -1920,6 +1939,7 @@ export function CatalystsRisksPanel({
           <div className="text-[9px] uppercase tracking-[0.12em] text-faint">
             risks · severity × probability
           </div>
+          <AiBlockCaption show={aiAuthored && risks.length > 0} />
           {dataOnly && risks.length === 0
             ? <p className="text-[11px] text-faint">Not assessed — an empty list does not establish that no risks exist.</p>
             : <SeverityProbMatrix items={matrixItems} />}
@@ -2022,7 +2042,7 @@ export function OutlookSection({
  * §7.12 Macro context
  * ======================================================================== */
 
-export function MacroSection({ macro, index }: { macro: Macro; index: number }) {
+export function MacroSection({ macro, index, aiAuthored = false }: { macro: Macro; index: number; aiAuthored?: boolean }) {
   const cols: Column<MacroDisplayRow>[] = [
     {
       key: "id",
@@ -2056,6 +2076,7 @@ export function MacroSection({ macro, index }: { macro: Macro; index: number }) 
   return (
     <SectionFrame id="macro" index={index} title="Macro Context">
       <SubBlock label="relevant FRED series">
+        <AiBlockCaption show={aiAuthored && macro.relevantSeries.length > 0} />
         <DataTable
           columns={cols}
           rows={macroDisplayRows(macro)}
@@ -2079,12 +2100,15 @@ export function MacroSection({ macro, index }: { macro: Macro; index: number }) 
 
 export function DisagreementsBlock({
   disagreements,
+  aiAuthored = false,
 }: {
   disagreements: readonly Disagreement[];
+  aiAuthored?: boolean;
 }) {
   if (disagreements.length === 0) return null;
   return (
     <SubBlock label={`bull/bear disagreements (${disagreements.length})`}>
+      <AiBlockCaption show={aiAuthored} />
       <div className="flex flex-col gap-2">
         {disagreements.map((d, i) => (
           <div key={i} className="border border-edge bg-raised px-2.5 py-2">

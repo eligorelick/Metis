@@ -4,7 +4,7 @@ import { OFFICE_CONTEXT_LINK, GUIDANCE_CONTEXT_LINK } from "@/report/executiveDe
 import { prepareReportForSurface } from "@/report/readerPreparation";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
-import { macroDisplayRows, plainFigureReaderNote, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
+import { AI_BLOCK_CAPTION, isModelWrittenReport, macroDisplayRows, plainFigureReaderNote, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
 import { SCENARIO_TARGET_UNAVAILABLE_TEXT, VALUATION_WITHHELD_TEXT, scenarioTargetsCaveat, valuationHeadlineView, valuationNoModelWithheldText, valuationScenarioView, type ScenarioRowView } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 /**
@@ -271,10 +271,17 @@ interface GradeContext {
   completeness?: ReportCompletenessPresentation;
   /** A key number's reader label when its registry label would mislead (an unfinished session's "last close"). */
   labelFor?: (n: TracedNumber) => string | undefined;
+  /** D-282 review round 2: the report is AI-written, so its AI-authored tables and cards carry the block caption. */
+  aiAuthored?: boolean;
+}
+
+/** D-282 review round 2: the caption on an AI-authored table or card, as a whole. */
+function aiCaption(ai: boolean | undefined): string[] {
+  return ai ? [`_${markdownProse(AI_BLOCK_CAPTION)}_`, ""] : [];
 }
 
 function gradeContext(report: Report, key: keyof NonNullable<Report["scores"]>["aspects"], completeness: ReportCompletenessPresentation): GradeContext {
-  return { aspect: report.scores?.aspects[key] ?? null, completeness };
+  return { aspect: report.scores?.aspects[key] ?? null, completeness, aiAuthored: isModelWrittenReport(report) };
 }
 
 /** The reasoning behind a grade: header line + one-liner + claims + key numbers (deduplicated within the section). */
@@ -394,9 +401,9 @@ function renderKeyData(report: Report): string {
   return ["### Key data", "", bodyTable(["Key data", "Value", "Basis"], rows.map((row) => [row.label, row.value, row.note ?? DASH]))].join("\n");
 }
 
-function renderDisagreements(disagreements: readonly Disagreement[]): string[] {
+function renderDisagreements(disagreements: readonly Disagreement[], ai = false): string[] {
   if (disagreements.length === 0) return [];
-  const lines: string[] = ["### Bull/bear disagreements", "", `_${markdownProse(DISAGREEMENT_SIDES_NOTE)}_`, ""];
+  const lines: string[] = ["### Bull/bear disagreements", "", ...aiCaption(ai), `_${markdownProse(DISAGREEMENT_SIDES_NOTE)}_`, ""];
   // D-273: topic and resolution; the two sides are in the audit export.
   for (const d of disagreements) lines.push(`- **${markdownListItem(d.topic)}** (${markdownListItem(d.kind)}): ${item(d.judgeResolution)}`);
   return [...lines, ""];
@@ -418,10 +425,10 @@ function renderVerdict(report: Report): string {
   if (v.executiveSummary && v.executiveSummary.length > 0) {
     lines.push("### Executive summary", "", claimList(v.executiveSummary), "");
   }
-  lines.push(...renderRecentDevelopments(v.recentDevelopments));
+  lines.push(...renderRecentDevelopments(v.recentDevelopments, isModelWrittenReport(report)));
   lines.push("### Grade strip", "", strip, "");
   // D-62: the debate belongs with the verdict it informs, not under Macro.
-  lines.push(...renderDisagreements(report.disagreements));
+  lines.push(...renderDisagreements(report.disagreements, isModelWrittenReport(report)));
   return lines.join("\n").trimEnd();
 }
 
@@ -435,10 +442,11 @@ function renderBusinessBrief(report: Report): string[] {
 }
 
 /** Q1: absent on saved reports (nothing printed); an empty list says so. */
-function renderRecentDevelopments(developments: Verdict["recentDevelopments"]): string[] {
+function renderRecentDevelopments(developments: Verdict["recentDevelopments"], ai = false): string[] {
   if (developments === undefined) return [];
   const lines = [`### ${RECENT_DEVELOPMENTS_HEADING}`, ""];
   if (developments.summary.length > 0) lines.push(claimList(developments.summary), "");
+  if (developments.items.length > 0) lines.push(...aiCaption(ai));
   lines.push(developments.items.length === 0 ? NO_RECENT_DEVELOPMENTS : bodyTable(
     ["Date", "Development", "Direction", "Affects", "Note"],
     developments.items.map((item) => [eventDateText(item.occurredOn), item.title, item.direction, item.affects || DASH, claimReasoning(developmentClaims(item))]),
@@ -754,6 +762,7 @@ function renderQuality(q: Quality, ctx: GradeContext = {}): string {
   lines.push(
     "### Flags",
     "",
+    ...(q.flags.length > 0 ? aiCaption(ctx.aiAuthored) : []),
     q.flags.length > 0 ? table(["Severity", "Flag", "Source"], q.flags.map((f) => [f.severity, displayProse(f.text), sourceLabel(f.source)])) : "_No forensic flags raised._",
   );
   return lines.join("\n");
@@ -778,7 +787,7 @@ function renderTechnicals(report: Report, ctx: GradeContext = {}): string {
   const indicators = figureTable(figureRows(t.indicators.map((n) => n), seen).map((row) => ({ ...row, label: indicatorLabel(row.trace, bar) })), "Indicator");
   lines.push(...subsection("### Indicators", indicators));
   if (t.flags.length > 0) {
-    lines.push("### Flags", "", table(["Severity", "Flag", "Source"], t.flags.map((f) => [f.severity, displayProse(f.text), sourceLabel(f.source)])));
+    lines.push("### Flags", "", ...aiCaption(ctx.aiAuthored), table(["Severity", "Flag", "Source"], t.flags.map((f) => [f.severity, displayProse(f.text), sourceLabel(f.source)])));
   }
   return lines.join("\n").trimEnd();
 }
@@ -797,6 +806,7 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
     lines.push(
       `#### ${markdownHeading(e.name)} — ${markdownHeading(e.title)}`,
       "",
+      ...aiCaption(ctx.aiAuthored),
       `Grade **${executiveGradeText(e.grade)}** · credibility **${executiveGradeText(e.credibilityGrade)}**`,
       "",
     );
@@ -821,7 +831,7 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
     if (groups.notAssessedClaims.length > 0) lines.push(claimList(groups.notAssessedClaims), "");
   }
   if (l.managementActions !== undefined) {
-    lines.push('<a id="report-management-actions"></a>', "", `### ${MANAGEMENT_ACTIONS_HEADING}`, "", l.managementActions.length === 0 ? NO_MANAGEMENT_ACTIONS : bodyTable(
+    lines.push('<a id="report-management-actions"></a>', "", `### ${MANAGEMENT_ACTIONS_HEADING}`, "", ...(l.managementActions.length > 0 ? aiCaption(ctx.aiAuthored) : []), l.managementActions.length === 0 ? NO_MANAGEMENT_ACTIONS : bodyTable(
       ["Date", "Who", "Action", "Shareholder alignment", "Note"],
       l.managementActions.map((item) => [eventDateText(item.occurredOn), MANAGEMENT_ACTOR_LABELS[item.actor], MANAGEMENT_CATEGORY_LABELS[item.category],
         SHAREHOLDER_ALIGNMENT_LABELS[item.shareholderAlignment], claimReasoning(managementActionClaims(item))]),
@@ -857,13 +867,13 @@ function renderCompetitive(c: Competitive, ctx: GradeContext = {}, report?: Repo
         }),
       ];
     });
-    lines.push(table(["Peer", "Symbol", ...headings], rows), "");
+    lines.push(...aiCaption(ctx.aiAuthored), table(["Peer", "Symbol", ...headings], rows), "");
   } else if (!peerList.hideTable) {
     lines.push("_No peer data._", "");
   }
   if (c.competitors?.length) lines.push(...subsection("### Competitors", claimList(c.competitors)));
   if (c.moatAssessment.length > 0) {
-    lines.push("### Moat assessment", "");
+    lines.push("### Moat assessment", "", ...aiCaption(ctx.aiAuthored));
     for (const m of c.moatAssessment) {
       // D-62: "Scale — narrow", not the raw enums "scale (narrow)".
       lines.push(`#### ${markdownHeading(moatHeading(m))}`, "", claimList(m.reasoning), "");
@@ -876,15 +886,17 @@ function renderCompetitive(c: Competitive, ctx: GradeContext = {}, report?: Repo
 function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: readonly ReportAuditTable[] = []): string {
   const lines: string[] = [sectionHeading("catalystsRisks"), ""];
   if (dataOnly) lines.push("Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.", "");
-  lines.push(...subsection("### Catalysts", bodyTable(
+  // D-282 review round 2: each AI-written table carries the caption; an empty table prints nothing.
+  const captioned = (body: string): string => body.length === 0 ? "" : [...aiCaption(!dataOnly), body].join("\n");
+  lines.push(...subsection("### Catalysts", captioned(bodyTable(
     ["Catalyst", "Expected", "Direction", "Significance", "Note"],
     cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, claimReasoning(c.reasoning)]),
-  )));
-  lines.push(...subsection("### Risks", bodyTable(
+  ))));
+  lines.push(...subsection("### Risks", captioned(bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
     cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), claimReasoning(r.reasoning)]),
     ["Probability"],
-  )));
+  ))));
   lines.push(...auditTableBlocks(extra));
   return lines.join("\n").trimEnd();
 }
@@ -955,8 +967,8 @@ function renderProjections(p: Projections): string {
   return lines.join("\n").trimEnd();
 }
 
-function renderMacro(m: Macro): string {
-  const lines: string[] = [sectionHeading("macro"), ""];
+function renderMacro(m: Macro, ai = false): string {
+  const lines: string[] = [sectionHeading("macro"), "", ...aiCaption(ai && m.relevantSeries.length > 0)];
   lines.push(
     table(
       ["Series", "Name", "Latest", "As of", "Relevance"],
@@ -1086,7 +1098,7 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
         case "technicals": return [renderTechnicals(report, gradeContext(report, "technicals", completeness))];
         case "leadership": return [renderLeadership(report.leadership, report, gradeContext(report, "leadership", completeness)), ...auditTableBlocks(primaryCapitalEvidenceTables(report.primaryCapitalEvidence), "##")];
         case "projections": return [report.projections && !unavailableCashFlowModel(report) ? renderProjections(report.projections) : renderProjectionsNotRecorded(report)];
-        case "macro": return [renderMacro(report.macro)];
+        case "macro": return [renderMacro(report.macro, isModelWrittenReport(report))];
         case "appendix": return [renderAppendix(report, completeness, context)];
       }
     }),

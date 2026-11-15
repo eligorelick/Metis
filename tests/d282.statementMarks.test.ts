@@ -17,7 +17,7 @@ import { reciteFeedClaims, type ContextPayload, type PayloadNewsArticle } from "
 import { matchProvenanceRecord, type NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
-import { citedMark, MODEL_PROSE_MARK, sourceLabel, withModelProseMarks } from "@/report/presentation";
+import { AI_BLOCK_CAPTION, citedMark, MODEL_PROSE_MARK, sourceLabel, withModelProseMarks } from "@/report/presentation";
 import { ReportSchema, type Report, type SourcedClaim, type VerificationLogEntry } from "@/report/schema";
 import { claimStatusMarkText, claimTag, FACT_STATUS_LEGEND, indexVerificationMarks } from "@/report/verificationMarks";
 import { loadTask28Fixture } from "./helpers/task28Report";
@@ -158,7 +158,47 @@ describe("D-282: plain marks on every surface (R1, R2, R3)", () => {
       expect(surface).toContain(text);
       expect(surface).not.toContain(`${text} ${MODEL_PROSE_MARK}`);
     }
-    expect(FACT_STATUS_LEGEND).toContain("Titles, dates and ratings the AI chose (such as a risk's severity) carry no mark and are not checked by code.");
+    expect(FACT_STATUS_LEGEND).not.toContain("carry no mark");
+  });
+
+  it("captions every AI-authored table, card and row group on Markdown, print and the app; a data-only report has none (review round 2)", () => {
+    const filed: SourcedClaim = { label: "FACT", text: "The filing states the event.", source: "edgar:10-K", asOf: "2025-12-31" };
+    const build = (dataOnly: boolean) => {
+      const r = loadTask28Fixture();
+      // An AI-chosen date cell that carries an assertion and numbers (the AMZN case the review found).
+      r.catalystsRisks.catalysts[0]!.expectedDate = "Multi-year (6.4-year weighted life from 2026-06-30)";
+      r.verdict.recentDevelopments = { summary: [], items: [{ occurredOn: "2026-06-30", title: "Plant opened", whatHappened: [filed], whyItMatters: [], direction: "positive", affects: "capacity" }] };
+      r.leadership.managementActions = [{ occurredOn: "2026-05-01", category: "strategy", actor: "ceo", action: [filed], assessment: [], shareholderAlignment: "aligned" }];
+      r.appendix.verificationLog = [{ claim: filed.text, outcome: "verified", path: "verdict.recentDevelopments.items[0].whatHappened[0]", evidenceKind: "factual-claim", source: filed.source,
+        traceKind: "source-cited", reason: "supported", validationStatus: "validated", claimSupportStatus: "numeric-only" }];
+      if (dataOnly) r.appendix.missingData.push({ field: "analysis.llm", severity: "critical", reason: "No analysis ran." });
+      const parsed = ReportSchema.parse(r);
+      return {
+        md: reportToMarkdown(parsed).replace(/\\([[\]])/g, "$1"),
+        print: reportToPrintBody(parsed),
+        web: renderToStaticMarkup(createElement(ReportView, { report: parsed })),
+      };
+    };
+    const count = (text: string) => text.split(AI_BLOCK_CAPTION).length - 1;
+    const ai = build(false);
+    // One caption per block: developments, disagreements, quality flags, technicals flags, two executive cards,
+    // management actions, moat assessment, peer table, catalysts, risks and macro series.
+    for (const surface of [ai.md, ai.print, ai.web]) expect(count(surface)).toBe(12);
+    // The caption sits inside the catalyst block, above the AI-chosen date cell, on every surface.
+    for (const [surface, heading] of [[ai.md, "### Catalysts"], [ai.print, "<h3>Catalysts</h3>"], [ai.web, "catalysts · dated"]] as const) {
+      const start = surface.indexOf(heading), caption = surface.indexOf(AI_BLOCK_CAPTION, start), cell = surface.indexOf("Multi-year (6.4-year weighted life from", start);
+      expect(start).toBeGreaterThan(-1);
+      expect(caption).toBeGreaterThan(start);
+      expect(cell).toBeGreaterThan(caption);
+    }
+    // A statement code checked inside a captioned block keeps its own mark ([validated] from its log entry).
+    expect(ai.md).toMatch(/The filing states the event\.[^|\n]{0,200}\[validated\]/);
+    expect(ai.print).toMatch(/The filing states the event\.[^]{0,400}?\[validated\]/);
+    expect(ai.web).toMatch(/The filing states the event\.[^]{0,2000}?\[validated\]/);
+    // Control: a data-only report's code-written tables carry no caption.
+    const control = build(true);
+    for (const surface of [control.md, control.print, control.web]) expect(count(surface)).toBe(0);
+    expect(FACT_STATUS_LEGEND).toContain(`captioned '${AI_BLOCK_CAPTION.replace(/\.$/, "")}' was written by the AI as a whole, including its titles, dates and ratings`);
   });
 
   it("marks a table figure not confirmed or contradicted in words, and a matched one with a check (control)", () => {

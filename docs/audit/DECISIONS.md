@@ -121,10 +121,16 @@ mapping in `src/pipeline/compute.ts`, `src/pipeline/stageB/currentCapital.ts`, `
    relative strength), scenario commentary and model-written conditions, macro relevance lines, and (review round 1)
    every quality and technical flag of an AI-written report end with "[not confirmed]" on the app, Markdown and print
    surfaces. An AI-written report's flags all come from the judge output (the assembly copies them); code-written
-   flags exist only in data-only reports, which are not marked. Titles, dates and ratings the AI chose (a catalyst's
-   or risk's title, a development's date, a severity, direction or probability) are short labels in their own table
-   cells; the legend says they carry no mark and are not checked by code. Code-written text (data-only reports, modeled-condition
-   lines, the code-built trend line) is not marked. Read time only (P21): saved reports get the marks too.
+   flags exist only in data-only reports, which are not marked. *AI-authored blocks (review round 2, lead decision;
+   the round-1 legend exemption is removed):* every AI-authored table, card or row group of an AI-written report
+   carries the caption "Written by the AI; not checked by code." (`AI_BLOCK_CAPTION`, `src/report/presentation.ts`)
+   on Markdown, print and the app: recent developments, bull/bear disagreements, quality and technical flags, each
+   executive card, management actions, moat assessment, the peer table, catalysts, risks and the macro series table.
+   The caption covers the AI's titles, dates and ratings (a catalyst's expected-date cell such as AMZN's
+   "Multi-year (6.4-year weighted life from 2026-06-30)", a severity, direction or probability); a statement or figure
+   inside the block that code checked keeps its own mark. The legend says so. Scenario conditions and commentary keep a
+   mark on each item. Code-written text (data-only reports, modeled-condition lines, the code-built trend line) is not
+   marked or captioned. Read time only (P21): saved reports get the marks too.
 3. *Contradicted statements.* A FACT or ESTIMATE whose check found a value conflict is shown under a CONTRADICTED tag,
    never under the bold FACT or ESTIMATE tag. Its stored label and log entry are unchanged.
 4. *Table figures.* A model figure that does not equal its record at stored precision reads "not confirmed" in the
@@ -172,7 +178,8 @@ Every lost "validated" is an interest coverage figure or a statement of it, now 
 called contradicted: the round-1 additions (AMZN DCF $116.12 and reverse-DCF 58.9%, MU DCF, META FY2025 FCF,
 after-SBC FCF and coverage) were annual or undated figures against records of another window and read
 "not confirmed" again. Every AI-written report's quality and technical flags now end with "[not confirmed]"
-(for example AMZN's accrual reading and JPM's K24 "gain's tax effect is not in the filings reviewed"). The 25
+(for example AMZN's accrual reading and JPM's K24 "gain's tax effect is not in the filings reviewed"). Review round 2 re-run of the 8 fixed-analyst cases: the reports change only by the block captions
+(and the legend sentence); every count in the table above is unchanged. The 25
 data-only cases change only in the stamps and the Stage B field above.
 
 **Test revisions (reworded or stricter only).** Mark words in `tests/report.claimStatusMarks`,

@@ -5,7 +5,10 @@ import { prepareReportForSurface } from "@/report/readerPreparation";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
-import { macroDisplayRows, plainFigureReaderNote, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
+import { AI_BLOCK_CAPTION, isModelWrittenReport, macroDisplayRows, plainFigureReaderNote, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
+
+/** D-282 review round 2: the caption on an AI-authored table or card, as a whole. */
+const aiCaption = (ai: boolean): string => ai ? `<p class="ai-block">${esc(AI_BLOCK_CAPTION)}</p>` : "";
 import { SCENARIO_TARGET_UNAVAILABLE_TEXT, VALUATION_WITHHELD_TEXT, scenarioTargetsCaveat, valuationHeadlineView, valuationNoModelWithheldText, valuationScenarioView, type ScenarioRowView } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
@@ -448,13 +451,13 @@ function keyDataBlock(report: Report): string {
   return `<section class="block keydata"><h3>Key data</h3>${bodyTable(["Key data", "Value", "Basis"], rows.map((row) => [row.label, row.value, row.note ?? DASH]))}</section>`;
 }
 
-function disagreementsBlock(disagreements: readonly Disagreement[]): string {
+function disagreementsBlock(disagreements: readonly Disagreement[], ai = false): string {
   if (disagreements.length === 0) return "";
   const items = disagreements
     // D-273: topic and resolution; the two sides are in the audit export.
     .map((d) => `<li><strong>${esc(d.topic)}</strong> (${esc(d.kind)}): ${prose(d.judgeResolution)}</li>`)
     .join("");
-  return `<h3>Bull/bear disagreements</h3><p class="faint">${esc(DISAGREEMENT_SIDES_NOTE)}</p><ul class="disagreements">${items}</ul>`;
+  return `<h3>Bull/bear disagreements</h3>${aiCaption(ai)}<p class="faint">${esc(DISAGREEMENT_SIDES_NOTE)}</p><ul class="disagreements">${items}</ul>`;
 }
 
 function sectionVerdict(report: Report): string {
@@ -470,7 +473,7 @@ function sectionVerdict(report: Report): string {
   const execSummary = v.executiveSummary && v.executiveSummary.length > 0 ? `<h3>Executive summary</h3>${claimList(v.executiveSummary)}` : "";
   // D-62: the debate sits with the verdict it informs.
   const figureNote = plainFigureReaderNote(report);
-  return `<section class="block">${sectionHeading("verdict")}${businessBriefBlock(report)}<p class="synthesis">${prose(v.synthesis)}</p>${figureNote ? `<p class="muted">${esc(figureNote)}</p>` : ""}${execSummary}${recentDevelopmentsBlock(v.recentDevelopments)}<h3>Grade strip</h3>${strip}${disagreementsBlock(report.disagreements)}</section>`;
+  return `<section class="block">${sectionHeading("verdict")}${businessBriefBlock(report)}<p class="synthesis">${prose(v.synthesis)}</p>${figureNote ? `<p class="muted">${esc(figureNote)}</p>` : ""}${execSummary}${recentDevelopmentsBlock(v.recentDevelopments, isModelWrittenReport(report))}<h3>Grade strip</h3>${strip}${disagreementsBlock(report.disagreements, isModelWrittenReport(report))}</section>`;
 }
 
 /** D-273: the five-part brief, verified claims only; a part with no support says so. */
@@ -483,17 +486,17 @@ function businessBriefBlock(report: Report): string {
 }
 
 /** Q1: absent on saved reports (nothing printed); an empty list says so. */
-function recentDevelopmentsBlock(developments: Verdict["recentDevelopments"]): string {
+function recentDevelopmentsBlock(developments: Verdict["recentDevelopments"], ai = false): string {
   if (developments === undefined) return "";
   const items = developments.items.length === 0 ? `<p class="faint">${esc(NO_RECENT_DEVELOPMENTS)}</p>` : bodyTable(
     ["Date", "Development", "Direction", "Affects", "Note"],
     developments.items.map((item) => [eventDateText(item.occurredOn), item.title, item.direction, item.affects || DASH, claimReasoning(developmentClaims(item))]),
     ["Direction"],
   );
-  return `<h3>${esc(RECENT_DEVELOPMENTS_HEADING)}</h3>${claimList(developments.summary)}${items}`;
+  return `<h3>${esc(RECENT_DEVELOPMENTS_HEADING)}</h3>${claimList(developments.summary)}${developments.items.length > 0 ? aiCaption(ai) : ""}${items}`;
 }
 
-function managementActionsBlock(actions: Leadership["managementActions"]): string {
+function managementActionsBlock(actions: Leadership["managementActions"], ai = false): string {
   if (actions === undefined) return "";
   const body = actions.length === 0 ? `<p class="faint">${esc(NO_MANAGEMENT_ACTIONS)}</p>` : bodyTable(
     ["Date", "Who", "Action", "Shareholder alignment", "Note"],
@@ -501,7 +504,7 @@ function managementActionsBlock(actions: Leadership["managementActions"]): strin
       SHAREHOLDER_ALIGNMENT_LABELS[item.shareholderAlignment], claimReasoning(managementActionClaims(item))]),
     ["Shareholder alignment"],
   );
-  return `<h3 id="report-management-actions">${esc(MANAGEMENT_ACTIONS_HEADING)}</h3>${body}`;
+  return `<h3 id="report-management-actions">${esc(MANAGEMENT_ACTIONS_HEADING)}</h3>${actions.length > 0 ? aiCaption(ai) : ""}${body}`;
 }
 
 function sectionScores(scores: Scoring): string {
@@ -736,7 +739,7 @@ function sectionQuality(q: Quality, report: Report): string {
   // D-68: methodology and context notes sit under the table; flags are findings.
   const notes = (q.notes ?? []).length > 0 ? `<div><em>Notes</em><ul>${(q.notes ?? []).map((note) => `<li>${prose(note)}</li>`).join("")}</ul></div>` : "";
   const clarification = qualityAccrualClarifications(q).map(note => `<p class="faint">${esc(note)}</p>`).join("");
-  return `<section class="block">${sectionHeading("quality")}${gradeBlock("Quality", q.graded, new Map(), report, gradeContext(report, "quality"))}${clarification}${subsection("Forensic scores", forensic + notes)}<h3>Flags</h3>${flags}</section>`;
+  return `<section class="block">${sectionHeading("quality")}${gradeBlock("Quality", q.graded, new Map(), report, gradeContext(report, "quality"))}${clarification}${subsection("Forensic scores", forensic + notes)}<h3>Flags</h3>${q.flags.length > 0 ? aiCaption(isModelWrittenReport(report)) : ""}${flags}</section>`;
 }
 
 function sectionTechnicals(report: Report): string {
@@ -752,7 +755,7 @@ function sectionTechnicals(report: Report): string {
   const timingNote = bar ? `<p class="faint">${esc(provisionalBarNote(bar))}</p>` : "";
   const indicators = figureTable(figureRows(t.indicators, seen).map((row) => ({ ...row, label: indicatorLabel(row.trace, bar) })), "Indicator");
   const flags = t.flags.length > 0 ? table(["Severity", "Flag", "Source"], t.flags.map((f) => [esc(f.severity), prose(f.text), esc(sourceLabel(f.source))])) : "";
-  return `<section class="block">${sectionHeading("technicals")}${grade}${timingNote}<h3>Structured read</h3>${read}${subsection("Indicators", indicators)}${subsection("Flags", flags)}</section>`;
+  return `<section class="block">${sectionHeading("technicals")}${grade}${timingNote}<h3>Structured read</h3>${read}${subsection("Indicators", indicators)}${subsection("Flags", flags ? aiCaption(isModelWrittenReport(report)) + flags : "")}</section>`;
 }
 
 function sectionLeadership(l: Leadership, report: Report): string {
@@ -770,14 +773,14 @@ function sectionLeadership(l: Leadership, report: Report): string {
       }).join("");
       const context = contexts.get(e), reason = context?.note ?? executiveAssessmentNote(e);
       const decisions = context ? `<h4>Office decision context</h4><p><a href="#report-management-actions">${esc(OFFICE_CONTEXT_LINK)}</a></p><p><a href="#report-outlook">${esc(GUIDANCE_CONTEXT_LINK)}</a></p>` : "";
-      return `<div class="exec"><h4>${esc(e.name)} &mdash; ${esc(e.title)}</h4>
+      return `<div class="exec"><h4>${esc(e.name)} &mdash; ${esc(e.title)}</h4>${aiCaption(isModelWrittenReport(report))}
         <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span></p>${executiveTenureText(e) ? `<p>${esc(executiveTenureText(e)!)} (${esc(e.officeTenure!.source)}; filed ${esc(e.officeTenure!.filingDate)})</p>` : ""}${reason ? `<p>${prose(reason)}</p>` : ""}${claimList(executiveCardClaims(e, e.reasoning, companyClaims))}${evidence}${decisions}</div>`;
     })
     .join("");
   const others = groups.notAssessed.length > 0
     ? `<div class="exec"><h4>${groups.assessed.length > 0 ? "Other officers" : "Officers"}</h4>${groups.notAssessedLines.map((line) => `<p>${esc(line)}</p>`).join("")}${claimList(groups.notAssessedClaims)}</div>`
     : "";
-  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${l.executives.length === 0 ? "<p>No individual executive assessment recorded.</p>" : ""}${execs}${others}${managementActionsBlock(l.managementActions)}${subsection("Insider activity", claimList(l.insiderSummary))}${bodyTables(insiderEvidenceTables(report))}${subsection("Provider executive roster", claimList(roster.roster))}${subsection("Governance", claimList(roster.governance))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
+  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${l.executives.length === 0 ? "<p>No individual executive assessment recorded.</p>" : ""}${execs}${others}${managementActionsBlock(l.managementActions, isModelWrittenReport(report))}${subsection("Insider activity", claimList(l.insiderSummary))}${bodyTables(insiderEvidenceTables(report))}${subsection("Provider executive roster", claimList(roster.roster))}${subsection("Governance", claimList(roster.governance))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
 }
 
 function sectionCompetitive(c: Competitive, report: Report): string {
@@ -797,10 +800,10 @@ function sectionCompetitive(c: Competitive, report: Report): string {
         }),
       ];
     });
-    peers = table(["Peer", "Symbol", ...headings], rows);
+    peers = aiCaption(isModelWrittenReport(report)) + table(["Peer", "Symbol", ...headings], rows);
   }
   // D-62: "Scale — narrow", not the raw enums.
-  const moat = c.moatAssessment.map((m) => `<h4>${esc(moatHeading(m))}</h4>${claimList(m.reasoning)}`).join("");
+  const moat = (c.moatAssessment.length > 0 ? aiCaption(isModelWrittenReport(report)) : "") + c.moatAssessment.map((m) => `<h4>${esc(moatHeading(m))}</h4>${claimList(m.reasoning)}`).join("");
   const peerList = providerPeerListPresentation(report);
   return `<section class="block">${sectionHeading("competitive")}${gradeBlock("Moat", c.moatGraded, new Map(), report, gradeContext(report, "moat"))}<h3>${esc(peerList.heading)}</h3>${peerList.note ? `<p>${esc(peerList.note)}</p>` : ""}${peerList.hideTable ? "" : peers}${c.competitors?.length ? subsection("Competitors", claimList(c.competitors)) : ""}${subsection("Moat assessment", moat)}
     <h3>Market-share direction</h3><p>${prose(c.marketShareDirection)}</p></section>`;
@@ -816,8 +819,9 @@ function sectionCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: Repo
     cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), claimReasoning(r.reasoning)]),
     ["Probability"],
   );
+  const caption = (body: string): string => body ? aiCaption(!dataOnly) + body : "";
   const disclosure = dataOnly ? "<p>Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.</p>" : "";
-  return `<section class="block prominent">${sectionHeading("catalystsRisks")}${disclosure}${subsection("Catalysts", catalysts)}${subsection("Risks", risks)}${bodyTables(extra)}</section>`;
+  return `<section class="block prominent">${sectionHeading("catalystsRisks")}${disclosure}${subsection("Catalysts", caption(catalysts))}${subsection("Risks", caption(risks))}${bodyTables(extra)}</section>`;
 }
 
 function sectionOutlook(report: Report): string {
@@ -867,12 +871,12 @@ function sectionProjections(p: Projections): string {
     ${blocks}</section>`;
 }
 
-function sectionMacro(m: Macro): string {
+function sectionMacro(m: Macro, ai = false): string {
   const series = table(
     ["Series", "Name", "Latest", "As of", "Relevance"],
     macroDisplayRows(m).map((s) => [esc(s.seriesId), esc(s.name), `<span class="mono">${esc(tracedValue(s.latest))}</span>`, esc(s.observation), prose(s.relevance)]),
   );
-  return `<section class="block">${sectionHeading("macro")}${series}${subsection("Sensitivity notes", claimList(m.sensitivityNotes))}<p class="attribution">${esc(m.fredAttribution)}</p></section>`;
+  return `<section class="block">${sectionHeading("macro")}${m.relevantSeries.length > 0 ? aiCaption(ai) : ""}${series}${subsection("Sensitivity notes", claimList(m.sensitivityNotes))}<p class="attribution">${esc(m.fredAttribution)}</p></section>`;
 }
 
 function sectionAppendix(report: Report, completeness: ReportCompletenessPresentation, context: ReportPresentationContext): string {
@@ -939,7 +943,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
     catalystsRisks: sectionCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks")),
     outlook: sectionOutlook(report),
     projections: report.projections && !unavailableCashFlowModel(report) ? sectionProjections(report.projections) : sectionProjectionsNotRecorded(report),
-    macro: sectionMacro(report.macro),
+    macro: sectionMacro(report.macro, isModelWrittenReport(report)),
     appendix: sectionAppendix(report, completeness, context),
   };
   const body = [
@@ -1000,6 +1004,7 @@ p { margin: 4pt 0; overflow-wrap: anywhere; }
 .asof { color: #6f685c; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
 .src { color: #6f685c; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
 .claim-status { color: #3d382f; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
+.ai-block { color: #3d382f; font-size: 8.5pt; font-style: italic; margin: 2pt 0; }
 .table-legend { color: #3d382f; font-size: 8.5pt; margin: 2pt 0 8pt; }
 table { width: 100%; border-collapse: collapse; margin: 5pt 0 9pt; font-size: 9.5pt; break-inside: auto; page-break-inside: auto; }
 .print-ledger-table { table-layout: auto; }

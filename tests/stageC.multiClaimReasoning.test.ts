@@ -12,7 +12,7 @@ import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { esc, reportToPrintBody } from "@/report/export/printHtml";
 import { markdownProse } from "@/report/export/markdownEscape";
-import { SCORE_BANDS_READER_NOTE } from "@/report/presentation";
+import { AI_BLOCK_CAPTION, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
 import { claimStatusMarkText, indexVerificationMarks } from "@/report/verificationMarks";
 import { loadTask28Fixture } from "./helpers/task28Report";
 // Verbatim public-data section from the rejected extra-high FIGR judge output:
@@ -65,12 +65,17 @@ describe("catalyst and risk reasoning compatibility", () => {
     expect(outputs.print).toContain(`<em>(${esc(SCORE_BANDS_READER_NOTE)})</em>`);
     outputs.markdown = outputs.markdown.replace(`_(${markdownProse(SCORE_BANDS_READER_NOTE)})_`, `_(bands ${markdownProse(bands)})_`);
     outputs.print = outputs.print.replace(`<em>(${esc(SCORE_BANDS_READER_NOTE)})</em>`, `<em>(bands ${esc(bands)})</em>`);
-    // D-282 review round 1: the legend gains one sentence about unmarked AI labels; check it, then remove it.
-    const labelsSentence = " Titles, dates and ratings the AI chose (such as a risk's severity) carry no mark and are not checked by code.";
+    // D-282 review rounds 1 and 2: the legend gains one sentence about captioned AI blocks; check it, then remove it.
+    const labelsSentence = ` A table or card captioned '${AI_BLOCK_CAPTION.replace(/\.$/, "")}' was written by the AI as a whole, including its titles, dates and ratings; a figure in it that code checked keeps its own mark.`;
     for (const key of ["markdown", "print"] as const) {
       const shown = key === "markdown" ? markdownProse(labelsSentence) : esc(labelsSentence);
       expect(outputs[key]).toContain(shown);
       outputs[key] = outputs[key].replace(shown, "");
+      // Each AI-authored block of this AI-written fixture carries the caption (the fixture has no developments or
+      // management actions): disagreements, both flag tables, two executive cards, moat, peers, catalysts, risks, macro.
+      const caption = key === "markdown" ? `_${markdownProse(AI_BLOCK_CAPTION)}_\n\n` : `<p class="ai-block">${esc(AI_BLOCK_CAPTION)}</p>`;
+      expect(outputs[key].split(caption).length - 1).toBe(10);
+      outputs[key] = outputs[key].split(caption).join("");
       // The fixture's one quality and one technicals flag are model-written: each now ends with the mark.
       for (const flag of ["quality flags text", "technicals flags text"]) {
         const text = `SYNTHETIC demonstration text for ${flag}; it describes fictional inputs and is not a current market observation.`;
