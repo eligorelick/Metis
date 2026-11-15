@@ -1,6 +1,6 @@
 # Known limitations
 
-Release documentation reviewed 2026-11-15 against build `5a503eec`. Missing evidence is disclosed rather than filled in. These limits apply beyond the named examples wherever the same evidence shape occurs.
+Release documentation reviewed 2026-11-15 against build `3c0dbffe`. Missing evidence is disclosed rather than filled in. These limits apply beyond the named examples wherever the same evidence shape occurs.
 
 ## L1: Web claims
 
@@ -86,6 +86,10 @@ Analyst reports. When the AI's key-number table repeats a figure that code also 
 
 The app only. The expandable provenance details beside a figure name the internal source field (for example a computed score path) and raw gap ids. Markdown and print show plain names only.
 
+## L22: Full support is rare
+
+All companies. A report has full support only when every grade has all of the evidence that applies on its route and no valuation input or headline figure is withheld, unchecked or qualified. On the 25-company release panel no report meets that bar; each lists its reasons in plain words.
+
 ## Additional release decisions and deferred work
 
 Vendor qualifications use labels and separate gaps; there is no new typed vendor-qualification code in 1.0. Provider revenue may represent a provider revenue line rather than the filed total (R12); the report labels that basis alongside the filed total.
@@ -95,6 +99,8 @@ At generation, a statement citing the whole news feed is removed when no single 
 Bank tangible common equity (TCE) and return on tangible equity (ROTE) can use provider goodwill/intangible fields that have not been checked against a filing; the report labels this basis.
 
 The ROIC minus fiscal-year-end WACC spread pairs annual observed ROIC with a fiscal-year-end market-based discount rate: this hybrid basis is labelled rather than presented as a filed ratio. Saved text and the terminal-return switch are described above.
+
+Where the filed tax provision and pre-tax income for the trailing window are proven, the effective tax rate is computed from them (D-307); otherwise the provider rate is used and labelled. The observed effective rate is applied as the debt tax shield for every company, including REITs; whether that is the right input for a REIT is an open owner decision.
 
 Further debt-evidence sharing, typed refusal-reader migration, shortening reports, checking wording across saved reports, and reconciling business-word inventories remain deferred. Following successor registrants, parsing 6-K interim statements and typed ADS-member facts, evidence-loss scoring and terminal-return smoothing also remain deferred. These are not promised capabilities.
 
