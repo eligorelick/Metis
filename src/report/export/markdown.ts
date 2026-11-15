@@ -673,7 +673,7 @@ function renderValuation(
       m.sectorAppropriate ? "yes" : "no",
     ]),
   )));
-  if (v.multiplesBasis) lines.push(markdownProse(v.multiplesBasis), "");
+  if (v.multiplesBasis) lines.push(markdownProse(displayProse(v.multiplesBasis)), "");
 
   // D-62: consensus and market data, shown once, beside the multiples.
   if (review.report) lines.push(...auditTableBlocks(consensusTables(review.report)));

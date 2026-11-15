@@ -186,8 +186,13 @@ describe("D-265: runStageB, the bridge note and the multiples basis text", () =>
 
   it("divisor below with a filed trust count: both notes name the filed fact; no dilution attribution", () => {
     const { out, dcf } = dcfOf(bundle(105 * M, trust));
+    // D-312 review: the calculation/audit note keeps its exact element; the
+    // shared reader bridge names the same filed fact in plain words.
+    expect(d60([...out.valuation.notes, ...dcf.notes])!).toMatch(/The filer reports 5M shares held in an employee trust \(us-gaap:CommonStockSharesHeldInEmployeeTrustShares\) at 2025-12-31/);
+    expect(dcf.bridge.shareBasisNote).toContain("us-gaap:CommonStockSharesHeldInEmployeeTrustShares");
+    expect(bridgeNote(out)).toContain("The filer reports 5M shares held in an employee trust (shares held in an employee trust) at 2025-12-31");
+    expect(bridgeNote(out)).not.toContain("us-gaap:CommonStockSharesHeldInEmployeeTrustShares");
     for (const note of [d60([...out.valuation.notes, ...dcf.notes])!, bridgeNote(out)]) {
-      expect(note).toMatch(/The filer reports 5M shares held in an employee trust \(us-gaap:CommonStockSharesHeldInEmployeeTrustShares\) at 2025-12-31/);
       expect(note).toMatch(/cause of the difference is not established by the admitted evidence/);
       expect(note).not.toMatch(/The gap is option and RSU dilution|carries option and RSU dilution the quoted share count omits|inside the quoted count|% (more|fewer)/);
     }

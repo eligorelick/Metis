@@ -4,6 +4,7 @@ import { evidencePercentText, withNeutral } from "./assessment";
 import { establishedCurrency, formatFinancialValue, formatLargeNumber } from "./format";
 import { formatScore } from "./scoreText";
 import { admittedProjectionPoints, projectionAvailability } from "./surfaceManifest";
+import { displayProse } from "./presentation";
 
 export interface ReportAuditTable { key?: string; heading: string; headers: string[]; rows: string[][]; note?: string }
 /** Exact recovered operands remain visible even when timing is unscored. */
@@ -110,7 +111,7 @@ export function scoreAuditTables(scores: Scoring): ReportAuditTable[] {
  * stored counts (P21: a read-time view, stored bytes unchanged).
  */
 function shareBasisText(b: NonNullable<Dcf["bridge"]>): string {
-  if (b.shareBasisNote !== undefined) return b.shareBasisNote;
+  if (b.shareBasisNote !== undefined) return displayProse(b.shareBasisNote);
   const divisor = b.dilutedShares, quote = b.sharesOutstandingAtQuote;
   if (divisor !== null && quote !== undefined && divisor > 0 && divisor < quote) {
     return `The diluted divisor (${formatLargeNumber(divisor)}) is below the ${formatLargeNumber(quote)} shares outstanding at the quote; option and RSU dilution can only raise a diluted count, so it does not explain this difference, and this stored report does not record its cause.`;

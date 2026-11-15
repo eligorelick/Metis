@@ -13,7 +13,7 @@
  * its plain words are written here. Read time only; stored reports keep their
  * bytes (P21).
  */
-import type { Report } from "@/report/schema";
+import type { Report, TracedNumber } from "@/report/schema";
 import type { ManifestEntry } from "@/types/core";
 import { claimStatusMark } from "@/report/verificationMarks";
 import { TAX_OPERAND_EVIDENCE_SINCE_SPEC, specVersionBefore } from "@/report/versions";
@@ -181,7 +181,40 @@ function filingLabel(field: string): string {
  * code, field or status; its text is fixed here. Older reports that lack a
  * typed field simply contribute no limitation from it.
  */
-export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Report, "fairValue" | "routeMetrics" | "scores" | "meta">>): SupportLevel {
+type SupportReport = Pick<Report, "appendix"> & Partial<Pick<Report, "fairValue" | "routeMetrics" | "scores" | "meta" | "balanceSheet" | "fundamentals">>;
+
+/** D-310 review: calculation-owned records only. Provider envelope dates are
+ * observations, and the capital calculation may have rejected their newest row. */
+function capitalRecords(report: SupportReport): TracedNumber[] {
+  const out: TracedNumber[] = [];
+  const visit = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) { node.forEach(visit); return; }
+    const row = node as Partial<TracedNumber>;
+    if (typeof row.value === "number" && Number.isFinite(row.value) && typeof row.source === "string" && typeof row.unit === "string") { out.push(row as TracedNumber); return; }
+    Object.values(node).forEach(visit);
+  };
+  visit(report.balanceSheet);
+  visit(report.fundamentals);
+  return out;
+}
+
+function refusedCapitalPeriod(records: readonly TracedNumber[], field: string): string | undefined {
+  const sbc = field === "capital.fcf.sbc";
+  const root = sbc ? "computed.capital.fcf.beforeSbc" : `computed.${field}`;
+  const dates = [...new Set(records.flatMap(n => {
+    const id = n.sourceId ?? n.source;
+    if (id !== root && !(id.startsWith(`${root}.`) && !sbc)) return [];
+    const date = n.periodContext?.kind === "duration" ? n.periodContext.end : n.periodContext?.kind === "instant" ? n.periodContext.at
+      : sbc && /^\d{4}-\d{2}-\d{2}$/.test(n.period ?? "") ? n.period : n.asOf;
+    return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? [date] : [];
+  }))];
+  // The SBC gap's producer names the last admitted FCF row; other calculations
+  // require one unambiguous basis date, never a newest-date guess across operands.
+  return sbc ? dates.sort().at(-1) : dates.length === 1 ? dates[0] : undefined;
+}
+
+export function supportLevel(report: SupportReport): SupportLevel {
   const out: SupportLimitation[] = [];
   const add = (code: SupportLimitationCode, text: string) => { if (!out.some(item => item.text === text)) out.push({ code, text }); };
   const fv = report.fairValue;
@@ -238,6 +271,7 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
       `${listText(partial.map(item => evidencePercentText(item.share)))} of the evidence that applies on this company's route`);
   }
   const gaps: readonly ManifestEntry[] = report.appendix.missingData;
+  const capital = capitalRecords(report);
   // Review round 1 (D-300): the cash-flow valuation's tax rate is a headline input. Its operands are
   // checked against a filing unless the typed manifest entry says otherwise; a saved report written
   // before that entry existed does not record which, so it is not shown to be checked (P19).
@@ -251,8 +285,10 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
   if (gaps.some(gap => gap.field === "statements.adsEps")) add("ads-eps-derived", "earnings per ADS are derived from ordinary-share EPS, not a filed per-ADS amount");
   // D-309: the house free-cash-flow figure is after stock-based compensation; Stage B's typed `capital.fcf.sbc`
   // entry records that it is withheld (the latest fiscal year's compensation is not established).
-  if (gaps.some(gap => gap.field === "capital.fcf.sbc" && gap.expected !== true)) {
-    add("fcf-after-sbc-withheld", "stock-based compensation is not established for the latest fiscal year, so free cash flow after it is withheld");
+  const currentAfterSbcShown = capital.some(n => ["computed.capital.current.cashBridge.afterSbcStandardizedFcf", "computed.current-capital.after-sbc-standardized-fcf"].includes(n.sourceId ?? n.source));
+  if (!currentAfterSbcShown && gaps.some(gap => gap.field === "capital.fcf.sbc" && gap.expected !== true)) {
+    const period = refusedCapitalPeriod(capital, "capital.fcf.sbc");
+    add("fcf-after-sbc-withheld", `stock-based compensation is not established for ${period ? `the historical annual period ended ${period}` : "the historical annual calculation (period not recorded)"}, so free cash flow after it is withheld`);
   }
   // D-309 review round 1: the literal definition. Every other unexpected entry on a valuation input or headline
   // figure limits support, in one plain sentence per typed field, unless a limitation above already names it.
@@ -266,9 +302,9 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
     if (/^valuation\.(?:reverseDcf\.currentUse|dcf\.valuationDate)$/.test(field) && has("fair-value-dated")) continue;
     // D-310 (P1, P11): capital.* is the annual computation; currentCapital
     // is a separate owner. A saved gap without its period cannot assert a
-    // current refusal. Read only typed dataset dates, never the reason text.
+    // current refusal. Read only the calculation's typed records, never dataset dates or reason text.
     const annualCapital = /^capital\.(?:netDebtToEbitda|interestCoverage|fcf)/.test(field);
-    const period = report.meta?.asOfMap?.[field === "capital.netDebtToEbitda" ? "statements.balanceAnnual" : field.startsWith("capital.fcf") ? "statements.cashflowAnnual" : "statements.incomeAnnual"];
+    const period = refusedCapitalPeriod(capital, field);
     const text = headlineGapText(field);
     add("headline-input-qualified", annualCapital
       ? period ? text.replace(/ is /, ` for the historical annual period ended ${period} is `)

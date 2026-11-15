@@ -104,13 +104,9 @@ it("carries unverified operating-source qualifications through the actual data-o
   for(const text of [JSON.stringify(payload),JSON.stringify(report),reportToMarkdown(report),reportToPrintBody(report)]) {
     expect(text).toContain("unverified consolidated operating scope");
   }
-  // D-312: evidence retains the exact element; reader diagnostics name it plainly.
-  for(const text of [JSON.stringify(payload),JSON.stringify(report),reportToAuditMarkdown(report)]) {
+  // D-312 review: slash-form source identities remain intact in evidence and reader citations.
+  for(const text of [JSON.stringify(payload),JSON.stringify(report),reportToAuditMarkdown(report),reportToMarkdown(report),reportToPrintBody(report)]) {
     expect(text).toContain("us-gaap/OtherNonoperatingIncomeExpense");
-  }
-  for(const text of [reportToMarkdown(report),reportToPrintBody(report)]) {
-    expect(text).toContain("other nonoperating income expense");
-    expect(text).not.toContain("us-gaap/OtherNonoperatingIncomeExpense");
   }
 });
 

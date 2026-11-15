@@ -8,6 +8,7 @@ import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import { filingCommentaryOutlookTables, filingFactTables, filingGovernanceTables, type FilingSupplements } from "@/report/filingSupplementPresentation";
 import type { FilingDisclosures } from "@/report/schema";
 import { readableHtml } from "./helpers/uiParityContract";
+import { prepareReportForSurface } from "@/report/readerPreparation";
 import { loadTask28Fixture } from "./helpers/task28Report";
 
 const source = { form: "10-Q", accession: "0000000000-26-000001", exhibit: null, filingDate: "2026-08-26", url: "https://www.sec.gov/example" };
@@ -30,6 +31,41 @@ function disclosures() {
 }
 
 describe("deterministic filing supplements", () => {
+  it("strips source-detail-only facts before reader vocabulary and adds no basis column (D-312 review)", () => {
+    const report = loadTask28Fixture();
+    const d: FilingDisclosures = disclosures();
+    d.filingFacts = [{ ...d.filingFacts![0]!, key: "composition-cash-example", label: "Cash", computed: null,
+      text: "us-gaap/CashAndCashEquivalentsAtCarryingValue; USD; instant 2024-12-31; 10-K synthetic, filed 2025-02-01." }];
+    report.filingDisclosures = d;
+    const before = JSON.stringify(report);
+    for (const surface of ["markdown", "print", "web"] as const) {
+      const prepared = prepareReportForSurface(report, surface).report;
+      const tables = filingFactTables(prepared.filingDisclosures!);
+      expect(tables).toHaveLength(1);
+      expect(tables[0]!.headers).not.toContain("Basis / issuer context");
+      expect(tables[0]!.rows[0]).not.toContain(expect.stringContaining("instant 2024"));
+    }
+    expect(JSON.stringify(report)).toBe(before);
+    expect(reportToAuditMarkdown(report)).toContain(d.filingFacts![0]!.text);
+  });
+  it("keeps a common qualification in the table note after stripping source details (D-312 review)", () => {
+    const report = loadTask28Fixture();
+    const d: FilingDisclosures = disclosures();
+    const base = d.filingFacts![0]!;
+    d.filingFacts = ["CashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalents"].map((tag, i) => ({
+      ...base, key: `composition-cash-${i}`, label: `Cash balance ${i}`, computed: null,
+      text: `These balances include restricted cash. us-gaap/${tag}; USD; instant 2024-12-31; 10-K synthetic, filed 2025-02-01.`,
+    }));
+    report.filingDisclosures = d;
+    for (const surface of ["markdown", "print", "web"] as const) {
+      const prepared = prepareReportForSurface(report, surface).report;
+      const table = filingFactTables(prepared.filingDisclosures!)[0]!;
+      expect(table.headers).not.toContain("Basis / issuer context");
+      expect(table.note).toContain("Applies to each row: These balances include restricted cash.");
+      expect(table.rows.flat().join(" ")).not.toContain("These balances include restricted cash.");
+    }
+  });
+
   it("does not turn absent optional records into claims about an issuer", () => {
     const absent = { currency: null };
     expect(filingFactTables(absent)).toEqual([]);
@@ -40,14 +76,14 @@ describe("deterministic filing supplements", () => {
   it("reads saved filed-element basis text plainly without changing its audit evidence (D-312)", () => {
     const report = loadTask28Fixture();
     const d = disclosures();
-    d.filingFacts[0]!.text = "us-gaap/Goodwill 123 USD at 2024-12-31 (10-K synthetic-accession)";
+    d.filingFacts[0]!.text = "us-gaap:Goodwill 123 USD at 2024-12-31 (10-K synthetic-accession)";
     report.filingDisclosures = d;
     const before = JSON.stringify(report);
     for (const text of [reportToMarkdown(report), readableHtml(reportToPrintBody(report)).text, readableHtml(renderToStaticMarkup(createElement(ReportView, { report }))).text]) {
       expect(text).toContain("goodwill 123 USD at 2024-12-31");
-      expect(text).not.toContain("us-gaap/Goodwill");
+      expect(text).not.toContain("us-gaap:Goodwill");
     }
-    expect(reportToAuditMarkdown(report)).toContain("us-gaap/Goodwill");
+    expect(reportToAuditMarkdown(report)).toContain("us-gaap:Goodwill");
     expect(JSON.stringify(report)).toBe(before);
   });
 

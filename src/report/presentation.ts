@@ -122,7 +122,7 @@ export function indexModelWrittenClaims(report: Report): void {
 const CODE_METHOD_STATEMENT_SOURCE = "computed.capital.current";
 
 export function isModelWrittenClaim(claim: SourcedClaim): boolean {
-  return modelWrittenClaims.has(claim);
+  return modelWrittenClaims.has(readerClaimOrigin(claim));
 }
 
 /** One reminder per checked report; absence of a field note never asserts verification. */
@@ -185,7 +185,7 @@ import {
 } from "@/report/format";
 import type { ManifestEntry } from "@/types/core";
 import { BUSINESS_STORY_HEADING, productLineNamingClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
-import { claimStatusMark, claimTag } from "@/report/verificationMarks";
+import { claimStatusMark, claimTag, readerClaimOrigin } from "@/report/verificationMarks";
 import { companyRecordClaim, executiveCardClaims, executiveOfficeContext, executiveTenureText } from "@/report/executiveDecisions";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { findDirectionWords } from "@/pipeline/stageC/consistency";
@@ -1838,7 +1838,7 @@ export function consensusTables(report: Report): BodyTable[] {
   const evLabel = md.enterpriseValueOrigin === "provider" ? "Provider enterprise value (vendor definition, period end)"
     : md.enterpriseValueOrigin === "computed" ? "Derived enterprise value (historical cash-only bridge)" : "Historical enterprise value (source definition unestablished)";
   if (md.enterpriseValue) rows.push([evLabel, `${money(md.enterpriseValue.value, md.currency)} at ${md.enterpriseValue.periodEnd} (that date's market cap + debt − cash and equivalents; not the report's market EV, which uses the quote and nets short-term investments)`]);
-  if (md.enterpriseValueNote) rows.push(["Historical enterprise value", md.enterpriseValueNote]);
+  if (md.enterpriseValueNote) rows.push(["Historical enterprise value", displayProse(md.enterpriseValueNote)]);
   if (rows.length > 0) tables.push({ heading: "Market data and positioning", headers: ["Item", "Value"], rows });
   return tables;
 }
@@ -2185,8 +2185,8 @@ export function withoutDecisionNumbers(text: string): string {
 export function displayProse(text: string, source?: string, options: { modelWritten?: boolean } = {}): string {
   // D-308 review round 1: code-written prose has its base-unit amounts grouped; model-written prose (a paragraph
   // carrying the "not confirmed" mark, or a claim of a report the AI wrote) is shown as written.
-  const conventions = readerConventionText(plainFieldNames(withoutDecisionNumbers(text)), source);
-  const readable = (options.modelWritten === true || text.trimEnd().endsWith(MODEL_PROSE_MARK) ? conventions : readerBaseUnits(conventions))
+  const conventions = readerConventionText(withoutDecisionNumbers(text), source);
+  const readable = (options.modelWritten === true || text.trimEnd().endsWith(MODEL_PROSE_MARK) ? conventions : readerBaseUnits(plainFieldNames(conventions)))
     .replace(/(\bevidence completeness (?:was|is) )((?:0(?:\.\d+)?|1(?:\.0+)?))(?![\d%]|\.\d)/gi, (_, lead: string, value: string) => `${lead}${ratioPercentText(Number(value))}`)
     .replace(/(Self-assessed case strength[^:]*: bull )(\d)(, bear )(\d)(?!\s*(?:\/|of))/g, "$1$2 of 5$3$4 of 5");
   return readerPrecision(humanizeInlineCitations(readable), source);
@@ -2603,6 +2603,9 @@ export function manifestEntryLabel(gap: ManifestEntry, issuer: string | null): s
  * "basic EPS, diluted EPS" in the body; the audit export keeps the identifiers.
  */
 export const READER_FIELD_LABELS: Readonly<Record<string, string>> = {
+  FinanceLeaseLiabilityCurrent: "current finance lease liability", FinanceLeaseLiabilityNoncurrent: "noncurrent finance lease liability",
+  OperatingLeaseLiabilityCurrent: "current operating lease liability", OperatingLeaseLiabilityNoncurrent: "noncurrent operating lease liability",
+  CommonStockSharesHeldInEmployeeTrustShares: "shares held in an employee trust",
   balanceAnnual: "annual balance sheet", balanceQuarterly: "quarterly balance sheet",
   incomeAnnual: "annual income statement", incomeQuarterly: "quarterly income statement",
   cashflowAnnual: "annual cash-flow statement", cashflowQuarterly: "quarterly cash-flow statement",
@@ -2643,8 +2646,8 @@ const READER_FIELD_PATTERN = new RegExp(`(?<![\\w./:@-])(${Object.keys(READER_FI
 
 /** Statement field identifiers in a recorded reason, in plain words (D-301). */
 export function plainFieldNames(text: string): string {
-  return text
-    .replace(/\b(?:us-gaap|dei)[:/]([A-Za-z][A-Za-z0-9]*)\b/g,
+  const translate = (part: string): string => part
+    .replace(/(?<![\w/:.])(?:us-gaap|dei):([A-Za-z][A-Za-z0-9]*)\b/g,
       (_all, tag: string) => READER_FIELD_LABELS[tag] ?? segmentWords(tag).join(" "))
     .replace(/has reportedCurrency ([A-Z]{3}) and is not proven USD; the raw \$([\d,]+) pre-revenue threshold was not evaluated/g,
       "has revenue currency $1; the USD $2 pre-revenue threshold was not assessed")
@@ -2657,6 +2660,10 @@ export function plainFieldNames(text: string): string {
     // Keep their measure words and operands; audit exports retain exact ids.
     .replace(/(?<![\w/:.])(?:us-gaap:)?([A-Z][a-z]+(?:[A-Z][A-Za-z0-9]*){2,})(?![\w/])/g,
       (all: string, tag: string) => tag.length >= 25 ? segmentWords(tag).join(" ") : all);
+  // QName lists are recorded identities, not prose. Preserve the whole list so
+  // namespaces cannot be translated selectively into an apparent member mapping.
+  return text.split(/(Observed member QNames:[^\n]*?(?:\.(?=\s|$)|$))/g)
+    .map((part, index) => index % 2 === 1 ? part : translate(part)).join("");
 }
 
 /** D-312: saved basis/reason rows sometimes bypass displayProse. Apply the
@@ -2673,7 +2680,7 @@ export function withPlainReaderFields(report: Report): Report {
     // recorded text for those readers, as well as for verification indexing.
     if (typeof row.text === "string" && typeof row.source === "string") return;
     for (const [key, value] of Object.entries(row)) {
-      if (["verificationLog", "meta", "sources"].includes(key)) continue;
+      if (["verificationLog", "meta", "sources", "filingFacts"].includes(key)) continue;
       if (["text", "reason", "basis", "period", "note", "notes", "detail", "explanation", "withheldReason", "notApplicableReason", "verificationNote"].includes(key)) {
         if (typeof value === "string") row[key] = plainFieldNames(value);
         else if (Array.isArray(value)) row[key] = value.map(v => typeof v === "string" ? plainFieldNames(v) : v);

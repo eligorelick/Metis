@@ -1231,7 +1231,7 @@ export function ValuationSection({
 
       <SubBlock label="multiples vs peers & own 5-yr history">
         <MultiplesTable rows={valuation.multiples} />
-        {valuation.multiplesBasis && <p className="mt-2 text-xs leading-relaxed text-faint">{valuation.multiplesBasis}</p>}
+        {valuation.multiplesBasis && <p className="mt-2 text-xs leading-relaxed text-faint">{displayProse(valuation.multiplesBasis)}</p>}
       </SubBlock>
       {report && <ExtraAuditTables tables={consensusTables(report)} />}
 

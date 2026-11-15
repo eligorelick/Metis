@@ -355,8 +355,7 @@ describe("one figure shown once (D-301, R29)", () => {
       .toBe("4 field(s) in 1 vendor row(s) (2021-12-31 … 2021-12-31; basic EPS, diluted EPS, basic weighted share count, diluted weighted share count) withheld");
     expect(plainFieldNames("Vendor flows kept unverified for 2016-12-31: depreciationAndAmortization, changeInWorkingCapital."))
       .toBe("Vendor flows kept unverified for 2016-12-31: depreciation and amortization, change in working capital.");
-    expect(plainFieldNames("us-gaap/EarningsPerShareDiluted")).toBe("diluted earnings per share"); // D-312: filed elements read plainly.
-    for (const kept of [ "computed.capital.current.netDebt", "fmp:netDebt", "statements.netDebt.cashBasis", "The EPS rose."]) expect(plainFieldNames(kept)).toBe(kept);
+    for (const kept of ["us-gaap/EarningsPerShareDiluted", "edgar:companyfacts/us-gaap/LongTermDebtNoncurrent", "computed.capital.current.netDebt", "fmp:netDebt", "statements.netDebt.cashBasis", "The EPS rose."]) expect(plainFieldNames(kept)).toBe(kept);
   });
 
   it("formats raw base-unit amounts in key-data caveats with the shared number format", () => {

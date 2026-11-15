@@ -20,9 +20,9 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased — Step 4 report blockers (D-310..D-312)
 
-- P1/P11/P22: support limitations name the historical annual capital period from typed dataset dates; absent dates explicitly remain unrecorded. The separate financial-asset add-back qualification remains.
+- P1/P11/P22: support limitations name the historical annual capital period from calculation-owned records, never provider-envelope dates; absent/conflicting dates explicitly remain unrecorded. Historical missing-SBC refusals are dated from the admitted FCF series, or omitted when current after-SBC FCF is shown. The separate financial-asset add-back qualification remains.
 - P19/P22: count distinct displayed FACT/ESTIMATE statements with the same reader identity and officer-card selection as the report; repeated statements in another section count once. The README and definition say so.
-- P21/P22: saved reader basis, warning and score-detail text uses plain field and filed-element names, retaining causes, dates, currencies and operands. The audit retains raw identifiers. Report spec is 1.102.0; payload, Stage B, scores and valuation methods are unchanged.
+- P21/P22: code-written reader basis, warning and score-detail text uses plain field and standalone element names, retaining causes, dates, currencies and operands. Model wording, source paths, slash-form identifiers and QName lists remain intact. Filing-note source details are stripped before formatting; source-only facts introduce no basis column. The audit retains raw identifiers. Report spec is 1.102.0; payload, Stage B, scores and valuation methods are unchanged.
 
 ## Unreleased - Reader amounts and complete-evidence full support (P12, P19, P22, D-308, D-309) (2026-11-15)
 

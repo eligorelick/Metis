@@ -669,7 +669,7 @@ function sectionValuation(
       m.sectorAppropriate ? "yes" : "no",
     ]),
   )));
-  if (v.multiplesBasis) parts.push(`<p class="faint">${esc(v.multiplesBasis)}</p>`);
+  if (v.multiplesBasis) parts.push(`<p class="faint">${esc(displayProse(v.multiplesBasis))}</p>`);
   // D-62: consensus and market data, once, beside the multiples.
   parts.push(bodyTables(consensusTables(report)));
 

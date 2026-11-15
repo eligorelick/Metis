@@ -12,6 +12,11 @@ import type { Report, SourcedClaim, TracedNumber, VerificationLogEntry } from ".
 export type ClaimStatusMark = "validated" | "unverified" | "contradicted" | "qualitative";
 
 const marks = new WeakMap<object, ClaimStatusMark>();
+/** D-312 review: reader copies retain their recorded authoring identity too. */
+const readerOrigins = new WeakMap<SourcedClaim, SourcedClaim>();
+export function readerClaimOrigin(claim: SourcedClaim): SourcedClaim {
+  return readerOrigins.get(claim) ?? claim;
+}
 /** F-23: figures of a data-only report, whose `verified` means computed, not citation-checked. */
 const computedFigures = new WeakSet<object>();
 /** Indexed data-only reports holding at least one computed figure. */
@@ -119,6 +124,7 @@ export const CLAIM_STATUS_WORDS: Readonly<Record<ClaimStatusMark, string>> = {
 export function withReaderText(claim: SourcedClaim, text: string): SourcedClaim {
   if (text === claim.text) return claim;
   const copy = { ...claim, text };
+  readerOrigins.set(copy, readerClaimOrigin(claim));
   const mark = marks.get(claim);
   if (mark !== undefined) marks.set(copy, mark);
   return copy;
