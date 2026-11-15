@@ -126,6 +126,26 @@ export function effectiveTaxPretaxIncome(row: Pick<FmpIncomeStatementRow, "incom
   return finite(row.pretaxIncomeBeforeEquityMethod?.value) ? row.pretaxIncomeBeforeEquityMethod.value : row.incomeBeforeTax;
 }
 
+/** D-307 (P8/P13): one admission question returns the actual filed rate pair or nothing. */
+export function filedTaxOperandPair(row: FmpIncomeStatementRow | null | undefined): { pretax: number; tax: number } | null {
+  if (!row || row.fieldConflicts?.incomeBeforeTax?.usable === false || row.fieldConflicts?.incomeTaxExpense?.usable === false) return null;
+  const day = (value: string | null | undefined) => value ? value.slice(0, 10) : null;
+  const end = day(row.date);
+  if (end === null) return null;
+  const agreement = row.taxOperandAgreement;
+  const proofs = agreement ?? row.fieldProvenance;
+  if (!(["incomeBeforeTax", "incomeTaxExpense"] as const).every(field =>
+    proofs?.[field]?.source === "edgar" && day(proofs[field]?.periodEnd) === end)) return null;
+  // A legacy agreement with no recorded amounts cannot silently establish vendor values as filed.
+  const pair = agreement ? agreement.values : { pretax: effectiveTaxPretaxIncome(row), tax: row.incomeTaxExpense };
+  return finite(pair?.pretax) && finite(pair?.tax) ? { pretax: pair.pretax, tax: pair.tax } : null;
+}
+
+/** Rate consumers share the same filed selection; unproved rows retain their prior pair. */
+export function effectiveTaxOperands(row: FmpIncomeStatementRow | null | undefined): { pretax: number | null; tax: number | null } {
+  return filedTaxOperandPair(row) ?? { pretax: effectiveTaxPretaxIncome(row), tax: finite(row?.incomeTaxExpense) ? row.incomeTaxExpense : null };
+}
+
 /** Reuse canonical filed statement resolution; never infer expense placement from EBIT. */
 export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpIncomeStatementRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string,
   opts: { bankRevenue?: boolean; securitiesRevenue?: boolean; earningsOnly?: boolean; filedRows?: FmpIncomeStatementRow[]; revenuePolicy?: OperatingRevenuePolicy } = {}):
@@ -379,7 +399,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
     // D-300 (P8, P12; review round 1): when the row's provision and the pre-tax
     // base the tax rate divides by are the same observation as the reconciled
     // filed family, the filed facts stand on their own proof: record it, as
-    // interest expense does. No value changes; a refused operand or another
+    // interest expense does. D-307 retains the filed amounts for rate consumers; a refused operand or another
     // value records nothing. The row's values after any adoption are compared,
     // so a second pass over an adopted row records the same proof (idempotent).
     if (out.taxOperandAgreement !== undefined) out = { ...out, taxOperandAgreement: undefined };
@@ -387,7 +407,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
         out.fieldConflicts?.incomeTaxExpense?.usable !== false && out.fieldConflicts?.incomeBeforeTax?.usable !== false &&
         same(out.incomeTaxExpense, family.tax.value)) {
       const base = out.pretaxIncomeBeforeEquityMethod ?? (same(out.incomeBeforeTax, family.pretax.value) ? family.pretax : null);
-      if (base) out = { ...out, taxOperandAgreement: { incomeBeforeTax: base.proof, incomeTaxExpense: family.tax.proof } };
+      if (base) out = { ...out, taxOperandAgreement: { incomeBeforeTax: base.proof, incomeTaxExpense: family.tax.proof, values: { pretax: base.value, tax: family.tax.value } } };
     }
     // Ownership scope is useful even when the provider's parent earnings agree.
     // Admit the signed bridge only from the same reconciled filing family;

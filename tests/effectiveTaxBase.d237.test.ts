@@ -276,12 +276,35 @@ describe("D-237: one base in every Stage B tax rate", () => {
     expect(annual!.reason).toContain("2025-01-01 through 2025-12-31: 194000000 USD (10-K 0000000042-26-000001, filed 2026-02-01) against 190000000");
   });
 
-  it("control: a filer whose pre-tax line already includes its equity-method results keeps every rate and its wording", () => {
+  it("D-307: a proved total pre-tax line supplies WACC as well as DCF", () => {
     const computed = stageB(fixtureFacts(PRETAX_TOTAL, false));
     expect(yearOneTaxPct(computed)).toBeCloseTo((48 / 228) * 100, 10);
-    expect(computed.returns.wacc.taxRateUsed).toBe(0.2);
-    expect(computed.returns.wacc.taxRateBasis).toBe("Provider trailing effective tax rate (observed)");
+    expect(computed.returns.wacc.taxRateUsed).toBe(48 / 228);
+    expect(computed.returns.wacc.taxRateBasis).toBe("TTM income tax expense / pre-tax income from the statements (observed effective rate)");
     expect(computed.returns.roic.series.find(year => year.date === "2025-12-31")?.taxRateUsed).toBeCloseTo(40 / 190, 12);
     expect(computed.gaps.some(gap => /taxRatePretaxIncome$/.test(gap.field))).toBe(false);
   });
+});
+
+
+it("D-307: annual proof does not replace a trailing provider ratio without a TTM pair", () => {
+  const bundle = withIssuerFacts(completeCurrencyBundle({ filingLinks: "shared" }), fixtureFacts(PRETAX_TOTAL, false));
+  if (!bundle.statements.incomeQuarterly.ok) throw Error("fixture");
+  bundle.statements.incomeQuarterly.value.data.rows = [];
+  const computed = runStageB(bundle);
+  expect(computed.returns.wacc.taxRateUsed).toBe(0.2);
+  expect(computed.returns.wacc.taxRateBasis).toBe("Provider trailing effective tax rate (observed)");
+});
+
+
+it("D-307 review: a complete unproved trailing pair keeps the provider WACC rate and basis", () => {
+  const bundle = completeCurrencyBundle({ filingLinks: "shared" });
+  if (!bundle.statements.incomeQuarterly.ok) throw Error("fixture");
+  const trailing = ttmIncome(bundle.statements.incomeQuarterly.value.data.rows)!;
+  expect(trailing).not.toBeNull();
+  expect(trailing.taxRateOperandsFiled).toBe(false);
+  expect(effectiveTaxRateFromTtm(trailing)).toBeCloseTo(48 / 228, 12);
+  const computed = runStageB(bundle);
+  expect(computed.returns.wacc.taxRateUsed).toBe(0.2);
+  expect(computed.returns.wacc.taxRateBasis).toBe("Provider trailing effective tax rate (observed)");
 });

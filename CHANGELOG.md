@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.99.0** and
-payload **1.112.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.100.0** and
+payload **1.113.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,10 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Filed effective tax-rate operands (P8, P13, P27, D-307)
+
+Once the complete filed tax pair establishes a window, WACC, DCF and historical effective-rate consumers compute from the filed amounts. Exact filed TTM bridges supersede rounded quarter sums inside the existing P8 allowance. Missing proof keeps the prior vendor pair and qualification. Stored reports remain unchanged. Report 1.100.0, payload 1.113.0, pipeline stage-c-1.6.54 and Stage B STAGE_B_2026_11_FILED_TAX_86 identify the new convention.
 
 ## Unreleased - D-304-D-306
 
