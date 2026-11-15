@@ -1,3 +1,12 @@
+import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
+import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
+import { unavailableLiquidityTable } from "@/report/presentation";
+import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToPrintBody } from "@/report/export/printHtml";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
+import { BalanceSheetSection } from "@/components/report/sections";
 import { withIssuerFacts } from "./helpers/confirmedIssuer";
 import { describe, expect, it } from "vitest";
 import * as assessment from "@/report/assessment";
@@ -114,11 +123,10 @@ describe("D-290 foreign statement qualifications", () => {
   it("labels unverified foreign interim figures and propagates the limitation", () => {
     const bundle = completeCurrencyBundle({});
     withIssuerFacts(bundle, { cik: 1, entityName: "Foreign", facts: { "ifrs-full": { Revenue: { units: {} } } } });
-    if (!bundle.profile.ok) throw Error("fixture");
-    bundle.profile.value.data.rows[0]!.isAdr = true;
+    bundle.edgar!.registrant = { ...bundle.edgar!.registrant, forms: ["20-F", "6-K"] } as NonNullable<typeof bundle.edgar>["registrant"];
     expect(assessment.statementEvidenceNotes(bundle).join(" ")).toContain("vendor data, not checked against a filing");
     const gap = { field: "statements.foreignInterim", reason: assessment.statementEvidenceNotes(bundle).join(" "), severity: "info" as const };
-    expect(assessment.financialEvidenceQualifications([gap], null)[0]?.affectedAspects).toContain("quality");
+    expect(assessment.financialEvidenceQualifications([gap], null)).toEqual([]); // no suitable vendor-unverified code exists
   });
   it("does not label a domestic control as foreign interim", () => {
     expect(assessment.statementEvidenceNotes(completeCurrencyBundle({}))).toEqual([]);
@@ -139,4 +147,69 @@ it("D-290 carries the vendor tax operand limitation into the valuation assumptio
   const computed = runStageB(completeCurrencyBundle({}));
   if (computed.valuation.kind !== "dcf" || !computed.valuation.assumptions) throw Error("fixture");
   expect(computed.valuation.assumptions.taxRatePath.basis).toContain("vendor data, not checked against a filing");
+});
+
+
+it("D-290 review: non-ADR non-IFRS foreign vendor interim is labelled without an IFRS framework claim", () => {
+  const bundle=completeCurrencyBundle({});
+  withIssuerFacts(bundle,{cik:1,entityName:"Foreign",facts:{}});
+  bundle.edgar!.registrant={...bundle.edgar!.registrant,forms:["20-F","6-K"]} as NonNullable<typeof bundle.edgar>["registrant"];
+  const note=assessment.statementEvidenceNotes(bundle).join(" ");
+  expect(note).toContain("vendor data, not checked against a filing");
+  expect(note).not.toContain("accounting-framework");
+});
+
+
+it("D-287 review: a withheld liquidity total occupies the same row in all reader surfaces", () => {
+  const bundle=completeCurrencyBundle({}); const computed=runStageB(bundle);
+  if(!computed.capital.current) throw Error("fixture current capital");
+  computed.capital.current.debtBridge.cashAndShortTermInvestments=null;
+  computed.gaps.push({field:`statements.balance.${computed.capital.current.asOf}.shortTermInvestments`,reason:"scope unproved",severity:"info"});
+  const report=applyFinancialDiagnostics(task28SentinelReport(),computed,bundle);
+  const tables=unavailableLiquidityTable(report.balanceSheet.debtProfile.commentary);
+  expect(tables[0]?.rows[0]).toEqual(["Cash and short-term investments","Unavailable",expect.stringContaining("separation from cash")]);
+  for(const text of [reportToMarkdown(report),reportToPrintBody(report),renderToStaticMarkup(createElement(BalanceSheetSection,{balanceSheet:report.balanceSheet,index:7,report}))]) {
+    expect(text).toContain("Cash and short-term investments");
+    expect(text).toContain("Unavailable");
+    expect(text).toContain("separation from cash");
+  }
+});
+
+it("D-287 review: an unadjusted FCF series never claims an after-SBC deduction", () => {
+  const bundle=completeCurrencyBundle({});const computed=runStageB(bundle);
+  computed.capital.fcf.series[0]!.stockBasedCompensation=null;
+  const report=task28SentinelReport();report.fundamentals.fcf=[{label:"Free cash flow (after SBC, house default)",values:[{period:"FY2025",value:{value:10,unit:"currency",currency:"USD",source:"computed.capital.fcf",asOf:"2025-12-31",verified:true}}]}];
+  expect(applyFinancialDiagnostics(report,computed,bundle).fundamentals.fcf[0]!.label).toContain("otherwise before SBC");
+});
+
+
+it("D-290 review: the vendor limitation is in the quarterly table caption", () => {
+  const disclosures=buildFilingDisclosures(completeCurrencyBundle({}));
+  if(!disclosures)throw Error("fixture disclosures");
+  const note="Vendor interim figures: vendor data, not checked against a filing.";
+  disclosures.notes.push(note);
+  const trend=filingDisclosureTables(disclosures,"fundamentals").find(table=>table.heading.startsWith("Quarterly trend"));
+  expect(trend?.note).toContain(note);
+});
+
+
+it("D-288 review: a both-present missing-history refusal survives repaired liquidity", () => {
+  const bundle=completeCurrencyBundle({});
+  if(!bundle.statements.balanceAnnual.ok)throw Error("fixture");
+  bundle.statements.balanceAnnual.value.data.rows.forEach(row=>{row.cashConflictReconciled=true;});
+  const computed=runStageB(bundle);
+  expect(computed.returns.roic.latestRoicPct).not.toBeNull();
+  expect(computed.returns.wacc.waccPct).not.toBeNull();
+  expect(computed.returns.roicVsWacc.note).toContain("no WACC history point");
+  expect(computed.returns.roicVsWacc.note).not.toBe("ROIC minus WACC withheld because ");
+});
+
+
+it("D-290 review: a filed XBRL quarter is a control for the interim vendor label", () => {
+  const bundle=completeCurrencyBundle({});
+  withIssuerFacts(bundle,{cik:1,entityName:"Transition filer",facts:{"us-gaap":{RevenueFromContractWithCustomerExcludingAssessedTax:{units:{USD:[{start:"2026-01-01",end:"2026-03-31",val:123,form:"10-Q",filed:"2026-04-15",accn:"0000000001-26-000001"}]}}}}});
+  bundle.edgar!.registrant={...bundle.edgar!.registrant,forms:["6-K","10-Q"]} as NonNullable<typeof bundle.edgar>["registrant"];
+  if(!bundle.statements.incomeQuarterly.ok)throw Error("fixture");
+  bundle.statements.incomeQuarterly.value.data.rows=[{date:"2026-03-31",periodStart:"2026-01-01",reportedCurrency:"USD",revenue:123}];
+  expect(assessment.statementEvidenceEntries(bundle)).toEqual([]);
 });

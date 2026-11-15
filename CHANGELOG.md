@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.93.0** and
-payload **1.107.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.94.0** and
+payload **1.108.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,14 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - W3 review corrections (D-286-D-290)
+
+- Pair fiscal ROIC with the same fiscal-year WACC history point, retaining current beta, equity risk premium and weights; missing inputs and missing history state their own cause.
+- Label vendor interim periods from the retained 6-K/no-quarter-XBRL shape; separate ADS precision from cash-flow and interim notes. The requested vendor-unverified grade reason has no existing P12 code and remains pending a lead decision; the incorrect financial-evidence-blocked assignment is removed.
+- Quarterly captions carry the vendor limitation. A withheld combined-liquidity total has an Unavailable row and reason in app, Markdown and print. FCF series disclose periods where SBC was not deducted.
+- Read predecessor fetched-at from the predecessor receipt. A filed zero investment is not an omission witness.
+- Report 1.94.0, payload 1.108.0, Stage B `STAGE_B_2026_11_COMPLETE_RATIO_INPUTS_81`, pipeline `stage-c-1.6.49`; score bands unchanged.
 
 ## Unreleased - Model-value move check and the LLY trace (P16, P17, P27, D-281, D-291) (2026-11-14)
 

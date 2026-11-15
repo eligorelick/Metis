@@ -1,3 +1,4 @@
+import type { ReportAuditTable } from "@/report/auditTables";
 import { qualifiedGradeLabel } from "@/report/assessment";
 import { supplementalNumericInventoryText } from "@/report/supplementalNumericAudit";
 import { passBaseName, passAttemptName, FAILED_PASS_NOTE, type ExecutionMetadataEntry } from "@/report/execution";
@@ -3040,4 +3041,11 @@ export function scenarioTargetsCaveat(scenarioTargets: ScenarioTargets | undefin
   return scenarioTargets.status === "available"
     ? `Price targets are computed-derived (${escape(scenarioTargets.method)}), not analyst targets. ${escape(displayProse(scenarioTargets.basis.join(" ")))}`
     : `Scenario price targets suppressed — ${escape(scenarioTargets.missingReasons.map((m) => m.reason).join("; ") || scenarioTargets.basis.join(" "))}`;
+}
+
+
+/** D-287 review: a disclosed liquidity gap occupies a row on every surface. */
+export function unavailableLiquidityTable(commentary: readonly import("@/report/schema").SourcedClaim[]): ReportAuditTable[] {
+  const gap = commentary.find(claim => (claim.sourceId ?? claim.source) === "computed.capital.current.debtBridge.cashAndShortTermInvestments.unavailable");
+  return gap ? [{ heading: "Liquidity", headers: ["Metric", "Value", "Reason"], rows: [["Cash and short-term investments", "Unavailable", gap.text]] }] : [];
 }

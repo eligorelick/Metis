@@ -1,16 +1,16 @@
 {
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
-  "payloadVersion": "1.107.0",
-  "fingerprint": "1.107.0:5484560a",
-  "summary": {"promptBytes": 187018, "promptFnv1a32": "5484560a", "provenanceCount": 550, "provenanceHash": "bfbdbab5", "provenanceIdsHash": "24194465", "citationCount": 88, "citationHash": "10476af5", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "44d35352"},
+  "payloadVersion": "1.108.0",
+  "fingerprint": "1.108.0:10db7419",
+  "summary": {"promptBytes": 187251, "promptFnv1a32": "10db7419", "provenanceCount": 550, "provenanceHash": "bfbdbab5", "provenanceIdsHash": "24194465", "citationCount": 88, "citationHash": "10476af5", "computedFigureLabelHash": "0212433e", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "44d35352"},
   "prompt": {
-    "bytes": 187018,
-    "sha256": "2731631e5c9ebf30e205d5acfbe326705cce868e413a06882478548b67b9c2b5",
+    "bytes": 187251,
+    "sha256": "36fe3dce91ea38db32fc696a536abdffa196d8bad6fa990a68a80198b94520e8",
     "sections": [
-      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "44a836d707eb6e07969254c6ee259890563226c7e6292e540c8012a68f883eed"},
+      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "8a1da69cf27f9e1c7864e20b2f2dc6aaf795e3b1bf50a0c1f5f93eff81a58b4a"},
       {"heading": "## Quote", "bytes": 520, "sha256": "5146e60fd664d5a82bbbf06b3413303e1136d43422948e7ad1e8c645380d4026"},
       {"heading": "## Growth & margins (computed)", "bytes": 2984, "sha256": "0a99f8d4e346e47a0c3816bac522e18117123512e830df57a2ae624db2407749"},
-      {"heading": "## Returns (computed)", "bytes": 4391, "sha256": "fa67739d9c23dd8162cf833873d990bbf9223365b06ce104097c66cf68f158e8"},
+      {"heading": "## Returns (computed)", "bytes": 4582, "sha256": "a86fc8e32c22c9e7afaced0707f457d1454604f5192c00cc0508647660ae2125"},
       {"heading": "## Capital & cash (computed)", "bytes": 3609, "sha256": "6599bf014c4c99d1bb71c08b9cf96341e7f48ceba152a9aec566937e0822e76b"},
       {"heading": "## Forensics (computed)", "bytes": 7550, "sha256": "b095b7c9f1c177c8ea279e726ca3f459a5a43bf43be2442d0a7673a408ac67e3"},
       {"heading": "## Current capital (computed)", "bytes": 3650, "sha256": "3abbe62565f67b2a22b3c906adb43c44608406627f74b729cbe049715d1a7d60"},
@@ -41,7 +41,7 @@
       {"heading": "## Provider transcript/filing excerpt (untrusted source data)", "bytes": 42429, "sha256": "142ad099d12461e67d7228103d1f0a373f126d4271501a0c4c221125bcc46615"},
       {"heading": "## Provider news/press snippets (untrusted source data)", "bytes": 314, "sha256": "5188737400534b60ef1e78266e8a1e16b0ea53af3b87978db4ae3258c80674d1"},
       {"heading": "## Data-quality flags (Stage A validation; untrusted provider data)", "bytes": 796, "sha256": "bd25f9b7783f7e0714ee8cb26ac9a3a541a7bd23915bda9a7b8cd5e2fcffde84"},
-      {"heading": "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "bytes": 9191, "sha256": "5e768db9b02817879f542f777911db995301fdc22bbf1e37d0ee86f9ece2a6e7"}
+      {"heading": "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "bytes": 9233, "sha256": "6f2ca12c7c4b1320e9b9f34a58216dc7df790f636100985251ed59686e59b66d"}
     ]
   },
   "projectionPathPeriodMatrix": [
@@ -169,7 +169,7 @@
       "operating margin (latest)",
       "net margin (latest)"
     ],
-    ["WACC", "cost of equity", "cost of debt (pre-tax)", "risk-free rate", "ERP used", "beta (final)", "ROIC (latest)", "ROE (latest, DuPont)", "ROIC − WACC spread"],
+    ["WACC", "cost of equity", "cost of debt (pre-tax)", "risk-free rate", "ERP used", "beta (final)", "ROIC (latest)", "ROE (latest, DuPont)", "ROIC − fiscal-year-end WACC spread (current beta, equity risk premium and weights)"],
     [
       "latest FCF (after SBC, house default)",
       "latest FCF (before SBC, vendor convention)",
@@ -5881,7 +5881,7 @@
     {"id": "fmp:key-executives", "kind": "payload-text", "asOf": null, "origin": "fmp:key-executives"}
   ],
   "payload": {
-    "payloadVersion": "1.107.0",
+    "payloadVersion": "1.108.0",
     "symbol": "AAPL",
     "companyName": "Apple Inc.",
     "route": {"base": "general", "overlays": [], "sector": "Technology", "industry": "Consumer Electronics"},
@@ -5976,13 +5976,14 @@
           {"label": "beta (final)", "value": 1.1333333333333333, "unit": "x", "source": "computed.returns.wacc.beta", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.returns.beta-final"},
           {"label": "ROIC (latest)", "value": 105.00113682333176, "unit": "%", "source": "computed.returns.roic", "asOf": "2025-09-27", "period": "2025-09-27", "fiscalPeriod": "FY2025", "currency": null, "provenanceId": "computed.returns.roic-latest"},
           {"label": "ROE (latest, DuPont)", "value": 183.69823698236982, "unit": "%", "source": "computed.returns.dupont", "asOf": "2025-09-27", "period": "2025-09-27", "fiscalPeriod": "FY2025", "currency": null, "provenanceId": "computed.returns.roe-latest-dupont"},
-          {"label": "ROIC − WACC spread", "value": null, "unit": "pp", "source": "computed.returns.roicVsWacc", "asOf": "2025-09-27", "currency": null, "period": null}
+          {"label": "ROIC − fiscal-year-end WACC spread (current beta, equity risk premium and weights)", "value": null, "unit": "pp", "source": "computed.returns.roicVsWacc", "asOf": "2025-09-27", "currency": null, "period": null}
         ],
         "notes": [
           "Blume adjustment: beta_adj = 0.667·raw + 0.333 (the Bloomberg 2/3–1/3 weighting, research §7.1)",
           "ERP fallback 4.18% used (Damodaran implied ERP (trailing 12-month adjusted payout), as of 2026-07-01) — input missing",
           "effective cost of debt 3.7362% accepted (band [rf − 1, rf + 19] = [3.4, 23.4]%)",
           "debt weight uses book totalDebt on the retained calculation basis, the latest balance (2026-03-28), the one the EV bridge nets (lease evidence: 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (no quarter-end balance four quarters back, so TTM interest is measured against fiscal-year-end debt) (retained lease coverage: 2025-09-27: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-09-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted)",
+          "ROIC vs WACC spread withheld: no WACC history point for 2025-09-27; no fred:DGS10 observation on or before 2025-09-27.",
           "WACC 8.9575%: risk-free 4.4% (fred:DGS10, observation 2026-07-04); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1.1333 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.2 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.1373%; pre-tax cost of debt 3.7362% (effective); tax rate 15% (FMP ratios effectiveTaxRate (observed effective rate)); E 96.9828% / D 3.0172% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2026-03-28), the one the EV bridge nets (lease evidence: 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (no quarter-end balance four quarters back, so TTM interest is measured against fiscal-year-end debt) (retained lease coverage: 2025-09-27: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-09-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))",
           "per-fiscal-year WACC unavailable: no fred:DGS10 observation on or before 2021-09-25; no fred:DGS10 observation on or before 2022-09-24; no fred:DGS10 observation on or before 2023-09-30; no fred:DGS10 observation on or before 2024-09-28; no fred:DGS10 observation on or before 2025-09-27"
         ]
@@ -9041,7 +9042,7 @@
         "attemptedSources": ["fmp:/stable/income-statement?period=quarter", "fmp:/stable/profile.ipoDate"]
       },
       {"field": "scores.balanceSheet.fcfConversionBeforeSbc", "severity": "info", "reason": "fcfConversionBeforeSbc withheld: consolidated net income (including noncontrolling interests' share) (computed.capital.current.netIncome) is missing or refused; FCF / consolidated net income (computed.capital.current.fcfConversionBeforeSbc) is missing or refused."},
-      {"field": "scores.balanceSheet.sbcPctOfFcf", "severity": "info", "reason": "sbcPctOfFcf withheld: SBC (computed.capital.current.cashBridge.stockBasedCompensation) is missing or refused; SBC / FCF before SBC, percent (computed.capital.current.sbcPctOfFcf) is missing or refused."},
+      {"field": "scores.balanceSheet.sbcPctOfFcf", "severity": "info", "reason": "Stock-based compensation as a share of free cash flow withheld: SBC (computed.capital.current.cashBridge.stockBasedCompensation) is missing or refused; SBC / FCF before SBC, percent (computed.capital.current.sbcPctOfFcf) is missing or refused."},
       {"field": "scores.leadership.buybackTiming", "severity": "info", "reason": "buybackTiming withheld: share of repurchase dollars covered, percent (computed.capital.buybackPriceAnalysis.timingCoveragePct) is missing or refused. This same-year execution-price comparison does not assess contemporaneous intrinsic-value discipline."},
       {
         "field": "scores.quality.altmanZOriginalScale",

@@ -1,3 +1,4 @@
+import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, conceptFactsSchema, parseFactPoints } from "@/edgar/xbrl";
 import type { DataBundle } from "@/pipeline/types";
 import { ScoreAspectSchema, type AspectScore, type GradeBlock, type GradeQualification, type Report, type Scoring, type ScoreAspect, type ValuationUse } from "@/report/schema";
 import type { ManifestEntry } from "@/types/core";
@@ -242,18 +243,33 @@ export type FinancialEvidenceQualification = {
 };
 
 /** D-290 (P12): one qualification shared by the calculation and statement tables. */
-export function statementEvidenceNotes(bundle: DataBundle): string[] {
-  const notes: string[] = [];
-  const profile = bundle.profile?.ok ? bundle.profile.value.data.rows[0] : null;
+export function statementEvidenceEntries(bundle: DataBundle): Array<{ field: "statements.foreignInterim" | "statements.adsEps"; detail: string }> {
+  const notes: Array<{ field: "statements.foreignInterim" | "statements.adsEps"; detail: string }> = [];
   const facts = bundle.edgar?.companyFacts;
-  const foreign = profile?.isAdr === true && facts?.ok && Object.keys(facts.value.data.facts["ifrs-full"] ?? {}).length > 0;
+  const foreignInterim = bundle.edgar?.registrant?.forms?.some(form => /^6-K(?:\/A)?$/.test(form)) ||
+    (bundle.edgar?.currentReports?.ok && bundle.edgar.currentReports.value.data.releases.some(release => release.form === "6-K"));
   const quarters = bundle.statements?.incomeQuarterly;
-  if (foreign && quarters?.ok && quarters.value.data.rows.some(row => row.source !== "edgar" && !row.fieldProvenance?.revenue)) notes.push(
-    "Foreign interim figures: vendor data, not checked against a filing. Annual and interim accounting-framework compatibility is not established; TTM and derived fourth-quarter figures combining those series share that limitation.");
+  const filedPoints = foreignInterim && facts?.ok && facts.value.source === "edgar" ? Object.values(facts.value.data.facts).flatMap(namespace => Object.values(namespace ?? {}).flatMap(concept => {
+    const parsed = conceptFactsSchema.safeParse(concept);
+    return parsed.success ? Object.values(parsed.data.units).flatMap(points => parseFactPoints(points)) : [];
+  })) : [];
+  const unverified = foreignInterim && quarters?.ok && quarters.value.data.rows.some(row => row.source !== "edgar" &&
+    !(row.fieldProvenance?.revenue?.source === "edgar" && row.fieldProvenance.revenue.periodEnd === row.date) &&
+    !filedPoints.some(point => point.end === row.date && point.start && CORE_FACT_FORMS.has(point.form) && point.filed <= bundle.builtAt.slice(0,10) &&
+      (!row.periodStart || point.start === row.periodStart) &&
+      (Date.parse(point.end)-Date.parse(point.start))/86400000 >= QUARTER_DURATION_DAYS[0] &&
+      (Date.parse(point.end)-Date.parse(point.start))/86400000 <= QUARTER_DURATION_DAYS[1]));
+  if (unverified) notes.push({ field: "statements.foreignInterim", detail: "Vendor interim figures: vendor data, not checked against a filing." +
+    (facts?.ok && Object.keys(facts.value.data.facts["ifrs-full"] ?? {}).length > 0
+      ? " Annual and interim accounting-framework compatibility is not established; TTM and derived fourth-quarter figures combining those series share that limitation." : "") });
   const derivedAds = [bundle.statements?.incomeAnnual, bundle.statements?.incomeQuarterly].some(input => input?.ok && input.value.data.rows.some(row =>
     ["eps", "epsDiluted"].some(field => (row.fieldProvenance?.[field]?.shareUnitConversion?.ordinarySharesPerQuotedUnit ?? 1) !== 1)));
-  if (derivedAds) notes.push("ADS EPS is derived (ordinary EPS times ADS ratio); rounded ordinary EPS does not establish the exact filed ADS amount.");
+  if (derivedAds) notes.push({ field: "statements.adsEps", detail: "ADS EPS is derived (ordinary EPS times ADS ratio); rounded ordinary EPS does not establish the exact filed ADS amount." });
   return notes;
+}
+
+export function statementEvidenceNotes(bundle: DataBundle): string[] {
+  return statementEvidenceEntries(bundle).map(entry => entry.detail);
 }
 
 export function financialEvidenceQualifications(gaps: readonly ManifestEntry[], operatingEvidence: WaccOperatingEvidence | null): FinancialEvidenceQualification[] {
@@ -265,7 +281,7 @@ export function financialEvidenceQualifications(gaps: readonly ManifestEntry[], 
   for (const gap of gaps) {
     if (gap.field.endsWith(".cashBasis")) result.push({ code: "cash-only-liquidity", field: gap.field, detail: gap.reason, affectedAspects: ["valuation", "quality", "moat", "balanceSheet"] });
     const aspects = affected[gap.field.split(".")[0]!];
-    if ((gap.severity === "critical" || gap.field === "statements.foreignInterim") && gap.expected !== true && aspects) result.push({
+    if (gap.severity === "critical" && gap.expected !== true && aspects) result.push({
       code: "financial-evidence-blocked", field: gap.field, detail: gap.reason, affectedAspects: aspects,
     });
   }

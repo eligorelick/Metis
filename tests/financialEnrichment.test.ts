@@ -294,3 +294,9 @@ describe("D-287 incomplete liquidity", () => {
 it("D-287 withholds an SBC zero even when issuer facts are unavailable", () => {
   expect(admitStockCompensation({ date: "2026-06-30", stockBasedCompensation: 0 }, null, "quarter", observedAt).row.stockBasedCompensation).toBeNull();
 });
+
+
+it("D-287 review: a filed zero investment is not an investment witness", () => {
+  const row = { date: "2026-06-30", reportedCurrency: "USD", cashAndCashEquivalents: 50e6, shortTermInvestments: 0, cashAndShortTermInvestments: 50e6 };
+  expect(admitBalanceCash(row, facts({ CashAndCashEquivalentsAtCarryingValue: [point(50e6)], ShortTermInvestments: [point(0)] }), "quarter", observedAt).row.cashAndShortTermInvestments).toBe(50e6);
+});

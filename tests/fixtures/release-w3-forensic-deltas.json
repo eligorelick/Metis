@@ -15,7 +15,24 @@
       "note"
     ],
     "before": "spread = ROIC 41.8264% \u2212 WACC 8.18% (positive = returns above cost of capital)",
-    "after": "ROIC vs WACC spread withheld: ROIC date 2025-12-31 and WACC date 2026-07-04 are not established on one date."
+    "after": "ROIC vs WACC spread withheld: no WACC history point for 2025-12-31; no fred:DGS10 observations supplied."
+  },
+  {
+    "path": [
+      "returns",
+      "notes"
+    ],
+    "before": [
+      "WACC interest expense and EBIT: the TTM pair is incomplete (interest expense suppressed or unreported) \u2014 the latest annual FY (2025-12-31) figures are used for BOTH legs so the coverage ratio stays on one basis",
+      "WACC 8.18%: risk-free 4% (fmp:treasury-rates.year10, observation 2026-07-04); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667\u00b7raw + 0.333), clamped [0.6, 2], raw 1 \u2014 vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))",
+      "per-fiscal-year WACC unavailable: no fred:DGS10 observations supplied"
+    ],
+    "after": [
+      "WACC interest expense and EBIT: the TTM pair is incomplete (interest expense suppressed or unreported) \u2014 the latest annual FY (2025-12-31) figures are used for BOTH legs so the coverage ratio stays on one basis",
+      "ROIC vs WACC spread withheld: no WACC history point for 2025-12-31; no fred:DGS10 observations supplied.",
+      "WACC 8.18%: risk-free 4% (fmp:treasury-rates.year10, observation 2026-07-04); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667\u00b7raw + 0.333), clamped [0.6, 2], raw 1 \u2014 vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))",
+      "per-fiscal-year WACC unavailable: no fred:DGS10 observations supplied"
+    ]
   },
   {
     "path": [

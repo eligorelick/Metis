@@ -1043,7 +1043,7 @@ export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts:
 /** Blocking observations only: a dated primary table can refute absence without admitting its dimensional amount. */
 function investmentObservations(facts: CompanyFacts, unit: string, end: string, observedAt: string, sections: readonly ExtractedSection[]): string[] {
   const roots = tagsFor("shortTermInvestments").flatMap(tag => points(facts, tag, unit, observedAt)
-    .filter(p => p.end === end && !p.start).map(p => `us-gaap/${tag}, instant ${end}, filing ${p.accn}`));
+    .filter(p => p.end === end && !p.start && p.val > 0).map(p => `us-gaap/${tag}, instant ${end}, filing ${p.accn}`));
   for (const section of sections) {
     if (!CORE_FACT_FORMS.has(section.form ?? "") || !section.filingDate || section.filingDate > observedAt.slice(0, 10)) continue;
     try { const url = new URL(section.documentUrl); if (url.origin !== "https://www.sec.gov" ||

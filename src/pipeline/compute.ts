@@ -1,6 +1,6 @@
 import { withReleaseQuarterEarnings } from "./releaseQuarterEarnings";
 import { forwardAnnualEstimates } from "./forwardEstimates";
-import { statementEvidenceNotes, withAssessmentQualification, financialEvidenceQualifications } from "@/report/assessment";
+import { statementEvidenceEntries, withAssessmentQualification, financialEvidenceQualifications } from "@/report/assessment";
 import { resolveForeignValuation, translateValuationInputs, translateProjectionInputs, type ForeignValuationBasis } from "@/pipeline/foreignCurrency";
 import { derivedMarketCapShareDate, isDerivedMarketCapRow } from "@/pipeline/keyless";
 import { convertibleInstrumentsAt, foldConvertiblePreferred } from "@/pipeline/stageB/convertibles";
@@ -83,7 +83,7 @@ import {
   computeRote,
   incomeAvailableToCommon,
   computeDupont,
-  computeRoicVsWaccSpread,
+  computeFiscalRoicVsWaccSpread,
   type WaccResult,
   type WaccOperatingEvidence,
   type RoicResult,
@@ -2247,7 +2247,7 @@ function filedCommonEarningsView(bundle: DataBundle): DataBundle {
   const rows = input.value.data.rows.map(row => {
     const rowFacts = statementIssuerFacts(bundle.symbol, bundle.edgar, row.cik, bundle.builtAt) ?? facts;
     const supplemented = supplementCommonEarnings({ ...input, value: { ...input.value, data: { ...input.value.data, rows: [row] } } },
-      bundle.statements.balanceAnnual, rowFacts, bundle.builtAt.slice(0, 10), admitted.value.fetchedAt,
+      bundle.statements.balanceAnnual, rowFacts, bundle.builtAt.slice(0, 10), rowFacts === facts ? admitted.value.fetchedAt : bundle.edgar.predecessor!.fetchedAt,
       candidate => (candidate.cik == null || Number(candidate.cik) === rowFacts.cik) && preferredClaimsInFlow(commonFlowScope(candidate, "netIncome", "annual"), balances, cash));
     gaps.push(...supplemented.gaps);
     return supplemented.income.ok ? supplemented.income.value.data.rows[0]! : row;
@@ -2333,10 +2333,11 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   if (!support.supported) throw new UnsupportedInstrumentError(support);
   bundle = withCashFlowSbcBasis(withPrimaryCapitalBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))))));
   bundle = balanceIntegrityView(bundle);
-  const statementQualifications = statementEvidenceNotes(bundle);
+  const statementEvidence = statementEvidenceEntries(bundle);
+  const statementQualifications = statementEvidence.map(entry => entry.detail);
   notes.push(...statementQualifications);
   if (statementQualifications.length) bundle = { ...bundle, gaps: [...bundle.gaps,
-    { field: "statements.foreignInterim", reason: statementQualifications.join(" "), severity: "info" }] };
+    ...statementEvidence.map(entry => ({ field: entry.field, reason: entry.detail, severity: "info" as const }))] };
 
   bundle = preferredCapitalView(bundle);
   bundle = filedCommonEarningsView(bundle);
@@ -2793,7 +2794,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     annualBalance: balanceAnnual[0] ? toCapitalBalance(balanceAnnual[0], leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null,
   });
 
-  if (capital.current && statementQualifications.length) capital.current.cashBridge.definition += ` ${statementQualifications.join(" ")}`;
+  if (capital.current) capital.current.cashBridge.definition += statementEvidence.filter(entry => entry.field === "statements.foreignInterim").map(entry => ` ${entry.detail}`).join("");
   if (lendingCashFlow) applyLenderCapitalApplicability(capital, lendingCashFlow.reason);
   if (lendingCashFlow?.debtPerimeter && capital.current?.asOf === lendingCashFlow.asOf) {
     const p = lendingCashFlow.debtPerimeter;
@@ -3231,7 +3232,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   // it withholds an applicable signal. Route-suppressed signals are not gaps.
   const latestRoicGap = returns.roic.gaps.find(gap => gap.field === `returns.roic.${returns.roic.asOf}`)
     ?? returns.roic.gaps.find(gap => gap.field === "returns.roic");
-  if (balanceAnnual.some(row => row.cashConflictReconciled) && returns.roicVsWacc.spreadPctPts === null && !policy.suppress.includes("roicVsWacc")) {
+  if ((returns.roic.latestRoicPct === null || returns.wacc.waccPct === null) && balanceAnnual.some(row => row.cashConflictReconciled) && returns.roicVsWacc.spreadPctPts === null && !policy.suppress.includes("roicVsWacc")) {
     const causes = [returns.roic.latestRoicPct === null ? latestRoicGap?.reason ?? "latest fiscal-year ROIC is unavailable" : null,
       returns.wacc.waccPct === null ? returns.wacc.gaps.find(gap => gap.severity === "critical")?.reason
         ?? returns.wacc.gaps[0]?.reason ?? "WACC is unavailable" : null].filter(Boolean).join("; ");
@@ -3963,7 +3964,6 @@ function computeReturns(
     : null;
   if (commonReturnTtm !== null) notes.push(commonReturnTtm.basisText);
   const dupont = computeDupont(returnsIncome, returnsBalance);
-  const roicVsWacc = computeRoicVsWaccSpread(roic.latestRoicPct, wacc.waccPct, { roic: roic.asOf, wacc: wacc.asOf?.riskFreeRate ?? null });
 
   // WS6 (D-19): recompute the WACC at each ROIC fiscal year end from that
   // year's own FRED observation. The bundle fetches DGS10 five years back, so
@@ -3975,6 +3975,8 @@ function computeReturns(
     riskFreeObservations(bundle),
     { seriesId: WACC_HISTORY_RF_SERIES_ID },
   );
+  const roicVsWacc = computeFiscalRoicVsWaccSpread(roic.latestRoicPct, wacc.waccPct, roic.series.at(-1)?.date ?? roic.asOf, waccHistory);
+  notes.push(roicVsWacc.note);
   const waccInputs = waccDisclosure(wacc);
   if (equityScope.approximation) waccInputs.summary += ` ${conversionRightsNote(equityScope.approximation)}`;
   notes.push(waccInputs.summary);

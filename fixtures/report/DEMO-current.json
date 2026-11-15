@@ -21,17 +21,17 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.93.0",
+    "specVersion": "1.94.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.93.0",
+    "pipelineVersion": "1.94.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
-    "verificationRate": 0.8515901060070671,
+    "verificationRate": 0.8501742160278746,
     "provenanceCoverage": {
       "numeric": {
-        "supported": 241,
-        "total": 283,
-        "rate": 0.8515901060070671
+        "supported": 244,
+        "total": 287,
+        "rate": 0.8501742160278746
       },
       "factualClaims": {
         "supported": 42,
@@ -380,23 +380,16 @@
         ]
       },
       "quality": {
-        "grade": "D",
-        "assessmentStatus": "limited-evidence",
+        "grade": "B",
+        "assessmentStatus": "deterministic",
         "qualification": {
-          "status": "provisional",
-          "reasons": [
-            {
-              "code": "limited-applicable-evidence",
-              "aspect": "quality",
-              "field": "scores.aspects.quality",
-              "detail": "Quality has limited evidence (score 54/100 on 39.2% of signals)."
-            }
-          ]
+          "status": "supported",
+          "reasons": []
         },
         "gradeContract": {
           "version": "GRADE_OVERRIDE_1",
-          "originalBand": "D",
-          "proposedGrade": "D",
+          "originalBand": "B",
+          "proposedGrade": "B",
           "distance": 0,
           "status": "unchanged",
           "reason": "matches-deterministic-band"
@@ -418,13 +411,17 @@
             "asOf": "2025-12-31"
           }
         ],
-        "confidence": "low",
-        "confidenceCap": {
-          "from": "medium",
-          "to": "low",
-          "reason": "the deterministic quality score rests on under half of the inputs its route supports"
-        },
+        "confidence": "medium",
         "keyNumbers": [
+          {
+            "value": 33.646420355524576,
+            "unit": "pp",
+            "period": "Fiscal year end 2025-12-31",
+            "sourceId": "computed.scores.quality.roicVsWaccSpread",
+            "source": "computed.scores.quality.roicVsWaccSpread",
+            "asOf": "2025-12-31",
+            "verified": true
+          },
           {
             "value": 0.6,
             "unit": "frac",
@@ -1562,6 +1559,24 @@
               "sourceId": "computed.returns.wacc.costOfEquity",
               "source": "computed.returns.wacc.costOfEquity",
               "asOf": "2026-07-02",
+              "verified": false,
+              "verificationNote": "[unverified] unknown-source"
+            }
+          }
+        ]
+      },
+      {
+        "label": "ROIC − WACC spread",
+        "values": [
+          {
+            "period": "latest",
+            "value": {
+              "value": 33.64642,
+              "unit": "pp",
+              "period": "latest",
+              "sourceId": "computed.returns.roicVsWacc",
+              "source": "computed.returns.roicVsWacc",
+              "asOf": "2025-12-31",
               "verified": false,
               "verificationNote": "[unverified] unknown-source"
             }
@@ -2907,23 +2922,16 @@
   },
   "quality": {
     "graded": {
-      "grade": "D",
-      "assessmentStatus": "limited-evidence",
+      "grade": "B",
+      "assessmentStatus": "deterministic",
       "qualification": {
-        "status": "provisional",
-        "reasons": [
-          {
-            "code": "limited-applicable-evidence",
-            "aspect": "quality",
-            "field": "scores.aspects.quality",
-            "detail": "Quality has limited evidence (score 54/100 on 39.2% of signals)."
-          }
-        ]
+        "status": "supported",
+        "reasons": []
       },
       "gradeContract": {
         "version": "GRADE_OVERRIDE_1",
-        "originalBand": "D",
-        "proposedGrade": "D",
+        "originalBand": "B",
+        "proposedGrade": "B",
         "distance": 0,
         "status": "unchanged",
         "reason": "matches-deterministic-band"
@@ -2945,13 +2953,17 @@
           "asOf": "2025-12-31"
         }
       ],
-      "confidence": "low",
-      "confidenceCap": {
-        "from": "medium",
-        "to": "low",
-        "reason": "the deterministic quality score rests on under half of the inputs its route supports"
-      },
+      "confidence": "medium",
       "keyNumbers": [
+        {
+          "value": 33.646420355524576,
+          "unit": "pp",
+          "period": "Fiscal year end 2025-12-31",
+          "sourceId": "computed.scores.quality.roicVsWaccSpread",
+          "source": "computed.scores.quality.roicVsWaccSpread",
+          "asOf": "2025-12-31",
+          "verified": true
+        },
         {
           "value": 0.6,
           "unit": "frac",
@@ -3944,7 +3956,7 @@
       },
       {
         "field": "scores.balanceSheet.sbcPctOfFcf",
-        "reason": "sbcPctOfFcf withheld: SBC (computed.capital.current.cashBridge.stockBasedCompensation) is missing or refused; SBC / FCF before SBC, percent (computed.capital.current.sbcPctOfFcf) is missing or refused.",
+        "reason": "Stock-based compensation as a share of free cash flow withheld: SBC (computed.capital.current.cashBridge.stockBasedCompensation) is missing or refused; SBC / FCF before SBC, percent (computed.capital.current.sbcPctOfFcf) is missing or refused.",
         "severity": "info"
       },
       {
@@ -4033,12 +4045,12 @@
         "severity": "info"
       }
     ],
-    "verificationRate": 0.8515901060070671,
+    "verificationRate": 0.8501742160278746,
     "provenanceCoverage": {
       "numeric": {
-        "supported": 241,
-        "total": 283,
-        "rate": 0.8515901060070671
+        "supported": 244,
+        "total": 287,
+        "rate": 0.8501742160278746
       },
       "factualClaims": {
         "supported": 42,
@@ -4165,11 +4177,22 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "0.6 frac [computed.scores.quality.piotroskiF · 2025-12-31]",
+        "claim": "33.646420355524576 pp [computed.scores.quality.roicVsWaccSpread · 2025-12-31]",
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
         "path": "verdict.gradeStrip.quality.keyNumbers[0]",
+        "evidenceKind": "number",
+        "source": "computed.scores.quality.roicVsWaccSpread",
+        "reason": "supported",
+        "traceKind": "computed-derived"
+      },
+      {
+        "claim": "0.6 frac [computed.scores.quality.piotroskiF · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
+        "path": "verdict.gradeStrip.quality.keyNumbers[1]",
         "evidenceKind": "number",
         "source": "computed.scores.quality.piotroskiF",
         "reason": "supported",
@@ -4180,7 +4203,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[1]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[2]",
         "evidenceKind": "number",
         "source": "computed.scores.quality.accrualsRatioAbs",
         "reason": "supported",
@@ -4191,7 +4214,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[2]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[3]",
         "evidenceKind": "number",
         "source": "computed.scores.quality.beneishM",
         "reason": "supported",
@@ -4202,7 +4225,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[3]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[4]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.cashFlowAccrualRatio",
         "reason": "supported",
@@ -4213,7 +4236,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[4]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[5]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.balanceSheetAccrualRatio",
         "reason": "supported",
@@ -4224,7 +4247,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[5]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[6]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.aggregateAccrualsCashFlow",
         "reason": "supported",
@@ -4235,7 +4258,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[6]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[7]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.aggregateAccrualsBalanceSheet",
         "reason": "supported",
@@ -4246,7 +4269,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[7]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[8]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.noaCurrent",
         "reason": "supported",
@@ -4257,7 +4280,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[8]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[9]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.noaPrior",
         "reason": "supported",
@@ -4268,7 +4291,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[9]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[10]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.scalerValue",
         "reason": "supported",
@@ -4279,7 +4302,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[10]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[11]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.netIncome",
         "reason": "supported",
@@ -4290,7 +4313,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[11]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[12]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.operatingCashFlow",
         "reason": "supported",
@@ -4301,7 +4324,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[12]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[13]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.investingCashFlow",
         "reason": "supported",
@@ -4312,7 +4335,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.quality.keyNumbers[13]",
+        "path": "verdict.gradeStrip.quality.keyNumbers[14]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.operatingAccruals",
         "reason": "supported",
@@ -4814,6 +4837,17 @@
         "traceKind": "untraced"
       },
       {
+        "claim": "33.64642 pp [computed.returns.roicVsWacc · 2025-12-31]",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "note": "[unverified] unknown-source",
+        "path": "fundamentals.returns[5].values[0].value",
+        "evidenceKind": "number",
+        "source": "computed.returns.roicVsWacc",
+        "reason": "unknown-source",
+        "traceKind": "untraced"
+      },
+      {
         "claim": "147000000 currency [computed.capital.fcf · 2023-12-31]",
         "outcome": "unverified",
         "validationStatus": "unchecked",
@@ -5221,11 +5255,22 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "0.6 frac [computed.scores.quality.piotroskiF · 2025-12-31]",
+        "claim": "33.646420355524576 pp [computed.scores.quality.roicVsWaccSpread · 2025-12-31]",
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
         "path": "quality.graded.keyNumbers[0]",
+        "evidenceKind": "number",
+        "source": "computed.scores.quality.roicVsWaccSpread",
+        "reason": "supported",
+        "traceKind": "computed-derived"
+      },
+      {
+        "claim": "0.6 frac [computed.scores.quality.piotroskiF · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
+        "path": "quality.graded.keyNumbers[1]",
         "evidenceKind": "number",
         "source": "computed.scores.quality.piotroskiF",
         "reason": "supported",
@@ -5236,7 +5281,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[1]",
+        "path": "quality.graded.keyNumbers[2]",
         "evidenceKind": "number",
         "source": "computed.scores.quality.accrualsRatioAbs",
         "reason": "supported",
@@ -5247,7 +5292,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[2]",
+        "path": "quality.graded.keyNumbers[3]",
         "evidenceKind": "number",
         "source": "computed.scores.quality.beneishM",
         "reason": "supported",
@@ -5258,7 +5303,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[3]",
+        "path": "quality.graded.keyNumbers[4]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.cashFlowAccrualRatio",
         "reason": "supported",
@@ -5269,7 +5314,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[4]",
+        "path": "quality.graded.keyNumbers[5]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.balanceSheetAccrualRatio",
         "reason": "supported",
@@ -5280,7 +5325,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[5]",
+        "path": "quality.graded.keyNumbers[6]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.aggregateAccrualsCashFlow",
         "reason": "supported",
@@ -5291,7 +5336,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[6]",
+        "path": "quality.graded.keyNumbers[7]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.aggregateAccrualsBalanceSheet",
         "reason": "supported",
@@ -5302,7 +5347,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[7]",
+        "path": "quality.graded.keyNumbers[8]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.noaCurrent",
         "reason": "supported",
@@ -5313,7 +5358,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[8]",
+        "path": "quality.graded.keyNumbers[9]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.noaPrior",
         "reason": "supported",
@@ -5324,7 +5369,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[9]",
+        "path": "quality.graded.keyNumbers[10]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.scalerValue",
         "reason": "supported",
@@ -5335,7 +5380,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[10]",
+        "path": "quality.graded.keyNumbers[11]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.netIncome",
         "reason": "supported",
@@ -5346,7 +5391,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[11]",
+        "path": "quality.graded.keyNumbers[12]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.operatingCashFlow",
         "reason": "supported",
@@ -5357,7 +5402,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[12]",
+        "path": "quality.graded.keyNumbers[13]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.investingCashFlow",
         "reason": "supported",
@@ -5368,7 +5413,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "quality.graded.keyNumbers[13]",
+        "path": "quality.graded.keyNumbers[14]",
         "evidenceKind": "number",
         "source": "computed.forensics.accruals.operatingAccruals",
         "reason": "supported",
@@ -5562,11 +5607,22 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "0.6 frac [computed.scores.quality.piotroskiF · 2025-12-31]",
+        "claim": "33.646420355524576 pp [computed.scores.quality.roicVsWaccSpread · 2025-12-31]",
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
         "path": "scores.aspects.quality.drivers[0]",
+        "evidenceKind": "number",
+        "source": "computed.scores.quality.roicVsWaccSpread",
+        "reason": "supported",
+        "traceKind": "computed-derived"
+      },
+      {
+        "claim": "0.6 frac [computed.scores.quality.piotroskiF · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
+        "path": "scores.aspects.quality.drivers[1]",
         "evidenceKind": "number",
         "source": "computed.scores.quality.piotroskiF",
         "reason": "supported",
@@ -5577,7 +5633,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "scores.aspects.quality.drivers[1]",
+        "path": "scores.aspects.quality.drivers[2]",
         "evidenceKind": "number",
         "source": "computed.scores.quality.accrualsRatioAbs",
         "reason": "supported",
@@ -5588,7 +5644,7 @@
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
-        "path": "scores.aspects.quality.drivers[2]",
+        "path": "scores.aspects.quality.drivers[3]",
         "evidenceKind": "number",
         "source": "computed.scores.quality.beneishM",
         "reason": "supported",
@@ -8534,19 +8590,6 @@
         "traceKind": "value-match"
       },
       {
-        "claim": "Quality has limited evidence (score 54/100 on 39.2% of signals).",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "Value matched; context not confirmed: 39.2%.",
-        "path": "verdict.gradeStrip.quality.qualification.reasons[0].detail",
-        "source": "computed.deterministic-aspect-scores.quality-evidence-completeness",
-        "reason": "supported",
-        "check": "plain-figure",
-        "traceKind": "value-match"
-      },
-      {
         "claim": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals).",
         "outcome": "unverified",
         "validationStatus": "unchecked",
@@ -8581,19 +8624,6 @@
         "note": "Value matched; context not confirmed: 35.3%.",
         "path": "balanceSheet.graded.qualification.reasons[0].detail",
         "source": "computed.deterministic-aspect-scores.balancesheet-evidence-completeness",
-        "reason": "supported",
-        "check": "plain-figure",
-        "traceKind": "value-match"
-      },
-      {
-        "claim": "Quality has limited evidence (score 54/100 on 39.2% of signals).",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "Value matched; context not confirmed: 39.2%.",
-        "path": "quality.graded.qualification.reasons[0].detail",
-        "source": "computed.deterministic-aspect-scores.quality-evidence-completeness",
         "reason": "supported",
         "check": "plain-figure",
         "traceKind": "value-match"
@@ -9689,12 +9719,20 @@
         "note": "Attractiveness vs intrinsic value: DCF upside, reverse-DCF implied vs achievable growth, and where the current multiple RANKS among the issuer's own quarters (a rank within the observed 8-20 quarter sample, not a percentile of a distribution; N is published beside every rendered rank)."
       },
       "quality": {
-        "score": 53.94,
-        "band": "D",
+        "score": 71.89,
+        "band": "B",
         "weightPct": 15,
-        "dataCompleteness": 0.39222222222222225,
-        "applicableCompleteness": 0.39222222222222225,
+        "dataCompleteness": 0.7422222222222222,
+        "applicableCompleteness": 0.7422222222222222,
         "drivers": [
+          {
+            "value": 33.646420355524576,
+            "unit": "pp",
+            "period": "Fiscal year end 2025-12-31",
+            "source": "computed.scores.quality.roicVsWaccSpread",
+            "asOf": "2025-12-31",
+            "verified": true
+          },
           {
             "value": 0.6,
             "unit": "frac",
@@ -9721,6 +9759,37 @@
           }
         ],
         "signals": [
+          {
+            "id": "roicVsWaccSpread",
+            "raw": 33.646420355524576,
+            "unit": "pp",
+            "transformedScore": 92,
+            "signalWeight": 0.35,
+            "evidenceFraction": 1,
+            "effectiveCompositeWeightPct": 5.25,
+            "contributionPoints": 2.205,
+            "family": "capital-returns",
+            "asOf": "2025-12-31",
+            "period": "Fiscal year end 2025-12-31",
+            "startDate": null,
+            "endDate": "2025-12-31",
+            "windowYears": null,
+            "fallbackReason": "spread = ROIC 41.8264% − WACC 8.18% (positive = returns above cost of capital). WACC at fiscal year end: risk-free rate at that date; beta, equity risk premium and weights current. Fiscal year end 2025-12-31; risk-free observation 2025-12-31.",
+            "operands": [
+              {
+                "name": "ROIC",
+                "value": 41.826420355524576,
+                "source": "computed.returns.roic.latestRoicPct",
+                "asOf": "2025-12-31"
+              },
+              {
+                "name": "WACC at fiscal year end",
+                "value": 8.18,
+                "source": "computed.returns.roicVsWacc.waccPct",
+                "asOf": "2025-12-31"
+              }
+            ]
+          },
           {
             "id": "piotroskiF",
             "raw": 0.6,
@@ -10082,7 +10151,7 @@
       }
     },
     "composite": {
-      "score": 63.05,
+      "score": 65.26,
       "band": "C",
       "weights": {
         "fundamentals": 20,
@@ -10093,34 +10162,28 @@
         "leadership": 10,
         "technicals": 5
       },
-      "methodology": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 65.72% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+      "methodology": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 70.97% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
     },
     "bandsVersion": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE",
     "assessments": {
       "businessQuality": {
-        "score": 63.99,
+        "score": 66.93,
         "band": "C",
         "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum.",
-        "evidenceCompleteness": 0.6763054070112894
+        "evidenceCompleteness": 0.7463054070112894
       },
       "valuation": {
         "score": 66.42,
         "band": "C",
         "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
       },
-      "evidenceCompleteness": 0.657229055258467,
+      "evidenceCompleteness": 0.7097290552584671,
       "calibration": "unbacktested-house-rules"
     },
     "qualification": {
       "composite": {
         "status": "provisional",
         "reasons": [
-          {
-            "code": "limited-applicable-evidence",
-            "aspect": "quality",
-            "field": "scores.aspects.quality",
-            "detail": "Quality has limited evidence (score 54/100 on 39.2% of signals)."
-          },
           {
             "code": "limited-applicable-evidence",
             "aspect": "balanceSheet",
@@ -10151,15 +10214,8 @@
           "reasons": []
         },
         "quality": {
-          "status": "provisional",
-          "reasons": [
-            {
-              "code": "limited-applicable-evidence",
-              "aspect": "quality",
-              "field": "scores.aspects.quality",
-              "detail": "Quality has limited evidence (score 54/100 on 39.2% of signals)."
-            }
-          ]
+          "status": "supported",
+          "reasons": []
         },
         "balanceSheet": {
           "status": "provisional",
@@ -10202,6 +10258,11 @@
     },
     "factorExposure": [
       {
+        "family": "capital-returns",
+        "weightPct": 16.5,
+        "aboveNeutralPoints": 7.2675
+      },
+      {
         "family": "growth",
         "weightPct": 14.000000000000002,
         "aboveNeutralPoints": 1.9397633393184035
@@ -10210,11 +10271,6 @@
         "family": "valuation",
         "weightPct": 14,
         "aboveNeutralPoints": 2.299339604305957
-      },
-      {
-        "family": "capital-returns",
-        "weightPct": 11.25,
-        "aboveNeutralPoints": 5.0625
       },
       {
         "family": "profitability",

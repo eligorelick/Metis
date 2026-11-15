@@ -1,6 +1,7 @@
+import * as commonEarningsOwner from "@/pipeline/commonEarnings";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import { statementIssuerFacts } from "@/edgar/issuerFacts";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import { buildDataBundle } from "@/pipeline/dataBundle";
@@ -223,4 +224,21 @@ it("D-286 changes predecessor profit scope without reopening unrelated cash flow
   if (!result.statements.cashflowAnnual.ok) throw Error("fixture");
   expect(result.statements.cashflowAnnual.value.data.rows[0]!.netIncome).toBe(10e6);
   expect(result.statements.cashflowAnnual.value.data.rows[0]!.netCashProvidedByInvestingActivities).toBe(-3e6);
+});
+
+
+it("D-286 review: predecessor supplementation carries its own observed timestamp", () => {
+  const bundle=completeCurrencyBundle({});
+  withIssuerFacts(bundle,{cik:1,entityName:"Successor",facts:{}});
+  const prior={cik:2,entityName:"Predecessor",facts:{}};
+  const fetchedAt="2026-03-01T00:00:00.000Z";
+  bundle.edgar!.predecessor={cik10:"0000000002",facts:prior,name:"Predecessor",endpoint:"https://data.sec.gov/",fetchedAt,
+    via:{form:"8-K12B",filed:"2025-01-01",accession:"0000000001-25-000001",successorFormAccession:"0000000001-25-000002"}};
+  if(!bundle.statements.incomeAnnual.ok)throw Error("fixture");
+  bundle.statements.incomeAnnual.value.data.rows.forEach(row=>{row.cik="2";});
+  const spy=vi.spyOn(commonEarningsOwner,"supplementCommonEarnings");
+  try {
+    runStageB(bundle);
+    expect(spy.mock.calls.some(call=>call[2]===prior && call[4]===fetchedAt)).toBe(true);
+  } finally { spy.mockRestore(); }
 });

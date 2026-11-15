@@ -58,7 +58,7 @@ export function scoreSignalRefusal(i: ScoringInputs, aspect: ScoreAspect, id: st
           : id === "operatingMarginSlope" ? "consecutive admitted revenue and operating-income observations do not establish a margin trend"
             : id === "buybackTiming" ? "filed repurchase cost and shares and a complete same-year average price are not established"
               : `${id}'s source operands are not established`;
-  return `${id} withheld: ${[...new Set(causes)].join("; ") || inputs}. ${causes.length ? inputs + ". " : ""}${evidence.fallbackReason ?? ""}`.trim();
+  return `${id === "sbcPctOfFcf" ? "Stock-based compensation as a share of free cash flow" : id} withheld: ${[...new Set(causes)].join("; ") || inputs}. ${causes.length ? inputs + ". " : ""}${evidence.fallbackReason ?? ""}`.trim();
 }
 
 /** Metadata only: mirror each grader's selected operand and never change its numeric score. */
@@ -164,8 +164,10 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       dates(null, tangible ? i.rote.asOf : i.roic.asOf);
       operand(tangible ? "ROTE" : "ROIC", tangible ? i.rote.latestRotePct : i.roic.latestRoicPct, `${source}.latest${tangible ? "Rote" : "Roic"}Pct`);
       if (id === "roicVsWaccSpread") {
-        operand("WACC", i.wacc.waccPct, "computed.returns.wacc.waccPct", rateDate);
-        result.period = `ROIC period end ${result.endDate ?? "unavailable"}; WACC observation ${rateDate ?? "unavailable"}`;
+        dates(null, i.roicVsWacc.asOf ?? i.roic.asOf);
+        operand("WACC at fiscal year end", i.roicVsWacc.waccPct ?? null, "computed.returns.roicVsWacc.waccPct", i.roicVsWacc.asOf);
+        result.period = `Fiscal year end ${result.endDate ?? "unavailable"}`;
+        result.fallbackReason = [result.fallbackReason, i.roicVsWacc.note].filter(Boolean).join(" ");
       }
     }
   } else if (aspect === "balanceSheet") {

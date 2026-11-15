@@ -1,3 +1,4 @@
+import { computeFiscalRoicVsWaccSpread } from "@/pipeline/stageB/returns";
 /**
  * Stage B tests — growth, returns (WACC/ROIC/DuPont), cash & capital.
  * Pure, no network. Anchors from the valuation methodology:
@@ -1765,5 +1766,22 @@ describe("D-288 spread dates", () => {
   });
   it("retains an explicitly aligned pair", () => {
     expect(computeRoicVsWaccSpread(30, 10, { roic: "2025-12-31", wacc: "2025-12-31" }).spreadPctPts).toBe(20);
+  });
+});
+
+
+describe("D-288 review same-year pairing", () => {
+  const history = { points: [{ date: "2025-12-31", waccPct: 8, riskFreePct: 3, riskFreeAsOf: "2025-12-30", costOfEquityPct: 9, costOfDebtPct: 5 }], missing: [], basis: "", notes: [], gaps: [] };
+  it("reads the fiscal WACC rather than the current hurdle and states what remains current", () => {
+    const result = computeFiscalRoicVsWaccSpread(30, 11, "2025-12-31", history);
+    expect(result.spreadPctPts).toBe(22);
+    expect(result.note).toContain("beta, equity risk premium and weights current");
+    expect(result.waccPct).toBe(8);
+  });
+  it("withholds a missing fiscal point without falling back to current WACC", () => {
+    expect(computeFiscalRoicVsWaccSpread(30, 11, "2024-12-31", history)).toMatchObject({ spreadPctPts: null, note: expect.stringContaining("no WACC history point") });
+  });
+  it("names missing inputs ahead of dates", () => {
+    expect(computeRoicVsWaccSpread(null, 11, {roic: "2025-12-31", wacc: "2026-10-30"}).note).toContain("inputs missing");
   });
 });
