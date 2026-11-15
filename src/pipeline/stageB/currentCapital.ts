@@ -1,4 +1,4 @@
-import { computeCapital, zeroAsNull, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult } from "./capital";
+import { computeCapital, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult } from "./capital";
 import { deriveFcf } from "./financialValues";
 import { completedTotalOmission, leaseDebtConflict, millions, operatingLeaseScopeUnproven, resolveNetDebt } from "./netDebt";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, classifyLeaseEvidence, leaseEvidenceNote, type LeaseEvidenceClassification } from "./leaseScope";
@@ -139,7 +139,6 @@ function yearStart(end: string | null): string | null {
 export function attachCurrentCapital(annual: CapitalResult, input: {
   income: CapitalIncomeRow | null; cashFlow: CapitalCashFlowRow | null; balance: CapitalBalanceRow | null;
   periodStart?: string | null;
-  trailingIncome?: readonly CapitalIncomeRow[];
   trailingCashFlow?: readonly CapitalCashFlowRow[];
   currency: string | null; annualCashFlow?: CapitalCashFlowRow | null; annualBalance?: CapitalBalanceRow | null;
   route?: SectorRoute;
@@ -178,13 +177,6 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
   const fcf = bridge.standardizedFcf, sbc = bridge.stockBasedCompensation;
   const startTime = periodEndTime(input.periodStart);
   const exactStart = usable && startTime !== null && asOf !== null && startTime <= (periodEndTime(asOf) ?? 0) ? input.periodStart! : null;
-  // D-280 (P1/P10): a sum cannot hide a quarter refused by the annual owner.
-  const missingInterest = usable && industrialMetricsApplicable && input.trailingIncome
-    ? input.trailingIncome.filter(row => zeroAsNull(row.interestExpense) === null || (row.interestExpense ?? 0) < 0) : [];
-  const incompleteInterest = usable && industrialMetricsApplicable && input.trailingIncome !== undefined &&
-    (input.trailingIncome.length !== 4 || missingInterest.length > 0);
-  const interestGap = incompleteInterest ? { field: "capital.current.interestCoverage", severity: "info" as const,
-    reason: `TTM interest coverage withheld: interest expense undisclosed, zero-treated or unusable for quarter ending ${missingInterest.map(row => row.date).join(", ") || "an incomplete four-quarter window"}.` } : null;
   const current: CurrentCapitalSnapshot = {
     industrialMetricsApplicable,
     basis, asOf, periodStart: exactStart ?? yearStart(asOf),
@@ -192,8 +184,8 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
     fallbackReason: usable ? null : "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
     netDebtToEbitda: bridgeBalance ? snapshot.netDebtToEbitda.value : null, netDebt: bridgeBalance ? snapshot.netDebtToEbitda.netDebt : null, ebitda: snapshot.netDebtToEbitda.ebitda,
     ...(snapshot.netDebtToEbitda.ebitdaComputed ? { ebitdaComputed: true as const } : {}),
-    ebit: snapshot.interestCoverage.ebit, interestExpense: incompleteInterest ? null : snapshot.interestCoverage.interestExpense, fcfBeforeSbc:fcf, netIncome,
-    interestCoverage: incompleteInterest ? null : snapshot.interestCoverage.value,
+    ebit: snapshot.interestCoverage.ebit, interestExpense: snapshot.interestCoverage.interestExpense, fcfBeforeSbc:fcf, netIncome,
+    interestCoverage: snapshot.interestCoverage.value,
     fcfConversionBeforeSbc: fcf !== null && netIncome !== null && netIncome > 0 ? fcf/netIncome : null,
     sbcPctOfFcf: fcf !== null && fcf > 0 && sbc !== null ? sbc/fcf*100 : null,
     cashBridge: bridge, debtBridge: debtBridge(industrialMetricsApplicable ? bridgeBalance : null),
@@ -202,7 +194,7 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
     const concentration = concentratedSbcQuarter(input.trailingCashFlow ?? [], input.currency);
     if (concentration) current.sbcConcentration = concentration;
   }
-  return { ...annual, current, gaps: interestGap ? [...annual.gaps, interestGap] : annual.gaps };
+  return { ...annual, current };
 }
 
 export interface SbcConcentration {

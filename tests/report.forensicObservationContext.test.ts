@@ -180,6 +180,29 @@ describe("retained forensic observation context on real data-only exports", () =
     // observed at the balance date, so every value is unchanged; the four leaves the dated history adds are asserted
     // exactly below and restored, and the pin keeps checking every other byte.
     const computed = runStageB(fixture(undefined, BALANCE_DATE_CAP), { evIncludeLeases: false });
+    // D-280: assert the new refusal and annual fallback disclosures, then preserve both historical hashes.
+    const interestGaps = computed.gaps.filter(g => g.field === "compute.ttmIncome.interestExpense");
+    expect(interestGaps).toEqual([{field:"compute.ttmIncome.interestExpense",severity:"info",
+      reason:"TTM interest expense and coverage withheld: quarter ending 2026-03-31, 2025-12-31, 2025-09-30, 2025-06-30 has missing, conflicted, negative or vendor-zero interest without exact filed evidence."}]);
+    computed.gaps = computed.gaps.filter(g => g !== interestGaps[0]);
+    expect(computed.returns.wacc.asOf!.statements).toBe("2025-12-31");
+    computed.returns.wacc.asOf!.statements = "2026-03-31";
+    const annualDebt = "average of the latest two fiscal-year-end balances";
+    const priorDebt = annualDebt + " (no quarter-end balance four quarters back, so TTM interest is measured against fiscal-year-end debt)";
+    const restoreDebt = (text: string) => {
+      expect(text).not.toContain(priorDebt);
+      expect(text.split(annualDebt)).toHaveLength(2);
+      return text.replace(annualDebt,priorDebt);
+    };
+    computed.returns.wacc.debtBasis = restoreDebt(computed.returns.wacc.debtBasis!);
+    computed.returns.waccInputs.summary = restoreDebt(computed.returns.waccInputs.summary);
+    computed.returns.waccInputs.weights.basis = restoreDebt(computed.returns.waccInputs.weights.basis);
+    const annualFallback = "WACC interest expense and EBIT: the TTM pair is incomplete (interest expense suppressed or unreported) — the latest annual FY (2025-12-31) figures are used for BOTH legs so the coverage ratio stays on one basis";
+    expect(computed.returns.notes.filter(n => n.startsWith("WACC interest expense and EBIT:"))).toEqual([annualFallback]);
+    computed.returns.notes = computed.returns.notes.filter(n => n !== annualFallback);
+    computed.returns.notes[0] = restoreDebt(computed.returns.notes[0]!);
+    if (computed.valuation.kind !== "dcf" || !computed.valuation.assumptions) throw Error("DCF fixture required");
+    computed.valuation.assumptions.wacc.basis = restoreDebt(computed.valuation.assumptions.wacc.basis);
     expect(computed.forensics.altman!.asOf).toEqual({ balanceSheet: "2025-12-31", incomeStatement: "2025-12-31", marketCap: "2025-12-31", marketCapSource: "historical-market-capitalization" });
     computed.forensics.altman!.asOf = { balanceSheet: "2025-12-31", incomeStatement: "2025-12-31", marketCap: null };
     const buyback = computed.capital.buybackPriceAnalysis.years[2]!;

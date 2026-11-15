@@ -687,3 +687,20 @@ describe("D-280 segment denominator reconciliation", () => {
     }
   });
 });
+
+it("D-280 quarterly split reconciles to quarterly revenue and carries a typed refusal cause", () => {
+  const {bundle} = buildInputs();
+  if (!bundle.segmentation.product.ok || !bundle.statements.incomeQuarterly.ok) throw new Error("fixture");
+  const row = bundle.segmentation.product.value.data.rows[0]!;
+  const income = bundle.statements.incomeQuarterly.value.data.rows[0]!;
+  Object.assign(row,{date:income.date,period:"Q2",reportedCurrency:"USD",data:{First:60e6,Second:40e6}});
+  income.revenue=100e6;
+  const business=judgeOutput().business;
+  expect(applySegmentShares(business,bundle).segments.product[0]!.sharePct).not.toBeNull();
+  income.revenue=110e6;
+  expect(applySegmentShares(business,bundle).segments.product[0]).toMatchObject({sharePct:null,shareWithheldReason:"split-does-not-reconcile"});
+  income.revenue=undefined;
+  expect(applySegmentShares(business,bundle).segments.product[0]).toMatchObject({sharePct:null,shareWithheldReason:"revenue-refused"});
+  row.date="2026-03-27";
+  expect(applySegmentShares(business,bundle).segments.product[0]).toMatchObject({sharePct:null,shareWithheldReason:"no-same-period-revenue"});
+});

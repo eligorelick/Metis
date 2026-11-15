@@ -4474,10 +4474,11 @@ export function applyForensicScores(
 function latestSegmentationTotal(
   res: DataBundle["segmentation"]["product"] | undefined,
   bundle: DataBundle | undefined,
-): number | null {
-  if (res === undefined || !res.ok || !res.value) return null;
+): { total: number | null; reason?: "no-same-period-revenue" | "revenue-refused" | "split-does-not-reconcile" } {
+  const missing = {total:null, reason:"no-same-period-revenue" as const};
+  if (res === undefined || !res.ok || !res.value) return missing;
   const data = res.value.data.rows[0]?.data;
-  if (data === undefined || data === null || typeof data !== "object") return null;
+  if (data === undefined || data === null || typeof data !== "object") return {total:null,reason:"split-does-not-reconcile"};
   let total = 0;
   let counted = 0;
   for (const key of Object.keys(data)) {
@@ -4492,9 +4493,11 @@ function latestSegmentationTotal(
   const income = latest.period?.startsWith("Q") ? bundle?.statements.incomeQuarterly : bundle?.statements.incomeAnnual;
   const rows = income?.ok ? income.value.data.rows : [];
   const revenue = rows.find(row => row.date === latest.date && row.reportedCurrency === latest.reportedCurrency);
-  return counted > 0 && total > 0 && typeof latest.reportedCurrency === "string" &&
-    typeof revenue?.revenue === "number" && Number.isFinite(revenue.revenue) && revenue.revenue > 0 &&
-    vendorAgreesWithFiled(total, revenue.revenue) ? revenue.revenue : null;
+  if (!revenue || typeof latest.reportedCurrency !== "string") return missing;
+  if (revenue.fieldConflicts?.revenue?.usable === false || typeof revenue.revenue !== "number" || !Number.isFinite(revenue.revenue) || revenue.revenue <= 0)
+    return {total:null,reason:"revenue-refused"};
+  return counted > 0 && total > 0 && vendorAgreesWithFiled(total,revenue.revenue)
+    ? {total:revenue.revenue} : {total:null,reason:"split-does-not-reconcile"};
 }
 
 /** D-280: shares use same-period consolidated revenue only after the full split reconciles (P8).
@@ -4520,15 +4523,17 @@ export function applySegmentShares(
     ? Object.entries(latest.data).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name,
       revenue: { value, unit: "currency", currency: latest.reportedCurrency!, period: latest.date!, asOf: latest.date!,
         source: primary.value.endpoint, verified: null, verificationNote: basis } satisfies TracedNumber,
-      sharePct: share(value, geographicTotal),
+      sharePct: share(value, geographicTotal.total),
+      shareWithheldReason: geographicTotal.reason,
     }))
-    : business.segments.geographic.map(row => ({ ...row, sharePct: share(row.revenue.value, geographicTotal) }));
+    : business.segments.geographic.map(row => ({ ...row, sharePct: share(row.revenue.value, geographicTotal.total), shareWithheldReason: geographicTotal.reason }));
   return {
     ...business,
     segments: {
       product: business.segments.product.map((row) => ({
         ...row,
-        sharePct: share(row.revenue.value, productTotal),
+        sharePct: share(row.revenue.value, productTotal.total),
+        shareWithheldReason: productTotal.reason,
       })),
       geographic,
     },

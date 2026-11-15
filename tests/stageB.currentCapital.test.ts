@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeCapital } from "@/pipeline/stageB/capital";
 import { attachCurrentCapital, cashFlowBridge, debtBridge } from "@/pipeline/stageB/currentCapital";
-import { runStageB } from "@/pipeline/compute";
+import { runStageB, ttmIncome } from "@/pipeline/compute";
 import { completeCurrencyBundle, M } from "./helpers/currencyBundle";
 
 const annual = () => computeCapital([{ date: "2025-12-31", revenue: 100, operatingIncome: 40, netIncome: 30, interestExpense: 1 }], [{ date: "2025-12-31", operatingCashFlow: 50, capitalExpenditure: -10, depreciationAndAmortization: 5, stockBasedCompensation: 5 }], [{ date: "2025-12-31", totalDebt: 20, cashAndShortTermInvestments: 15 }], [], { price: null });
@@ -302,7 +302,23 @@ describe("complete trailing interest denominator", () => {
       const result = runStageB(bundle, {evIncludeLeases:false});
       expect(result.capital.current?.interestCoverage).toBeNull();
       expect(result.capital.current?.interestExpense).toBeNull();
-      expect(result.capital.gaps.some(g => g.field === "capital.current.interestCoverage" && g.reason.includes(rows[1]!.date!))).toBe(true);
+      expect(result.gaps.some(g => g.field === "compute.ttmIncome.interestExpense" && g.reason.includes(rows[1]!.date!))).toBe(true);
     }
   });
+});
+
+it.each(["USD", "EUR"])("admits an exact filed zero in the %s trailing interest window", currency => {
+  const bundle = completeCurrencyBundle({ annualCurrency: currency, quarterCurrencies: [currency,currency,currency,currency], siblingQuarterCurrencies: [currency,currency,currency,currency] });
+  if (!bundle.statements.incomeQuarterly.ok) throw new Error("quarters required");
+  const rows = bundle.statements.incomeQuarterly.value.data.rows;
+  for (const row of rows) row.interestExpense = 2 * M;
+  rows[1]!.interestExpense = 0;
+  rows[1]!.fieldProvenance = { interestExpense: { source:"edgar", periodEnd:rows[1]!.date!, periodStart:"2025-10-01", unit:currency,
+    tags:["us-gaap/InterestExpenseNonoperating"], filings:[{accn:"0000000042-26-000001",form:"10-Q",filed:"2026-02-01"}], observedAt:"2026-02-01" } };
+  const result = runStageB(bundle,{evIncludeLeases:false});
+  expect(result.capital.current?.interestExpense).toBe(6*M);
+  expect(result.capital.current?.interestCoverage).toBe(result.capital.current!.ebit!/(6*M));
+  expect(ttmIncome(rows)?.interestExpense).toBe(6*M);
+  rows[1]!.fieldProvenance!.interestExpense!.periodEnd="2025-12-30";
+  expect(ttmIncome(rows)?.interestExpense).toBeNull();
 });

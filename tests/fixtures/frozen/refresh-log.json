@@ -3664,5 +3664,50 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-280",
+    "reason": "D-280 review fixes shared filed-aware trailing interest admission; this complete synthetic control changes only the new payload stamp and dependent prompt hashes.",
+    "scope": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary",
+      "$.prompt",
+      "$.payload.payloadVersion"
+    ],
+    "beforeSha256": "33a9d4c0585dc7c21ab4bcf6c19a4db641f185ec850300c2c29d617489054f4e",
+    "afterSha256": "ffe9a12fdb0db9dbc271050e8acce5720a504da870fc0d421aa5fe0f2283919a",
+    "changedLeaves": 6,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-280",
+    "reason": "D-280 review records report 1.92.0 and the precise typed reason for unreconciled synthetic segment shares; no synthetic financial input is changed.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report"
+    ],
+    "beforeSha256": "dfd2b3ebf0dde0ea9fe51137761f59ee8ec5765646495cee30be58eeaf71a81e",
+    "afterSha256": "6a2d8508ea6cb4616bcdb5842989cfc9cb5f544a2923f12bdd3c596211d40db6",
+    "changedLeaves": 6,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.business.segments.product[0].shareWithheldReason.$auditUndefined",
+      "$.projection.report.business.segments.product[1].shareWithheldReason.$auditUndefined",
+      "$.projection.report.business.segments.geographic[0].shareWithheldReason.$auditUndefined",
+      "$.projection.report.business.segments.geographic[1].shareWithheldReason.$auditUndefined"
+    ]
   }
 ]

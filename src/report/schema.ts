@@ -934,6 +934,7 @@ export const SegmentRowSchema = z
     name: z.string(),
     revenue: TracedNumberSchema,
     sharePct: z.number().nullable(),
+    shareWithheldReason: z.enum(["no-same-period-revenue", "revenue-refused", "split-does-not-reconcile"]).optional(),
   })
   .strict();
 export type SegmentRow = z.infer<typeof SegmentRowSchema>;

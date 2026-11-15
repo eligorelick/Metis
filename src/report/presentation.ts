@@ -1164,8 +1164,11 @@ export function showAnnualSegments(quarterlyShown: boolean): boolean {
  * segment tables are shown beside it, it says it is the prior-year annual
  * presentation (D-62) instead of reading as current mix.
  */
-export function annualSegmentHeading(kind: "Product" | "Geographic", rows: readonly { revenue: TracedNumber; sharePct?: number | null }[], quarterlyShown: boolean): string {
-  const incomplete = rows.length > 0 && rows.every(row => row.sharePct === null) ? " (split incomplete; shares withheld)" : "";
+export function annualSegmentHeading(kind: "Product" | "Geographic", rows: readonly { revenue: TracedNumber; sharePct?: number | null; shareWithheldReason?: "no-same-period-revenue" | "revenue-refused" | "split-does-not-reconcile" }[], quarterlyShown: boolean): string {
+  const reasons = {"no-same-period-revenue":"no same-period revenue", "revenue-refused":"revenue refused", "split-does-not-reconcile":"split does not reconcile"};
+  const causes = [...new Set(rows.flatMap(row => row.shareWithheldReason ? [reasons[row.shareWithheldReason]] : []))];
+  const incomplete = rows.length > 0 && rows.every(row => row.sharePct === null)
+    ? ` (${causes.join("; ") || "share basis not established"}; shares withheld)` : "";
   if (!quarterlyShown) return `${kind} segments${incomplete}`;
   const asOf = rows.find((row) => row.revenue.asOf)?.revenue.asOf;
   return `${kind} segments — annual${asOf ? `, fiscal year ended ${asOf}` : ""} (prior presentation)${incomplete}`;

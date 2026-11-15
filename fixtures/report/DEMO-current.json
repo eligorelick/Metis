@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.90.0",
+    "specVersion": "1.92.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.90.0",
+    "pipelineVersion": "1.92.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8501742160278746,
@@ -924,7 +924,8 @@
             "verified": false,
             "verificationNote": "[unverified] text-source"
           },
-          "sharePct": null
+          "sharePct": null,
+          "shareWithheldReason": "no-same-period-revenue"
         },
         {
           "name": "Support",
@@ -939,7 +940,8 @@
             "verified": false,
             "verificationNote": "[unverified] text-source"
           },
-          "sharePct": null
+          "sharePct": null,
+          "shareWithheldReason": "no-same-period-revenue"
         }
       ],
       "geographic": [
@@ -956,7 +958,8 @@
             "verified": false,
             "verificationNote": "[unverified] text-source"
           },
-          "sharePct": null
+          "sharePct": null,
+          "shareWithheldReason": "no-same-period-revenue"
         }
       ]
     },
@@ -2208,7 +2211,7 @@
         {
           "name": "WACC (discount rate)",
           "value": "8.2%",
-          "basis": "WACC 8.18%: risk-free 4% (fred:DGS10, observation 2026-07-02); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2026-03-31), the one the EV bridge nets (lease evidence: 2026-03-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (no quarter-end balance four quarters back, so TTM interest is measured against fiscal-year-end debt) (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+          "basis": "WACC 8.18%: risk-free 4% (fred:DGS10, observation 2026-07-02); ERP 4.18% (Damodaran implied ERP (trailing 12-month adjusted payout) (static fallback), vintage 2026-07-01); beta 1 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 8.18%; no debt, so no cost of debt; tax rate 20% (FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)); E 100% / D 0% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2026-03-31), the one the EV bridge nets (lease evidence: 2026-03-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
         },
         {
           "name": "revenue growth (yr1 → yrN)",
@@ -3912,6 +3915,11 @@
       {
         "field": "capital.interestCoverage",
         "reason": "interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m",
+        "severity": "info"
+      },
+      {
+        "field": "compute.ttmIncome.interestExpense",
+        "reason": "TTM interest expense and coverage withheld: quarter ending 2026-03-31, 2025-12-31, 2025-09-30, 2025-06-30 has missing, conflicted, negative or vendor-zero interest without exact filed evidence.",
         "severity": "info"
       },
       {

@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "5266cbc07827f65f5a7e177524912eb8f63bcdbd40fbf7a731cf04bee555d997",
+  "projectionSha256": "4ee986308d1d7957fe0b38310e432c9474d416c5bec6f0de98c2ab01ac894089",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
     "stageB": {
@@ -2116,7 +2116,7 @@
         "symbol": "DEMO",
         "companyName": "Thesis Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
-        "specVersion": "1.90.0",
+        "specVersion": "1.92.0",
         "model": "synthetic-fixture",
         "pipelineVersion": "audit-fixture-comparison",
         "evidenceContract": "EVIDENCE_CONTRACT_1",
@@ -2358,24 +2358,28 @@
             {
               "name": "Platform",
               "revenue": {"value": 7500000000, "unit": "usd_large", "source": "synthetic:segments.product.platform", "asOf": "2025-12-31", "verified": true},
-              "sharePct": 60
+              "sharePct": 60,
+              "shareWithheldReason": {"$auditUndefined": true}
             },
             {
               "name": "Services",
               "revenue": {"value": 5000000000, "unit": "usd_large", "source": "synthetic:segments.product.services", "asOf": "2025-12-31", "verified": true},
-              "sharePct": 40
+              "sharePct": 40,
+              "shareWithheldReason": {"$auditUndefined": true}
             }
           ],
           "geographic": [
             {
               "name": "Domestic test market",
               "revenue": {"value": 8000000000, "unit": "usd_large", "source": "synthetic:segments.geographic.1", "asOf": "2025-12-31", "verified": true},
-              "sharePct": 64
+              "sharePct": 64,
+              "shareWithheldReason": {"$auditUndefined": true}
             },
             {
               "name": "International test market",
               "revenue": {"value": 4500000000, "unit": "usd_large", "source": "synthetic:segments.geographic.2", "asOf": "2025-12-31", "verified": true},
-              "sharePct": 36
+              "sharePct": 36,
+              "shareWithheldReason": {"$auditUndefined": true}
             }
           ]
         },
