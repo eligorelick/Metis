@@ -1,7 +1,7 @@
 /**
  * Stage C — deterministic, no-model consistency checks on the report's prose.
  *
- * WS7 (DECISIONS D-20). The verification pass measured CITATION COVERAGE only:
+ * D-20. The verification pass measured CITATION COVERAGE only:
  * "does this figure resolve to a registry record?". It never looked at the
  * sentence wrapped around the figure, so a sentence could say a metric "rose"
  * while citing a record whose value is negative, name "Q3" while citing an
@@ -20,12 +20,12 @@
  *    check (`periodsAgree`) accepts: a spelled fiscal period ("the second
  *    quarter of fiscal 2027") is read as the citation check reads it
  *    ({@link fiscalPhrase}), and an issuer fiscal label is compared through
- *    `periodsAgree` first, then by calendar-year sets (AI-405). A failure demotes
+ *    `periodsAgree` first, then by calendar-year sets (D-128). A failure demotes
  *    a validated claim to unverified (F-22, D-110) and adds a missing-data
  *    manifest entry. A phrase that follows
  *    a comparison word ("compared with ... second quarter 2025") is the
  *    comparison's base, compared with the period the cited growth figure is
- *    measured against ({@link comparisonBase}), not with its own period (AI-402).
+ *    measured against ({@link comparisonBase}), not with its own period (D-128).
  *  - UNIT: the unit token attached to the cited figure ("%", "bps", "billion")
  *    must belong to the family the record's registry unit can express. A
  *    sentence that puts a currency on a number citing a figure whose currency
@@ -111,7 +111,7 @@ export interface ConsistencyInput {
    * Organisation names the report may mention — the issuer and its peers.
    * An honorific-plus-name match that sits inside one of these ("Dr Pepper"
    * inside "Keurig Dr Pepper Inc.", "Dr. Reddy's" inside "Dr. Reddy's
-   * Laboratories") is a company, not a person (audit 2026-09-06, F187).
+   * Laboratories") is a company, not a person (P19).
    */
   organizationNames?: readonly string[];
   /**
@@ -182,8 +182,8 @@ const SCALE_WORDS: Record<string, number> = {
 /**
  * `magnitude` is a bare scale word ("15.2 billion") with no unit token and no
  * currency prefix: it names how big the number is, not what it counts, so it
- * is admissible wherever a money OR a share figure is (audit 2026-09-06,
- * F185: it was read as money and failed correct share-count prose).
+ * is admissible wherever a money OR a share figure is (reading it as money
+ * would fail correct share-count prose; P19).
  */
 type UnitFamily = "percent" | "money" | "multiple" | "shares" | "magnitude";
 
@@ -223,9 +223,9 @@ interface ParsedNumber {
 // A signed, optionally $-prefixed number with optional thousands separators,
 // followed by an optional scale word and an optional unit token. Each optional
 // prefix token consumes its own trailing whitespace, so two whitespace loops
-// are never adjacent and a long whitespace run is scanned once (SEC-203). Scale
+// are never adjacent and a long whitespace run is scanned once (D-129). Scale
 // and unit words are whole words (a hyphenated compound such as "share-based" is
-// no unit; AI-304, AI-304-V2); the ratio "x" is the one unit a hyphen may follow.
+// no unit; D-129); the ratio "x" is the one unit a hyphen may follow.
 const NUMBER_PATTERN = new RegExp(
   String.raw`(?:([-+−])\s*)?(?:(\$|US\$)\s*)?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*` +
     String.raw`((?:thousands?|millions?|billions?|trillions?|bn|mm|k)(?![A-Za-z]))?\s*` +
@@ -270,14 +270,14 @@ export function parseNumbers(sentence: string): ParsedNumber[] {
  * then identifiers. A scale or unit suffix keeps its number ("1.2x", "4.5bn",
  * "25bps"), and a year written as an amount ("$2025", "2025 million") is
  * kept. A currency code glued to a number ("EUR5bn") is an amount, not an
- * identifier, and is kept (review, 2026-10-13: "Net debt is EUR5bn" citing an
- * n/a row stated no number). Spelled-out numbers ("three times") are read by
+ * identifier, and is kept (D-43: "Net debt is EUR5bn" citing an n/a row states
+ * a number). Spelled-out numbers ("three times") are read by
  * {@link statesNumberWord}. The momentum window's name "12-1 month" is a
- * label, not a quantity (review of D-48, 2026-10-13: an absence statement in
- * the row's own wording failed as gap-source-number).
+ * label, not a quantity (D-48: an absence statement in the row's own wording
+ * must not fail as gap-source-number).
  */
 // ISO codes checked beside a number. A generic [A-Z]{3} would read tickers
-// ("JPM 43") as currencies, so the list is deliberate; extend it on evidence.
+// ("ABC 43") as currencies, so the list is deliberate; extend it on evidence.
 const CURRENCY_CODES =
   "USD|EUR|GBP|JPY|CNY|RMB|HKD|KRW|INR|CHF|CAD|AUD|NZD|TWD|SEK|NOK|DKK|BRL|MXN|ZAR|SGD|ILS";
 // A whole-word code directly before a figure, tested on the few characters before it
@@ -515,7 +515,7 @@ function locateNumbers(
 function unitFamilyOf(parsed: ParsedNumber): UnitFamily | null {
   // A figure written with a currency symbol or code is an amount of money,
   // whatever noun follows it ("$99 billion share repurchase", "$45.32 share
-  // price"; AI-304-V2). A currency in front is never a share count.
+  // price"; D-129). A currency in front is never a share count.
   if (parsed.hadCurrencyPrefix || parsed.hadCurrencyCode) return "money";
   const token = parsed.unitToken;
   if (token !== null) {
@@ -596,7 +596,7 @@ const DIRECTION_WORDS: Record<string, 1 | -1> = {
  * Words — and punctuation — between a direction word and its number that break
  * the delta reading. A comma, colon or dash makes the number an apposition
  * ("growth came in lower, 6.4%": 6.4 is the level, "lower" is second-order),
- * not the size of the move (audit 2026-09-06, F191).
+ * not the size of the move (P19).
  */
 const DELTA_BREAKERS = /\b(?:to|toward|towards|at|from|versus|vs|than|of|near|around|about)\b|[,;:—–(]/i;
 
@@ -612,7 +612,7 @@ interface DirectionHit {
 /**
  * A capitalised direction word beside another capitalised word is part of a
  * proper noun — "Advanced Micro Devices", "Rising Sun Holdings" — not a verb
- * (audit 2026-09-06, F192). Sentence-initial "Advanced 5%…" is the price of
+ * (P19). Sentence-initial "Advanced 5%…" is the price of
  * that rule and is rare in analyst prose.
  */
 function insideProperNoun(sentence: string, start: number, end: number): boolean {
@@ -645,7 +645,7 @@ export interface QuantityDirection {
   /**
    * `change`: the figure is the size of the move. `level`: it is where the
    * metric ended up. `unknown`: an accounting "gain of $X", which is a level
-   * although "gain" is a direction word (AI-401).
+   * although "gain" is a direction word (D-129).
    */
   relation: "change" | "level" | "unknown";
   negated: boolean;
@@ -656,7 +656,7 @@ export interface QuantityDirection {
  * do not decide whether the figure is a move or a level, so they are removed
  * from the text read for DELTA_BREAKERS: "increased by about $X" is a change as
  * "increased by $X" is, and "increased to about $X" is a level as "increased to
- * $X" is (AI-401). The "to", "at" and "of" inside a phrase ("close to", "at
+ * $X" is (D-129). The "to", "at" and "of" inside a phrase ("close to", "at
  * least", "in excess of") would otherwise read as breakers.
  */
 export const HEDGE_WORDS = /(?<![A-Za-z])(?:about|around|approximately|approx\.?|roughly|nearly|almost|some|close\s+to|more\s+than|less\s+than|fewer\s+than|at\s+least|at\s+most|just\s+over|just\s+under|in\s+excess\s+of)(?![A-Za-z])/gi;
@@ -678,7 +678,7 @@ export function quantityDirection(
     const own = distance(hit, { start, end });
     if (own > DIRECTION_WINDOW_CHARS || !quantities.every((quantity) => distance(hit, quantity) >= own)) return false;
     // A word after the figure and across a comma, semicolon, colon, dash or parenthesis is an apposition
-    // ("16.5%, an increase from a year ago"): it describes a comparison, not the figure (AI-401-V1).
+    // ("16.5%, an increase from a year ago"): it describes a comparison, not the figure (D-129).
     return !(hit.start >= end && /[,;:—–(]/.test(sentence.slice(end, hit.start)));
   }).sort((a, b) => distance(a, { start, end }) - distance(b, { start, end }));
   const nearest = hits[0];
@@ -708,15 +708,15 @@ export function quantityDirection(
  * registers lives under `computed.growth-margins.*` with origin
  * `computed.growth.margins.*`, and reading "growth" there made "gross margin
  * (latest)" a delta, so "gross margin climbed to 46%"-style prose about a
- * positive level was checked as if 46 could be a decline (audit 2026-09-06,
- * F186). A uniqueId suffix (".2") is ignored.
+ * positive level was checked as if 46 could be a decline (P19). A uniqueId
+ * suffix (".2") is ignored.
  *
  * `return`/`momentum` are NOT treated as deltas even though they can be
  * negative: `computed.returns.*` in this pipeline is ROIC/ROE (levels), and
  * misreading those as deltas would fail correct sentences.
  */
 export interface LabelOperands { left: string; right: string; kind: "difference" | "ratio" }
-/** D-66 / AI-504: operand order is part of a formula's identity. */
+/** D-66 / D-144: operand order is part of a formula's identity. */
 export function labelOperands(label: string): LabelOperands | null {
   const text = label.replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/\bP\s*\/\s*E\b/gi, "pe")
@@ -736,7 +736,7 @@ export function isDeltaRecord(record: NumericProvenanceRecord): boolean {
   while (segments.length > 1 && /^\d+$/.test(segments[segments.length - 1])) segments.pop();
   const name = segments[segments.length - 1] ?? "";
   const change = /(?:^|-)(growth|cagr|change|delta|chg|yoy|qoq|expansion|contraction|revision)(?:-|$)/.test(name);
-  // OD-6 / AI-502: pp alone does not establish a temporal change.
+  // D-144: pp alone does not establish a temporal change.
   return change && (record.unit !== "percentage-points" || labelOperands(record.label ?? "")?.kind !== "difference");
 }
 
@@ -744,7 +744,7 @@ export function isDeltaRecord(record: NumericProvenanceRecord): boolean {
  * Period phrases
  * ------------------------------------------------------------------------ */
 
-// The quarter pattern REQUIRES the century (2026-09). With it optional the two
+// The quarter pattern REQUIRES the century. With it optional the two
 // digits swallowed whatever number followed the quarter: "Q1 15% growth was
 // reported" matched "Q1 15" and failed against a 2025-12-31 record, claiming the
 // sentence named a period it never named. The phrase starts at the Q, so the
@@ -759,7 +759,7 @@ const PERIOD_PATTERNS: readonly RegExp[] = [
   /\bQ[1-4]\s*(?:of\s+)?(?:FY\s?)?['’]?(?:19|20)\d{2}\b/gi,
   /\bFY\s?['’]?(?:19|20)?\d{2}\b/gi,
   /\b(?:first|second|third|fourth)\s+quarter\s+(?:of\s+)?(?:FY\s?)?(?:19|20)\d{2}\b/gi,
-  // AI-405: the spelled fiscal forms the claim reader already reads; the year inside them is no phrase of its own.
+  // D-128: the spelled fiscal forms the claim reader already reads; the year inside them is no phrase of its own.
   /\b(?:first|second|third|fourth)\s+quarter\s+of\s+fiscal(?:\s+year)?\s+(?:19|20)\d{2}\b/gi,
   /\bfiscal(?:\s+year)?\s+(?:19|20)\d{2}\b/gi,
   /\b(?:19|20)\d{2}\b/g,
@@ -768,7 +768,7 @@ const PERIOD_PATTERNS: readonly RegExp[] = [
 const QUARTER_WORDS: Record<string, number> = { first: 1, second: 2, third: 3, fourth: 4 };
 
 /**
- * A spelled fiscal period as the phrase the citation check reads it as (AI-405): "the second quarter of fiscal 2027"
+ * A spelled fiscal period as the phrase the citation check reads it as (D-128): "the second quarter of fiscal 2027"
  * is "Q2 FY2027", "fiscal 2025" and "fiscal year 2025" are "FY2025". Null for any other phrase.
  */
 export function fiscalPhrase(phrase: string): string | null {
@@ -785,8 +785,8 @@ export function fiscalPhrase(phrase: string): string | null {
  *
  * An exact date against a registered window ("ttm: 2025-07-27 to 2026-07-26")
  * agrees when it falls inside the window or on an endpoint: "the trailing
- * period ended 2026-07-26" names that window's end, not a different year set
- * (NVDA report 34 flagged it "contradicted").
+ * period ended 2026-07-26" names that window's end, not a different year set,
+ * so it is never "contradicted" (D-110).
  */
 export function phraseNamesRecordYear(phrase: string, registered: string | null): boolean {
   if (registered === null) return true;
@@ -809,14 +809,14 @@ export function phraseNamesRecordYear(phrase: string, registered: string | null)
   return ya.size > 0 && ya.size === yb.size && [...ya].every((year) => yb.has(year));
 }
 
-// Audit 2026-10-27 AI-402 / C-1: a comparison base is the period of the figure a
+// D-128: a comparison base is the period of the figure a
 // comparison word introduces ("compared with $10.2 billion in second quarter 2025",
 // "up 23% from the second quarter of fiscal 2025"). The cue grammar is narrower than
-// the release parser's (D-98, src/edgar/currentReports.ts: any "from" or "over"; B9
-// owns that): a period directly after a bare "from" is an interval or a start
+// the release parser's (D-98, src/edgar/currentReports.ts: any "from" or "over"; that
+// parser owns that reading): a period directly after a bare "from" is an interval or a start
 // ("from 2025-07-27 to 2026-07-26"), after "over" a window or "more than".
 const BASE_WORD = String.raw`(?:the|a|an|or|per|diluted|basic|share|same|prior|prior-year|year-ago|year|ago|period|in|of|for|during|levels?|approximately|about|roughly|nearly|fiscal)[\s,]+`;
-// An amount is read one way (final review 2026-10-28): its digits take a comma only as a thousands group, and the space before a
+// An amount is read one way (D-128): its digits take a comma only as a thousands group, and the space before a
 // unit belongs to the unit, so the amounts of a comma-grouped table row cannot be split many ways inside BASE_FILLER (which
 // backtracked exponentially on such rows).
 const BASE_AMOUNT = String.raw`(?:US\$|[$€£¥]|(?:${CURRENCY_CODES})\s*)?[-+−]?(?:\d{1,3}(?:,\d{3})+|\d+)(?![\d,]\d)(?:\.\d+)?(?:\s*(?:%|percent|billion|million|thousand|trillion|bn|mm|[bmk]))?(?:\s*,\s*|\s+)`;
@@ -827,7 +827,7 @@ const BASE_CUE = String.raw`(?:(?:as\s+)?compared\s+(?:with|to)|versus|vs\.?|rel
 // A bare "from" governs a base only across at least one amount ("to $12.4 billion from
 // $10.1 billion in the second quarter of fiscal 2025"); a period right after it is an
 // interval or a start ("from 2025-07-27 to 2026-07-26", "from the third quarter 2026 onward").
-// Final re-review (AI-402): the base's own instant may follow its amount after "at" or "as of" ("compared with $25.8
+// D-128: the base's own instant may follow its amount after "at" or "as of" ("compared with $25.8
 // billion at the prior fiscal year-end", "as of the prior year-end"). Neither word is a filler word, so the filler is still read one way.
 const BASE_INSTANT = String.raw`(?:(?:at|as\s+of)\s+(?:${BASE_WORD})*)?`;
 const BASE_TAIL = new RegExp(String.raw`(?:\b(${BASE_CUE})\s+${BASE_FILLER}|\b(from)\s+(?:${BASE_WORD})*${BASE_AMOUNT}${BASE_FILLER})${BASE_INSTANT}$`, "i");
@@ -854,12 +854,12 @@ export function comparisonCueEnd(text: string, index: number): number | null {
 
 /**
  * Period phrases that NAME A YEAR, split into the phrases the sentence states for
- * its figure and the comparison bases (AI-402). A base is a phrase that follows a
+ * its figure and the comparison bases (D-128). A base is a phrase that follows a
  * comparison cue, unless the cited figure itself sits between the cue and the phrase
  * (then it is that figure's own period). A bare "Q3" is skipped on purpose: without
  * the issuer's fiscal calendar there is no way to decide whether Q3 is the
- * record's ISO period end, and guessing would fail correct sentences (Apple's
- * Q3 FY2025 ends in June). Skipped means "not checked", and `checked` says so.
+ * record's ISO period end, and guessing would fail correct sentences (a fiscal
+ * Q3 can end in June). Skipped means "not checked", and `checked` says so.
  */
 function scanPeriodPhrases(
   sentence: string,
@@ -891,7 +891,7 @@ function scanPeriodPhrases(
       const key = phrase.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      // A spelled fiscal period ("the second quarter of fiscal 2025") is one phrase (AI-405), so its cue is looked for before its first word.
+      // A spelled fiscal period ("the second quarter of fiscal 2025") is one phrase (D-128), so its cue is looked for before its first word.
       const cue = comparisonCueEnd(sentence, index);
       const isBase = cue !== null && !located.some((n) => cue <= n.start && n.end <= index);
       (isBase ? bases : own).push(phrase);
@@ -909,7 +909,7 @@ export function findPeriodPhrases(
   return scanPeriodPhrases(sentence, numbers, located).own;
 }
 
-/** The comparison-base period phrases of a sentence (AI-402); never a phrase `findPeriodPhrases` returns. */
+/** The comparison-base period phrases of a sentence (D-128); never a phrase `findPeriodPhrases` returns. */
 export function findComparisonBasePhrases(
   sentence: string,
   numbers: readonly ParsedNumber[],
@@ -920,7 +920,7 @@ export function findComparisonBasePhrases(
 
 /**
  * The period a year-over-year or quarter-over-quarter figure is measured against
- * (AI-402-V2 / C-2): the record's ISO period 12 (or 3) months earlier and its fiscal
+ * (D-128): the record's ISO period 12 (or 3) months earlier and its fiscal
  * label one fiscal year (or quarter) earlier. Null when the record names no such basis.
  */
 export function comparisonBase(record: NumericProvenanceRecord): { end: string; fiscal: string | null } | null {
@@ -948,7 +948,7 @@ export function comparisonBase(record: NumericProvenanceRecord): { end: string; 
 }
 
 /**
- * PR #71 Codex review (AI-402-V2): a base phrase that names something finer than a year: an exact date, a month, a quarter, a half,
+ * D-128: a base phrase that names something finer than a year: an exact date, a month, a quarter, a half,
  * or a count of months or weeks. Such a base is never established by its year alone.
  */
 const FINER_THAN_YEAR = new RegExp(String.raw`\b\d{4}-\d{2}-\d{2}\b|\b${MONTH_NAME}\b|\bquarters?\b|\bq[1-4]\b|\bhalf\b|\bh[12]\b|\bmonths?\b|\bweeks?\b`, "i");
@@ -967,7 +967,7 @@ function calendarQuarter(phrase: string): { year: number; quarter: number } | nu
  * month or quarter of the right year but another period is not established (PR #71 Codex review).
  */
 export function baseAgrees(phrase: string, base: { end: string; fiscal: string | null }): boolean | null {
-  // An FY-labelled base (a spelled fiscal period is read as its FY label, AI-405) is compared by fiscal label only (by calendar year it would be the AI-405 error again).
+  // An FY-labelled base (a spelled fiscal period is read as its FY label, D-128) is compared by fiscal label only (by calendar year it would misread a 52/53-week year).
   const labelled = fiscalPhrase(phrase) ?? phrase;
   if (/^Q[1-4]\s*(?:of\s+)?FY|^FY/i.test(labelled)) return base.fiscal === null ? null : periodsAgree(labelled, base.end, base.fiscal);
   if (periodsAgree(phrase, base.end, base.fiscal)) return true;
@@ -1116,7 +1116,7 @@ export function namedIndividuals(
       const end = start + name.length;
       if (overlaps(start, end)) continue;
       // A source title can contain a role followed by a business scope, e.g.
-      // "CEO Microsoft Commercial". Do not invent a second person from that
+      // "CEO Cloud Commercial". Do not invent a second person from that
       // exact contiguous phrase. Known names were already collected above.
       const words = (value: string): string => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
       if (groups.role !== undefined && options.sourceTitles?.some((title) =>
@@ -1165,13 +1165,13 @@ const NOT_A_NAME_WORDS = new Set([
   "title", "titles", "appointment", "appointments", "succession", "shareholders", "holdings", "sales",
   "purchases", "transactions", "activity", "it", "there", "he", "she", "they", "which", "who", "none",
   "nothing", "salary", "bonus", "awards", "equity", "stock", "options", "incentive", "incentives",
-  // D-182 (TSM paid run): the prompt's own insider wording ("Motive is not established", "venue and
-  // motive are not established") opened sentences that were read as naming a person "Motive".
+  // D-182: the prompt's own insider wording ("Motive is not established", "venue and
+  // motive are not established") opens sentences that must not read as naming a person "Motive".
   "motive", "motives", "venue", "intent", "purpose", "timing", "judgment",
 ]);
 
 // A verb that follows a person's name. A lone capitalized word opening a
-// sentence is read as a name only when one follows it: "Sandberg received
+// sentence is read as a name only when one follows it: "Roe received
 // the largest award" names someone, "Without a covered period …" does not.
 const PERSON_VERB = /^\s+(?:is|was|has|had|serves|served|received|receives|earned|earns|leads|led|joined|became|becomes|remains|remained|holds|held|took|takes|sold|bought|chairs|chaired|runs|ran|oversees|oversaw|said|says|will|would|also|currently)\b/;
 
@@ -1183,14 +1183,14 @@ const CAPITALIZED_RUN = new RegExp(
 
 /**
  * Capitalized word runs that read as a person's name and that no known name
- * or pattern found (review, 2026-10-13). Used only for a claim citing a
+ * or pattern found (D-43). Used only for a claim citing a
  * person row: a name the payload never listed is invisible to exact matching
- * and to the role patterns, so "Sheryl Sandberg is CEO" citing JPM's
- * compensation rows named nobody and passed on the tag. Each run is split at
+ * and to the role patterns, so "Jane Roe is CEO" citing another issuer's
+ * compensation rows would name nobody and pass on the tag. Each run is split at
  * {@link NOT_A_NAME_WORDS} and at the person rows' own title words ("Asset &
  * Wealth Management"); an organisation, a run of initials only, and a single
  * word opening the sentence ("Latest annual pay …") are skipped, unless a
- * verb a person takes follows it ("Sandberg received …", {@link PERSON_VERB}).
+ * verb a person takes follows it ("Roe received …", {@link PERSON_VERB}).
  * What is left is read as a name the cited rows must list — a capitalized
  * word that is no name fails closed.
  */
@@ -1263,11 +1263,11 @@ export function namesIndividual(
  * ------------------------------------------------------------------------ */
 
 /**
- * One payload row about a person, as the model saw it. Until 2026-10-13 a
- * claim naming a person that cited one of these tags passed on the tag alone
- * — "Tim Cook has led the company since 2011" passed with no row at all, and
- * citing the executive-compensation rows would have let "Sheryl Sandberg is
- * CEO" pass. The content check below reads the cited tag's rows.
+ * One payload row about a person, as the model saw it. A claim naming a person
+ * that cites one of these tags never passes on the tag alone (D-43): "Jane Roe
+ * has led the company since 2011" would pass with no row at all, and citing
+ * the executive-compensation rows would let "John Doe is CEO" pass. The content
+ * check below reads the cited tag's rows.
  */
 export interface PersonRow {
   /** The tag the row prints, which a claim cites. */
@@ -1333,7 +1333,7 @@ export function collectPersonRows(sources: {
     const match = /^\S+ (.+?) \(([^)]*)\): .* \[fmp:insider-trades · (\d{4}-\d{2}-\d{2})\]$/.exec(note);
     const name = usable(match?.[1]);
     if (match === null || name === null) continue;
-    // AI-116: split role prefixes, preserving commas inside an officer title.
+    // D-144: split role prefixes, preserving commas inside an officer title.
     const owner = usable(match[2]);
     const roles = owner?.split(/,\s*(?=(?:director|officer|other|10\s*percent\s+owner|ten\s+percent\s+owner)\b)/i) ?? [""];
     for (const role of roles) {
@@ -1509,10 +1509,10 @@ function titleOf(sentence: string, start: number, end: number): Pick<NamedIndivi
 
 /**
  * The title after a name, then the same title carried through each following
- * comma-separated scope ("Debora Shoquist, EVP, Operations:" reads "EVP" and
- * "EVP, Operations"). D-66: the NVDA final rerun rejected four pay claims
- * that wrote the DEF 14A row's title exactly ("EVP, Operations"), because the
- * title stopped at the comma and "EVP" alone drops the row's scope. A longer
+ * comma-separated scope ("Jane Roe, EVP, Operations:" reads "EVP" and
+ * "EVP, Operations"). D-66: a pay claim that writes the DEF 14A row's title
+ * exactly ("EVP, Operations") must pass, so the title does not stop at the
+ * comma: "EVP" alone drops the row's scope. A longer
  * reading is only an alternative: it passes when it is one of the row's own
  * titles, and the shortest reading is what a failure names.
  */
@@ -1598,10 +1598,10 @@ export function isFilingOrTranscriptSource(id: string): boolean {
 }
 
 /**
- * D-182 (TSM paid run): a document under EDGAR's filing archive is a filing,
- * whether the payload excerpted it (edgar:...) or an analyst fetched it by URL;
- * the results release TSMC furnished on Form 6-K was rejected as a credibility
- * source when cited by its sec.gov URL.
+ * D-182: a document under EDGAR's filing archive is a filing, whether the
+ * payload excerpted it (edgar:...) or an analyst fetched it by URL, so a results
+ * release furnished on Form 6-K and cited by its sec.gov URL is a credibility
+ * source.
  */
 const SEC_ARCHIVE_DOCUMENT = /^https:\/\/(?:www\.)?sec\.gov\/Archives\/edgar\/data\/\d+\/\d+\/[^/?#\s]+$/i;
 
@@ -1609,9 +1609,8 @@ const SEC_ARCHIVE_DOCUMENT = /^https:\/\/(?:www\.)?sec\.gov\/Archives\/edgar\/da
  * The payload's own rows ABOUT people: key-executive and insider-trade notes
  * and the executive-compensation rows, registered as citations under these
  * tags (payload.ts). A claim about a person that cites one cites the payload
- * itself (audit 2026-09-06, F188: they were rejected as "neither a registry
- * figure nor a filing or transcript"). The compensation rows joined on
- * 2026-10-13 (D-43): they come from the issuer's proxy and the prompt already
+ * itself, not "neither a registry figure nor a filing or transcript" (P19).
+ * The compensation rows are among them (D-43): they come from the issuer's proxy and the prompt already
  * called them payload figures, yet every claim citing them was rejected. A
  * person-row citation is no longer accepted on its tag: the cited rows must
  * list the person and any title the claim states (runConsistencyChecks).
@@ -1716,14 +1715,14 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
       const canonicalUrl = sourceId === null ? null : canonicalizeFetchedUrl(sourceId);
       const isWeb = canonicalUrl !== null;
       // The filing-or-transcript restriction applies to EVERY claim that names
-      // a person, not only to the executive-credibility section (2026-09). It
-      // previously ran on the credibility path alone, so an ordinary claim
+      // a person, not only to the executive-credibility section (P19). Run on
+      // the credibility path alone, an ordinary claim
       // naming a person could cite anything in the citation registry — news, a
       // press release — while the prompt, the module docstring and the reader-
       // facing table all said "filings/transcripts only". Registry figures stay
       // admissible: a traced number is the payload itself, not a source about
       // a person.
-      // D-182 (TSM paid run): a credibility statement that names nobody and says
+      // D-182: a credibility statement that names nobody and says
       // a record is absent ("no prior guidance ranges are retained") may cite the
       // payload's own gap row, which supports absence and never a number.
       const allowed =
@@ -1789,9 +1788,9 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
     const numbers = parseNumbers(sentence);
     const located = locateNumbers(numbers, record);
     // The module's design rule: a check applies only to a sentence in which
-    // the cited figure was LOCATED. The period check used to run before this
-    // guard (audit 2026-09-06, F189), so a sentence that named a year around
-    // some other number was judged against a figure it never wrote.
+    // the cited figure was LOCATED. The period check runs after this guard, so
+    // a sentence that names a year around some other number is never judged
+    // against a figure it never wrote (P19).
     if (located.length === 0) continue;
 
     /* ---- period ---------------------------------------------------------- */
@@ -1801,7 +1800,7 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
       const fiscal = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? (/^(?:Q[1-4]\s*)?FY\d{4}$/i.test(record.period) ? record.period : undefined);
       let ownAgrees: boolean | null = null;
       if (phrases.length > 0) {
-        // AI-405: a spelled fiscal period is the phrase the citation check reads ("Q2 FY2027", "FY2025").
+        // D-128: a spelled fiscal period is the phrase the citation check reads ("Q2 FY2027", "FY2025").
         const read = phrases.map((phrase) => fiscalPhrase(phrase) ?? phrase);
         const fiscalQuarters = read.filter((phrase) => /^Q[1-4]\s*(?:of\s+)?FY\s*['’]?(?:19|20)?\d{2}$/i.test(phrase));
         const fiscalYears = read.filter((phrase) => /^FY\s*['’]?(?:19|20)?\d{2}$/i.test(phrase));
@@ -1824,7 +1823,7 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
           ownAgrees = results.includes(true) ? true : results.includes(false) ? false : null;
         }
       }
-      // AI-402-V2 / C-2: a comparison base is checked against the period the
+      // D-128: a comparison base is checked against the period the
       // figure is measured against, not against the figure's own period.
       const base = bases.length > 0 ? comparisonBase(record) : null;
       const baseResults = base === null ? [] : bases.map((phrase) => baseAgrees(phrase, base)).filter((result): result is boolean => result !== null);
