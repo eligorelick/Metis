@@ -132,7 +132,7 @@ import {
   type ProvenanceFailureReason,
 } from "@/pipeline/stageC/provenance";
 import { currencyCandidateInBaseUnits, matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
-import { formatTracedValue, unitLabel } from "@/report/format";
+import { sameTracedDisplayValue, unitLabel } from "@/report/format";
 import { buildPlainFigureIndex, checkPlainFigures, descriptionConflictsWithRecord, filedCalendarFiscalLabel, reportedSeriesLatest, validateClaimNumericSupport, valueConflictAtRecordDate, type ClaimEvidenceIndex, type ClaimSourceSpan, type PlainFigureText } from "@/pipeline/stageC/claimEvidence";
 import {
   parseCitationRef,
@@ -3809,7 +3809,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         // Otherwise double rounding can give an incorrect figure a checkmark.
         if (ok) {
           const scale = number.value === 0 ? 1 : amount.value / number.value;
-          if (formatTracedValue(number) !== formatTracedValue({ ...number, value: record.value / scale })) {
+          if (!sameTracedDisplayValue(number, { ...number, value: record.value / scale })) {
             ok = false;
             reason = "value-mismatch";
           }

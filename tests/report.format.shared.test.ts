@@ -21,6 +21,7 @@ import {
 import { ScorePill } from "@/components/ui";
 
 import {
+  sameTracedDisplayValue,
   formatCostUsd,
   formatFinancialValue,
   formatLargeNumber,
@@ -609,4 +610,12 @@ describe("valuation display decisions and report preparation stay in their owner
     expect(source).toMatch(/prepareReportForSurface\(/);
     expect(source).not.toMatch(/\b(?:withSafeStoredReportView|withStoredReportView|withReaderConventions|withPlainFigureNotes|withClassifiedDataOnlyGapCount|withValuationUseSafety|applyGradeOverrideContract|applyReportAssessmentStatus|indexVerificationMarks|lenderConventionTables|legacyScopeQualifications)\(/);
   });
+});
+
+
+it("D-304 compares displayed quantities independently of compact spelling and fails closed on gaps",()=>{
+  const n=(value:number)=>({value,unit:"currency",currency:"USD",source:"computed.test",asOf:null,verified:false});
+  expect(sameTracedDisplayValue(n(1_000_000),n(1_000_000.00001))).toBe(true);
+  expect(sameTracedDisplayValue(n(1_000_000),n(1_010_000))).toBe(false);
+  expect(sameTracedDisplayValue(n(Number.NaN),n(Number.NaN))).toBe(false);
 });

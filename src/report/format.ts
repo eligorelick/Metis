@@ -354,6 +354,25 @@ export function formatTracedValue(number: TracedNumber): string {
   return formatFinancialValue(number.value, number.unit, number.currency);
 }
 
+/**
+ * D-304: compare the numeric quantities our formatter displays, after identity
+ * matching. Whole-mantissa suppression and compact-scale choice can spell the
+ * same displayed amount differently ($1M, $1.00M, $1,000,000.00).
+ * This reads only this formatter's output, never issuer or analyst prose.
+ */
+export function sameTracedDisplayValue(left: TracedNumber, right: TracedNumber): boolean {
+  const displayed = (number: TracedNumber): number | null => {
+    const match = /^([\u2212+-]?)(?:\$)?([\d,]+(?:\.\d+)?(?:e[+-]?\d+)?)([KMBT]?)/.exec(formatTracedValue(number));
+    if (!match) return null;
+    const scales: Readonly<Record<string, number>> = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 };
+    const scale = scales[match[3]!] ?? 1;
+    const value = (match[1] === "-" || match[1] === "\u2212" ? -1 : 1) * Number(match[2]!.replaceAll(",", "")) * scale;
+    return Number.isFinite(value) ? value : null;
+  };
+  const a = displayed(left), b = displayed(right);
+  return a !== null && b !== null && a === b;
+}
+
 /** A failed match does not mean a citation was never supplied. */
 export function numericCitationTraceLabel(value: TracedNumber["verified"]): string {
   return value === true ? "citation-traced" : value === false ? "untraced" : "not checked";

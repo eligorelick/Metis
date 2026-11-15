@@ -348,3 +348,12 @@ it("D-306 names forensic thresholds and score quantities in reader words",()=>{
   expect(rules.join("\n")).not.toMatch(/totalOtherIncomeExpensesNet|operatingIncome|netIncomeFromDiscontinuedOperations/);
   expect(fs.readFileSync(path.join(ROOT,"src/pipeline/stageB/grading.ts"),"utf8")).not.toContain("altmanZOriginalScale driver carries");
 });
+
+
+it.each([1_000_000.00001,-1_000_000.00001,999_999.99999,1_000.00001])("D-304 accepts equivalent compact monetary spellings (%s)",async value=>{
+  const rec: NumericProvenanceRecord={id:"computed.test.amount",label:"amount",kind:"computed",value,unit:"currency",currency:"USD",period:null,asOf:"2025-12-31",origin:"computed.test",formulaVersion:"test",displayPrecision:4};
+  const n={value:Math.round(value),unit:"currency",currency:"USD",source:rec.id,asOf:rec.asOf,verified:false};
+  const result=await runVerifyPass({runPass:async()=>{throw new Error("no model");}} as unknown as PassDeps,
+    {provenanceRegistry:[rec],citationRegistry:[],filings:[]} as unknown as ContextPayload,{n});
+  expect((result.verifiedReport as {n:typeof n}).n.verified).toBe(true);
+});
