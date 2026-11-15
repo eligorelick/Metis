@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "e22ed45e43e38935d647e402a9175b0e66bb3589402e5447d61b4628f8647634", "reportSha256": "80b70a45819bab0eb03cd227efb889efe44694ac4d776153bfb164787db8a4e9"},
-  "projectionSha256": "3deef237d5915a37a93050b9242adff45017d29913733dd83fe4bbf4c17f3642",
+  "projectionSha256": "e324b145e5b02ac9ab6f894822c6f60c6cffc181895329689395ac8ae3ca7858",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Larkspur Example Systems", "quotePrice": 40},
     "stageB": {
@@ -2100,7 +2100,7 @@
         "symbol": "DEMO",
         "companyName": "Larkspur Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
-        "specVersion": "1.101.0",
+        "specVersion": "1.102.0",
         "model": "synthetic-fixture",
         "pipelineVersion": "audit-fixture-comparison",
         "evidenceContract": "EVIDENCE_CONTRACT_1",

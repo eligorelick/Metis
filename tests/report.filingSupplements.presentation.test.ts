@@ -7,6 +7,7 @@ import { reportToPrintBody } from "@/report/export/printHtml";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import { filingCommentaryOutlookTables, filingFactTables, filingGovernanceTables, type FilingSupplements } from "@/report/filingSupplementPresentation";
 import type { FilingDisclosures } from "@/report/schema";
+import { readableHtml } from "./helpers/uiParityContract";
 import { loadTask28Fixture } from "./helpers/task28Report";
 
 const source = { form: "10-Q", accession: "0000000000-26-000001", exhibit: null, filingDate: "2026-08-26", url: "https://www.sec.gov/example" };
@@ -34,6 +35,20 @@ describe("deterministic filing supplements", () => {
     expect(filingFactTables(absent)).toEqual([]);
     expect(filingCommentaryOutlookTables(absent)).toEqual([]);
     expect(filingGovernanceTables(absent)).toEqual([]);
+  });
+
+  it("reads saved filed-element basis text plainly without changing its audit evidence (D-312)", () => {
+    const report = loadTask28Fixture();
+    const d = disclosures();
+    d.filingFacts[0]!.text = "us-gaap/Goodwill 123 USD at 2024-12-31 (10-K synthetic-accession)";
+    report.filingDisclosures = d;
+    const before = JSON.stringify(report);
+    for (const text of [reportToMarkdown(report), readableHtml(reportToPrintBody(report)).text, readableHtml(renderToStaticMarkup(createElement(ReportView, { report }))).text]) {
+      expect(text).toContain("goodwill 123 USD at 2024-12-31");
+      expect(text).not.toContain("us-gaap/Goodwill");
+    }
+    expect(reportToAuditMarkdown(report)).toContain("us-gaap/Goodwill");
+    expect(JSON.stringify(report)).toBe(before);
   });
 
   it("keeps days, shares and counts distinct and discloses an unrecorded measurement date", () => {

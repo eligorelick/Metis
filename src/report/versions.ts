@@ -259,7 +259,8 @@
 // 1.101.0 (D-308, D-309, P12/P19/P22): reader text groups base-unit amounts with cents or at a sentence end; full
 // support only when every scored grade has all of its route-applicable evidence and free cash flow after SBC is
 // not withheld. Read time only: no figure, grade or score changes; stored reports keep their bytes.
-export const REPORT_SPEC_VERSION = "1.101.0" as const;
+// 1.102.0 (D-310..D-312): dated support gaps, distinct reader statements and plain diagnostics.
+export const REPORT_SPEC_VERSION = "1.102.0" as const;
 
 /**
  * Current payload format version.

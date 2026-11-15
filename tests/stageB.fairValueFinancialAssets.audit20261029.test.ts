@@ -29,7 +29,8 @@ describe("F8 / VAL-14: excluded assets are left out and named", () => {
     expect(computed.gaps).toContainEqual(gap);
     expect(JSON.stringify(report)).toContain(gap.reason);
     for (const text of Object.values(surfaces)) {
-      expect(text).toContain(tag);
+      expect(text).not.toContain(tag);
+      expect(text).toContain("available for sale securities debt securities");
       expect(text).toContain("97,900M");
     }
   });

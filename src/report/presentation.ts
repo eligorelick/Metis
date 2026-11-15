@@ -186,8 +186,8 @@ import {
 import type { ManifestEntry } from "@/types/core";
 import { BUSINESS_STORY_HEADING, productLineNamingClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
 import { claimStatusMark } from "@/report/verificationMarks";
-import { companyRecordClaim } from "@/report/executiveDecisions";
-import { citationAsOf, citationSourceId } from "@/pipeline/stageC/citations";
+import { companyRecordClaim, executiveCardClaims, executiveOfficeContext, executiveTenureText } from "@/report/executiveDecisions";
+import { citationSourceId } from "@/pipeline/stageC/citations";
 import { findDirectionWords } from "@/pipeline/stageC/consistency";
 import { developmentClaims, managementActionClaims, RECENT_DEVELOPMENTS_HEADING } from "@/report/qualitativeAnalysis";
 import type {
@@ -1013,8 +1013,38 @@ const echoIndexed = new WeakSet<object>();
  * filing or date are a different statement and print in both places.
  */
 export function claimEchoKey(claim: SourcedClaim): string {
-  return [claim.label, claim.text.trim().replace(/\s+/g, " "), citationSourceId(claim) ?? "", claim.source, claim.sourceId ?? "",
-    citationAsOf(claim) ?? "", claim.asOf ?? "", claimStatusMark(claim) ?? ""].join("\u0000");
+  return [claim.label, displayClaimText(claim).trim().replace(/\s+/g, " "), claimCitation(claim),
+    claimStatusMark(claim) ?? ""].join("\u0000");
+}
+
+/** D-311 (P19, P22): the reader claim inventory, including the very same
+ * officer-card selection and wording that the three surfaces render. */
+export function readerStatementInventory(report: Report): SourcedClaim[] {
+  const claims: SourcedClaim[] = [];
+  const visit = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) { node.forEach(visit); return; }
+    const c = node as Partial<SourcedClaim>;
+    if (typeof c.text === "string" && typeof c.source === "string" && typeof c.label === "string") {
+      if (c.label === "FACT" || c.label === "ESTIMATE") claims.push(c as SourcedClaim);
+      return;
+    }
+    for (const [key, value] of Object.entries(node))
+      if (!["appendix", "meta", "auditValuation", "gradeStrip"].includes(key)) visit(value);
+  };
+  const { leadership, ...rest } = report;
+  visit(rest);
+  const { executives, ...other } = leadership;
+  visit(other);
+  const companyClaims = (leadership.managementActions ?? []).flatMap(managementActionClaims);
+  const groups = executiveGroups(executives, executives.filter(e =>
+    executiveOfficeContext(e, leadership, report.appendix.verificationLog, report.outlook.guidanceCredibility) !== undefined || executiveTenureText(e) !== undefined));
+  for (const e of groups.assessed) {
+    visit(executiveCardClaims(e, e.reasoning, companyClaims));
+    for (const group of EXECUTIVE_EVIDENCE_GROUPS) visit(executiveCardClaims(e, e.evidence[group.key] ?? [], companyClaims));
+  }
+  visit(groups.notAssessedClaims);
+  return claims;
 }
 
 /**
@@ -2155,7 +2185,7 @@ export function withoutDecisionNumbers(text: string): string {
 export function displayProse(text: string, source?: string, options: { modelWritten?: boolean } = {}): string {
   // D-308 review round 1: code-written prose has its base-unit amounts grouped; model-written prose (a paragraph
   // carrying the "not confirmed" mark, or a claim of a report the AI wrote) is shown as written.
-  const conventions = readerConventionText(withoutDecisionNumbers(text), source);
+  const conventions = readerConventionText(plainFieldNames(withoutDecisionNumbers(text)), source);
   const readable = (options.modelWritten === true || text.trimEnd().endsWith(MODEL_PROSE_MARK) ? conventions : readerBaseUnits(conventions))
     .replace(/(\bevidence completeness (?:was|is) )((?:0(?:\.\d+)?|1(?:\.0+)?))(?![\d%]|\.\d)/gi, (_, lead: string, value: string) => `${lead}${ratioPercentText(Number(value))}`)
     .replace(/(Self-assessed case strength[^:]*: bull )(\d)(, bear )(\d)(?!\s*(?:\/|of))/g, "$1$2 of 5$3$4 of 5");
@@ -2573,6 +2603,17 @@ export function manifestEntryLabel(gap: ManifestEntry, issuer: string | null): s
  * "basic EPS, diluted EPS" in the body; the audit export keeps the identifiers.
  */
 export const READER_FIELD_LABELS: Readonly<Record<string, string>> = {
+  balanceAnnual: "annual balance sheet", balanceQuarterly: "quarterly balance sheet",
+  incomeAnnual: "annual income statement", incomeQuarterly: "quarterly income statement",
+  cashflowAnnual: "annual cash-flow statement", cashflowQuarterly: "quarterly cash-flow statement",
+  NetIncomeLoss: "net income or loss", ProfitLoss: "profit or loss",
+  LongTermDebtCurrent: "current portion of long-term debt", LongTermDebtNoncurrent: "noncurrent long-term debt",
+  ShortTermBorrowings: "short-term borrowings", ShareBasedCompensation: "share-based compensation",
+  OperatingLeaseLiability: "operating lease liability", FinanceLeaseLiability: "finance lease liability",
+  InterestExpenseDeposits: "interest expense on deposits", PremiumsEarnedNet: "net premiums earned",
+  NonUsMember: "non-US", EuropeMember: "Europe", InventoryWriteDown: "inventory write-down",
+  reportedCurrency: "reporting currency",
+  FinancingReceivableAllowanceForCreditLossExcludingAccruedInterest: "allowance for credit losses on loans (excluding accrued interest)",
   eps: "basic EPS", epsDiluted: "diluted EPS", weightedAverageShsOut: "basic weighted share count", weightedAverageShsOutDil: "diluted weighted share count",
   costOfRevenue: "cost of revenue", grossProfit: "gross profit", operatingExpenses: "operating expenses", operatingIncome: "operating income",
   interestExpense: "interest expense", totalOtherIncomeExpensesNet: "total other income and expense", incomeBeforeTax: "pre-tax income",
@@ -2599,7 +2640,43 @@ const READER_FIELD_PATTERN = new RegExp(`(?<![\\w./:@-])(${Object.keys(READER_FI
 
 /** Statement field identifiers in a recorded reason, in plain words (D-301). */
 export function plainFieldNames(text: string): string {
-  return text.replace(READER_FIELD_PATTERN, (name: string) => READER_FIELD_LABELS[name] ?? name);
+  return text
+    .replace(/\bus-gaap[:/]([A-Za-z][A-Za-z0-9]*)\b/g,
+      (_all, tag: string) => READER_FIELD_LABELS[tag] ?? segmentWords(tag).join(" "))
+    .replace(/has reportedCurrency ([A-Z]{3}) and is not proven USD; the raw \$([\d,]+) pre-revenue threshold was not evaluated/g,
+      "has revenue currency $1; the USD $2 pre-revenue threshold was not assessed")
+    .replace(/has unknown or invalid reportedCurrency and is not proven USD; the raw \$([\d,]+) pre-revenue threshold was not evaluated/g,
+      "has an unestablished revenue currency; the USD $1 pre-revenue threshold was not assessed")
+    .replace(/\bstatements\.(income|balance|cashflow)\.(\d{4}-\d{2}-\d{2})\.([A-Za-z][A-Za-z0-9]*)\b/g,
+      (_all, _family: string, end: string, field: string) => `${READER_FIELD_LABELS[field] ?? segmentWords(field).join(" ")} for the period ended ${end}`)
+    .replace(READER_FIELD_PATTERN, (name: string) => READER_FIELD_LABELS[name] ?? name)
+    // Filed element names are diagnostics, including older saved bank/REIT bases.
+    // Keep their measure words and operands; audit exports retain exact ids.
+    .replace(/(?<![\w/:.])(?:us-gaap:)?([A-Z][a-z]+(?:[A-Z][A-Za-z0-9]*){2,})(?![\w/])/g,
+      (all: string, tag: string) => tag.length >= 25 ? segmentWords(tag).join(" ") : all);
+}
+
+/** D-312: saved basis/reason rows sometimes bypass displayProse. Apply the
+ * same vocabulary to those reader fields; leave citations, claims and audit
+ * records intact so verification still indexes the original saved words. */
+export function withPlainReaderFields(report: Report): Report {
+  const next = structuredClone(report);
+  const visit = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) { node.forEach(visit); return; }
+    const row = node as Record<string, unknown>;
+    if (typeof row.text === "string" && ["FACT", "ESTIMATE", "JUDGMENT"].includes(String(row.label)) && typeof row.source === "string") return;
+    for (const [key, value] of Object.entries(row)) {
+      if (["verificationLog", "meta", "sources"].includes(key)) continue;
+      if (["text", "reason", "basis", "period", "note", "notes", "detail", "explanation", "withheldReason", "notApplicableReason", "verificationNote"].includes(key)) {
+        if (typeof value === "string") row[key] = plainFieldNames(value);
+        else if (Array.isArray(value)) row[key] = value.map(v => typeof v === "string" ? plainFieldNames(v) : v);
+        else visit(value);
+      } else visit(value);
+    }
+  };
+  visit(next);
+  return next;
 }
 
 /** A long manifest reason cut at a sentence or clause near 320 characters; the audit export keeps it whole. */

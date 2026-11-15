@@ -13,6 +13,30 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 
 
+## D-312 — Plain reader diagnostics for saved reports (2026-11-15)
+
+**Principles:** P21, P22. **Owner:** `src/report/presentation.ts`, composed at reader preparation.
+
+Step 4 B3 exposed dotted statement paths, reporting-currency field identifiers and bank XBRL elements in ordinary basis and warning rows. Extend the shared vocabulary at read time, including basis/reason/period fields in score details that bypass prose formatting. Keep source ids and verification logs untouched. The audit surface never applies this view. Saved bytes, calculations, currencies and operands do not change. Long filed element identifiers split into words; the allowance excluding accrued interest has its explicit financial label. This is display vocabulary, never refusal classification or evidence admission.
+
+Approved changes: the PNC revenue conflict retains its 2017-12-31 period in plain words; its allowance basis names the measure; SAP's warning retains EUR, the revenue operand and USD threshold while saying the threshold was not assessed. Siblings in bank, insurer, REIT and general-route bases, capital method notes, valuation diagnostics and warnings use the same vocabulary. The panel sweep also found saved goodwill-note text bypassing prose formatting; non-claim text now uses the vocabulary too, with a synthetic goodwill-note regression. Namespace-qualified elements and short debt/share-compensation tags have reader labels. No financial figure changes for any panel company. Synthetic controls retain ordinary prose, dates and currency; audit identifiers and input bytes are asserted unchanged.
+
+## D-311 — Count distinct statements readers actually see (2026-11-15)
+
+**Principles:** P19, P22. **Owner:** the reader inventory and identity in `src/report/presentation.ts`; support reads it.
+
+Step 4 B2 counted raw officer objects while cards select and rewrite their company-record prefix. The raw identity also distinguished redundant source-id fields that render identically. Use the displayed words, label, displayed citation/date and verification mark for identity, and select officer claims through the exact card/group helpers used by all surfaces. Both numerator and denominator use this inventory. A statement repeated in another section counts once; the headline, definition and README explicitly say so. Differing marks or displayed dates remain distinct; a citation alone is not confirmation.
+
+Approved changes: MSFT support is 50 of 290 distinct statements (formerly 51 of 291); its 52 visible validated occurrences include two repeats. PNC is 31 of 267 distinct statements, with 34 occurrences; SAP is 31 of 275, with 31 occurrences. Panel analyst numerators independently counted from rendered print claims: AMZN 32, JPM 23, LLY63 56, LLY65 84, META 43, MU 34, NVDA 29, TSM 27. Before/after distinct-count changes: AMZN 34/116 -> 32/114, JPM 23/284 -> 23/282, LLY63 57/256 -> 56/255, NVDA 30/111 -> 29/110; META 43/117, MU 34/132, LLY65 84/287 and TSM 27/241 retain their counts with the explicit distinct wording. All equal the support numerator on all three surfaces. No financial values, grades or verification outcomes change. Tests revising earlier assertions: W45's headline now requires the distinct wording and repeat rule; version pins move to 1.102.0. The audit fixture refresh changes only the spec leaf and its projection hash; Stage C frozen payload is unchanged. The sample report was rebuilt. Payload, Stage B and method stamps stay fixed. Other updated assertions: the preparation-chain tests now explicitly require the new vocabulary step; the financial-assets test requires the plain label and forbids the raw tag while retaining its raw audit gap assertion; W45 requires a plain namespace-qualified element while preserving registry citations. The legacy multi-claim export snapshot changes Markdown/print digests for the new support wording; audit and standalone UI digests stay unchanged. No test is skipped or relaxed.
+
+## D-310 — Historical capital gaps name their period (2026-11-15)
+
+**Principles:** P1, P11, P22. **Owner:** `src/report/supportLevel.ts`.
+
+Step 4 B1's manifest `capital.netDebtToEbitda` belongs to the annual capital computation, separate from current capital. Read its typed annual balance dataset date to name the historical annual period ended; interest coverage reads annual income and free cash flow reads annual cash flow. Never parse the reason or infer a fiscal-year label from an end date. If a saved report lacks that date, explicitly say the historical period was not recorded. The other D-309 valuation limitations already identify historical windows or current valuation inputs; keep their distinct ownership. The financial-assets sentence continues to qualify only a separate add-back.
+
+Approved changes: MSFT's undated blanket refusal becomes a refusal for the historical annual period ended 2026-06-30, while the separately dated current ratio remains displayed. Panel capital gaps name their own annual dates: CAT, DUK, LLY63, META (both cases), O, PLD, RIVN and UNP use 2025-12-31; QCOM uses 2025-09-28; VKTX interest coverage uses 2025-12-31. Each replaces the undated refusal with that historical annual end date; no values change in any company. Synthetic historical and missing-date shapes plus a no-gap control establish the rule. W9b's free-cash-flow control now strictly requires the historical/unrecorded qualifier rather than an undated withholding. This refines D-309's wording without loosening its typed qualification or support level.
+
 ## D-309 - "Full support" only when its definition is true (2026-11-15)
 
 P12, P19 and P22; release check 5 (VERIFY-2 F3); revises D-300. Owner: `src/report/supportLevel.ts`; README "Support

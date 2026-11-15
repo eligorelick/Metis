@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.101.0 / payload 1.113.0, Stage B `STAGE_B_2026_11_FILED_TAX_86` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.102.0 / payload 1.113.0, Stage B `STAGE_B_2026_11_FILED_TAX_86` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 D-308: raw base-unit amounts in reader prose (seven or more whole digits, with or without cents, also at the end of a sentence or clause) print digit-grouped with at most two decimals, by the shared read-time view (`readerBaseUnits`); dates, accessions, hashes, leading-zero identifiers, 8-digit basic dates and numbers after an identifier word (version, id, CIK number, no., #) are untouched; model-written paragraphs and the statements of an AI-written report are shown as written; the audit export keeps the raw record, and no figure changes. D-309: full support requires every scored grade to have all of its route-applicable evidence and no unexpected data gap on a valuation input or headline figure.
 
@@ -8979,8 +8979,7 @@ recorded qualification, and a saved cash-flow valuation written before the tax-o
 below 1.98.0), read as limited. The tax-rate operands count as checked when the filed provision and pre-tax income
 replaced the vendor's or the vendor's agree with the reconciled filed earnings family (D-300 review round 1, the
 same-observation rule). The confirmed share is the validated FACT and ESTIMATE statements over all shown, each counted
-once by the presentation layer's statement identity (words, tag, citation, date and mark); a citation is not a
-confirmation.
+once by the presentation layer's reader statement inventory and identity (displayed words, tag, citation, date and mark). The line says "N of M distinct statements ...; a statement repeated in another section counts once" (D-311); a citation is not a confirmation. Historical annual capital refusals name their typed annual dataset end date, or explicitly state that the historical period was not recorded (D-310). Shared reader fields and prose label record paths, currency fields and filed element names in plain words; audit records retain the identifiers (D-312).
 
 Every surface reads in one order: verdict; the business group (business and
 segments, competitive landscape, future outlook); catalysts and risks; then

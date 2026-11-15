@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ReportView } from "@/components/report/ReportView";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { readerBaseUnits, withReaderConventions } from "@/report/readerConventions";
@@ -331,7 +332,7 @@ describe("full support only on complete evidence (D-309, check 5)", () => {
     // typed line), and on a non-headline field or as an expected entry it changes nothing.
     const wording = graded();
     wording.appendix.missingData.push({ field: "capital.fcf.note", reason: "stock-based compensation not disclosed; free cash flow is reported before SBC", severity: "info" });
-    expect(supportLevel(wording).limitations).toEqual([{ code: "headline-input-qualified", text: "a free-cash-flow figure is withheld or qualified" }]);
+    expect(supportLevel(wording).limitations).toEqual([{ code: "headline-input-qualified", text: "a historical free-cash-flow figure is withheld or qualified (period not recorded)" }]);
     const control = graded();
     control.appendix.missingData.push(
       { field: "capital.note", reason: "stock-based compensation not disclosed; free cash flow is reported before SBC", severity: "info" },
@@ -343,5 +344,42 @@ describe("full support only on complete evidence (D-309, check 5)", () => {
   it("states a partial grade on every surface", () => {
     const report = graded({ valuation: 0.7 });
     for (const text of surfaces(report)) expect(text).toContain("the valuation grade rests on 70.0% of the evidence that applies on this company's route");
+  });
+});
+
+describe("Step 4 period and diagnostic reader regressions (D-310, D-312)", () => {
+  it("dates historical capital refusals from typed annual periods, with an undated control", () => {
+    const report = loadTask28Fixture();
+    report.meta.asOfMap["statements.balanceAnnual"] = "2024-06-30";
+    report.appendix.missingData = [{ field: "capital.netDebtToEbitda", reason: "wording must not decide the period", severity: "info" }];
+    expect(supportLevelText(supportLevel(report))).toContain("net debt to EBITDA for the historical annual period ended 2024-06-30 is withheld");
+    delete report.meta.asOfMap["statements.balanceAnnual"];
+    expect(supportLevelText(supportLevel(report))).toContain("historical net debt to EBITDA is withheld (period not recorded)");
+    report.appendix.missingData = [];
+    expect(supportLevelText(supportLevel(report))).not.toContain("net debt to EBITDA");
+  });
+  it("applies the vocabulary on all saved-report surfaces and preserves audit identifiers", () => {
+    const report = loadTask28Fixture();
+    const raw = "FinancingReceivableAllowanceForCreditLossExcludingAccruedInterest";
+    report.valuation.multiples[0]!.basis = `allowance 123 (${raw}) at 2024-12-31`;
+    report.appendix.missingData.push({field: "route.overlays.preRevenue.currency", severity: "warn",
+      reason: "ttm revenue 987 has reportedCurrency GBP and is not proven USD; the raw $10,000,000 pre-revenue threshold was not evaluated for that observation, and no FX conversion was attempted"});
+    const original = JSON.stringify(report);
+    for (const text of surfaces(report)) {
+      expect(text).not.toContain(raw);
+      expect(text).not.toContain("reportedCurrency");
+      expect(text).toContain("allowance for credit losses on loans (excluding accrued interest)");
+      expect(text).toContain("GBP");
+    }
+    expect(reportToAuditMarkdown(report)).toContain(raw);
+    expect(JSON.stringify(report)).toBe(original);
+  });
+
+  it("reads paths, field names and bank tags plainly while retaining dates and currency", () => {
+    expect(displayProse("Annual revenue definitions are unreconciled (statements.income.2018-12-31.revenue)."))
+      .toContain("revenue for the period ended 2018-12-31");
+    expect(displayProse("has reportedCurrency GBP; FinancingReceivableAllowanceForCreditLossExcludingAccruedInterest"))
+      .toBe("has reporting currency GBP; allowance for credit losses on loans (excluding accrued interest)");
+    expect(displayProse("Revenue was GBP 12 million in 2018." )).toBe("Revenue was GBP 12 million in 2018.");
   });
 });
