@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.97.0 / payload 1.110.0, Stage B `STAGE_B_2026_11_READER_WORDING_83` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.98.0 / payload 1.111.0, Stage B `STAGE_B_2026_11_TAX_OPERAND_EVIDENCE_84` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 D-280 (P1/P7/P8/P10/P13): the shared TTM interest gate requires all four quarters. A vendor zero without exact filed interest evidence is undisclosed; a filed zero with exact period end, matching currency, tags, filings and no recorded conflict is admitted using the projection owner's existing evidence test. Both current coverage and WACC read that admitted sum; WACC may fall back to a complete annual pair, explicitly naming its basis. Segment shares require the signed split to reconcile to same-period, same-currency revenue under P8. Typed causes distinguish no matching-period revenue, refused revenue and a nonreconciling split, and the table prints the actual cause. Both data-only and analyst reports use the same share owner.
 
@@ -8959,10 +8959,16 @@ Every independently described figure in a filing-excerpt claim must pass the exi
 
 Before the key data, every surface prints the report's support level and its share of confirmed statements
 (D-300; README "Support levels"). Code sets the level from typed evidence only (the fair-value status and its
-valuation-use reason, the route recorded on the route metrics, the P12 grade qualifications, the typed
-statement-evidence entries and critical filing gaps): "Full support" when none applies, otherwise "Limited support"
-with each limitation in plain words. The confirmed share is the validated FACT and ESTIMATE statements over all
-shown, each counted once; a citation is not a confirmation.
+valuation-use reason, the route recorded on the route metrics, every P12 grade qualification reason, the typed
+statement-evidence entries, the typed `valuation.dcf.taxOperands` entry for tax-rate operands not checked against a
+filing, and critical filing gaps): "Full support" when none applies and the evidence is recorded, otherwise "Limited
+support" with each limitation in plain words. Missing evidence never establishes full support: a grade with no
+recorded qualification, and a saved cash-flow valuation written before the tax-operand entry existed (report stamp
+below 1.98.0), read as limited. The tax-rate operands count as checked when the filed provision and pre-tax income
+replaced the vendor's or the vendor's agree with the reconciled filed earnings family (D-300 review round 1, the
+same-observation rule). The confirmed share is the validated FACT and ESTIMATE statements over all shown, each counted
+once by the presentation layer's statement identity (words, tag, citation, date and mark); a citation is not a
+confirmation.
 
 Every surface reads in one order: verdict; the business group (business and
 segments, competitive landscape, future outlook); catalysts and risks; then
@@ -8977,7 +8983,7 @@ suppliers only from that field; what is next only
 from what is coming; risks from the risks and concentration risks), and only
 with a FACT whose own verification entry is validated or cited; an unverified,
 unchecked or contradicted claim, a judgment, or a statement of a limitation or
-absence never enters. A part with none describes this report, never the sources (D-303): "Not covered in this report." when its fields hold no statement, otherwise a pointer to the report's own marked statements below. A brief line never cites a market or computed record (such as the share price), and the three descriptive parts skip statements of change (D-276). A
+absence never enters. A part with none describes this report, never the sources (D-303): "Not covered in this report." when its fields hold no statement, otherwise a pointer to the report's own marked statements below. A single line replaces the five parts only when none of their fields holds a statement (D-303 review round 1). A brief line never cites a market or computed record (such as the share price), and the three descriptive parts skip statements of change (D-276). A
 statement shown in full in one list is referenced, not repeated, in a later
 list when its label, text, citation, resolved citation date and verification
 mark all match. Each score keeps its qualifying text beside it. Score drivers,

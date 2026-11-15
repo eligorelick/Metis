@@ -25,16 +25,20 @@ TSMC/Samsung sentence under what it sells, MU's cited Item 1A risks).
 own mark is validated or cited. New: when the part's answering fields hold no statement it says "Not covered in this
 report."; when they hold statements that did not qualify (judgments, not-confirmed or contradicted statements,
 limitation statements) it says "Not in the brief: the report's statements on this appear, with their marks, in the
-sections below." The one-line whole-brief notice says no statement about the business in this report is confirmed or
-cited to its source. The choice is by typed state (empty field, label, verification mark), never by wording.
+sections below." The choice is by typed state (empty field, label, verification mark), never by wording. Review round 1
+(finding 5): the one-line whole-brief notice said no business statement in the report is confirmed or cited, which was
+false when a cited statement sits below it. It now prints only when no part's fields hold any statement ("Not covered in
+this report: the business fields the brief reads hold no statement.", `briefNotCovered`); otherwise each part prints its
+own line.
 
-**Not changed: JPM "Protection and competition".** The FDIC deposit-insurance sentence sits in the model's
-`business.protection` field as a cited (qualitative) FACT, so the rule above admits it; code cannot judge from its
-wording that it is not protection without reading meaning (P11, P18). It keeps its "[not confirmed]" mark. Closing it
-needs either a narrower field contract for new runs or a lead decision.
+**Limitation (lead decision, review round 1): JPM "Protection and competition".** The FDIC deposit-insurance sentence
+sits in the model's `business.protection` field as a cited (qualitative) FACT, so the rule above admits it and it stays,
+marked "[not confirmed]". Code cannot judge from its wording that it is not a protection without reading meaning (P11,
+P18); closing it needs a narrower field contract for new runs.
 
 **Before and after (same-report check, main 570807e4, 33 panel cases).** Every data-only case changes only the
-whole-brief notice (25 cases). Fixed-analyst replays (each part read "Not established from verified sources."
+whole-brief notice (25 cases; after review round 1 no panel report prints the whole-brief notice: each data-only brief
+prints its five part lines, because its fields hold statements that do not qualify). Fixed-analyst replays (each part read "Not established from verified sources."
 before): AMZN "Customers and suppliers" and "What is next" not covered (the stored report has no
 `customersAndSuppliers` or `whatIsComing` field), "What it sells" points below; NVDA "Customers and suppliers" and
 "What is next" not covered; MU "Customers and suppliers" and "What is next" not covered, "Protection and competition"
@@ -44,7 +48,8 @@ competition" points below; LLY #63 "Customers and suppliers" and "What is next" 
 
 **Tests.** `tests/report.readable.test.ts` (D-273 brief tests revised to the new, equally strict lines: the drug maker's
 protection and risks parts point below; a limitation-only protection field points below; an empty what-is-next field
-is not covered; a report with no qualifying statement prints neither part line).
+is not covered; review round 1: a report whose statements did not qualify prints each part's pointer and never the
+whole-brief notice, which prints only when every part's fields are empty).
 
 ## D-302 - A company figure on an officer's card reads as the company's record during the tenure (2026-11-15)
 
@@ -95,7 +100,11 @@ P13, P22 and P27 (release items R29 and R39 sample part; findings K20, A7, D10).
 - Registered aliases of one figure (`computed.current-capital.*` and `computed.capital.current.*`, the existing alias
   table) merge when value, unit and as-of agree, a unitless ratio's currency is null on one id and absent on the other
   (both mean no currency), and one copy omits its period while the other's period is the as-of date or a window ending
-  on it. The row with the stated window is kept. Different values, windows ending elsewhere, different currencies on
+  on it. The row with the stated window is kept. Review round 1 (finding 2): the merge compares the traced values, not
+  their display text (937.21x and 937.24x both print "937.2x" and stay two rows), at the context payload's
+  four-decimal transport precision (`aliasComparableValue`; `round` in `src/pipeline/stageC/payload.ts`), which is how
+  an analyst's key number 0.1821 copies the code figure 0.18213677 (AMZN, LLY, MU, NVDA accrual ratios keep one row).
+  The comparison is exact at that precision, not a band. Different values, windows ending elsewhere, different currencies on
   an amount, and ids that are not registered aliases stay separate: equal values never merge (statement total debt
   and the lease-inclusive bridge both stay). Extends D-264's alias period rule (marked revised).
 - The statement field `cash-sti` reads "Cash and short-term investments (at <date>)". The statement line and the
@@ -146,10 +155,9 @@ each in plain words, in this order:
   `statements.adsEps`;
 - `edgar.predecessor` (successor issuer);
 - an unexpected critical `edgar.*` gap (a filing section not retrieved).
-Nothing reads reason wording (P11). Closest-owner notes: no typed "headline figure rests on vendor data" state exists
-beyond the 6-K interim entry, so the P12 qualifications stand in for it; the recent-IPO overlay leaves no typed trace
-on a saved report, so by itself it does not make support limited (README says so). No new status word: the two level
-names are the release brief's.
+Nothing reads reason wording (P11). Review round 1 added the typed tax-operand entry and every grade-qualification
+code (below). The recent-IPO overlay leaves no typed trace on a saved report, so by itself it does not make support
+limited (README says so). No new status word: the two level names are the release brief's.
 
 The second line: "N of M statements were confirmed against their records by code (P%)": M is every FACT or
 ESTIMATE statement a reader surface prints (appendix, meta, the audit-only valuation and the grade strip's reasoning
@@ -180,8 +188,48 @@ counted); README states both levels.
 failed its domain test) reads as a model limit, not as an input that could not be established. Neither changes a panel
 case (none has a domain failure or a hidden estimate); tests added for both with controls.
 
-**Version.** No stamp moves: every change is read-time presentation or the synthetic sample; no figure, payload,
-Stage B or schema changes (D-301 to D-303 the same).
+**Review round 1 (lead decision on finding 1).** (a) Cause of the "Tax rate operands: vendor data, not checked
+against a filing" label on ten full-support reports: `taxEvidenceBasis` (`src/pipeline/compute.ts`) required
+`fieldProvenance` on the provision and pre-tax income, which the earnings admission (`enrichIncomeClassification`,
+`src/edgar/incomeClassification.ts`) records only when it adopts a disputed filed family. A vendor provision and pre-tax
+income that agree with the reconciled filed family recorded no proof: the gap PR #211 closed for interest expense.
+Fixed in the same owner the same way: the admission records `taxOperandAgreement` (the filed family's pre-tax and
+provision proofs; for a filer whose pre-tax line excludes equity-method results, the D-237 line the rate divides by)
+when the row's values are the same observation as the family (P8 `vendorAgreesWithFiled`, no new allowance), also on
+an adopted row so a second pass is unchanged; `filedTaxOperands` accepts it per field for the row's own period end. No
+value changes. The label leaves 13 valuations: AMZN (both), CAT, DIS, KO, LLY, LLY #65, NVDA (both), QCOM, UNH, UNP
+and WMT; every trailing-window row's provision and pre-tax income agree with the filed family. It stays, correctly, on
+NVO, TSM and TSM #66 (Form 6-K interim quarters are vendor rows with no filed quarterly facts) and XOM (successor
+issuer: its retained filed facts hold no Q4 2025 or Q1 2026 earnings facts, and the Q3 2025 figures appear only as
+comparatives in a later filing, which the existing filing-date rule does not match to that row). (b) The support level
+now reads the typed evidence of every headline input, and missing evidence never establishes full support: Stage B
+writes the typed manifest entry `valuation.dcf.taxOperands` (info) when the tax-rate operands are unchecked
+(limitation "the tax rate of the cash-flow valuation uses provider tax and pre-tax income figures not checked against a
+filing"); every P12 grade-qualification code limits support (`missing-applicable-aspect` and
+`limited-applicable-evidence` name the grade by its typed aspect; `current-valuation-unavailable` when no fair-value
+limitation already covers it); a grade with no recorded qualification, or status unknown, reads "this saved report
+does not record the evidence behind its grades"; a saved cash-flow valuation stamped before 1.98.0
+(`TAX_OPERAND_EVIDENCE_SINCE_SPEC`, a frozen display cutoff) reads "this saved report does not record whether the tax
+rate's operands were checked against a filing". README and `SUPPORT_LEVELS` now say "every grade rests on complete
+recorded evidence" and "or the report does not record the evidence to show it"; a test reads both from the module.
+Finding 3: the confirmed count uses the presentation layer's own statement identity (`claimEchoKey`, which includes the
+verification mark), so a validated and a contradicted copy of the same words are two statements, one confirmed.
+
+**Panel after review round 1 (main 5a503eec, 33 cases).** Full support: AMZN (both), DIS, NVDA (both), WMT. Limited
+support (only the new reasons listed; route, fair-value, filing and 6-K reasons as before): CAT (moat grade has no
+evidence on its route); KO, LLY, LLY #65, MU (both), QCOM (leadership grade rests on limited evidence); UNH (quality);
+UNP (moat and leadership); BAC, JPM, JPM #64 (plus quality and leadership); PGR (plus quality, moat, leadership); MET,
+META (both), LLY #63, O, PLD, DUK, FIGR, RIVN, VKTX (plus their grade reasons); NVO, TSM, TSM #66, XOM (plus the
+unchecked tax-rate operands). Confirmed statements are unchanged: AMZN 34 of 116, META 43 of 117, MU 34 of 132, NVDA
+30 of 111, JPM #64 23 of 284, LLY #63 57 of 256, LLY #65 84 of 287, TSM #66 27 of 241 (no panel report holds a
+validated and a contradicted copy of one statement). Fair values: all 33 unchanged (`golden:value-check`); Stage B
+changes only the label removal and the new typed entry; accuracy unchanged (330 match, 14 mismatch, 121 gap, 70 not
+established).
+
+**Version (review round 1, finding 4).** Report 1.98.0 (above main's 1.97.0), payload 1.111.0, Stage B
+`STAGE_B_2026_11_TAX_OPERAND_EVIDENCE_84`, pipeline `stage-c-1.6.52` (the D-302 prompt sentence); new frozen display
+cutoff `TAX_OPERAND_EVIDENCE_SINCE_SPEC` 1.98.0. METHODOLOGY's declared-versions sentence, the CHANGELOG header, the
+stamp pins, the sample (`sample:build`) and the frozen audit fixture (`freeze:refresh`, D-300) move with them.
 ## D-299 - Product-line headings and segment row names are code-owned (2026-11-14)
 
 P18 and P19; release items R37, R38 and R32. Owners: `src/pipeline/stageC/passes.ts` (assembly),

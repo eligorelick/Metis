@@ -108,6 +108,7 @@ import {
   businessStoryBlocks,
   BUSINESS_BRIEF_HEADING,
   BRIEF_NOT_ESTABLISHED,
+  briefNotCovered,
   businessBrief,
   scenarioReaderLists,
   SEPARATE_CONDITIONS_HEADING,
@@ -487,7 +488,7 @@ function sectionVerdict(report: Report): string {
 /** D-273: the five-part brief, verified claims only; a part with no support says so. */
 function businessBriefBlock(report: Report): string {
   const parts = businessBrief(report);
-  if (parts.every(part => part.claims.length === 0)) return `<h3>${esc(BUSINESS_BRIEF_HEADING)}</h3><p class="faint">${esc(BRIEF_NOT_ESTABLISHED)}</p>`;
+  if (briefNotCovered(parts)) return `<h3>${esc(BUSINESS_BRIEF_HEADING)}</h3><p class="faint">${esc(BRIEF_NOT_ESTABLISHED)}</p>`;
   return `<h3>${esc(BUSINESS_BRIEF_HEADING)}</h3><ul class="business-brief">${parts.map(part => `<li><strong>${esc(part.heading)}:</strong> ${part.claims.length === 0
     ? `<span class="faint">${esc(part.empty)}</span>`
     : part.claims.map(c => `${esc(displayClaimText(c))} <span class="src">${citationHtml(c)}</span>${statusMark(c)}`).join(" ")}</li>`).join("")}</ul>`;

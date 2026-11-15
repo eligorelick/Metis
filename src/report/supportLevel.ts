@@ -16,6 +16,11 @@
 import type { Report, SourcedClaim } from "@/report/schema";
 import type { ManifestEntry } from "@/types/core";
 import { claimStatusMark } from "@/report/verificationMarks";
+import { TAX_OPERAND_EVIDENCE_SINCE_SPEC, specVersionBefore } from "@/report/versions";
+import { DCF_TAX_OPERANDS_FIELD } from "@/report/assessment";
+import { claimEchoKey } from "@/report/presentation";
+
+export { DCF_TAX_OPERANDS_FIELD };
 
 export type SupportLevelKey = "full" | "limited";
 
@@ -23,11 +28,11 @@ export type SupportLevelKey = "full" | "limited";
 export const SUPPORT_LEVELS: Readonly<Record<SupportLevelKey, { label: string; definition: string }>> = {
   full: {
     label: "Full support",
-    definition: "The company is on a route the methods support, and no headline figure rests on vendor data not checked against a filing, is withheld for a missing filing or input, or is limited by the route.",
+    definition: "The company is on a route the methods support, every grade rests on complete recorded evidence, and no headline figure or valuation input rests on vendor data not checked against a filing, is withheld for a missing filing or input, or is limited by the route.",
   },
   limited: {
     label: "Limited support",
-    definition: "At least one of those conditions does not hold. The report lists, in plain words, what was not checked against filings or is not covered.",
+    definition: "At least one of those conditions does not hold, or the report does not record the evidence to show it. The report lists, in plain words, what was not checked against filings or is not covered.",
   },
 };
 
@@ -44,7 +49,9 @@ export const SUPPORT_BLOCK_HEADING = "Support for this report";
 export type SupportLimitationCode =
   | "financial-route" | "route-no-per-share-value" | "fair-value-withheld" | "fair-value-dated"
   | "headline-input-withheld" | "operating-scope-unverified" | "cash-only-liquidity"
-  | "foreign-interim-vendor" | "ads-eps-derived" | "predecessor-history" | "filing-not-retrieved";
+  | "foreign-interim-vendor" | "ads-eps-derived" | "predecessor-history" | "filing-not-retrieved"
+  | "tax-operands-vendor" | "tax-evidence-not-recorded" | "grade-evidence-missing" | "grade-evidence-limited"
+  | "current-valuation-unavailable" | "grade-qualification-not-recorded";
 
 export interface SupportLimitation { code: SupportLimitationCode; text: string }
 
@@ -69,6 +76,17 @@ const HEADLINE_INPUT_LABEL: ReadonlyArray<readonly [RegExp, string]> = [
   [/^statements\./, "a financial-statement line"],
 ];
 
+/** Lower-case grade names for the grade-evidence limitations (typed `reason.aspect`). */
+const GRADE_NAME: Readonly<Record<string, string>> = {
+  fundamentals: "fundamentals", valuation: "valuation", quality: "quality", balanceSheet: "balance-sheet",
+  moat: "moat", leadership: "leadership", technicals: "technicals",
+};
+
+function gradeList(aspects: readonly string[]): string {
+  const names = aspects.map(aspect => GRADE_NAME[aspect] ?? "one");
+  return names.length === 1 ? `${names[0]} grade` : `${names.slice(0, -1).join(", ")} and ${names.at(-1)} grades`;
+}
+
 function headlineInputLabel(field: string): string {
   return HEADLINE_INPUT_LABEL.find(([pattern]) => pattern.test(field))?.[1] ?? "a headline input";
 }
@@ -90,7 +108,7 @@ function filingLabel(field: string): string {
  * code, field or status; its text is fixed here. Older reports that lack a
  * typed field simply contribute no limitation from it.
  */
-export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Report, "fairValue" | "routeMetrics" | "scores">>): SupportLevel {
+export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Report, "fairValue" | "routeMetrics" | "scores" | "meta">>): SupportLevel {
   const out: SupportLimitation[] = [];
   const add = (code: SupportLimitationCode, text: string) => { if (!out.some(item => item.text === text)) out.push({ code, text }); };
   const fv = report.fairValue;
@@ -107,16 +125,43 @@ export function supportLevel(report: Pick<Report, "appendix"> & Partial<Pick<Rep
     else if (fv.status === "outside-domain") add("fair-value-withheld", "the per-share fair value is withheld because the cash-flow model's result falls outside the range it is valid for");
     else if (fv.status === "suppressed") add("fair-value-withheld", "the per-share fair value is withheld because an input could not be established");
   }
-  // P12: the qualifications the grades already carry (assessment.ts financialEvidenceQualifications).
-  for (const reason of report.scores?.qualification?.composite.reasons ?? []) {
+  // P12: the qualifications the grades already carry (assessment.ts withAssessmentQualification).
+  // Review round 1 (D-300): every reason code limits support; a grade with no recorded
+  // qualification is not shown to be supported, so it cannot establish full support (P19).
+  const qualification = report.scores === undefined ? undefined : report.scores.qualification;
+  if (report.scores !== undefined && (qualification === undefined || qualification.composite.status === "unknown")) {
+    add("grade-qualification-not-recorded", "this saved report does not record the evidence behind its grades");
+  }
+  const missingGrades: string[] = [], limitedGrades: string[] = [];
+  for (const reason of qualification?.composite.reasons ?? []) {
     // The withheld fair value is already listed; a generic valuation field would only repeat it.
-    if (reason.code === "financial-evidence-blocked" && reason.field && !(reason.field === "valuation.dcf" && out.some(item => item.code === "fair-value-withheld"))) {
-      add("headline-input-withheld", `${headlineInputLabel(reason.field)} could not be established from the filings, so figures built on it are withheld`);
+    if (reason.code === "financial-evidence-blocked") {
+      if (reason.field && !(reason.field === "valuation.dcf" && out.some(item => item.code === "fair-value-withheld"))) {
+        add("headline-input-withheld", `${headlineInputLabel(reason.field)} could not be established from the filings, so figures built on it are withheld`);
+      }
     }
     else if (reason.code === "selected-operating-scope-unverified") add("operating-scope-unverified", "the operating income used in the discount rate has unverified consolidated scope");
     else if (reason.code === "cash-only-liquidity") add("cash-only-liquidity", "liquidity is measured on cash only; short-term investments are not established");
+    else if (reason.code === "missing-applicable-aspect") { if (reason.aspect && !missingGrades.includes(reason.aspect)) missingGrades.push(reason.aspect); }
+    else if (reason.code === "limited-applicable-evidence") { if (reason.aspect && !limitedGrades.includes(reason.aspect)) limitedGrades.push(reason.aspect); }
+    else if (reason.code === "current-valuation-unavailable") {
+      if (!out.some(item => item.code === "fair-value-withheld" || item.code === "fair-value-dated" || item.code === "route-no-per-share-value")) {
+        add("current-valuation-unavailable", "the valuation is not established as current at the quote date");
+      }
+    }
+    else add("grade-qualification-not-recorded", "this saved report does not record the evidence behind its grades");
   }
+  if (missingGrades.length > 0) add("grade-evidence-missing", `the ${gradeList(missingGrades)} ${missingGrades.length === 1 ? "has" : "have"} no evidence that applies on this company's route`);
+  if (limitedGrades.length > 0) add("grade-evidence-limited", `the ${gradeList(limitedGrades)} ${limitedGrades.length === 1 ? "rests" : "rest"} on limited evidence`);
   const gaps: readonly ManifestEntry[] = report.appendix.missingData;
+  // Review round 1 (D-300): the cash-flow valuation's tax rate is a headline input. Its operands are
+  // checked against a filing unless the typed manifest entry says otherwise; a saved report written
+  // before that entry existed does not record which, so it is not shown to be checked (P19).
+  const dcfHeadline = fv !== undefined && fv.method === "fcff-dcf" && (fv.status === "available" || fv.status === "dated-reference");
+  if (gaps.some(gap => gap.field === DCF_TAX_OPERANDS_FIELD)) add("tax-operands-vendor", "the tax rate of the cash-flow valuation uses provider tax and pre-tax income figures not checked against a filing");
+  else if (dcfHeadline && specVersionBefore(report.meta?.specVersion, TAX_OPERAND_EVIDENCE_SINCE_SPEC)) {
+    add("tax-evidence-not-recorded", "this saved report does not record whether the tax rate's operands were checked against a filing");
+  }
   // statementEvidenceEntries (assessment.ts) writes these two typed fields.
   if (gaps.some(gap => gap.field === "statements.foreignInterim")) add("foreign-interim-vendor", "interim figures from Form 6-K are vendor data not checked against a filing");
   if (gaps.some(gap => gap.field === "statements.adsEps")) add("ads-eps-derived", "earnings per ADS are derived from ordinary-share EPS, not a filed per-ADS amount");
@@ -146,10 +191,12 @@ function isTaggedStatement(node: unknown): node is SourcedClaim {
   return typeof claim.text === "string" && typeof claim.source === "string" && (claim.label === "FACT" || claim.label === "ESTIMATE");
 }
 
-/** Same words, tag, citation and date: one statement however often it is repeated. */
-function statementKey(claim: SourcedClaim): string {
-  return [claim.label, claim.text.trim().replace(/\s+/g, " "), claim.source, claim.sourceId ?? "", claim.asOf ?? ""].join("\u0000");
-}
+/**
+ * One statement however often it is repeated: the presentation layer's own identity (P22), the one
+ * shown-once uses (words, tag, whole citation, resolved date and verification mark). Review round 1:
+ * a validated and a contradicted copy of the same words are two statements, counted apart.
+ */
+const statementKey = claimEchoKey;
 
 /**
  * The typed numerator and denominator (P19): every FACT or ESTIMATE statement

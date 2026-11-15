@@ -655,6 +655,15 @@ function filedInterestOperand(row: FmpIncomeStatementRow): boolean {
   return corrected?.source === "edgar" && corrected.periodEnd === end || row.interestExpenseAgreement?.periodEnd === end;
 }
 
+/** D-300 (P8, P12; review round 1): the tax rate's operands are established for the row's own period:
+ * each was replaced by the filed amount, or the vendor's agrees with the reconciled filed family. */
+export function filedTaxOperands(row: FmpIncomeStatementRow): boolean {
+  const end = isoDay(row.date);
+  const agreement = row.taxOperandAgreement;
+  return (["incomeTaxExpense", "incomeBeforeTax"] as const).every(field => row.fieldConflicts?.[field]?.usable !== false &&
+    (row.fieldProvenance?.[field] !== undefined || end !== null && agreement?.[field]?.periodEnd === end));
+}
+
 /** D-282: EBIT is established only when the selected operating numerator is the filed or reconciled one. */
 function filedCoverageOperands(row: { operatingIncome?: number | null; operatingIncomeEvidence?: WaccOperatingEvidence },
   selectedEbit: number | null, interestFiled: boolean): CoverageOperand[] {
@@ -4398,7 +4407,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         operatingPerimeterRefusal: equityWindowRows.find(r=>r.operatingPerimeterRefusal)?.operatingPerimeterRefusal,
         grossProfit: ttmInc.grossProfit ?? null,
         // D-237 (P13): the DCF reads this field only as the tax rate's denominator.
-        taxEvidenceBasis: equityWindowRows.every(row => row.fieldProvenance?.incomeTaxExpense && row.fieldProvenance?.incomeBeforeTax) ? undefined : "Tax rate operands: vendor data, not checked against a filing",
+        taxEvidenceBasis: equityWindowRows.every(filedTaxOperands) ? undefined : "Tax rate operands: vendor data, not checked against a filing",
         incomeBeforeTax: ttmInc.taxRatePretaxIncome,
         incomeTaxExpense: ttmInc.incomeTaxExpense,
       }
@@ -4413,7 +4422,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           grossProfitBasis: inc0.fieldConflicts?.grossProfit?.usable===false ? inc0.fieldConflicts.grossProfit.reason : undefined,
           operatingPerimeterRefusal: inc0.operatingPerimeterRefusal,
           grossProfit: num(inc0.grossProfit),
-          taxEvidenceBasis: inc0.fieldProvenance?.incomeTaxExpense && inc0.fieldProvenance?.incomeBeforeTax ? undefined : "Tax rate operands: vendor data, not checked against a filing",
+          taxEvidenceBasis: filedTaxOperands(inc0) ? undefined : "Tax rate operands: vendor data, not checked against a filing",
           incomeBeforeTax: effectiveTaxPretaxIncome(inc0),
           incomeTaxExpense: num(inc0.incomeTaxExpense),
         }

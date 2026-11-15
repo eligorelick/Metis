@@ -242,6 +242,9 @@ export type FinancialEvidenceQualification = {
   field: string; detail: string; affectedAspects: ScoreAspect[];
 };
 
+/** D-300 review round 1 (P12): the manifest field Stage B writes when the cash-flow valuation's tax-rate operands are vendor data not checked against a filing. */
+export const DCF_TAX_OPERANDS_FIELD = "valuation.dcf.taxOperands";
+
 /** D-290 (P12): one qualification shared by the calculation and statement tables. */
 export function statementEvidenceEntries(bundle: DataBundle): Array<{ field: "statements.foreignInterim" | "statements.adsEps"; detail: string }> {
   const notes: Array<{ field: "statements.foreignInterim" | "statements.adsEps"; detail: string }> = [];

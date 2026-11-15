@@ -35,6 +35,7 @@ import {
   businessStoryBlocks,
   BUSINESS_BRIEF_HEADING,
   BRIEF_NOT_ESTABLISHED,
+  briefNotCovered,
   businessBrief,
   assessmentLine,
   auditExportPath,
@@ -520,7 +521,7 @@ export function ExecutiveSummary({ claims }: { claims: readonly SourcedClaim[] }
 /** D-273: the opening five-part brief, verified claims only; a part with no support says so. */
 export function BusinessBriefBlock({ report }: { report: Report }) {
   const parts = businessBrief(report);
-  const none = parts.every(part => part.claims.length === 0);
+  const none = briefNotCovered(parts);
   return (
     <div className="business-brief border border-edge bg-panel" aria-label={BUSINESS_BRIEF_HEADING}>
       <div className="border-b border-edge px-3 py-1.5">

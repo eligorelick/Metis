@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Larkspur Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.97.0",
+    "specVersion": "1.98.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.97.0",
+    "pipelineVersion": "1.98.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8506944444444444,
@@ -4061,6 +4061,11 @@
       {
         "field": "valuation.dcf.growthAnchor",
         "reason": "growth-anchor method(s) unavailable: 5y revenue CAGR — the point estimate is the median of the 3 that were computable",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.dcf.taxOperands",
+        "reason": "Tax rate operands: vendor data, not checked against a filing",
         "severity": "info"
       },
       {

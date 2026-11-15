@@ -235,14 +235,28 @@ describe("opening business brief (D-273)", () => {
     expect(brief).not.toContain("Also stated here");
   });
 
-  it("prints one line when nothing passed verification (a data-only or unchecked report)", () => {
+  it("D-303 review round 1: when nothing passed verification, each part points to its own statements; no line denies them", () => {
     const report = loadTask28Fixture();
     report.appendix.verificationLog = [];
     expect(briefOf(report).every(part => part.claims.length === 0)).toBe(true);
     for (const text of surfaces(report)) {
+      expect(text).not.toContain(BRIEF_NOT_ESTABLISHED);
+      expect(text).toContain(BRIEF_PART_NOT_SHOWN);
+      expect(text).not.toMatch(/no statement about the business in this report is confirmed or cited/);
+    }
+  });
+
+  it("prints one line only when the brief's fields hold no statement at all (a data-only report)", () => {
+    const report = loadTask28Fixture();
+    report.appendix.verificationLog = [];
+    const b = report.business;
+    b.products = []; b.whatTheySell = []; b.customersAndSuppliers = []; b.protection = []; b.whatIsComing = []; b.concentrationRisks = [];
+    report.competitive.moatAssessment = [];
+    report.catalystsRisks.risks = [];
+    expect(briefOf(report).every(part => part.empty === BRIEF_PART_NOT_COVERED)).toBe(true);
+    for (const text of surfaces(report)) {
       expect(text).toContain(BRIEF_NOT_ESTABLISHED);
       expect(text).not.toContain(BRIEF_PART_NOT_SHOWN);
-      expect(text).not.toContain(BRIEF_PART_NOT_COVERED);
     }
   });
 });

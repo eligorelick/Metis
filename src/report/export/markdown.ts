@@ -85,6 +85,7 @@ import {
   businessStoryBlocks,
   BUSINESS_BRIEF_HEADING,
   BRIEF_NOT_ESTABLISHED,
+  briefNotCovered,
   businessBrief,
   scenarioReaderLists,
   SEPARATE_CONDITIONS_HEADING,
@@ -444,7 +445,7 @@ function renderVerdict(report: Report): string {
 /** D-273: the five-part brief, verified claims only; a part with no support says so. */
 function renderBusinessBrief(report: Report): string[] {
   const parts = businessBrief(report);
-  if (parts.every(part => part.claims.length === 0)) return [`### ${BUSINESS_BRIEF_HEADING}`, "", markdownProse(BRIEF_NOT_ESTABLISHED), ""];
+  if (briefNotCovered(parts)) return [`### ${BUSINESS_BRIEF_HEADING}`, "", markdownProse(BRIEF_NOT_ESTABLISHED), ""];
   return [`### ${BUSINESS_BRIEF_HEADING}`, "", ...parts.map(part => `- **${part.heading}:** ${part.claims.length === 0
     ? markdownListItem(part.empty)
     : part.claims.map(c => `${markdownListItem(displayClaimText(c))} _(${markdownProse(claimCitation(c))})_${statusMarkSuffix(c)}`).join(" ")}`), ""];

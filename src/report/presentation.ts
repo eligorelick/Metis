@@ -649,7 +649,21 @@ const FIGURE_ALIAS_GROUPS: readonly (readonly string[])[] = [
 const FIGURE_METRIC_ALIASES = new Map(FIGURE_ALIAS_GROUPS.flatMap((group) =>
   group.map((source): [string, string] => [source, group[0]!])));
 
-/** Exact source duplicates, or a known alias with the same displayed value and measurement basis. */
+/**
+ * D-301 review round 1 (P13): the value an alias copy is compared at. The context payload hands the
+ * analysts every figure at four decimals (`round` in `src/pipeline/stageC/payload.ts`), so an analyst's
+ * key number is the code figure at that transport precision. The comparison is exact at that precision,
+ * not a band: 0.1821 is the transported 0.18213677..., while 937.21 and 937.24 stay two figures.
+ */
+export function aliasComparableValue(value: number): number {
+  return Number(value.toFixed(4));
+}
+
+/**
+ * Exact source duplicates, or a known alias with the same underlying value and measurement basis.
+ * D-301 review round 1 (P13): equal display text is not equal figures (937.21 and 937.24 both print
+ * "937.2x"), so the alias identity keys on the traced value at the payload's transport precision.
+ */
 function figureIdentities(row: FigureRow): string[] {
   const n = row.trace;
   const p = n.periodContext;
@@ -660,7 +674,7 @@ function figureIdentities(row: FigureRow): string[] {
   const source = n.sourceId ?? n.source;
   const exact = JSON.stringify(["source", source, n.value, ...basis]);
   const metric = FIGURE_METRIC_ALIASES.get(source);
-  return metric === undefined ? [exact] : [exact, JSON.stringify(["alias", metric, row.value, ...basis])];
+  return metric === undefined ? [exact] : [exact, JSON.stringify(["alias", metric, aliasComparableValue(n.value), ...basis])];
 }
 
 /**
@@ -686,7 +700,7 @@ export function dedupeFigureRows(rows: readonly FigureRow[], seen: Map<string, F
     const compatible = alias === undefined ? undefined : out.find(entry =>
       FIGURE_METRIC_ALIASES.get(entry.trace.sourceId ?? entry.trace.source) === alias &&
       (entry.trace.sourceId ?? entry.trace.source) !== (row.trace.sourceId ?? row.trace.source) &&
-      entry.value === row.value && entry.trace.unit === row.trace.unit &&
+      aliasComparableValue(entry.trace.value) === aliasComparableValue(row.trace.value) && entry.value === row.value && entry.trace.unit === row.trace.unit &&
       (sameCurrencyBasis(entry.trace, row.trace) || isRatioAsPercent(row.trace.source)) && entry.asOf === row.asOf &&
       entry.trace.periodContext === undefined && row.trace.periodContext === undefined &&
       (entry.period === row.period || entry.period === null && periodEndsAt(row.period, row.asOf) || row.period === null && periodEndsAt(entry.period, entry.asOf)));
@@ -1002,7 +1016,7 @@ const echoIndexed = new WeakSet<object>();
  * source id) and its resolved date, so the same words cited to a different
  * filing or date are a different statement and print in both places.
  */
-function claimEchoKey(claim: SourcedClaim): string {
+export function claimEchoKey(claim: SourcedClaim): string {
   return [claim.label, claim.text.trim().replace(/\s+/g, " "), citationSourceId(claim) ?? "", claim.source, claim.sourceId ?? "",
     citationAsOf(claim) ?? "", claim.asOf ?? "", claimStatusMark(claim) ?? ""].join("\u0000");
 }
@@ -1111,8 +1125,17 @@ export const BUSINESS_BRIEF_HEADING = "Business in brief";
  */
 export const BRIEF_PART_NOT_COVERED = "Not covered in this report.";
 export const BRIEF_PART_NOT_SHOWN = "Not in the brief: the report's statements on this appear, with their marks, in the sections below.";
-/** Printed once instead of five empty parts. */
-export const BRIEF_NOT_ESTABLISHED = "No part of the business brief can be filled: no statement about the business in this report is confirmed or cited to its source.";
+/**
+ * Printed once instead of five empty parts, only when no part's fields hold any statement
+ * (`briefNotCovered`). D-303 review round 1: a report with statements that did not qualify
+ * prints each part's own wording instead, so a cited statement below is never denied.
+ */
+export const BRIEF_NOT_ESTABLISHED = "Not covered in this report: the business fields the brief reads hold no statement.";
+
+/** D-303 review round 1: every part is empty because its fields hold nothing (never because statements did not qualify). */
+export function briefNotCovered(parts: readonly BusinessBriefPart[]): boolean {
+  return parts.every(part => part.claims.length === 0 && part.empty === BRIEF_PART_NOT_COVERED);
+}
 /** The most claims one part prints, so the brief stays short. */
 export const BRIEF_CLAIMS_PER_PART = 1;
 
