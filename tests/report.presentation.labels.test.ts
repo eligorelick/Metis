@@ -95,3 +95,13 @@ it("RPT-217: reverse values use the metric unit and unavailable sentinels", () =
  expect(reverseDcfValueText("not applicable",0)).toBe("\u2014");
  expect(reverseDcfValueText("unavailable (data-only payload)",0)).toBe("\u2014");
 });
+
+it.each([
+  ["no-same-period-revenue", "no same-period revenue"],
+  ["revenue-refused", "revenue refused"],
+  ["split-does-not-reconcile", "split does not reconcile"],
+] as const)("D-280 headings name %s without guessing the cause", (cause, words) => {
+  const rows: Parameters<typeof annualSegmentHeading>[1] = [{revenue:{value:100,unit:"currency",currency:"USD",source:"synthetic",asOf:"2025-12-31",verified:null},sharePct:null,shareWithheldReason:cause}];
+  expect(annualSegmentHeading("Geographic",rows,false)).toBe(`Geographic segments (${words}; shares withheld)`);
+  expect(annualSegmentHeading("Product",rows,true)).toContain(`(${words}; shares withheld)`);
+});

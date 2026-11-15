@@ -1255,6 +1255,14 @@ function countField(rows: FmpIncomeStatementRow[], key: keyof FmpIncomeStatement
   return n;
 }
 
+/** D-280: filed zero is disclosed; share the projection interest evidence test with TTM admission. */
+function disclosedProjectionInterest(row: FmpIncomeStatementRow, currency: string | null): boolean {
+  const evidence = row.fieldProvenance?.interestExpense;
+  return evidence?.source === "edgar" && evidence.periodEnd === isoDay(row.date) && currency !== null &&
+    evidence.unit.toUpperCase() === currency && evidence.tags.length > 0 && evidence.filings.length > 0 &&
+    row.fieldConflicts?.interestExpense === undefined;
+}
+
 /**
  * TTM income from the latest 4 quarterly income rows (newest first).
  *
@@ -1276,6 +1284,7 @@ function countField(rows: FmpIncomeStatementRow[], key: keyof FmpIncomeStatement
  * the whole row is suppressed with a disclosed gap and every consumer falls
  * back to the audited annual statement.
  */
+
 export function ttmIncome(
   quarterly: FmpIncomeStatementRow[],
   gaps?: ManifestEntry[],
@@ -1383,6 +1392,15 @@ function ttmIncomeFromNormalized(
   // as the tax pair. All remaining period-flow fields are gated below as
   // well; missing is not equivalent to zero for a TTM calculation.
   const gateComplete = (key: keyof FmpIncomeStatementRow): number | null => {
+    if (key === "interestExpense") {
+      const refused = q.filter(row => num(row.interestExpense) === null || row.fieldConflicts?.interestExpense?.usable === false ||
+        (row.interestExpense === 0 && !disclosedProjectionInterest(row, windowCurrency.code)) || (row.interestExpense ?? 0) < 0);
+      if (refused.length) {
+        gaps?.push({field:"compute.ttmIncome.interestExpense", severity:"info",
+          reason:`TTM interest expense and coverage withheld: quarter ending ${refused.map(row => row.date).join(", ")} has missing, conflicted, negative or vendor-zero interest without exact filed evidence.`});
+        return null;
+      }
+    }
     const count = countField(q, key);
     const value = sumField(q, key);
     if (count === 0 || count === 4) return value;
@@ -3239,12 +3257,6 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   if (revenueEligibilityReason) {
     projectionPeriodGaps.push({ field: "projections.revenueEligibility", reason: revenueEligibilityReason, severity: "warn" });
   }
-  const disclosedProjectionInterest = (row: FmpIncomeStatementRow): boolean => {
-    const evidence = row.fieldProvenance?.interestExpense;
-    return evidence?.source === "edgar" && evidence.periodEnd === isoDay(row.date) && currencies.model !== null &&
-      evidence.unit.toUpperCase() === currencies.model && evidence.tags.length > 0 && evidence.filings.length > 0 &&
-      row.fieldConflicts?.interestExpense === undefined;
-  };
   const projectionIncomeHistory = projNorm.rows.map(
     (r): ProjectionIncomeRow => ({
       ...fiscalIdentity(r),
@@ -3258,7 +3270,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
       netIncome: num(r.netIncome),
       epsDiluted: num(r.epsDiluted),
       interestExpense: num(r.interestExpense),
-      interestExpenseDisclosed: disclosedProjectionInterest(r),
+      interestExpenseDisclosed: disclosedProjectionInterest(r, currencies.model),
     }),
   );
   // Never default a currency. This used to be `?? "USD"`, and the value becomes
@@ -3309,7 +3321,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     && currencies.model !== null && establishedCurrencyOn([latestIncomeQuarter], projectionQuarterDate, currencyEvidence) === currencies.model
     ? interestRunRate({ date: projectionQuarterDate, interestExpense: num(latestIncomeQuarter.interestExpense),
       days: incomePeriod(latestIncomeQuarter, incomeQuarterly[1]).days,
-      interestExpenseDisclosed: disclosedProjectionInterest(latestIncomeQuarter) },
+      interestExpenseDisclosed: disclosedProjectionInterest(latestIncomeQuarter, currencies.model) },
       debtExLeases(balanceQuarterly.find((b) => isoDay(b.date) === isoDay(latestIncomeQuarter.date))),
       debtExLeases(balanceQuarterly.find((b) => { const d = isoDay(b.date); const q = isoDay(latestIncomeQuarter.date); return d !== null && q !== null && d < q && (Date.parse(q) - Date.parse(d)) / SPREAD_DAYS >= 80 && (Date.parse(q) - Date.parse(d)) / SPREAD_DAYS <= 100; })))
     : null;

@@ -12,6 +12,8 @@ const report = () => ReportSchema.parse(JSON.parse(fs.readFileSync("fixtures/rep
 describe("financial dates and source qualifications", () => {
   it("dates debt cost to its TTM interest window and WACC to the current valuation observation", () => {
     const bundle = completeCurrencyBundle({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    if (!bundle.statements.incomeQuarterly.ok) throw Error("fixture");
+    for (const row of bundle.statements.incomeQuarterly.value.data.rows) row.interestExpense = 4*M;
     const computed = runStageB(bundle);
     expect(computed.returns.wacc.asOf?.statements).toBe("2026-03-31");
     computed.returns.wacc.costOfDebtPct = 5; computed.returns.wacc.waccPct = 8;

@@ -27,6 +27,7 @@ import type { DataBundle } from "@/pipeline/types";
 import type { DataSource } from "@/types/core";
 import type { JudgeOutput, Report } from "@/report/schema";
 import { ReportSchema } from "@/report/schema";
+import { annualSegmentHeading } from "@/report/presentation";
 import {
   assembleReport,
   applyMultiples,
@@ -612,6 +613,8 @@ describe("quality.forensicScores — deterministic injection (assembly)", () => 
 describe("business.segments[].sharePct — deterministic injection (assembly)", () => {
   it("overwrites every judge sharePct with revenue ÷ latest-period segmentation total × 100 (1 decimal)", () => {
     const { bundle, computed } = buildInputs();
+    if (bundle.statements.incomeAnnual.ok) bundle.statements.incomeAnnual.value.data.rows[0]!.revenue = 340e9;
+    for (const feed of Object.values(bundle.segmentation)) if (feed.ok) feed.value.data.rows[0]!.reportedCurrency = "USD";
     const report = assemble(bundle, computed, judgeOutput());
 
     // Product total = 210e9 + 30e9 + 100e9 = 340e9.
@@ -632,6 +635,8 @@ describe("business.segments[].sharePct — deterministic injection (assembly)", 
 
   it("nulls sharePct when the bundle segmentation feed is a gap — the judge's number is still discarded", () => {
     const { bundle } = buildInputs();
+    if (bundle.statements.incomeAnnual.ok) bundle.statements.incomeAnnual.value.data.rows[0]!.revenue = 340e9;
+    if (bundle.segmentation.geographic.ok) bundle.segmentation.geographic.value.data.rows[0]!.reportedCurrency = "USD";
     const noProduct = {
       ...bundle,
       segmentation: { ...bundle.segmentation, product: gap },
@@ -661,4 +666,54 @@ describe("business.segments[].sharePct — deterministic injection (assembly)", 
     const out = applySegmentShares(judgeOutput().business, zeroed);
     for (const row of out.segments.product) expect(row.sharePct).toBeNull();
   });
+});
+
+describe("D-280 segment denominator reconciliation", () => {
+  it.each(["USD", "TWD", "EUR"])("requires same-period revenue for %s product and geography", currency => {
+    const { bundle } = buildInputs();
+    for (const kind of ["product", "geographic"] as const) {
+      const feed = bundle.segmentation[kind];
+      if (!feed.ok) throw new Error("segmentation required");
+      const row = feed.value.data.rows[0]!;
+      row.reportedCurrency = currency;
+      row.data = { First: 60_000_000, Second: 40_000_000 };
+      const inc = bundle.statements.incomeAnnual;
+      if (!inc.ok) throw new Error("income required");
+      inc.value.data.rows = [{date:row.date, reportedCurrency:currency, revenue:100_000_000}];
+      const business = judgeOutput().business;
+      business.segments[kind] = [{name:"First", revenue:{value:60_000_000, unit:"currency", currency, period:row.date!, asOf:row.date!, source:"synthetic", verified:null}, sharePct:99}];
+      expect(applySegmentShares(business,bundle).segments[kind][0]!.sharePct).toBe(60);
+      inc.value.data.rows[0]!.revenue = 110_000_000;
+      expect(applySegmentShares(business,bundle).segments[kind][0]!.sharePct).toBeNull();
+    }
+  });
+});
+
+it("D-280 quarterly split reconciles to quarterly revenue and carries a typed refusal cause", () => {
+  const {bundle} = buildInputs();
+  if (!bundle.segmentation.product.ok || !bundle.statements.incomeQuarterly.ok) throw new Error("fixture");
+  const row = bundle.segmentation.product.value.data.rows[0]!;
+  const income = bundle.statements.incomeQuarterly.value.data.rows[0]!;
+  Object.assign(row,{date:income.date,period:"Q2",reportedCurrency:"USD",data:{First:60e6,Second:40e6}});
+  income.revenue=100e6;
+  const business=judgeOutput().business;
+  expect(applySegmentShares(business,bundle).segments.product[0]!.sharePct).not.toBeNull();
+  income.revenue=110e6;
+  expect(applySegmentShares(business,bundle).segments.product[0]).toMatchObject({sharePct:null,shareWithheldReason:"split-does-not-reconcile"});
+  income.revenue=undefined;
+  expect(applySegmentShares(business,bundle).segments.product[0]).toMatchObject({sharePct:null,shareWithheldReason:"revenue-refused"});
+  row.date="2026-03-27";
+  expect(applySegmentShares(business,bundle).segments.product[0]).toMatchObject({sharePct:null,shareWithheldReason:"no-same-period-revenue"});
+});
+
+// D-280 review round 2 (P10): a withheld or unavailable feed names no revenue cause (the heading then says the share
+// basis is not established); only a feed that is present can be said to lack same-period revenue.
+it("D-280 a withheld segment feed withholds shares without claiming revenue is missing", () => {
+  const {bundle} = buildInputs();
+  const business=judgeOutput().business;
+  bundle.segmentation.product = { ok:false, error:{ kind:"withheld", message:"vendor names contradict the filed members" } } as unknown as typeof bundle.segmentation.product;
+  const shared = applySegmentShares(business,bundle).segments.product[0]!;
+  expect(shared.sharePct).toBeNull();
+  expect(shared.shareWithheldReason).toBeUndefined();
+  expect(annualSegmentHeading("Product",[shared],false)).toBe("Product segments (share basis not established; shares withheld)");
 });

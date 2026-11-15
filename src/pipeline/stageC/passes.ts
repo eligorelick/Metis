@@ -1,3 +1,4 @@
+import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { withComputationContext } from "@/edgar/computationContext";
 import { supplementalNumericAudit } from "@/report/supplementalNumericAudit";
 /**
@@ -4472,10 +4473,14 @@ export function applyForensicScores(
  */
 function latestSegmentationTotal(
   res: DataBundle["segmentation"]["product"] | undefined,
-): number | null {
-  if (res === undefined || !res.ok || !res.value) return null;
+  bundle: DataBundle | undefined,
+): { total: number | null; reason?: "no-same-period-revenue" | "revenue-refused" | "split-does-not-reconcile" } {
+  const missing = {total:null, reason:"no-same-period-revenue" as const};
+  // D-280 review round 2 (P10): a withheld or unavailable feed names no revenue cause; the heading falls back to
+  // "share basis not established" rather than claim same-period revenue is missing.
+  if (res === undefined || !res.ok || !res.value) return {total:null};
   const data = res.value.data.rows[0]?.data;
-  if (data === undefined || data === null || typeof data !== "object") return null;
+  if (data === undefined || data === null || typeof data !== "object") return {total:null};
   let total = 0;
   let counted = 0;
   for (const key of Object.keys(data)) {
@@ -4485,19 +4490,20 @@ function latestSegmentationTotal(
       counted++;
     }
   }
-  return counted > 0 && total > 0 ? total : null;
+  const latest = res.value.data.rows[0]!;
+  // D-280 (P7/P8/P13): exact period and currency, using the existing same-observation allowance.
+  const income = latest.period?.startsWith("Q") ? bundle?.statements.incomeQuarterly : bundle?.statements.incomeAnnual;
+  const rows = income?.ok ? income.value.data.rows : [];
+  const revenue = rows.find(row => row.date === latest.date && row.reportedCurrency === latest.reportedCurrency);
+  if (!revenue || typeof latest.reportedCurrency !== "string") return missing;
+  if (revenue.fieldConflicts?.revenue?.usable === false || typeof revenue.revenue !== "number" || !Number.isFinite(revenue.revenue) || revenue.revenue <= 0)
+    return {total:null,reason:"revenue-refused"};
+  return counted > 0 && total > 0 && vendorAgreesWithFiled(total,revenue.revenue)
+    ? {total:revenue.revenue} : {total:null,reason:"split-does-not-reconcile"};
 }
 
-/**
- * Overwrite every business.segments row's sharePct DETERMINISTICALLY (2026-07
- * invariant-1 hardening): sharePct = segment traced revenue ÷ the sum of the
- * latest-period bundle segmentation values × 100, rounded to 1 decimal —
- * product rows divide by the product-segmentation total, geographic rows by
- * the geographic total. When the bundle feed is unavailable the share is null
- * (disclosed as n/a, never fabricated). The judge-emitted sharePct is ALWAYS
- * discarded; the row's name + traced revenue stay judge-authored (and the
- * revenue TracedNumber remains subject to the verify pass). Pure; returns a
- * new business section.
+/** D-280: shares use same-period consolidated revenue only after the full split reconciles (P8).
+ * Missing, partial or overlapping splits withhold every share; model percentages are discarded.
  */
 export function applySegmentShares(
   business: JudgeOutput["business"],
@@ -4508,26 +4514,28 @@ export function applySegmentShares(
     const pct = (revenueValue / total) * 100;
     return Number.isFinite(pct) ? Math.round(pct * 10) / 10 : null;
   };
-  const productTotal = latestSegmentationTotal(bundle?.segmentation?.product);
+  const productTotal = latestSegmentationTotal(bundle?.segmentation?.product, bundle);
   // AI-509: the share basis follows the same admission as the payload and the data-only report.
   const primary = bundle?.segmentation?.geographic === undefined ? undefined
     : admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments);
-  const geographicTotal = latestSegmentationTotal(primary);
+  const geographicTotal = latestSegmentationTotal(primary, bundle);
   const basis = selectedGeographyNotes(primary)[0];
   const latest = primary?.ok ? primary.value.data.rows[0] : undefined;
   const geographic = basis && primary?.ok && latest?.data && typeof latest.reportedCurrency === "string" && typeof latest.date === "string"
     ? Object.entries(latest.data).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name,
       revenue: { value, unit: "currency", currency: latest.reportedCurrency!, period: latest.date!, asOf: latest.date!,
         source: primary.value.endpoint, verified: null, verificationNote: basis } satisfies TracedNumber,
-      sharePct: share(value, geographicTotal),
+      sharePct: share(value, geographicTotal.total),
+      shareWithheldReason: geographicTotal.reason,
     }))
-    : business.segments.geographic.map(row => ({ ...row, sharePct: share(row.revenue.value, geographicTotal) }));
+    : business.segments.geographic.map(row => ({ ...row, sharePct: share(row.revenue.value, geographicTotal.total), shareWithheldReason: geographicTotal.reason }));
   return {
     ...business,
     segments: {
       product: business.segments.product.map((row) => ({
         ...row,
-        sharePct: share(row.revenue.value, productTotal),
+        sharePct: share(row.revenue.value, productTotal.total),
+        shareWithheldReason: productTotal.reason,
       })),
       geographic,
     },

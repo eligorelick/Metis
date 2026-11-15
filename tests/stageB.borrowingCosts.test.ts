@@ -56,6 +56,7 @@ describe("capitalized borrowing costs are not income-statement interest", () => 
       if (mode === "future-fact") incurred.units.USD[0]!.filed = "2027-04-30";
       if (mode === "not-all-capitalized") balances.units.USD[1]!.val = 12 * M;
       if (mode === "direct-expense") tags.InterestExpense = { units: { USD: [point(5 * M, "2026-03-31", "2026-01-01")] } };
+      for (const row of b.statements.incomeQuarterly.value.data.rows.slice(1,4)) row.interestExpense = M;
       expect(runStageB(b).returns.wacc.waccPct).not.toBeNull();
     },
   );
@@ -90,6 +91,9 @@ describe("capitalized borrowing costs are not income-statement interest", () => 
       tags.InterestExpense = { units: { USD: [point(amount, "2026-03-31", "2026-01-01")] } };
     }
     tags.InterestExpenseOperating = { units: { USD: [operating] } };
+    // D-280: these expense-priority controls also need admitted interest in the other trailing quarters.
+    if (!b.statements.incomeQuarterly.ok) throw Error("fixture");
+    for (const row of b.statements.incomeQuarterly.value.data.rows.slice(1, 4)) row.interestExpense = M;
     const original = JSON.stringify(b), c = runStageB(b);
     expect(c.returns.wacc.waccPct).not.toBeNull();
     expect(c.returns.wacc.interestCoverageRatio).not.toBeNull();
@@ -117,6 +121,9 @@ describe("capitalized borrowing costs are not income-statement interest", () => 
       }
       tags.InterestExpenseNonoperating = { units: { USD: preferred } };
       tags.InterestExpenseOperating = { units: { USD: [point(5 * M, "2026-03-31", "2026-01-01")] } };
+      // D-280: these expense-priority controls also need admitted interest in the other trailing quarters.
+      if (!b.statements.incomeQuarterly.ok) throw Error("fixture");
+      for (const row of b.statements.incomeQuarterly.value.data.rows.slice(1, 4)) row.interestExpense = M;
       const original = JSON.stringify(b), c = runStageB(b);
       expect(c.returns.wacc.waccPct).not.toBeNull();
       expect(c.returns.wacc.interestCoverageRatio).toBeGreaterThan(0);

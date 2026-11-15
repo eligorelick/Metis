@@ -3682,5 +3682,52 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "stagec-payload",
+    "decision": "D-280",
+    "reason": "D-280 mechanical integration after D-279 preserves main report history and refreshes the payload stamp and dependent hashes on the merged code.",
+    "scope": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ],
+    "beforeSha256": "33a9d4c0585dc7c21ab4bcf6c19a4db641f185ec850300c2c29d617489054f4e",
+    "afterSha256": "ffe9a12fdb0db9dbc271050e8acce5720a504da870fc0d421aa5fe0f2283919a",
+    "changedLeaves": 6,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "audit-fixture",
+    "decision": "D-280",
+    "reason": "D-280 mechanical integration after main D-279 regenerates the frozen report at 1.92.0 with inherited currency and identifier corrections and typed share causes.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.business.segments"
+    ],
+    "beforeSha256": "f6436ffbbd1b0c89923393ee61f68622e21787cddbfcc627252688f0e28fc18a",
+    "afterSha256": "6a2d8508ea6cb4616bcdb5842989cfc9cb5f544a2923f12bdd3c596211d40db6",
+    "changedLeaves": 6,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.business.segments.product[0].shareWithheldReason.$auditUndefined",
+      "$.projection.report.business.segments.product[1].shareWithheldReason.$auditUndefined",
+      "$.projection.report.business.segments.geographic[0].shareWithheldReason.$auditUndefined",
+      "$.projection.report.business.segments.geographic[1].shareWithheldReason.$auditUndefined"
+    ]
   }
 ]
