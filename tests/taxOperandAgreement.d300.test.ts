@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { enrichIncomeClassification, effectiveTaxOperands } from "@/edgar/incomeClassification";
+import { enrichIncomeClassification, effectiveTaxOperands, filedTaxOperandPair } from "@/edgar/incomeClassification";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import { filedTaxOperands, ttmIncome, effectiveTaxRateFromTtm, waccTaxRateFromStatements } from "@/pipeline/compute";
 import type { FmpIncomeStatementRow, FmpPayload } from "@/providers/fmp";
@@ -130,6 +130,29 @@ it("D-307: the complete TTM pair feeds WACC; one unproved quarter keeps the whol
   expect(effectiveTaxRateFromTtm(filed)).toBe(0.2);
   expect(waccTaxRateFromStatements(filed, undefined).rate).toBe(0.2);
   const partial = ttmIncome(rows.map((row, i) => i === 0 ? { ...row, taxOperandAgreement: undefined } : row))!;
+  const withoutValues = ttmIncome(rows.map((row, i) => i === 0
+    ? { ...row, taxOperandAgreement: { ...row.taxOperandAgreement!, values: undefined } } : row))!;
+  expect(withoutValues.taxRateOperandsFiled).toBe(false);
+  expect(effectiveTaxRateFromTtm(withoutValues)).toBeCloseTo(1000.05 / 5000.07, 12);
   expect(partial.taxRateOperandsFiled).toBe(false);
   expect(effectiveTaxRateFromTtm(partial)).toBeCloseTo(1000.05 / 5000.07, 12);
+});
+
+
+it("D-307 review: a date timestamp and its filed day select the same filed pair", () => {
+  const row = admit(YEAR, { incomeBeforeTax: 5000.07, incomeTaxExpense: 1000.05, netIncome: 4000.02 },
+    facts(YEAR, { [PRETAX_TOTAL]: 5000, IncomeTaxExpenseBenefit: 1000, NetIncomeLoss: 4000 }));
+  const timestamped = { ...row, date: `${YEAR.end}T00:00:00Z` };
+  expect(filedTaxOperandPair(timestamped)).toEqual({ pretax: 5000 * M, tax: 1000 * M });
+  expect(filedTaxOperands(timestamped)).toBe(true);
+  expect(effectiveTaxOperands(timestamped)).toEqual(filedTaxOperandPair(timestamped));
+});
+
+it("D-307 review: proof without filed values cannot establish a filed rate pair", () => {
+  const row = admit(YEAR, { incomeBeforeTax: 5000.07, incomeTaxExpense: 1000.05, netIncome: 4000.02 },
+    facts(YEAR, { [PRETAX_TOTAL]: 5000, IncomeTaxExpenseBenefit: 1000, NetIncomeLoss: 4000 }));
+  const missing = { ...row, taxOperandAgreement: { ...row.taxOperandAgreement!, values: undefined } };
+  expect(filedTaxOperandPair(missing)).toBeNull();
+  expect(filedTaxOperands(missing)).toBe(false);
+  expect(effectiveTaxOperands(missing)).toEqual({ pretax: 5000.07 * M, tax: 1000.05 * M });
 });

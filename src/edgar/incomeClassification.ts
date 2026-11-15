@@ -126,13 +126,24 @@ export function effectiveTaxPretaxIncome(row: Pick<FmpIncomeStatementRow, "incom
   return finite(row.pretaxIncomeBeforeEquityMethod?.value) ? row.pretaxIncomeBeforeEquityMethod.value : row.incomeBeforeTax;
 }
 
-/** D-307 (P8, P13): the proved filed pair owns rates, while statement identities keep their own amounts. */
+/** D-307 (P8/P13): one admission question returns the actual filed rate pair or nothing. */
+export function filedTaxOperandPair(row: FmpIncomeStatementRow | null | undefined): { pretax: number; tax: number } | null {
+  if (!row || row.fieldConflicts?.incomeBeforeTax?.usable === false || row.fieldConflicts?.incomeTaxExpense?.usable === false) return null;
+  const day = (value: string | null | undefined) => value ? value.slice(0, 10) : null;
+  const end = day(row.date);
+  if (end === null) return null;
+  const agreement = row.taxOperandAgreement;
+  const proofs = agreement ?? row.fieldProvenance;
+  if (!(["incomeBeforeTax", "incomeTaxExpense"] as const).every(field =>
+    proofs?.[field]?.source === "edgar" && day(proofs[field]?.periodEnd) === end)) return null;
+  // A legacy agreement with no recorded amounts cannot silently establish vendor values as filed.
+  const pair = agreement ? agreement.values : { pretax: effectiveTaxPretaxIncome(row), tax: row.incomeTaxExpense };
+  return finite(pair?.pretax) && finite(pair?.tax) ? { pretax: pair.pretax, tax: pair.tax } : null;
+}
+
+/** Rate consumers share the same filed selection; unproved rows retain their prior pair. */
 export function effectiveTaxOperands(row: FmpIncomeStatementRow | null | undefined): { pretax: number | null; tax: number | null } {
-  const agreement = row?.taxOperandAgreement;
-  if (row && agreement?.values && ["incomeBeforeTax", "incomeTaxExpense"].every(field =>
-    row.fieldConflicts?.[field]?.usable !== false) &&
-    agreement.incomeBeforeTax.periodEnd === row.date && agreement.incomeTaxExpense.periodEnd === row.date) return agreement.values;
-  return { pretax: effectiveTaxPretaxIncome(row), tax: finite(row?.incomeTaxExpense) ? row.incomeTaxExpense : null };
+  return filedTaxOperandPair(row) ?? { pretax: effectiveTaxPretaxIncome(row), tax: finite(row?.incomeTaxExpense) ? row.incomeTaxExpense : null };
 }
 
 /** Reuse canonical filed statement resolution; never infer expense placement from EBIT. */

@@ -875,7 +875,7 @@
       "status": "match",
       "valueSha256": null,
       "note": "Filed TTM: tax 7,122M − 4,136M − 1,034M = 1,952M over pre-tax 12,663M + 8,241M − 9,692M = 11,212M = 17.410%. D-307 computes the effective rate from the reconciled filed provision and pre-tax amounts; vendor rounding is no longer used once the filed pair is proved.",
-      "changeReason": "D-307: effective tax rates use proved filed operands and exact filed TTM bridges; QCOM now matches and LLY uses the filed current window, with its reference-window limitation retained."
+      "changeReason": "D-307: effective tax rates use proved filed operands and exact filed TTM bridges; QCOM now matches its filed rate."
     },
     {
       "case": "qcom-data-only",
@@ -2025,7 +2025,7 @@
       "figure": "fv.taxRate",
       "status": "not-established",
       "valueSha256": "3a9eff9b157a2db7",
-      "changeReason": "D-307: effective tax rates use proved filed operands and exact filed TTM bridges; QCOM now matches and LLY uses the filed current window, with its reference-window limitation retained."
+      "changeReason": "D-307: the 10-Q 0000059478-26-000108 restates the same 9M 2025 comparative pre-tax amount from 17,464.8M to 17,465M and tax from 3,462.5M to 3,462M at coarser precision. These precision-only differences are within one filer reporting unit and are the same observation under P8; the Metis rate stays on one basis. The checker does not establish this precision-equivalent comparative (a checker coverage limit, L19), not a different-window issue."
     },
     {
       "case": "lly-data-only",

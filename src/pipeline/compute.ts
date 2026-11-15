@@ -174,7 +174,7 @@ import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } fro
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { filedCfoTtm, filedCashFlowTtm, filedCapexTtm } from "@/edgar/financialEnrichment";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
-import { effectiveTaxPretaxIncome, effectiveTaxOperands } from "@/edgar/incomeClassification";
+import { effectiveTaxPretaxIncome, effectiveTaxOperands, filedTaxOperandPair } from "@/edgar/incomeClassification";
 import { admitVendorLongTermInvestments, balanceAdmissionEntries, type BalanceAdmission } from "@/edgar/financialEnrichment";
 import { debtFamilyAdmission, type DebtFamilyStatement } from "@/pipeline/admission/debtFamily";
 import { withComputationContext } from "@/edgar/computationContext";
@@ -660,10 +660,7 @@ function filedInterestOperand(row: FmpIncomeStatementRow): boolean {
 /** D-300 (P8, P12; review round 1): the tax rate's operands are established for the row's own period:
  * each was replaced by the filed amount, or the vendor's agrees with the reconciled filed family. */
 export function filedTaxOperands(row: FmpIncomeStatementRow): boolean {
-  const end = isoDay(row.date);
-  const agreement = row.taxOperandAgreement;
-  return (["incomeTaxExpense", "incomeBeforeTax"] as const).every(field => row.fieldConflicts?.[field]?.usable !== false &&
-    (row.fieldProvenance?.[field] !== undefined || end !== null && agreement?.[field]?.periodEnd === end));
+  return filedTaxOperandPair(row) !== null;
 }
 
 /** D-282: EBIT is established only when the selected operating numerator is the filed or reconciled one. */
@@ -1419,12 +1416,14 @@ function ttmIncomeFromNormalized(
     incomeBeforeTax = null;
     incomeTaxExpense = null;
   }
-  const taxRateOperandsFiled = q.every(filedTaxOperands);
-  // D-307: select the complete window once; incomplete proof keeps the original pair.
-  const taxRateIncomeTaxExpense = incomeTaxExpense === null ? null : taxRateOperandsFiled
-    ? q.reduce((sum, row) => sum + effectiveTaxOperands(row).tax!, 0) : incomeTaxExpense;
+  const filedPairs = q.map(filedTaxOperandPair);
+  const filedPair = filedPairs.every(pair => pair !== null)
+    ? filedPairs.reduce((sum, pair) => ({ pretax: sum.pretax + pair.pretax, tax: sum.tax + pair.tax }), { pretax: 0, tax: 0 }) : null;
+  const taxRateOperandsFiled = filedPair !== null;
+  // Select the complete window once; incomplete proof keeps the original pair.
+  const taxRateIncomeTaxExpense = incomeTaxExpense === null ? null : filedPair?.tax ?? incomeTaxExpense;
   const taxBase = incomeBeforeTax === null ? null : ttmTaxRatePretax(q, incomeBeforeTax, taxRateIncomeTaxExpense);
-  if (taxBase && taxRateOperandsFiled) taxBase.value = q.reduce((sum, row) => sum + effectiveTaxOperands(row).pretax!, 0);
+  if (taxBase && filedPair) taxBase.value = filedPair.pretax;
   if (taxBase?.basis) gaps?.push({ field: "compute.ttmIncome.taxRatePretaxIncome", reason: taxBase.basis, severity: "info", expected: true, attemptedSources: ["edgar:companyfacts"] });
 
   // Bottom-line fields feed routing (unprofitable overlay) and multiples
@@ -1604,7 +1603,7 @@ export interface WaccStatementTaxRate {
 export function waccTaxRateFromStatements(ttm: TtmIncome | null, latestAnnual: FmpIncomeStatementRow | undefined): WaccStatementTaxRate {
   const ttmRate = effectiveTaxRateFromTtm(ttm);
   if (ttmRate !== null) {
-    const recoveredPretax = ttm?.filedIncomeFlows?.incomeBeforeTax;
+    const recoveredPretax = ttm?.filedIncomeFlows?.taxRatePretaxIncome ?? ttm?.filedIncomeFlows?.incomeBeforeTax;
     const rebased = !!ttm?.taxRatePretaxBasis && (!recoveredPretax ||
       recoveredPretax.tags.includes(`us-gaap/${PRETAX_EXCLUDING_EQUITY_METHOD_TAG}`) ||
       recoveredPretax.calculation === "pretax-plus-equity-method");

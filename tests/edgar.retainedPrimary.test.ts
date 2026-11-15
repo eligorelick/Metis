@@ -357,7 +357,16 @@ it.each([true, false])("D-307: exact filed window supersedes quarter rounding on
   const q = b.statements.incomeQuarterly.value.data.rows;
   q.forEach(r => { r.incomeBeforeTax = 92.5 * M; r.incomeTaxExpense = 9.2505 * M; });
   const window = { ...ttmIncome(q)!, taxRateOperandsFiled: proved };
-  const out = withFiledIncomeWindow(b, window, q, [])!;
+  const gaps: ManifestEntry[] = [];
+  const out = withFiledIncomeWindow(b, window, q, gaps)!;
+  if (proved) {
+    expect(out.filedIncomeFlows?.incomeTaxExpense).toBeUndefined();
+    expect(out.filedIncomeFlows?.incomeBeforeTax).toBeUndefined();
+    expect(out.filedIncomeFlows?.taxRateIncomeTaxExpense?.flowOperands).toBeDefined();
+    expect(out.filedIncomeFlows?.taxRatePretaxIncome?.flowOperands).toBeDefined();
+    expect(gaps.some(g => g.field === "compute.ttmIncome.incomeTaxExpense")).toBe(false);
+    expect(gaps.some(g => g.field === "compute.ttmIncome.taxRateIncomeTaxExpense" && g.reason.includes("37000000"))).toBe(true);
+  }
   expect(out.incomeTaxExpense).toBe(37.002 * M);
   expect(effectiveTaxRateFromTtm(out)).toBe(proved ? 0.1 : 37.002 / 370);
 });

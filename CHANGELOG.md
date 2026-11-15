@@ -30,7 +30,7 @@ Once the complete filed tax pair establishes a window, WACC, DCF and historical 
 - Refuse a numeric checkmark when intermediate rounding disagrees with the exact record at reader precision (R6).
 - Carry the model tangible-equity definition beside moat ROTE summaries, cards and app signals (R18).
 - State SBC deductions only where disclosed; name scoring and forensic thresholds in words (R22/R28).
-- Report 1.99.0 / payload 1.112.0, Stage B `STAGE_B_2026_11_FILED_TAX_86`, pipeline `stage-c-1.6.53`; review-round corrections include withholding unproved negative SBC and its dependants.
+- Report 1.99.0 / payload 1.112.0, Stage B `STAGE_B_2026_11_RELEASE_LEFTOVERS_85`, pipeline `stage-c-1.6.53`; review-round corrections include withholding unproved negative SBC and its dependants.
 ## Unreleased - Support level and confirmed share at the top; one figure shown once; company-record wording; brief absence wording (P12, P13, P18, P19, P22, P27, D-300..D-303) (2026-11-15)
 
 - Near the top of every report (app, Markdown, print) a short block states the support level ("Full support", or "Limited support" with what was not checked against filings or is not covered) and "N of M statements were confirmed against their records by code (P%)"; data-only reports say they hold no AI-written statements. Code sets both from typed evidence; README gains a "Support levels" section with the same definitions and a per-company-kind table (D-300).

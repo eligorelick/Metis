@@ -295,3 +295,16 @@ it("D-307: annual proof does not replace a trailing provider ratio without a TTM
   expect(computed.returns.wacc.taxRateUsed).toBe(0.2);
   expect(computed.returns.wacc.taxRateBasis).toBe("Provider trailing effective tax rate (observed)");
 });
+
+
+it("D-307 review: a complete unproved trailing pair keeps the provider WACC rate and basis", () => {
+  const bundle = completeCurrencyBundle({ filingLinks: "shared" });
+  if (!bundle.statements.incomeQuarterly.ok) throw Error("fixture");
+  const trailing = ttmIncome(bundle.statements.incomeQuarterly.value.data.rows)!;
+  expect(trailing).not.toBeNull();
+  expect(trailing.taxRateOperandsFiled).toBe(false);
+  expect(effectiveTaxRateFromTtm(trailing)).toBeCloseTo(48 / 228, 12);
+  const computed = runStageB(bundle);
+  expect(computed.returns.wacc.taxRateUsed).toBe(0.2);
+  expect(computed.returns.wacc.taxRateBasis).toBe("Provider trailing effective tax rate (observed)");
+});
