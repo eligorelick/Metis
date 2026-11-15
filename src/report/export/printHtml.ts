@@ -344,7 +344,8 @@ function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNum
 }
 
 function figureTable(rows: readonly FigureRow[], metricHeader = "Metric"): string {
-  return bodyTable([metricHeader, "Value", "Period", "As of", "Cited"], rows.map((r) => [r.label, r.value, r.period ?? DASH, r.asOf ?? DASH, r.cited]), ["Cited"]);
+  const defined = rows.some(r => r.trace.definition);
+  return bodyTable([metricHeader, "Value", "Period", "As of", "Cited", ...(defined ? ["Definition"] : [])], rows.map((r) => [r.label, r.value, r.period ?? DASH, r.asOf ?? DASH, r.cited, ...(defined ? [r.trace.definition ?? DASH] : [])]), ["Cited"]);
 }
 
 function bodyTables(tables: readonly (ReportAuditTable | BodyTable | null)[], level = "h3"): string {
@@ -387,15 +388,16 @@ function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRo
 }
 
 function metricRowsTable(rows: readonly MetricRow[]): string {
+  const defined = rows.some(r => r.values.some(v => v.value.definition));
   const body: string[][] = [];
   for (const row of rows) {
     for (const v of row.values) {
       const window = tracedPeriodLabel(v.value.period, v.value.periodContext);
       const periodCell = window === "not supplied" || v.period.includes(window) ? v.period : window.includes(v.period) ? window : `${v.period} (${window})`;
-      body.push([row.label, periodCell, figureValueText(v.value), v.value.asOf ?? DASH, citedMark(v.value)]);
+      body.push([row.label, periodCell, figureValueText(v.value), v.value.asOf ?? DASH, citedMark(v.value), ...(defined ? [v.value.definition ?? DASH] : [])]);
     }
   }
-  return bodyTable(["Metric", "Period", "Value", "As of", "Cited"], body, ["Cited"]);
+  return bodyTable(["Metric", "Period", "Value", "As of", "Cited", ...(defined ? ["Definition"] : [])], body, ["Cited"]);
 }
 
 function segmentTable(rows: readonly SegmentRow[], geographic = false): string {

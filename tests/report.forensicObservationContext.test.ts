@@ -53,6 +53,9 @@ function invariantHash(c: ComputedMetrics) {
   // calculation pin; producer-proof behavior is covered in currentCapital tests.
   delete pinned.capital.netDebtToEbitda.ebitdaComputed;
   if (pinned.capital.current) delete pinned.capital.current.ebitdaComputed;
+  // D-295: assert the added composition metadata, then retain every preceding byte in both historical pins.
+  expect(pinned.capital.current?.debtBridge.debtDefinition).toBe("lease treatment not established from the filing");
+  delete pinned.capital.current!.debtBridge.debtDefinition;
   // N2 P/TBV review changes only this deduction disclosure in the control.
   // Pin its exact text once, then preserve the complete historical hash.
   const tbv = pinned.valuation.multiples!.multiples.find(row => row.key === "priceToTbv")!;

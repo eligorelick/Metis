@@ -149,7 +149,7 @@ describe("new version stamps", () => {
     expect(specVersionBefore(REPORT_SPEC_VERSION, ANNUALIZATION_CONVENTION_SPEC)).toBe(false);
   });
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.95.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations, coverage operands
+    expect(REPORT_SPEC_VERSION).toBe("1.96.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations, coverage operands
     expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
     expect(PAYLOAD_VERSION).toBe("1.109.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations, coverage operands
     expect(PIPELINE_VERSION).toBe("stage-c-1.6.50"); // D-282..D-285: statement marks, value-first conflicts, feed citations, coverage operands
@@ -191,7 +191,7 @@ describe("new version stamps", () => {
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.95.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations, coverage operands
+    expect(newReport().meta.specVersion).toBe("1.96.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations, coverage operands
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     expect(payload.payloadVersion).toBe("1.109.0"); // D-282 (R10): coverage operand qualification

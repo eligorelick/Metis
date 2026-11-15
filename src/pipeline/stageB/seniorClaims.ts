@@ -159,3 +159,7 @@ export function temporaryEquityUnknownAt(
   const hit = gaps.find((gap) => gap.severity === "warn" && paths.has(gap.field) && gapCauseMatches(gap, "temporaryEquityEnrichmentRefused"));
   return hit === undefined ? null : { date, reason: hit.reason.slice(ENRICHMENT_WITHHELD.length) };
 }
+
+/** D-293: some retained minority-interest totals already combine permanent and redeemable NCI. */
+export const MINORITY_DEFINITION_FAMILIES = [["us-gaap/MinorityInterest", "us-gaap/RedeemableNoncontrollingInterestEquityCarryingAmount"]] as const;
+export const REDEEMABLE_MINORITY_DEFINITION = "includes equity noncontrolling interests and redeemable noncontrolling interests";

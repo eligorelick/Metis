@@ -6711,7 +6711,7 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.95.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations, coverage operands
+    expect(repRow?.specVersion).toBe("1.96.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations, coverage operands
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);

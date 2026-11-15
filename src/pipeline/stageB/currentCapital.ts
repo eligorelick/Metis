@@ -1,7 +1,7 @@
 import { computeCapital, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult, type CoverageOperand } from "./capital";
 import { deriveFcf } from "./financialValues";
 import { completedTotalOmission, leaseDebtConflict, millions, operatingLeaseScopeUnproven, resolveNetDebt } from "./netDebt";
-import { incompleteLeaseCoverage, leaseDebtScopeRefusal, classifyLeaseEvidence, leaseEvidenceNote, type LeaseEvidenceClassification } from "./leaseScope";
+import { incompleteLeaseCoverage, leaseDebtScopeRefusal, classifyLeaseEvidence, leaseEvidenceNote, debtCompositionDefinition, type LeaseEvidenceClassification } from "./leaseScope";
 import type { SectorRoute } from "@/types/core";
 import type { FiledCashFlowTtm } from "@/edgar/financialEnrichment";
 
@@ -11,6 +11,8 @@ export interface CashFlowBridge {
   afterSbcStandardizedFcf: number | null; afterSbcIssuerFcf: number | null; definition: string;
 }
 export interface DebtBridge {
+  /** Definition from the same admitted balance row as the debt total and lease note. */
+  debtDefinition?: string;
   providerDebtPerimeterLabel?: string;
   filedBorrowings?: number;
   filedCurrentDebt?: number;
@@ -79,7 +81,7 @@ export function cashFlowBridge(row: CapitalCashFlowRow | null): CashFlowBridge {
   };
 }
 export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
-  const descriptive = { leaseEvidence: classifyLeaseEvidence(row), leaseEvidenceNote: leaseEvidenceNote(row) };
+  const descriptive = { debtDefinition: debtCompositionDefinition(row) ?? "lease treatment not established from the filing", leaseEvidence: classifyLeaseEvidence(row), leaseEvidenceNote: leaseEvidenceNote(row) };
   const debt = finite(row?.totalDebt), operating = finite(row?.operatingLeaseLiability), finance = finite(row?.financeLeaseLiability);
   const combined = finite(row?.cashAndShortTermInvestments), cash = finite(row?.cashAndCashEquivalents), sti = finite(row?.shortTermInvestments);
   const liquidity = combined ?? (cash !== null && sti !== null ? cash + sti : null);

@@ -613,7 +613,7 @@ export function figureValueText(n: Pick<TracedNumber, "value" | "unit" | "curren
 export function figureRow(n: TracedNumber, label?: string): FigureRow {
   const period = tracedPeriodLabel(n.period, n.periodContext).replace(/^not supplied; /, "");
   return {
-    label: label ?? metricLabel(n.source, n.unit),
+    label: label ?? metricLabel(n.source,n.unit),
     value: figureValueText(n),
     period: period === "not supplied" ? null : period,
     asOf: n.asOf,
@@ -1509,12 +1509,12 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   }
   const outstanding = md?.shares?.outstanding ?? null;
   if (scope?.status === "resolved" && scope.economicShares !== null) {
-    rows.push({ label: "Economic share units", value: formatLargeNumber(scope.economicShares), note: `equivalence-weighted outstanding units at ${scope.shareCountAsOf ?? "unavailable date"}; not diluted weighted-average shares` });
+    rows.push({ label: `Economic share units${md?.shares?.shareUnit ? ` (${md.shares.shareUnit})` : ""}`, value: formatLargeNumber(scope.economicShares), note: `equivalence-weighted outstanding units at ${scope.shareCountAsOf ?? "unavailable date"}; not diluted weighted-average shares` });
   } else if (outstanding !== null && outstanding > 0) {
     const freeFloat = md?.shares?.freeFloatPct;
-    rows.push({ label: scope ? "Provider shares (scope unverified)" : "Shares outstanding", value: formatLargeNumber(outstanding), note: scope ? `raw provider count; class coverage unverified${md?.shares?.asOf ? `; at ${md.shares.asOf}` : ""}` : comparableFloatDate(md?.shares) && freeFloat != null && freeFloat >= 0 && freeFloat <= 100 ? `${formatPct(freeFloat, 1)} free float` : undefined });
+    rows.push({ label: `${scope ? "Provider shares (scope unverified)" : "Shares outstanding"}${md?.shares?.shareUnit ? ` (${md.shares.shareUnit})` : ""}`, value: formatLargeNumber(outstanding), note: scope ? `raw provider count; class coverage unverified${md?.shares?.asOf ? `; at ${md.shares.asOf}` : ""}` : comparableFloatDate(md?.shares) && freeFloat != null && freeFloat >= 0 && freeFloat <= 100 ? `${formatPct(freeFloat, 1)} free float` : undefined });
   } else if (!scope && dilutedShares !== null && dilutedShares > 0) {
-    rows.push({ label: "Diluted shares", value: formatLargeNumber(dilutedShares), note: bridge?.asOf ? `at ${bridge.asOf}` : undefined });
+    rows.push({ label: `Diluted shares${bridge?.shareUnit ? ` (${bridge.shareUnit})` : ""}`, value: formatLargeNumber(dilutedShares), note: bridge?.asOf ? `at ${bridge.asOf}` : undefined });
   }
   // Audit 2026-10-22 B-24: the newer quarter's headline, apart from every statement figure.
   const newer = report.filingDisclosures ? shownFilingDisclosures(report.filingDisclosures).newerResults : undefined;
@@ -1749,7 +1749,7 @@ export function consensusTables(report: Report): BodyTable[] {
   const resolvedMultiClass = report.valuation?.marketValueScope?.status === "resolved" && report.valuation.marketValueScope.multiClass === true;
   const oneClassOnly = report.valuation?.marketValueScope?.status === "unresolved" && report.valuation.marketValueScope.classAmbiguity === true ? "; may cover one share class only" : "";
   if (md.quote?.marketCap != null) rows.push([md.quote.marketCapOrigin === "computed" ? `Market cap (derived: quote × filed shares${oneClassOnly})` : resolvedMultiClass ? "Provider market cap (quoted class only; not issuer-common)" : `Market cap (quote${oneClassOnly})`, `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
-  if (md.shares?.outstanding != null) rows.push([resolvedMultiClass ? "Provider shares (quoted class only)" : "Shares outstanding", `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float estimate ${formatLargeNumber(md.shares.float)}${md.shares.floatAsOf === undefined ? "" : md.shares.floatAsOf === null ? " (measurement date unestablished)" : ` measured ${md.shares.floatAsOf}`}` : ""}`]);
+  if (md.shares?.outstanding != null) rows.push([`${resolvedMultiClass ? "Provider shares (quoted class only)" : "Shares outstanding"}${md.shares.shareUnit ? ` (${md.shares.shareUnit})` : ""}`, `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float estimate ${formatLargeNumber(md.shares.float)}${md.shares.floatAsOf === undefined ? "" : md.shares.floatAsOf === null ? " (measurement date unestablished)" : ` measured ${md.shares.floatAsOf}`}` : ""}`]);
   const evLabel = md.enterpriseValueOrigin === "provider" ? "Provider enterprise value (vendor definition, period end)"
     : md.enterpriseValueOrigin === "computed" ? "Derived enterprise value (historical cash-only bridge)" : "Historical enterprise value (source definition unestablished)";
   if (md.enterpriseValue) rows.push([evLabel, `${money(md.enterpriseValue.value, md.currency)} at ${md.enterpriseValue.periodEnd} (that date's market cap + debt − cash and equivalents; not the report's market EV, which uses the quote and nets short-term investments)`]);
@@ -2108,7 +2108,11 @@ export function displayProse(text: string, source?: string): string {
  * stays raw and retains the report's existing verification disclosures.
  */
 export function displayClaimText(claim: SourcedClaim, numbers: readonly TracedNumber[] = []): string {
-  const text = displayProse(claim.text, claim.source);
+  let text = displayProse(claim.text, claim.source);
+  // D-294 review: name a proved quoted-share unit beside its uniquely cited count, without validating the claim.
+  const shares = numbers.filter(n => n.source === claim.source && n.asOf === claim.asOf &&
+    (claim.sourceId === undefined || n.sourceId === claim.sourceId) && n.definition === "ADS-equivalent shares");
+  if (shares.length === 1) text += " [Cited share-count basis: ADS-equivalent shares.]";
   if (!isRatioAsPercent(claim.source) || /(?:abs|absolute)$/i.test(claim.source)) return text;
   const matches = numbers.filter(n => n.source === claim.source &&
     (claim.sourceId === undefined || n.sourceId === claim.sourceId));
