@@ -105,6 +105,17 @@ describe("tag synonyms — no module keeps a second copy of the names", () => {
    */
   const SCANNED: readonly string[][] = [
     ["src", "edgar", "statements.ts"],
+    ["src", "edgar", "statements", "assembly.ts"],
+    ["src", "edgar", "statements", "company.ts"],
+    ["src", "edgar", "statements", "computation.ts"],
+    ["src", "edgar", "statements", "factIndex.ts"],
+    ["src", "edgar", "statements", "fieldSpecs.ts"],
+    ["src", "edgar", "statements", "periodMath.ts"],
+    ["src", "edgar", "statements", "perShare.ts"],
+    ["src", "edgar", "statements", "quarters.ts"],
+    ["src", "edgar", "statements", "resolution.ts"],
+    ["src", "edgar", "statements", "shares.ts"],
+    ["src", "edgar", "statements", "types.ts"],
     ["src", "pipeline", "keyless.ts"],
   ];
 
