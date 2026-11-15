@@ -228,6 +228,16 @@ export const RISK_SOURCE_MANIFEST = [
   // manifest's last edit. tests/risk.coverage.test.ts now walks src/ so a new
   // module cannot be left out silently again.
   "src/pipeline/compute.ts",
+  // Split out of compute.ts with no output change: the same Stage B code, one module per responsibility.
+  "src/pipeline/bundleRows.ts",
+  "src/pipeline/equityRiskPremium.ts",
+  "src/pipeline/stageBAdapters.ts",
+  "src/pipeline/statementCurrency.ts",
+  "src/pipeline/taxEvidence.ts",
+  "src/pipeline/ttmSynthesis.ts",
+  "src/pipeline/returnsBlock.ts",
+  "src/pipeline/balanceAnchor.ts",
+  "src/pipeline/valuationBlock.ts",
   "src/models/registry.ts",
   "src/pipeline/leaseTiming.ts",
   "src/pipeline/stageC/consistency.ts",
