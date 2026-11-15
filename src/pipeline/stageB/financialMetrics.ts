@@ -182,7 +182,7 @@ export const PROVISION_TAGS = [
 /**
  * Net charge-offs (D-46): the after-recovery element where tagged, else one of
  * the write-off / recovery pairs below, both halves from the same family. The
- * second pair is the pre-CECL-named family some filers (Citigroup) still use.
+ * second pair is the pre-CECL-named family some filers still use.
  */
 export const NET_CHARGE_OFF_TAGS = [
   "FinancingReceivableExcludingAccruedInterestAllowanceForCreditLossWriteoffAfterRecovery",
@@ -195,8 +195,8 @@ export const CHARGE_OFF_RECOVERY_PAIRS = [
   ["FinancingReceivableAllowanceForCreditLossesWriteOffs", "FinancingReceivableAllowanceForCreditLossesRecovery"],
 ] as const;
 /**
- * Audit 2026-10-22 C-13: recoveries tagged only on the cash-flow statement
- * (Capital One, whose roll-forward recovery total is a dimensional fact). They
+ * D-105: recoveries tagged only on the cash-flow statement (a filer whose
+ * roll-forward recovery total is a dimensional fact). They
  * pair with a write-off total of the same fiscal year and filing only.
  */
 export const CASH_FLOW_RECOVERY_TAG = "ProceedsFromRecoveriesOfLoanPreviouslyChargedOff";
@@ -337,7 +337,7 @@ export const REAL_ESTATE_IMPAIRMENT_TAGS = ["ImpairmentOfRealEstate"] as const;
  * element is untagged — it may carry goodwill or other non-real-estate
  * write-downs, so adding it back puts FFO at or ABOVE the definition, the same
  * direction the total-D&A stand-in errs in (the stand-in is the filer's total,
- * never a combined tag below its own Depreciation or amortization, FIN-510-V2).
+ * never a combined tag below its own Depreciation or amortization, D-134).
  */
 export const GENERIC_IMPAIRMENT_TAGS = ["AssetImpairmentCharges"] as const;
 export const STRAIGHT_LINE_RENT_TAGS = [
@@ -353,7 +353,7 @@ export const STRAIGHT_LINE_RENT_TAGS = [
  * below; unreconciled FFO and issuer-specific adjustments prevent a guaranteed bound.
  */
 export const RECURRING_CAPEX_TAGS = ["PaymentsForCapitalImprovements"] as const;
-/** Combined D&A tags, tried in order; each is checked against its own filed components (FIN-510-V2). */
+/** Combined D&A tags, tried in order; each is checked against its own filed components (D-134). */
 export const DEPRECIATION_AMORTIZATION_TAGS = [
   "DepreciationDepletionAndAmortization",
   "DepreciationAndAmortization",
@@ -413,7 +413,7 @@ function resolveTag(
 /**
  * The first combined D&A tag that is not below the same period's `Depreciation`
  * or `AmortizationOfIntangibleAssets` (same predicate and rounding allowance as
- * the statement builder's component floor, audit 2026-10-27 FIN-510-V2): a
+ * the statement builder's component floor, D-134): a
  * combined tag below a component the total contains is a subset line, not the
  * filer's total D&A. Null when none passes.
  */
@@ -742,10 +742,10 @@ function bankMetrics(
   // filers do not tag it.
   const t = tangible(bal0);
   const tangibleDenom = pos(t.assets);
-  // `tangibleCommonEquity` treats an untagged preferred line as zero. JPM's
-  // report 26 (2026-10-13) printed "− preferred" here with nothing deducted,
-  // because its preferred was tagged under an element the chain did not yet
-  // read (D-42); say so instead, as the P/TBV basis does.
+  // `tangibleCommonEquity` treats an untagged preferred line as zero. Printing
+  // "− preferred" here with nothing deducted would hide a preferred tagged
+  // under an element the chain does not read (D-42); say so instead, as the
+  // P/TBV basis does.
   const preferredTerm = isNum(bal0?.preferredStock) ? "preferred" : "preferred (none tagged, assumed zero)";
   out.push(
     t.equity !== null && tangibleDenom !== null

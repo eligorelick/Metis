@@ -14,8 +14,8 @@ import { comparablePeers, type PeerEconomicEvidence } from "@/pipeline/stageB/pe
 import { commonHolderCapital, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import type { CompanyRoute, SectorRoute } from "@/types/core";
 
-// FMP discovery returns about ten names; six cut real competitors (NVDA report
-// 34 never requested MRVL or QCOM). The deadline grows with the SEC fallback.
+// FMP discovery returns about ten names; six would cut real competitors (D-65).
+// The deadline grows with the SEC fallback.
 export const PEER_CANDIDATE_LIMIT = 10;
 export const PEER_FETCH_BUDGET_MS = 25_000;
 const DAY = 86_400_000;
@@ -30,8 +30,8 @@ const MAX_PERIOD_DIFFERENCE = 100 * DAY;
  * systematically with it; comparable-company practice selects on industry
  * first and similar size second (Alford 1992 finds industry the decisive
  * screen, so this bound is deliberately loose: two orders of magnitude).
- * NVDA report #34 rerun listed a $29M and a $265M listing beside a $5.2T
- * issuer. Unbacktested house convention (RESEARCH §8).
+ * Without it, tiny listings could sit beside a very large issuer.
+ * Unbacktested house convention (RESEARCH §8).
  */
 export const PEER_SIZE_RATIO_LIMIT = 100;
 
@@ -50,8 +50,8 @@ export function peerSizeExclusion(subjectMarketCap: unknown, peerMarketCap: unkn
 
 /**
  * The exchange suffix of a symbol in the provider's Yahoo-style symbology
- * ("285A.T" -> "T", "MU" -> null, "BRK-B" -> null). A symbology heuristic: a
- * dotted share class ("BRK.B") reads as a suffix too.
+ * ("285A.T" -> "T", "ABC" -> null, "ABC-B" -> null). A symbology heuristic: a
+ * dotted share class ("ABC.B") reads as a suffix too.
  */
 export function listingSuffix(symbol: string): string | null {
   return /\.([A-Z]{1,4})$/.exec(symbol.trim().toUpperCase())?.[1] ?? null;
@@ -63,7 +63,7 @@ export type PeerScreen =
   | { kind: "not-compared"; reason: string };
 
 /**
- * One size-screen rule for Stage B discovery and the payload (AI-301, D-65).
+ * One size-screen rule for Stage B discovery and the payload (D-124, D-65).
  * Caps are compared only when both currencies are established and equal, or,
  * when the provider row states none, only when the peer is on the subject's
  * listing market (same exchange suffix). That presumption only decides whether
@@ -78,7 +78,7 @@ export function peerDiscoveryScreen(i: {
   if (peer !== null) {
     if (peer !== subject) return { kind: "not-compared", reason: `size not compared: listed in ${peer}, the subject in ${subject ?? "an unestablished currency"}; no currency conversion` };
   } else if (listingSuffix(i.peerSymbol) !== listingSuffix(i.subjectSymbol)) {
-    // Say only what was compared: a suffix is a symbology heuristic, not proof of an exchange (BRK.B).
+    // Say only what was compared: a suffix is a symbology heuristic, not proof of an exchange (a dotted class such as "ABC.B").
     const shown = (s: string | null) => (s === null ? "none" : `.${s}`);
     return { kind: "not-compared", reason: `size not compared: the provider row states no currency and its exchange suffix (${shown(listingSuffix(i.peerSymbol))}) differs from the subject's (${shown(listingSuffix(i.subjectSymbol))})` };
   }
@@ -172,7 +172,7 @@ export async function loadPeerFundamentals(opts: {
     // D-65: a micro-cap beside a mega-cap is not requested; the comparison
     // repeats the screen on the candidate's own quote. A row on another
     // listing market is not size-compared here (its cap may be in another
-    // currency); the profile read and the quote-based test decide (AI-301-V1).
+    // currency); the profile read and the quote-based test decide (D-124).
     const screen = peerDiscoveryScreen({ subjectSymbol: opts.symbol, subjectCurrency: opts.profile.currency, subjectCap: opts.profile.marketCap, peerSymbol: symbol, peerCurrency: ownRowCurrency(row), peerCap: row.mktCap });
     if (screen.kind === "excluded") { result.exclusions.push({ symbol, reason: screen.reason }); continue; }
     symbols.push(symbol);

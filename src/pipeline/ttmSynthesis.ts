@@ -174,7 +174,7 @@ export function disclosedProjectionInterest(row: FmpIncomeStatementRow, currency
 /**
  * TTM income from the latest 4 quarterly income rows (newest first).
  *
- * Completeness gating (2026-07 audit): revenue routes the pre-revenue overlay
+ * Completeness gating (P1, P7): revenue routes the pre-revenue overlay
  * and seeds the DCF, so a 3-of-4-quarter partial sum labeled "TTM" silently
  * understates it ~25% — when any of the 4 quarters lacks revenue the WHOLE row
  * is null so every consumer falls back to the audited annual row on one
@@ -186,7 +186,7 @@ export function disclosedProjectionInterest(row: FmpIncomeStatementRow, currency
  * net-income multiples, or the cost-of-debt proxy. Suppressions are disclosed
  * via `gaps`.
  *
- * Contiguity gating (2026-07-09 audit M1): the 4 rows must also BE the last
+ * Contiguity gating (P1): the 4 rows must also BE the last
  * four quarters — distinct period-ends, strictly descending, each gap ~1
  * quarter and total span ~3 quarters (52/53-week calendars accepted) — else
  * the whole row is suppressed with a disclosed gap and every consumer falls
@@ -243,7 +243,7 @@ export function ttmIncomeFromNormalized(
   if (normalized.rows.length < 4) return null;
   const q = normalized.rows.slice(0, 4);
 
-  // Contiguity gate (audit M1): a non-TTM window must never be labeled TTM.
+  // Contiguity gate (P1): a non-TTM window must never be labeled TTM.
   // The 5th row (when present) lets the gate check the OLDEST quarter's own
   // duration, so a transition/stub period cannot enter the TTM sum unchecked.
   const violation = quarterWindowViolation(q, normalized.rows[4] ?? null);
@@ -462,7 +462,7 @@ export function ttmCashFlowFromNormalized(
   }
   if (normalized.rows.length < 4) return null;
   const q = normalized.rows.slice(0, 4);
-  // Contiguity gate (audit M1) — identical to ttmIncome.
+  // Contiguity gate (P1) — identical to ttmIncome.
   const violation = quarterWindowViolation(q, normalized.rows[4] ?? null);
   if (violation !== null) {
     gaps?.push({

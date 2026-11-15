@@ -148,8 +148,8 @@ export interface ProjectionsInputs {
   capitalReturn?: { authorizationRemaining: number | null; source: string | null; currentPrice: number | null } | null;
   /**
    * D-65: the annual interest expense forecast EPS deducts, from the latest
-   * quarter (its effective rate on the quarter-end debt, else the quarter × 4).
-   * NVDA's FY2026 $0.26B predates $25B of notes issued in Q2 FY2027. Absent:
+   * quarter (its effective rate on the quarter-end debt, else the quarter × 4),
+   * so notes issued since the last fiscal year are counted. Absent:
    * the latest annual interest expense.
    */
   interestRunRate?: { value: number; basis: string; ratePct?: number | null } | null;
@@ -292,8 +292,8 @@ export function effectiveScenarioShocks(
   const growthMarginCorrelation = degenerate ? null : correlation;
   return {
     growthDeltaPp: DISPERSION_K * sigmaGrowth,
-    // The correlated shift before buildScenarioPaths' direction rule (AMZN
-    // audit 2026-10-20 finding 11), which may hold it at base.
+    // The correlated shift before buildScenarioPaths' direction rule (D-99,
+    // scenario margins), which may hold it at base.
     marginDeltaPp: DISPERSION_K * sigmaMargin * (growthMarginCorrelation ?? 0),
     growthMarginCorrelation,
     degenerate,
@@ -429,9 +429,9 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   const caps = sigmaCapPhrases(rawDisp);
   const shocks = effectiveScenarioShocks(rawDisp.sigmaGrowth, rawDisp.sigmaMargin, rawDisp.growthMarginCorrelation);
   if (rawDisp.irregularHistory) {
-    // Off-annual pairs are skipped individually since 2026-08-31; the fan IS
-    // built from the surviving annual steps, and the disclosure says so (it
-    // used to claim the fan was suppressed beside four published series).
+    // Off-annual pairs are skipped individually; the fan IS built from the
+    // surviving annual steps, and the disclosure says so, never that the fan
+    // was suppressed beside published series (P24).
     disclosures.push({
       field: "projections.dispersion.spacing",
       reason: `${rawDisp.skippedPairs} nonconsecutive fiscal interval${rawDisp.skippedPairs === 1 ? "" : "s"} excluded from the growth and correlation dispersion — the scenario fan is built from the remaining annual steps`,
@@ -722,16 +722,15 @@ function buildEpsSeries(
   };
   const bridge = inputs.valuation.kind === "dcf" ? inputs.valuation.dcf?.bridge : undefined;
   const readings = bridge?.convertibles ?? [];
-  // FIN-302-V2: the reading's actual divisor also anchors every EPS alternative.
+  // D-147: the reading's actual divisor also anchors every EPS alternative.
   const shares0 = isNum(bridge?.dilutedShares) && bridge.dilutedShares > 0 ? bridge.dilutedShares : inputs.dilutedShares;
   // EPS requires a positive share anchor.
   if (!isNum(shares0) || shares0 <= 0) {
     return null;
   }
-  // D-60: net income from the DCF's own operating path. The former median
-  // historical net-income/EBIT ratio (NVDA 0.9525) carried low-tax years and
-  // investment gains into every forecast year, overstating EPS against the
-  // 16-18% guided tax rate. Net income is now operating EBIT less the latest
+  // D-60: net income from the DCF's own operating path. A median historical
+  // net-income/EBIT ratio would carry low-tax years and investment gains into
+  // every forecast year, overstating EPS against the guided tax rate. Net income is operating EBIT less the latest
   // annual interest expense (held flat), taxed at that year's DCF rate; interest
   // income, investment gains and other non-operating items are excluded.
   const latestInterest = incomeAsc
@@ -830,7 +829,7 @@ function buildEpsSeries(
   };
 }
 
-/** FIN-512: distinguish the measured sample from the bounded model shock. */
+/** Distinguish the measured sample from the bounded model shock (P20). */
 export function sigmaCapPhrases(d: ScenarioDispersion): {growth:string;marginBasis:string;marginLine:string} {
   const margin = d.marginCapped ? `sigma capped at the house ${SIGMA_MARGIN_MAX}pp bound (sample sigma ${round2(d.rawSigmaMargin!)}pp)` : "sample sigma";
   return {growth:d.growthCapped ? ` (sigma capped at the house ${SIGMA_GROWTH_MAX}pp bound; sample sigma ${round2(d.rawSigmaGrowth!)}pp)` : "",

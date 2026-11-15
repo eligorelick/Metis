@@ -87,7 +87,7 @@ export interface SchedulerLimits {
  * lowering the cap binds a job still queued, or one resumed after a restart or
  * by Retry (a resume keeps the same job row and its recorded cap); raising it
  * never loosens a job queued under a lower one, and only a new report records
- * the cap in force when it is created (JOB-209).
+ * the cap in force when it is created (D-120).
  */
 export function effectiveJobCapUsd(
   recorded: number | null,
@@ -621,7 +621,7 @@ export function settleRequestCost(
         fallbackUsed: settlement.fallbackUsed,
         reconciledAt: null,
         // A presumed row is dated at its lease's acquisition, like the expiry
-        // sweep's (JOB-203): the evidence for it is the reported total of the
+        // sweep's (D-119): the evidence for it is the reported total of the
         // day the request was authorized. An actual row keeps its settlement
         // instant: it is a measurement and is never lowered.
         createdAt: presumed ? lease.acquiredAt : authorityAt,
@@ -1890,14 +1890,13 @@ export interface SettlePaidPassInput<T> {
     /**
      * The detail to record instead when earlier attempts of this step were
      * settled too. The step row carries the cost of every attempt, so a detail
-     * naming only the last attempt's cost contradicted it: NVDA's bear row
-     * read "$0.2817" beside "$0.5784" after a repair (2026-10-26).
+     * naming only the last attempt's cost would contradict it after a repair
+     * (D-123).
      */
     detailAcrossAttempts?: (stepCostUsd: number, attempts: number, presumedUsd: number) => string;
     /**
      * A failure the run will repair: the step stays running under `detail`
-     * instead of reading ERROR while the repair waits (NVDA run #49,
-     * 2026-10-26). Ignored for a success.
+     * instead of reading ERROR while the repair waits (P24). Ignored for a success.
      */
     repairQueued?: boolean;
   };
@@ -2094,7 +2093,7 @@ export function settlePaidPassLease<T>(
             step.completedAt = step.finishedAt;
           }
           const { costUsd: stepCost, attempts, presumedUsd } = stepSettledTotals(lease.jobId, lease.pass, tx as ThesisDb);
-          // The detail states the step's own cost (JOB-204): the summed form
+          // The detail states the step's own cost (D-123): the summed form
           // whenever the step holds more than this attempt's own figure.
           const summed = attempts > 1 || presumedUsd > 0 ||
             Math.round(stepCost * 1e4) !== Math.round(prepared.telemetry.costUsd * 1e4);
