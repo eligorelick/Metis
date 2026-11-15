@@ -24,11 +24,11 @@
 
 These screenshots come from the built-in sample at `/report/sample`. The company is fictional: the inputs are invented, and the figures are real outputs of the code run on them.
 
-![Sample report: key data and section grades](public/screenshots/sample-overview.png)
+![Sample report: section grades, the support level and confirmed-statement share, and the key data](public/screenshots/sample-overview.png)
 
-![Sample report: verdict, executive summary and scorecard](public/screenshots/sample-summary.png)
+![Sample report: the business in brief, each statement with its mark, and the research conclusion](public/screenshots/sample-summary.png)
 
-![Sample report: CEO and CFO cards with dated decisions and what is missing for a grade](public/screenshots/sample-leadership.png)
+![Sample report: the leadership score and the CEO and CFO cards, with why each grade is not assessed and the company record during the tenure](public/screenshots/sample-leadership.png)
 
 ## How it works
 
@@ -180,6 +180,10 @@ Financial-data subscriptions are optional: useful APIs are preferred, with publi
 
 [`docs/RESEARCH.md`](docs/RESEARCH.md) documents the forensic scores' papers, coefficients, estimation populations and limits; the source cites it by section.
 
+## Support levels
+
+Near the top of every report (app, Markdown and print) a short block states the support level and the share of confirmed statements; code sets both from recorded evidence, never from model output. **Full support**: The company is on a route the methods support, every grade rests on complete recorded evidence, and no headline figure or valuation input rests on vendor data not checked against a filing, is withheld for a missing filing or input, or is limited by the route. **Limited support**: At least one of those conditions does not hold, or the report does not record the evidence to show it. The report lists, in plain words, what was not checked against filings or is not covered. The second line, "N of M statements were confirmed against their records by code (P%)", counts each AI-written FACT or ESTIMATE statement shown once and confirms only those code matched against the record they cite (a citation alone is not a confirmation); a data-only report says "No AI-written statements (data-only report)". By kind of company, for the current build (checked on the 25-company release panel): a **US filer (10-K/10-Q) on the general route** has its statements reconciled with the filed XBRL facts and a cash-flow (DCF) fair value. It has full support only when every grade rests on complete evidence, its tax rate's provision and pre-tax income agree with the filed earnings, and no input is withheld; a grade that rests on limited evidence (often leadership, for lack of a dated guidance record) or has no evidence on the route makes it limited, and the report names that grade. **Banks** and **insurers** always have limited support: they are valued on book value and excess returns on equity with their filed route ratios, and free-cash-flow valuation and ROIC do not apply. **Equity REITs** (FFO, AFFO, P/FFO), **regulated utilities** (rate regulation shown in the filings; Altman Z withheld) and **loss-making or pre-revenue companies** (cash runway and burn lead; P/E withheld) always have limited support: their route gives no per-share fair value. A **foreign filer (20-F/40-F)** has its annual figures checked where the filed XBRL facts can be matched, and limited support when its interim figures come from Form 6-K (vendor data not checked against a filing, including the tax-rate operands) or its earnings per ADS are derived. A **recent IPO** has five- and ten-year growth, beta and some forensic scores withheld for short history; its level follows the other conditions. A successor issuer, a report missing a needed filing section (such as the latest 10-K) and a saved report that does not record this evidence are also listed as limited.
+
 ## Configuration
 
 <!-- BEGIN GENERATED: config -->
@@ -300,8 +304,7 @@ The product suite makes no network request whatever your `.env` contains; one li
 
 ## Limitations
 
-See [known limitations](docs/KNOWN-LIMITATIONS.md) for missing evidence, affected company types and what reports show instead.
-
+- See [known limitations](docs/KNOWN-LIMITATIONS.md) for missing evidence, affected company types and what reports show instead.
 - Metis is a research tool for one local user, not a broker or a trading system. A traced number can still come from incorrect source data, and AI narrative can be wrong even when its citations resolve.
 - Verification checks numeric content against dated registry records and retained passages; citation presence alone does not validate a claim or qualitative truth. Oversized analyst cases disclose removed material and any remaining excess.
 - Forecast accuracy is not established. The [prospective study workflow](docs/REPORT-EVALUATION.md#prospective-report-studies) predeclares slots and baselines, freezes reports before deadlines and retains every planned issuer, including missing reports and outcomes. It groups descriptive errors by sector and exact horizon with paired baseline comparisons. Neither the rubric nor local registration establishes forecast accuracy or historical source truth. Strict forecast admission still requires an upstream producer of complete typed measurement definitions; predefined cohorts, point-in-time inputs and later outcomes are needed to assess accuracy.

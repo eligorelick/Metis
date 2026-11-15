@@ -68,10 +68,11 @@ const ROOT = process.cwd();
 const FMP_FIXTURE_ROOT = path.join(ROOT, "fixtures", "fmp");
 const REPORT_FIXTURE = path.join(ROOT, "fixtures", "report", "DEMO-sample.json");
 const GENERATOR_PATH = path.join(ROOT, "tests", "helpers", "auditFixtureComparison.ts");
+// D-301 (R39): re-pinned after the fictional issuer was renamed to Larkspur Example Systems (company name only).
 const AUDITED_FMP_TREE_SHA256 =
-  "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9";
+  "e22ed45e43e38935d647e402a9175b0e66bb3589402e5447d61b4628f8647634";
 const AUDITED_REPORT_SHA256 =
-  "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88";
+  "80b70a45819bab0eb03cd227efb889efe44694ac4d776153bfb164787db8a4e9";
 /**
  * The generator's own bytes, last re-pinned by the 2026-09-06 audit (F206).
  * A change to how the projection is built must be a reviewed edit of this

@@ -323,7 +323,7 @@ describe("fixture mode (no API key)", () => {
       expect(result.value.endpoint).toContain("/stable/profile?symbol=DEMO");
       expect(result.value.data.rows[0]?.symbol).toBe("DEMO");
       expect(result.value.data.rows[0]?.companyName).toBe(
-        "Thesis Example Systems",
+        "Larkspur Example Systems",
       );
       expect(JSON.stringify(result.value.data.rows)).toContain(
         "SYNTHETIC TEST DATA",

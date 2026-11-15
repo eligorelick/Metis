@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.98.0** and
-payload **1.111.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.99.0** and
+payload **1.112.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -23,7 +23,16 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Refuse a numeric checkmark when intermediate rounding disagrees with the exact record at reader precision (R6).
 - Carry the model tangible-equity definition beside moat ROTE summaries, cards and app signals (R18).
 - State SBC deductions only where disclosed; name scoring and forensic thresholds in words (R22/R28).
-- Report 1.98.0 / payload 1.111.0; calculations, score bands and model values unchanged.
+- Report 1.99.0 / payload 1.112.0, Stage B `STAGE_B_2026_11_RELEASE_LEFTOVERS_85`, pipeline `stage-c-1.6.53`; review-round corrections include withholding unproved negative SBC and its dependants.
+## Unreleased - Support level and confirmed share at the top; one figure shown once; company-record wording; brief absence wording (P12, P13, P18, P19, P22, P27, D-300..D-303) (2026-11-15)
+
+- Near the top of every report (app, Markdown, print) a short block states the support level ("Full support", or "Limited support" with what was not checked against filings or is not covered) and "N of M statements were confirmed against their records by code (P%)"; data-only reports say they hold no AI-written statements. Code sets both from typed evidence; README gains a "Support levels" section with the same definitions and a per-company-kind table (D-300).
+- Figure rows merge only when value, metric, window, basis and verification mark are all identical (review round 2, strict): a contradicted or unconfirmed copy is never folded into a checked row and no window is inferred, so 16 AI key-number rows in six fixed-analyst replays now print beside their code rows; the statement field cash-sti reads "Cash and short-term investments"; one issuer free-cash-flow figure stated in two exhibits of one filing prints once with both exhibits named; statement field names in data-gap reasons read in plain words; key-data caveat amounts use the shared number format (D-301, revises D-264's alias period rule).
+- The fictional sample issuer is renamed Larkspur Example Systems; the sample is rebuilt and the frozen audit fixture re-recorded (company name and digests only) (D-301).
+- An executive card statement written "<Officer name>: operating cash flow ..." reads "Company record during this tenure: ..."; the figure, citation and mark are unchanged, and the prompt says the name only binds the figure to the card (D-302, revises D-264's untouched-prefix note).
+- An empty business-brief part says "Not covered in this report." or points to the report's own marked statements, never that sources lack the fact (D-303).
+- Review round 1: tax-rate operands that agree with the filed earnings family now carry the filed proof, so the "Tax rate operands: vendor data" label leaves 13 panel valuations (it stays on 6-K filers and the successor issuer); the support level reads every grade qualification and a typed `valuation.dcf.taxOperands` entry, and missing evidence never yields full support; duplicate rows merge only on identical values, windows, basis and marks; the confirmed count counts a validated and a contradicted copy apart; the whole-brief notice prints only when the brief's fields are empty; README screenshots retaken from the renamed sample in the current layout (D-300..D-303).
+- Report 1.98.0, payload 1.111.0, Stage B `STAGE_B_2026_11_TAX_OPERAND_EVIDENCE_84`, pipeline `stage-c-1.6.52`; no figure changes.
 
 ## Unreleased - Current release documentation (P20, P24, W7) (2026-11-15)
 
@@ -36,7 +45,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - A withheld dividend-payout year with no source is a disclosed gap, not an "ambiguous legacy citation"; a withheld operating margin names its period and sits with the quarterly trend (D-297).
 - 20-F/40-F filers get a foreign-filer note (6-K results releases are not read) instead of the domestic Item 2.02 8-K note; the TTM capital basis names the flows it admitted and the ones withheld (D-298).
 - Product-line headings stand only on code-owned names (unchanged rule); an unnamed heading reads "Product line". A segment row's name is its cited record's label when period, currency, unit and amount match, else "Segment (name not established)". A trailing XBRL "[Member]" marker is removed from segment labels (D-299).
-- Report 1.97.0, payload 1.110.0, Stage B `STAGE_B_2026_11_READER_PRECISION_84`, pipeline `stage-c-1.6.52`; no figure changes.
+- Report 1.97.0, payload 1.110.0, Stage B `STAGE_B_2026_11_READER_WORDING_83`, pipeline `stage-c-1.6.51`; no figure changes.
 
 ## Unreleased - Corrected debt composition and complete ADS labels (P3, P18, P22, D-294/D-295) (2026-11-15)
 

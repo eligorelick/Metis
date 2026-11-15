@@ -50,6 +50,8 @@ const KNOWN: Record<string, string | null> = {
   LEGACY_PLACEHOLDER_DISPLAY_CUTOFF: "src/report/legacyScopeQualifications.ts",
   N4B_CAGR_DISPLAY_CUTOFF: "src/report/cagrPresentation.ts",
   INSIDER_ROLES_READ_FROM: "src/report/claimMatching.ts",
+  // D-300 review round 1: read directly by src/report/supportLevel.ts.
+  TAX_OPERAND_EVIDENCE_SINCE_SPEC: null,
   // Was module-private; its reader imports it directly.
   CORPORATE_ACTION_BRIDGE_WRITING_STAMPS: null,
 };

@@ -1,5 +1,6 @@
 import { FACT_STATUS_LEGEND, hasFactStatusMarks } from "@/report/verificationMarks";
 import { prepareReportForSurface } from "@/report/readerPreparation";
+import { supportBlock } from "@/report/supportLevel";
 import { RunNotices } from "./RunNotices";
 import { withoutCodeIdentity } from "@/report/codeIdentity";
 import { withoutGapCauses } from "@/pipeline/stageA/manifest";
@@ -137,6 +138,7 @@ export function ReportView({
     verdict: (
       <div id={sectionAnchorId("verdict")} tabIndex={-1} className="scroll-mt-28">
         {hasFactStatusMarks(report) && <p className="text-[11px] text-muted">{FACT_STATUS_LEGEND}</p>}
+        <SupportLevelBlock report={report} />
         <DossierCover report={report} completeness={completeness} />{figureNote}
       </div>
     ),
@@ -203,5 +205,17 @@ export function ReportView({
         <ReportEvidenceRail report={report} selectedReportId={reportId} inspector={<EvidenceInspector key={inspectionIdentity} reportIdentity={inspectionIdentity} />} />
       </div>
     </div>
+  );
+}
+
+/** D-300 (R40): the support level and the confirmed share, near the top of the dossier. */
+function SupportLevelBlock({ report }: { report: Report }) {
+  const block = supportBlock(report, isModelWrittenReport(report));
+  return (
+    <section className="support-level border border-edge bg-panel px-3 py-2 text-[11px]" aria-label={block.heading}>
+      <p className="font-semibold">{block.heading}</p>
+      <dl>{block.rows.map(([label, text]) => <div key={label}><dt className="inline font-semibold">{label}: </dt><dd className="inline">{text}</dd></div>)}</dl>
+      <p className="text-muted">{block.note}</p>
+    </section>
   );
 }

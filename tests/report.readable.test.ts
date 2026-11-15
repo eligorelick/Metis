@@ -8,7 +8,8 @@ import { filingFactTables, SAME_PASSAGE_AS_ABOVE } from "@/report/filingSuppleme
 import { groupedWithheldNotes } from "@/report/filingDisclosurePresentation";
 import {
   BRIEF_NOT_ESTABLISHED,
-  BRIEF_PART_NOT_ESTABLISHED,
+  BRIEF_PART_NOT_COVERED,
+  BRIEF_PART_NOT_SHOWN,
   BUSINESS_BRIEF_HEADING,
   businessBrief,
   DISAGREEMENT_SIDES_NOTE,
@@ -97,15 +98,17 @@ describe("opening business brief (D-273)", () => {
     const markdown = markdownOf(report);
     expect(briefLine(markdown, "What it sells")).not.toContain("Verandol sales rose");
     expect(briefLine(markdown, "Customers and suppliers")).not.toContain("Nordhavn");
-    expect(briefLine(markdown, "Protection and competition")).toBe(`- **Protection and competition:** ${BRIEF_PART_NOT_ESTABLISHED}`);
-    expect(briefLine(markdown, "What could break it")).toBe(`- **What could break it:** ${BRIEF_PART_NOT_ESTABLISHED}`);
+    // D-303: the report holds statements on these parts that did not qualify, so the line points to them.
+    expect(briefLine(markdown, "Protection and competition")).toBe(`- **Protection and competition:** ${BRIEF_PART_NOT_SHOWN}`);
+    expect(briefLine(markdown, "What could break it")).toBe(`- **What could break it:** ${BRIEF_PART_NOT_SHOWN}`);
     // Each admitted claim keeps its citation and mark.
     expect(briefLine(markdown, "Customers and suppliers")).toMatch(/Three wholesale distributors buy most U\.S\. product\. _\(.+\)_ \[validated\]$/);
     for (const text of surfaces(report)) {
       expect(text).toContain(BUSINESS_BRIEF_HEADING);
       expect(text.indexOf(BUSINESS_BRIEF_HEADING)).toBeLessThan(text.indexOf("Executive summary") < 0 ? Infinity : text.indexOf("Executive summary"));
       expect(text).toContain("Three wholesale distributors buy most U.S. product.");
-      expect(text).toContain(BRIEF_PART_NOT_ESTABLISHED);
+      expect(text).toContain(BRIEF_PART_NOT_SHOWN);
+      expect(text).not.toContain("Not established from verified sources");
     }
   });
 
@@ -150,7 +153,9 @@ describe("opening business brief (D-273)", () => {
     // Review round 2 (lead fix): the part is labelled by its field, so a supplier statement is shown as one.
     expect(partTexts(report)).toEqual({ sells: ["The company sells industrial pumps."], buyers: ["The company relies on a single supplier for its active ingredient."], wins: [], next: [], risks: [] });
     const markdown = markdownOf(report);
-    for (const heading of ["Protection and competition", "What is next"]) expect(briefLine(markdown, heading)).toBe(`- **${heading}:** ${BRIEF_PART_NOT_ESTABLISHED}`);
+    // D-303: a limitation statement fills no part but is in the report; an empty field is not covered.
+    expect(briefLine(markdown, "Protection and competition")).toBe(`- **Protection and competition:** ${BRIEF_PART_NOT_SHOWN}`);
+    expect(briefLine(markdown, "What is next")).toBe(`- **What is next:** ${BRIEF_PART_NOT_COVERED}`);
   });
 
   // Part C audit (bank, JPM #64): "What could break it: The share price was USD 346.19." and "What it sells:
@@ -230,13 +235,28 @@ describe("opening business brief (D-273)", () => {
     expect(brief).not.toContain("Also stated here");
   });
 
-  it("prints one line when nothing passed verification (a data-only or unchecked report)", () => {
+  it("D-303 review round 1: when nothing passed verification, each part points to its own statements; no line denies them", () => {
     const report = loadTask28Fixture();
     report.appendix.verificationLog = [];
     expect(briefOf(report).every(part => part.claims.length === 0)).toBe(true);
     for (const text of surfaces(report)) {
+      expect(text).not.toContain(BRIEF_NOT_ESTABLISHED);
+      expect(text).toContain(BRIEF_PART_NOT_SHOWN);
+      expect(text).not.toMatch(/no statement about the business in this report is confirmed or cited/);
+    }
+  });
+
+  it("prints one line only when the brief's fields hold no statement at all (a data-only report)", () => {
+    const report = loadTask28Fixture();
+    report.appendix.verificationLog = [];
+    const b = report.business;
+    b.products = []; b.whatTheySell = []; b.customersAndSuppliers = []; b.protection = []; b.whatIsComing = []; b.concentrationRisks = [];
+    report.competitive.moatAssessment = [];
+    report.catalystsRisks.risks = [];
+    expect(briefOf(report).every(part => part.empty === BRIEF_PART_NOT_COVERED)).toBe(true);
+    for (const text of surfaces(report)) {
       expect(text).toContain(BRIEF_NOT_ESTABLISHED);
-      expect(text).not.toContain(BRIEF_PART_NOT_ESTABLISHED);
+      expect(text).not.toContain(BRIEF_PART_NOT_SHOWN);
     }
   });
 });

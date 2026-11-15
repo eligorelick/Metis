@@ -1,5 +1,6 @@
 import { unavailableLiquidityTable } from "@/report/presentation";
 import { FACT_STATUS_LEGEND, hasFactStatusMarks } from "@/report/verificationMarks";
+import { supportBlock } from "@/report/supportLevel";
 import { OFFICE_CONTEXT_LINK, GUIDANCE_CONTEXT_LINK } from "@/report/executiveDecisions";
 import { prepareReportForSurface } from "@/report/readerPreparation";
 import { citationSourceId } from "@/pipeline/stageC/citations";
@@ -107,7 +108,7 @@ import {
   businessStoryBlocks,
   BUSINESS_BRIEF_HEADING,
   BRIEF_NOT_ESTABLISHED,
-  BRIEF_PART_NOT_ESTABLISHED,
+  briefNotCovered,
   businessBrief,
   scenarioReaderLists,
   SEPARATE_CONDITIONS_HEADING,
@@ -447,6 +448,12 @@ function headerBlock(report: Report): string {
   </header>`;
 }
 
+/** D-300 (R40): the support level and the confirmed share, near the top of the report. */
+function supportLevelBlock(report: Report): string {
+  const block = supportBlock(report, isModelWrittenReport(report));
+  return `<section class="block support-level"><h3>${esc(block.heading)}</h3><ul>${block.rows.map(([label, text]) => `<li><strong>${esc(label)}:</strong> ${esc(text)}</li>`).join("")}</ul><p class="faint">${esc(block.note)}</p></section>`;
+}
+
 function keyDataBlock(report: Report): string {
   const rows = keyDataRows(report);
   if (rows.length === 0) return "";
@@ -481,9 +488,9 @@ function sectionVerdict(report: Report): string {
 /** D-273: the five-part brief, verified claims only; a part with no support says so. */
 function businessBriefBlock(report: Report): string {
   const parts = businessBrief(report);
-  if (parts.every(part => part.claims.length === 0)) return `<h3>${esc(BUSINESS_BRIEF_HEADING)}</h3><p class="faint">${esc(BRIEF_NOT_ESTABLISHED)}</p>`;
+  if (briefNotCovered(parts)) return `<h3>${esc(BUSINESS_BRIEF_HEADING)}</h3><p class="faint">${esc(BRIEF_NOT_ESTABLISHED)}</p>`;
   return `<h3>${esc(BUSINESS_BRIEF_HEADING)}</h3><ul class="business-brief">${parts.map(part => `<li><strong>${esc(part.heading)}:</strong> ${part.claims.length === 0
-    ? `<span class="faint">${esc(BRIEF_PART_NOT_ESTABLISHED)}</span>`
+    ? `<span class="faint">${esc(part.empty)}</span>`
     : part.claims.map(c => `${esc(displayClaimText(c))} <span class="src">${citationHtml(c)}</span>${statusMark(c)}`).join(" ")}</li>`).join("")}</ul>`;
 }
 
@@ -955,6 +962,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
     newerResultsBanner(report.filingDisclosures) ? `<aside class="newer-results-banner"><strong>Newer results not reflected.</strong> ${esc(newerResultsBanner(report.filingDisclosures)!)}</aside>` : "",
     newerFilingBanner(report.filingDisclosures) ? `<aside class="newer-results-banner"><strong>Newer filing not reflected.</strong> ${esc(newerFilingBanner(report.filingDisclosures)!)}</aside>` : "",
     hasFactStatusMarks(report) ? `<p>${esc(FACT_STATUS_LEGEND)}</p>` : "",
+    supportLevelBlock(report),
     keyDataBlock(report),
     ...REPORT_SECTION_MANIFEST.map((section) => sections[section.key]),
   ]

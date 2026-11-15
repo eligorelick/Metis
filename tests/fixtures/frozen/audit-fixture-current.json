@@ -1,9 +1,9 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
-  "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "ace0a4039e5b4424c6ba80ead212d286029368704f1caa5139af30241867d9c8",
+  "fixtureIdentity": {"fmpTreeSha256": "e22ed45e43e38935d647e402a9175b0e66bb3589402e5447d61b4628f8647634", "reportSha256": "80b70a45819bab0eb03cd227efb889efe44694ac4d776153bfb164787db8a4e9"},
+  "projectionSha256": "4b382fd00733686d324e7928cd4cfb17530b023f3257aa44a6cec14df3af82fb",
   "projection": {
-    "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
+    "fixtureControl": {"symbol": "DEMO", "companyName": "Larkspur Example Systems", "quotePrice": 40},
     "stageB": {
       "symbol": "DEMO",
       "builtAt": "2026-07-06T00:00:00.000Z",
@@ -749,7 +749,7 @@
             "roicTermPct": {"value": 9.257246428985505, "basis": "terminal ROIC = WACC (zero excess returns in perpetuity, HOUSE CONVENTION default — see docs/METHODOLOGY.md, \"Terminal value house convention\"); ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% — no per-year risk-free observation was available to recompute a year-specific WACC"},
             "reinvestmentRate": {
               "value": 0.27005870689281986,
-              "basis": "terminal reinvestment = terminal growth / terminal return on invested capital (Damodaran consistency rule); terminal transition: FCFF 3.02B in year 10 becomes 2.39B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast"
+              "basis": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 3.02B in year 10 becomes 2.39B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast"
             }
           },
           "midYear": {
@@ -966,7 +966,7 @@
           ],
           "notes": [
             "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
-            "grid cells with WACC - terminal growth < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
+            "grid cells with WACC - gTerm < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
             "terminal ROIC held at WACC + 0pp in every cell (the house convention defines it relative to the discount rate)"
           ],
           "gaps": []
@@ -1035,7 +1035,7 @@
             {
               "key": "priceToFcf",
               "current": 4.444444444444445,
-              "basis": "market cap / (operating cash flow + capital expenditure) (latest annual FY 2025-12-31 — TTM suppressed; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block deducts SBC where disclosed and otherwise labels free cash flow unadjusted; its treatment is stated separately. Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M), 2.5% above that count.",
+              "basis": "market cap / (operating cash flow + capital expenditure) (latest annual FY 2025-12-31 — TTM suppressed; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M), 2.5% above that count.",
               "ownHistory": null,
               "peers": null
             },
@@ -1135,6 +1135,7 @@
           {"field": "valuation.multiples.ownHistory", "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)", "severity": "info"},
           {"field": "valuation.dcf.growthAnchor", "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable", "severity": "info"},
           {"field": "valuation.dcf.terminalRoic.waccBasis", "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC", "severity": "info"},
+          {"field": "valuation.dcf.taxOperands", "reason": "Tax rate operands: vendor data, not checked against a filing", "severity": "info"},
           {"field": "valuation.reverseDcf.growthBracket", "reason": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%", "severity": "warn"},
           {
             "field": "valuation.analystEstimates.currency",
@@ -1414,7 +1415,7 @@
               }
             ],
             "notApplicableReason": null,
-            "note": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the original-scale equivalent used for scoring — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
+            "note": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
           },
           "balanceSheet": {
             "score": 81.27,
@@ -2069,6 +2070,7 @@
           "attemptedSources": ["fmp:/stable/analyst-estimates"]
         },
         {"field": "valuation.dcf.growthAnchor", "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable", "severity": "info"},
+        {"field": "valuation.dcf.taxOperands", "reason": "Tax rate operands: vendor data, not checked against a filing", "severity": "info"},
         {"field": "valuation.dcf.terminalRoic.waccBasis", "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC", "severity": "info"},
         {"field": "valuation.multiples.enterpriseValue.leases", "reason": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.", "severity": "info"},
         {"field": "valuation.multiples.ownHistory", "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)", "severity": "info"},
@@ -2096,7 +2098,7 @@
       },
       "meta": {
         "symbol": "DEMO",
-        "companyName": "Thesis Example Systems",
+        "companyName": "Larkspur Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
         "specVersion": "1.98.0",
         "model": "synthetic-fixture",
@@ -2657,7 +2659,7 @@
             {
               "name": "terminal reinvestment (terminal growth / terminal ROIC)",
               "value": "27.0%",
-              "basis": "terminal reinvestment = terminal growth / terminal return on invested capital (Damodaran consistency rule); terminal transition: FCFF 3.02B in year 10 becomes 2.39B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast"
+              "basis": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 3.02B in year 10 becomes 2.39B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast"
             },
             {
               "name": "discounting convention",
@@ -2699,7 +2701,7 @@
           ],
           "sensitivityNotes": [
             "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
-            "grid cells with WACC - terminal growth < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
+            "grid cells with WACC - gTerm < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
             "terminal ROIC held at WACC + 0pp in every cell (the house convention defines it relative to the discount rate)"
           ],
           "upsidePct": 286.15000000000003,
@@ -2947,7 +2949,7 @@
           },
           {
             "name": "P/FCF (before SBC)",
-            "basis": "market cap / (operating cash flow + capital expenditure) (latest annual FY 2025-12-31 — TTM suppressed; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block deducts SBC where disclosed and otherwise labels free cash flow unadjusted; its treatment is stated separately. Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M), 2.5% above that count.",
+            "basis": "market cap / (operating cash flow + capital expenditure) (latest annual FY 2025-12-31 — TTM suppressed; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M), 2.5% above that count.",
             "current": 4.444444444444445,
             "peerMedian": null,
             "peerCount": null,
@@ -3714,6 +3716,7 @@
             "attemptedSources": ["fmp:/stable/analyst-estimates"]
           },
           {"field": "valuation.dcf.growthAnchor", "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable", "severity": "info"},
+          {"field": "valuation.dcf.taxOperands", "reason": "Tax rate operands: vendor data, not checked against a filing", "severity": "info"},
           {"field": "valuation.dcf.terminalRoic.waccBasis", "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC", "severity": "info"},
           {"field": "valuation.multiples.enterpriseValue.leases", "reason": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.", "severity": "info"},
           {"field": "valuation.multiples.ownHistory", "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)", "severity": "info"},
@@ -4012,7 +4015,7 @@
               }
             ],
             "notApplicableReason": null,
-            "note": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the original-scale equivalent used for scoring — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
+            "note": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
           },
           "balanceSheet": {
             "score": 81.27,

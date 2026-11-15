@@ -39,7 +39,7 @@ describe("current fictional visitor sample", () => {
   it("renders current USD research with explicit assessment gaps in the dossier layout", () => {
     const report = ReportSchema.parse(JSON.parse(readFileSync("fixtures/report/DEMO-current.json", "utf8")));
     expect(legacyScopeQualifications(report)).toEqual([]);
-    expect(report.meta.companyName).toBe("Thesis Example Systems");
+    expect(report.meta.companyName).toBe("Larkspur Example Systems");
     expect(report.meta.costUsd).toBe(0);
     expect(report.fairValue?.status).toBe("available");
     expect(report.scenarioTargets?.status).toBe("available");

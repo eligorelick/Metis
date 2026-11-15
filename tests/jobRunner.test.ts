@@ -6711,14 +6711,14 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.98.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
+    expect(repRow?.specVersion).toBe("1.99.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.52"); // D-296-D-299: reader wording at the producers, record-bound segment names
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.53"); // D-296-D-299: reader wording at the producers, record-bound segment names
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);

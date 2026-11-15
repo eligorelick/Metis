@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { assessExecutiveEvidence } from "@/report/financialDiagnostics";
-import { executiveOffice, executiveOfficeContext } from "@/report/executiveDecisions";
+import { COMPANY_RECORD_PREFIX, executiveOffice, executiveOfficeContext } from "@/report/executiveDecisions";
 import { EXECUTIVE_NOT_ASSESSED_REASON } from "@/report/executiveAssessment";
 import { LeadershipSection } from "@/components/report/sections";
 import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
@@ -341,7 +341,9 @@ it("D-264 points executive cards to one outlook guidance block and preserves sto
     }
     expect(text).not.toContain("shared management chronology");
     expect(text).not.toContain("Company guidance context");
-    expect(text).toContain(stored.text);
+    // Revised by D-302 (R35): the stored "<Name>: metric" wording reads as the company's record; the stored bytes stay (below).
+    expect(text).toContain(`${COMPANY_RECORD_PREFIX}operating cash flow was USD 12 billion.`);
+    expect(text).not.toContain(stored.text);
     if (i < 2) expect(text.split(guidance.text)).toHaveLength(2);
   }
   expect(JSON.stringify(report)).toBe(before);

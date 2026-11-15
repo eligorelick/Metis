@@ -47,7 +47,7 @@ describe("reader labels and one source marker", () => {
 
   it("prints a figure the two capital registries both carry once", () => {
     const rows = figureRows([
-      traced("computed.current-capital.interest-coverage", 426.7365, "x"),
+      traced("computed.current-capital.interest-coverage", 426.7365010799136, "x"),
       traced("computed.capital.current.interestCoverage", 426.7365010799136, "x"),
       traced("computed.current-capital.total-debt-including-leases", 38_860_000_000, "currency"),
       traced("computed.capital.current.debtBridge.totalDebtIncludingLeases", 38_860_000_000, "currency"),
@@ -56,6 +56,10 @@ describe("reader labels and one source marker", () => {
       ["Interest coverage", "426.7×"],
       ["Debt used in this report", "$38.86B"],
     ]);
+    // D-301 review round 2 (lead decision): a rounded copy (426.7365) is another value, not the same figure, so both
+    // rows print even though both read "426.7×".
+    expect(figureRows([traced("computed.current-capital.interest-coverage", 426.7365, "x"),
+      traced("computed.capital.current.interestCoverage", 426.7365010799136, "x")]).map((row) => row.value)).toEqual(["426.7×", "426.7×"]);
   });
 
   it("retains equal-valued debt and cash instead of treating their amounts as metric identities", () => {
@@ -275,11 +279,12 @@ describe("D-264 reader repairs", () => {
     }
     expect(JSON.stringify(r)).toBe(before);
   });
-  it("prefers the supplied period for known duplicate metric aliases, retaining distinct windows", () => {
+  it("merges known duplicate metric aliases only on the same stated period, retaining distinct or missing windows", () => {
     const a = traced("computed.current-capital.cash-and-short-term-investments", 10, "currency");
     const b = { ...traced("computed.capital.current.debtBridge.cashAndShortTermInvestments", 10, "currency"), period: "2026-07-26" };
-    expect(figureRows([a, b])).toHaveLength(1);
-    expect(figureRows([a, b])[0]!.period).toBe("2026-07-26");
+    expect(figureRows([{ ...a, period: "2026-07-26" }, b])).toHaveLength(1);
+    // D-301 review round 2 (lead decision): an omitted period is never read as the other copy's window.
+    expect(figureRows([a, b]).map((row) => row.period)).toEqual([null, "2026-07-26"]);
     expect(figureRows([{ ...a, period: "FY2025" }, b])).toHaveLength(2);
   });
 });
@@ -309,11 +314,18 @@ it.each([{parts:[40,30,20,10]}, {parts:[40,30,20,7,3]}])("D-264 groups larger ex
   for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) expect(text).not.toContain(`Region ${parts.length - 1} is part of Aggregate`);
 });
 
-it("D-264 removes periodless accrual aliases on all surfaces, without confusing a separate metric", () => {
+it("D-264, revised by D-301 review round 2: accrual aliases print once only when identical, on all surfaces", () => {
   const r = loadTask28Fixture();
+  const rowsOf = (text: string) => text.match(/(?:\| |>)Accrual ratio \(cash-flow\)(?: \||<)/g) ?? [];
+  const surfacesOf = (report: typeof r) => [reportToMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(ReportView, {report}))];
+  // Identical value, window and basis under the two registered ids: one row.
+  r.quality.graded.keyNumbers = [{...traced("computed.forensics.accrual-ratio-cash-flow", 0.1581456, "x"), currency: null, period: "2026-07-26"},
+    {...traced("computed.forensics.accruals.cashFlowAccrualRatio", 0.1581456, "x"), currency: null, period: "2026-07-26"}];
+  for (const text of surfacesOf(r)) expect(rowsOf(text)).toHaveLength(1);
+  // A rounded, periodless copy is another value with no window: both rows print (lead decision: if in doubt keep both).
   r.quality.graded.keyNumbers = [traced("computed.forensics.accrual-ratio-cash-flow", 0.1581, "x"),
     {...traced("computed.forensics.accruals.cashFlowAccrualRatio", 0.1581456, "x"), currency: null, period: "2026-07-26"}];
-  for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) expect(text.match(/(?:\| |>)Accrual ratio \(cash-flow\)(?: \||<)/g)).toHaveLength(1);
+  for (const text of surfacesOf(r)) expect(rowsOf(text)).toHaveLength(2);
 });
 
 

@@ -267,7 +267,7 @@ describe("reportToMarkdown", () => {
 
   it("renders every report section header", () => {
     for (const header of [
-      "# Thesis Example Systems (DEMO)",
+      "# Larkspur Example Systems (DEMO)",
       "## 1. Verdict",
       // D-273: the business group and catalysts and risks come before the figure sections.
       "## 2. Business & Segments",

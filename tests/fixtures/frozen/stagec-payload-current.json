@@ -1,11 +1,11 @@
 {
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
   "payloadVersion": "1.111.0",
-  "fingerprint": "1.111.0:607a6eae",
-  "summary": {"promptBytes": 187292, "promptFnv1a32": "607a6eae", "provenanceCount": 547, "provenanceHash": "693836f4", "provenanceIdsHash": "596aaa95", "citationCount": 92, "citationHash": "0598d06e", "computedFigureLabelHash": "0212433e", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "628ca45b"},
+  "fingerprint": "1.111.0:f0137c05",
+  "summary": {"promptBytes": 187399, "promptFnv1a32": "f0137c05", "provenanceCount": 547, "provenanceHash": "693836f4", "provenanceIdsHash": "596aaa95", "citationCount": 93, "citationHash": "673d6ddf", "computedFigureLabelHash": "0212433e", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "5d30cf2e"},
   "prompt": {
-    "bytes": 187292,
-    "sha256": "c2ac6a04478ea4633a8ed9c5a7c83359b4cbd81b43261ce4c344a6347a35efd5",
+    "bytes": 187399,
+    "sha256": "ce9cc1c470b02a7866a1cf1b1561cd8749d4df956bb33f28ebd43ac26a4459d9",
     "sections": [
       {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "888848b7a80b3bbe2d3177cfc6a09e7cc28eba0ef543f76ab72f3d3b21c5a7c1"},
       {"heading": "## Quote", "bytes": 520, "sha256": "5146e60fd664d5a82bbbf06b3413303e1136d43422948e7ad1e8c645380d4026"},
@@ -15,7 +15,7 @@
       {"heading": "## Forensics (computed)", "bytes": 7550, "sha256": "b095b7c9f1c177c8ea279e726ca3f459a5a43bf43be2442d0a7673a408ac67e3"},
       {"heading": "## Current capital (computed)", "bytes": 3650, "sha256": "3abbe62565f67b2a22b3c906adb43c44608406627f74b729cbe049715d1a7d60"},
       {"heading": "## Technicals (computed)", "bytes": 724, "sha256": "40dd858706c2c8da597fde1c4e8ab3a3d12ec2a769e7ae410fb67df65a53edbc"},
-      {"heading": "## Valuation (computed)", "bytes": 14257, "sha256": "235a5243fd2cf25dbdcfcfe31d513a1eff7541da38697385208c574f36aece15"},
+      {"heading": "## Valuation (computed)", "bytes": 14229, "sha256": "8c34c11bcbf92fce26a4997ff58d6d694335f493db8825d574f7ea89ed4b238b"},
       {"heading": "## Comparable peers (computed)", "bytes": 3076, "sha256": "c1e9ab02dbed856d4abb59d47e530404d61ce0eb921b03a84ddb4220f3d046e4"},
       {"heading": "## Deterministic aspect scores (computed — ANCHOR your A–F letter grades to these bands; justify any deviation)", "bytes": 3119, "sha256": "4749c6577740ffe8c7d34780c319d69c6ebd31eb4cec95340c79ea04bcf473eb"},
       {"heading": "## Weighted projections (computed — 5y forward, fixed display weights 0.25/0.5/0.25 bull/base/bear; ESTIMATE, interpret — never restate as fact)", "bytes": 7371, "sha256": "7dbe88591658d599ad746825737841fa625bbf4cbf3fa54eb795e0fa8989abe1"},
@@ -41,7 +41,7 @@
       {"heading": "## Provider transcript/filing excerpt (untrusted source data)", "bytes": 42429, "sha256": "142ad099d12461e67d7228103d1f0a373f126d4271501a0c4c221125bcc46615"},
       {"heading": "## Provider news/press snippets (untrusted source data)", "bytes": 314, "sha256": "5188737400534b60ef1e78266e8a1e16b0ea53af3b87978db4ae3258c80674d1"},
       {"heading": "## Data-quality flags (Stage A validation; untrusted provider data)", "bytes": 796, "sha256": "bd25f9b7783f7e0714ee8cb26ac9a3a541a7bd23915bda9a7b8cd5e2fcffde84"},
-      {"heading": "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "bytes": 9226, "sha256": "70f02fabbed7e45177eaf319a009bc9ce95f2b4b2491b9c705c49b1c06d2581f"}
+      {"heading": "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "bytes": 9361, "sha256": "857d9b47d603d1ec05f7a80334ae35fa642e90ace95d763dd818ab41b5874a84"}
     ]
   },
   "projectionPathPeriodMatrix": [
@@ -590,7 +590,7 @@
             }
           ],
           "notApplicableReason": null,
-          "note": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the original-scale equivalent used for scoring — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
+          "note": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
         },
         "balanceSheet": {
           "score": 84.05,
@@ -1892,7 +1892,7 @@
         },
         "sbc": {
           "value": {"beforeSbc": 113600000000, "afterSbc": null, "sbc": null, "asOf": "2026-03-28", "basis": "TTM 2025-03-29 to 2026-03-28: operating cash flow minus cash capital expenditure, before and after stock-based compensation"},
-          "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; SBC was not disclosed, so it is not deducted from the reported free-cash-flow metric. The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-28: 113600000000, UNADJUSTED — stock-based compensation was not disclosed."
+          "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-28: 113600000000, UNADJUSTED — stock-based compensation was not disclosed."
         },
         "growthAnchor": {
           "pointPct": 2.5158432770685746,
@@ -1974,7 +1974,7 @@
           },
           "reinvestmentRate": {
             "value": 0.1791157142056076,
-            "basis": "terminal reinvestment = terminal growth / terminal return on invested capital (Damodaran consistency rule); terminal transition: FCFF 162.79B in year 10 becomes 140.66B in year 11 (-13.6%): reinvestment moves from 2.62% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 93.23%) to 17.91% (terminal growth 2.5% / terminal ROIC 13.96%). The step is where the two reinvestment conventions meet, not a forecast"
+            "basis": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 162.79B in year 10 becomes 140.66B in year 11 (-13.6%): reinvestment moves from 2.62% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 93.23%) to 17.91% (terminal growth 2.5% / terminal ROIC 13.96%). The step is where the two reinvestment conventions meet, not a forecast"
           }
         },
         "midYear": {
@@ -2003,7 +2003,7 @@
           "EBIT margin regime stable: dated 5y slope 0.27pp/year; target 30.29% versus current 31.48% and median 30.29%",
           "terminal tax rate floored: the company historical median 14.72% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule: the terminal rate converges toward the marginal rate)",
           "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 8.96% — no per-year risk-free observation was available to recompute a year-specific WACC",
-          "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; SBC was not disclosed, so it is not deducted from the reported free-cash-flow metric. The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-28: 113600000000, UNADJUSTED — stock-based compensation was not disclosed.",
+          "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-28: 113600000000, UNADJUSTED — stock-based compensation was not disclosed.",
           "Valuation date: cash flows are discounted from the statement date 2026-03-28 and rolled forward 99 days to the quote date 2026-07-05 at the WACC (× 1.0235), so the per-share value and the price it is compared with share a date; the equity bridge stays at the 2026-03-28 balance, whose later cash generation is inside the first window's flows (house rule)"
         ]
       },
@@ -2181,7 +2181,7 @@
         ],
         "notes": [
           "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
-          "grid cells with WACC - terminal growth < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
+          "grid cells with WACC - gTerm < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
           "terminal ROIC held at WACC + 5pp in every cell (the house convention defines it relative to the discount rate)"
         ],
         "gaps": []
@@ -2241,7 +2241,7 @@
           {
             "key": "priceToFcf",
             "current": 27.72887323943662,
-            "basis": "market cap / (operating cash flow + capital expenditure) (TTM; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block deducts SBC where disclosed and otherwise labels free cash flow unadjusted; its treatment is stated separately. Share basis: market cap is the quote price × the 15,000M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 15,000M), within 0.1% of that count.",
+            "basis": "market cap / (operating cash flow + capital expenditure) (TTM; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 15,000M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 15,000M), within 0.1% of that count.",
             "ownHistory": null,
             "peers": null
           },
@@ -2330,7 +2330,7 @@
         "EBIT margin regime stable: dated 5y slope 0.27pp/year; target 30.29% versus current 31.48% and median 30.29%",
         "terminal tax rate floored: the company historical median 14.72% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule: the terminal rate converges toward the marginal rate)",
         "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 8.96% — no per-year risk-free observation was available to recompute a year-specific WACC",
-        "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; SBC was not disclosed, so it is not deducted from the reported free-cash-flow metric. The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-28: 113600000000, UNADJUSTED — stock-based compensation was not disclosed.",
+        "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-28: 113600000000, UNADJUSTED — stock-based compensation was not disclosed.",
         "Valuation date: cash flows are discounted from the statement date 2026-03-28 and rolled forward 99 days to the quote date 2026-07-05 at the WACC (× 1.0235), so the per-share value and the price it is compared with share a date; the equity bridge stays at the 2026-03-28 balance, whose later cash generation is inside the first window's flows (house rule)",
         "DCF equity bridge: EV − net debt − minority interest − preferred equity. 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
         "DCF terminal transition: FCFF 162.79B in year 10 becomes 140.66B in year 11 (-13.6%): reinvestment moves from 2.62% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 93.23%) to 17.91% (terminal growth 2.5% / terminal ROIC 13.96%). The step is where the two reinvestment conventions meet, not a forecast.",
@@ -2347,6 +2347,7 @@
         {"field": "valuation.multiples.ownHistory", "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)", "severity": "info"},
         {"field": "valuation.dcf.growthAnchor", "reason": "growth-anchor method(s) unavailable: 5y revenue CAGR — the point estimate is the median of the 3 that were computable", "severity": "info"},
         {"field": "valuation.dcf.terminalRoic.waccBasis", "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC", "severity": "info"},
+        {"field": "valuation.dcf.taxOperands", "reason": "Tax rate operands: vendor data, not checked against a filing", "severity": "info"},
         {
           "field": "valuation.analystEstimates.currency",
           "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own; the analyst-consensus growth case uses them in USD",
@@ -5833,6 +5834,7 @@
     {"id": "manifest.scores.valuation.peOwnHistoryRank", "kind": "payload-gap", "asOf": null, "origin": "scores.valuation.peOwnHistoryRank"},
     {"id": "manifest.valuation.analystEstimates.currency", "kind": "payload-gap", "asOf": null, "origin": "valuation.analystEstimates.currency"},
     {"id": "manifest.valuation.dcf.growthAnchor", "kind": "payload-gap", "asOf": null, "origin": "valuation.dcf.growthAnchor"},
+    {"id": "manifest.valuation.dcf.taxOperands", "kind": "payload-gap", "asOf": null, "origin": "valuation.dcf.taxOperands"},
     {"id": "manifest.valuation.dcf.terminalRoic.waccBasis", "kind": "payload-gap", "asOf": null, "origin": "valuation.dcf.terminalRoic.waccBasis"},
     {"id": "manifest.valuation.multiples.enterpriseValue.leases", "kind": "payload-gap", "asOf": null, "origin": "valuation.multiples.enterpriseValue.leases"},
     {"id": "manifest.valuation.multiples.ownHistory", "kind": "payload-gap", "asOf": null, "origin": "valuation.multiples.ownHistory"},
@@ -6330,7 +6332,7 @@
           "EBIT margin regime stable: dated 5y slope 0.27pp/year; target 30.29% versus current 31.48% and median 30.29%",
           "terminal tax rate floored: the company historical median 14.72% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule: the terminal rate converges toward the marginal rate)",
           "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 8.96% — no per-year risk-free observation was available to recompute a year-specific WACC",
-          "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; SBC was not disclosed, so it is not deducted from the reported free-cash-flow metric. The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-28: 113600000000, UNADJUSTED — stock-based compensation was not disclosed.",
+          "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-28: 113600000000, UNADJUSTED — stock-based compensation was not disclosed.",
           "Valuation date: cash flows are discounted from the statement date 2026-03-28 and rolled forward 99 days to the quote date 2026-07-05 at the WACC (× 1.0235), so the per-share value and the price it is compared with share a date; the equity bridge stays at the 2026-03-28 balance, whose later cash generation is inside the first window's flows (house rule)",
           "DCF equity bridge: EV − net debt − minority interest − preferred equity. 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
           "DCF terminal transition: FCFF 162.79B in year 10 becomes 140.66B in year 11 (-13.6%): reinvestment moves from 2.62% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 93.23%) to 17.91% (terminal growth 2.5% / terminal ROIC 13.96%). The step is where the two reinvestment conventions meet, not a forecast.",
@@ -6339,7 +6341,7 @@
           "peTtm: price / diluted EPS (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum. Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 15,000M); the market-cap multiples sit on the 15,000M shares the quoted market cap implies, and the diluted count is within 0.1% of that count.",
           "evToEbitda: EV / (operating income + D&A), TTM-computed — the vendor EBITDA field is not used. 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 3,196,000,000,000; EV on retained debt basis 3,196,000,000,000. Balance basis: latest quarterly balance sheet 2026-03-28. Share basis: market cap is the quote price × the 15,000M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 15,000M), within 0.1% of that count.",
           "evToSales: EV / revenue (TTM). 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 3,196,000,000,000; EV on retained debt basis 3,196,000,000,000. Share basis: market cap is the quote price × the 15,000M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 15,000M), within 0.1% of that count.",
-          "priceToFcf: market cap / (operating cash flow + capital expenditure) (TTM; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block deducts SBC where disclosed and otherwise labels free cash flow unadjusted; its treatment is stated separately. Share basis: market cap is the quote price × the 15,000M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 15,000M), within 0.1% of that count.",
+          "priceToFcf: market cap / (operating cash flow + capital expenditure) (TTM; the provider records capex as negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 15,000M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 15,000M), within 0.1% of that count.",
           "priceToBook: market cap / common equity (latest quarterly balance sheet 2026-03-28; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness. Share basis: market cap is the quote price × the 15,000M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 15,000M), within 0.1% of that count.",
           "priceToTbv: market cap / (common equity - goodwill - intangible assets); deducts goodwill unavailable and intangible assets unavailable (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2026-03-28; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)",
           "Consensus anchoring (D-65): consensus sets year one of the 10-year base path (12M ending 2027-03-28); the remaining years are the house convergent fade. Call the base path consensus-anchored only for those years, and name them.",
@@ -9027,6 +9029,7 @@
         "attemptedSources": ["fmp:/stable/analyst-estimates"]
       },
       {"field": "valuation.dcf.growthAnchor", "reason": "growth-anchor method(s) unavailable: 5y revenue CAGR — the point estimate is the median of the 3 that were computable", "severity": "info"},
+      {"field": "valuation.dcf.taxOperands", "reason": "Tax rate operands: vendor data, not checked against a filing", "severity": "info"},
       {"field": "valuation.dcf.terminalRoic.waccBasis", "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC", "severity": "info"},
       {"field": "valuation.multiples.enterpriseValue.leases", "reason": "2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.", "severity": "info"},
       {"field": "valuation.multiples.ownHistory", "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)", "severity": "info"},

@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.98.0 / payload 1.111.0, Stage B `STAGE_B_2026_11_READER_PRECISION_84` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.99.0 / payload 1.112.0, Stage B `STAGE_B_2026_11_RELEASE_LEFTOVERS_85` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 D-304-D-306: a verified number must agree with its record at the shared reader display precision as well as registry precision. ROTE summary and signal rows carry the same model tangible-equity definition as detailed rows. SBC wording states a deduction only where disclosed, and forensic thresholds name quantities in words. These changes leave calculations and score bands unchanged.
 
@@ -8959,6 +8959,19 @@ Every independently described figure in a filing-excerpt claim must pass the exi
 
 ### Reading order, the opening brief and shown-once (D-273)
 
+Before the key data, every surface prints the report's support level and its share of confirmed statements
+(D-300; README "Support levels"). Code sets the level from typed evidence only (the fair-value status and its
+valuation-use reason, the route recorded on the route metrics, every P12 grade qualification reason, the typed
+statement-evidence entries, the typed `valuation.dcf.taxOperands` entry for tax-rate operands not checked against a
+filing, and critical filing gaps): "Full support" when none applies and the evidence is recorded, otherwise "Limited
+support" with each limitation in plain words. Missing evidence never establishes full support: a grade with no
+recorded qualification, and a saved cash-flow valuation written before the tax-operand entry existed (report stamp
+below 1.98.0), read as limited. The tax-rate operands count as checked when the filed provision and pre-tax income
+replaced the vendor's or the vendor's agree with the reconciled filed earnings family (D-300 review round 1, the
+same-observation rule). The confirmed share is the validated FACT and ESTIMATE statements over all shown, each counted
+once by the presentation layer's statement identity (words, tag, citation, date and mark); a citation is not a
+confirmation.
+
 Every surface reads in one order: verdict; the business group (business and
 segments, competitive landscape, future outlook); catalysts and risks; then
 fundamentals, balance sheet, valuation, quality, technicals, leadership,
@@ -8972,7 +8985,7 @@ suppliers only from that field; what is next only
 from what is coming; risks from the risks and concentration risks), and only
 with a FACT whose own verification entry is validated or cited; an unverified,
 unchecked or contradicted claim, a judgment, or a statement of a limitation or
-absence never enters, and a part with none says "Not established from verified sources." A brief line never cites a market or computed record (such as the share price), and the three descriptive parts skip statements of change (D-276). A
+absence never enters. A part with none describes this report, never the sources (D-303): "Not covered in this report." when its fields hold no statement, otherwise a pointer to the report's own marked statements below. A single line replaces the five parts only when none of their fields holds a statement (D-303 review round 1). A brief line never cites a market or computed record (such as the share price), and the three descriptive parts skip statements of change (D-276). A
 statement shown in full in one list is referenced, not repeated, in a later
 list when its label, text, citation, resolved citation date and verification
 mark all match. Each score keeps its qualifying text beside it. Score drivers,

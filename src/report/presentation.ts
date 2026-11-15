@@ -154,6 +154,7 @@ import {
 import type { ManifestEntry } from "@/types/core";
 import { BUSINESS_STORY_HEADING, productLineNamingClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
 import { claimStatusMark } from "@/report/verificationMarks";
+import { companyRecordClaim } from "@/report/executiveDecisions";
 import { citationAsOf, citationSourceId } from "@/pipeline/stageC/citations";
 import { findDirectionWords } from "@/pipeline/stageC/consistency";
 import { developmentClaims, managementActionClaims, RECENT_DEVELOPMENTS_HEADING } from "@/report/qualitativeAnalysis";
@@ -206,6 +207,8 @@ const PHRASE_FIXES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\byear one\b/gi, "year-one"],
   [/\bstock based\b/gi, "stock-based"],
   [/\b(short|long) term\b/gi, "$1-term"],
+  // D-301 (R29): the statement field "cashSti" is cash and short-term investments.
+  [/\bcash sti\b/gi, "cash and short-term investments"],
   [/\b(gross margin|operating expenses|operating margin|tax rate|diluted EPS) (GAAP|non-GAAP)\b/g, "$2 $1"],
   [/\bfree cash flow operating cash flow less capex\b/gi, "FCF, operating cash flow less capex,"],
   // FIGR extra-high audit: statement-row ids ("capex-negative") read as the outflow they record.
@@ -647,18 +650,25 @@ const FIGURE_ALIAS_GROUPS: readonly (readonly string[])[] = [
 const FIGURE_METRIC_ALIASES = new Map(FIGURE_ALIAS_GROUPS.flatMap((group) =>
   group.map((source): [string, string] => [source, group[0]!])));
 
-/** Exact source duplicates, or a known alias with the same displayed value and measurement basis. */
+/**
+ * The identities a figure row is deduplicated on: its exact source, or a registered metric alias.
+ * D-301 review round 2 (lead decision, P1/P13/P19/P22): rows merge only when every part is identical:
+ * the underlying traced value (never its display text or a rounding of it), the metric (the same source
+ * or a registered alias of it), the stated window and period context, the unit, currency and as-of date,
+ * and the verification mark. A window is never inferred from an end date, and a failed mark is never
+ * dropped: a contradicted or unconfirmed copy is a different row from a checked one.
+ */
 function figureIdentities(row: FigureRow): string[] {
   const n = row.trace;
   const p = n.periodContext;
   const context = p === undefined ? null : p.kind === "instant"
     ? [p.kind, p.at, p.basis ?? null, p.fiscalLabel ?? null]
     : [p.kind, p.start, p.end, p.basis ?? null, p.fiscalLabel ?? null];
-  const basis = [n.unit, n.currency ?? null, n.asOf, n.period ?? null, context];
+  const basis = [n.unit, n.currency ?? null, n.asOf, n.period ?? null, context, row.cited];
   const source = n.sourceId ?? n.source;
   const exact = JSON.stringify(["source", source, n.value, ...basis]);
   const metric = FIGURE_METRIC_ALIASES.get(source);
-  return metric === undefined ? [exact] : [exact, JSON.stringify(["alias", metric, row.value, ...basis])];
+  return metric === undefined ? [exact] : [exact, JSON.stringify(["alias", metric, n.value, ...basis])];
 }
 
 /**
@@ -666,32 +676,17 @@ function figureIdentities(row: FigureRow): string[] {
  * forensic battery register the same figure under two ids
  * (`computed.current-capital.*` and `computed.capital.current.*`), and the
  * report printed both. `seen` carries identities across the tables of one
- * section. The first occurrence wins. Currency and measurement metadata must
- * agree; missing metadata is not evidence that two different windows match.
- * D-264: registered aliases may omit only a period label equal to their shared
- * as-of date; keep the supplied label. A unitless ratio has no currency basis.
+ * section. The first occurrence wins; the rows it removes are identical in
+ * value, metric, window, basis and mark (`figureIdentities`), so nothing a
+ * reader could see is lost. D-301 review round 2 retires D-264's merge of an
+ * alias copy that omits its period: missing metadata is not evidence that two
+ * windows match, so such copies print as their own rows.
  */
 export function dedupeFigureRows(rows: readonly FigureRow[], seen: Map<string, FigureRow> = new Map()): FigureRow[] {
   const out: FigureRow[] = [];
   for (const row of rows) {
     const identities = figureIdentities(row);
-    const prior = identities.map((identity) => seen.get(identity)).find((entry) =>
-      entry !== undefined && (
-        (entry.trace.sourceId ?? entry.trace.source) !== (row.trace.sourceId ?? row.trace.source)
-        || entry.trace.value === row.trace.value
-      ));
-    const alias = FIGURE_METRIC_ALIASES.get(row.trace.sourceId ?? row.trace.source);
-    const compatible = alias === undefined ? undefined : out.find(entry =>
-      FIGURE_METRIC_ALIASES.get(entry.trace.sourceId ?? entry.trace.source) === alias &&
-      (entry.trace.sourceId ?? entry.trace.source) !== (row.trace.sourceId ?? row.trace.source) &&
-      entry.value === row.value && entry.trace.unit === row.trace.unit &&
-      (entry.trace.currency === row.trace.currency || isRatioAsPercent(row.trace.source)) && entry.asOf === row.asOf &&
-      entry.trace.periodContext === undefined && row.trace.periodContext === undefined &&
-      (entry.period === row.period || entry.period === null && row.period === row.asOf || row.period === null && entry.period === entry.asOf));
-    if (prior || compatible) {
-      if (compatible && compatible.period === null && row.period !== null) Object.assign(compatible, row);
-      continue;
-    }
+    if (identities.some((identity) => seen.has(identity))) continue;
     const copy = { ...row };
     for (const identity of identities) seen.set(identity, copy);
     out.push(copy);
@@ -981,7 +976,7 @@ const echoIndexed = new WeakSet<object>();
  * source id) and its resolved date, so the same words cited to a different
  * filing or date are a different statement and print in both places.
  */
-function claimEchoKey(claim: SourcedClaim): string {
+export function claimEchoKey(claim: SourcedClaim): string {
   return [claim.label, claim.text.trim().replace(/\s+/g, " "), citationSourceId(claim) ?? "", claim.source, claim.sourceId ?? "",
     citationAsOf(claim) ?? "", claim.asOf ?? "", claimStatusMark(claim) ?? ""].join("\u0000");
 }
@@ -1083,18 +1078,34 @@ export function repeatedClaimsNote(homes: readonly string[]): string | null {
  * ======================================================================== */
 
 export const BUSINESS_BRIEF_HEADING = "Business in brief";
-/** A part with no verified support says so in one line. */
-export const BRIEF_PART_NOT_ESTABLISHED = "Not established from verified sources.";
-/** Printed once instead of five empty parts. */
-export const BRIEF_NOT_ESTABLISHED = "No part of the business brief is established from verified sources: no statement about the business passed verification.";
+/**
+ * D-303 (P19, P22; R36): what an empty part says. It describes this report, never
+ * the sources: a part whose answering fields hold no statement is not covered
+ * here; a part whose statements did not qualify points to them, with their marks.
+ */
+export const BRIEF_PART_NOT_COVERED = "Not covered in this report.";
+export const BRIEF_PART_NOT_SHOWN = "Not in the brief: the report's statements on this appear, with their marks, in the sections below.";
+/**
+ * Printed once instead of five empty parts, only when no part's fields hold any statement
+ * (`briefNotCovered`). D-303 review round 1: a report with statements that did not qualify
+ * prints each part's own wording instead, so a cited statement below is never denied.
+ */
+export const BRIEF_NOT_ESTABLISHED = "Not covered in this report: the business fields the brief reads hold no statement.";
+
+/** D-303 review round 1: every part is empty because its fields hold nothing (never because statements did not qualify). */
+export function briefNotCovered(parts: readonly BusinessBriefPart[]): boolean {
+  return parts.every(part => part.claims.length === 0 && part.empty === BRIEF_PART_NOT_COVERED);
+}
 /** The most claims one part prints, so the brief stays short. */
 export const BRIEF_CLAIMS_PER_PART = 1;
 
 export interface BusinessBriefPart {
   key: "sells" | "buyers" | "wins" | "next" | "risks";
   heading: string;
-  /** Verified claims only, each keeping its own citation; empty means not established. */
+  /** Verified claims only, each keeping its own citation. */
   claims: readonly SourcedClaim[];
+  /** D-303: the line an empty part prints (not covered, or covered only below). */
+  empty: string;
 }
 
 /**
@@ -1161,8 +1172,8 @@ function briefClaims(options: { descriptive: boolean }, ...sources: readonly (re
  * D-273 (P22): the five-part brief that opens the verdict, assembled by code
  * from the business fields in a fixed order (the D-271 field first, then the
  * older field that holds the same story). Call after the report's verification
- * marks are indexed (prepareReportForSurface does it); with no marks every
- * part is not established.
+ * marks are indexed (prepareReportForSurface does it); with no marks no
+ * part is filled.
  */
 export function businessBrief(report: Pick<Report, "business" | "competitive" | "catalystsRisks">): BusinessBriefPart[] {
   const b = report.business;
@@ -1174,12 +1185,16 @@ export function businessBrief(report: Pick<Report, "business" | "competitive" | 
   // suppliers", "Protection and competition") instead of an interpretation.
   const moats = [...c.moatAssessment].filter(m => m.strength !== "none").sort((x, y) => MOAT_RANK[x.strength] - MOAT_RANK[y.strength]);
   const risks = [...report.catalystsRisks.risks].sort((x, y) => (SEVERITY_RANK[x.severity] ?? 3) - (SEVERITY_RANK[y.severity] ?? 3));
+  const part = (key: BusinessBriefPart["key"], heading: string, descriptive: boolean, ...fields: readonly (readonly SourcedClaim[])[]): BusinessBriefPart => ({
+    key, heading, claims: briefClaims({ descriptive }, ...fields),
+    empty: fields.some(field => field.length > 0) ? BRIEF_PART_NOT_SHOWN : BRIEF_PART_NOT_COVERED,
+  });
   return [
-    { key: "sells", heading: "What it sells", claims: briefClaims({ descriptive: true }, (b.products ?? []).flatMap(item => item.claims), b.whatTheySell) },
-    { key: "buyers", heading: "Customers and suppliers", claims: briefClaims({ descriptive: true }, b.customersAndSuppliers ?? []) },
-    { key: "wins", heading: "Protection and competition", claims: briefClaims({ descriptive: true }, b.protection ?? [], moats.flatMap(m => m.reasoning)) },
-    { key: "next", heading: "What is next", claims: briefClaims({ descriptive: false }, b.whatIsComing ?? []) },
-    { key: "risks", heading: "What could break it", claims: briefClaims({ descriptive: false }, risks.flatMap(item => reasoningClaims(item.reasoning)), b.concentrationRisks) },
+    part("sells", "What it sells", true, (b.products ?? []).flatMap(item => item.claims), b.whatTheySell),
+    part("buyers", "Customers and suppliers", true, b.customersAndSuppliers ?? []),
+    part("wins", "Protection and competition", true, b.protection ?? [], moats.flatMap(m => m.reasoning)),
+    part("next", "What is next", false, b.whatIsComing ?? []),
+    part("risks", "What could break it", false, risks.flatMap(item => reasoningClaims(item.reasoning)), b.concentrationRisks),
   ];
 }
 
@@ -1224,8 +1239,9 @@ export function executiveGroups(executives: readonly ExecutiveRecord[], withCont
   // officer's judgments are the model's case for a grade the evidence gate
   // withheld, so "Not assessed" was followed by "X's execution grade
   // recognizes ...".
-  const notAssessedClaims = notAssessed.flatMap((e) => [...e.reasoning, ...EXECUTIVE_EVIDENCE_GROUPS.flatMap((group) => e.evidence[group.key] ?? [])])
-    .filter((claim) => claim.label === "FACT");
+  // D-302 (R35): an officer-name prefix on a company figure reads as the company's record during that tenure.
+  const notAssessedClaims = notAssessed.flatMap((e) => [...e.reasoning, ...EXECUTIVE_EVIDENCE_GROUPS.flatMap((group) => e.evidence[group.key] ?? [])]
+    .filter((claim) => claim.label === "FACT").map((claim) => companyRecordClaim(e, claim, "named")));
   return { assessed, notAssessed, notAssessedLines, notAssessedClaims };
 }
 
@@ -1677,7 +1693,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     // evidence share and the band thresholds beside the figure.
     rows.push({ label: "Composite grade", value: compositeText(scores), note: compositeNote(scores) });
   }
-  return rows;
+  // D-301 (P22; R29): a recorded caveat's raw base-unit amounts ("pre-tax income 174926000000") read in the shared number format.
+  return rows.map(row => row.note ? { ...row, note: compactLongIntegers(row.note) } : row);
 }
 
 /**
@@ -2509,6 +2526,40 @@ export function manifestEntryLabel(gap: ManifestEntry, issuer: string | null): s
   return gapLabel({ key: gapGroupKey(gap, issuer), fields: [gap.field] });
 }
 
+/**
+ * D-301 (P22; R29): the one map from statement field identifiers to the words a
+ * reader sees. A recorded reason that lists fields ("eps, epsDiluted") reads
+ * "basic EPS, diluted EPS" in the body; the audit export keeps the identifiers.
+ */
+export const READER_FIELD_LABELS: Readonly<Record<string, string>> = {
+  eps: "basic EPS", epsDiluted: "diluted EPS", weightedAverageShsOut: "basic weighted share count", weightedAverageShsOutDil: "diluted weighted share count",
+  costOfRevenue: "cost of revenue", grossProfit: "gross profit", operatingExpenses: "operating expenses", operatingIncome: "operating income",
+  interestExpense: "interest expense", totalOtherIncomeExpensesNet: "total other income and expense", incomeBeforeTax: "pre-tax income",
+  incomeTaxExpense: "income tax expense", netIncome: "net income", netIncomeFromContinuingOperations: "net income from continuing operations",
+  netIncomeFromDiscontinuedOperations: "net income from discontinued operations", netIncomeAvailableToCommon: "net income available to common shareholders",
+  bottomLineNetIncome: "bottom-line net income", ebitda: "EBITDA",
+  cashAndCashEquivalents: "cash and cash equivalents", shortTermInvestments: "short-term investments", cashAndShortTermInvestments: "cash and short-term investments",
+  longTermInvestments: "long-term investments", intangibleAssets: "intangible assets", shortTermDebt: "short-term debt", longTermDebt: "long-term debt",
+  totalDebt: "total debt", netDebt: "net debt", capitalLeaseObligations: "lease obligations", operatingLeaseLiability: "operating lease liability",
+  financeLeaseLiability: "finance lease liability", totalEquity: "total equity", totalStockholdersEquity: "stockholders' equity",
+  preferredCapital: "preferred capital", temporaryEquity: "temporary equity", temporaryEquityAttributableToParent: "temporary equity attributable to the parent",
+  temporaryEquityAttributableToNoncontrollingInterest: "temporary equity attributable to noncontrolling interests",
+  operatingCashFlow: "operating cash flow", netCashProvidedByOperatingActivities: "net cash from operating activities",
+  netCashProvidedByInvestingActivities: "net cash from investing activities", netCashProvidedByFinancingActivities: "net cash from financing activities",
+  capitalExpenditure: "capital expenditure", investmentsInPropertyPlantAndEquipment: "investment in property, plant and equipment",
+  depreciationAndAmortization: "depreciation and amortization", changeInWorkingCapital: "change in working capital", acquisitionsNet: "net acquisitions",
+  commonStockIssuance: "share issuance", commonStockRepurchased: "share repurchases", netDividendsPaid: "net dividends paid",
+  commonDividendsPaid: "common dividends paid", preferredDividendsPaid: "preferred dividends paid", stockBasedCompensation: "stock-based compensation",
+  financeLeasePrincipalPayments: "finance-lease principal payments", interestPaid: "interest paid", marketCap: "market cap",
+};
+
+const READER_FIELD_PATTERN = new RegExp(`(?<![\\w./:@-])(${Object.keys(READER_FIELD_LABELS).sort((a, b) => b.length - a.length).join("|")})(?![\\w/(@-]|\\.\\w)`, "g");
+
+/** Statement field identifiers in a recorded reason, in plain words (D-301). */
+export function plainFieldNames(text: string): string {
+  return text.replace(READER_FIELD_PATTERN, (name: string) => READER_FIELD_LABELS[name] ?? name);
+}
+
 /** A long manifest reason cut at a sentence or clause near 320 characters; the audit export keeps it whole. */
 function shortReason(reason: string): string {
   const limit = 320;
@@ -2533,14 +2584,14 @@ export function dataGapTables(c: Pick<ReportCompletenessPresentation, "classific
     tables.push({
       heading: "Data warnings and critical gaps",
       headers: ["Gap", "Severity", "Reason"],
-      rows: data.map((gap) => [gapLabel(gap), gap.severity, `${shortReason(displayProse(gap.reason, gap.key))}${gap.fields.length > 1 ? ` (${gap.fields.length} manifest entries)` : ""}`]),
+      rows: data.map((gap) => [gapLabel(gap), gap.severity, `${shortReason(plainFieldNames(displayProse(gap.reason, gap.key)))}${gap.fields.length > 1 ? ` (${gap.fields.length} manifest entries)` : ""}`]),
     });
   }
   if (k.processDisclosures.length > 0) {
     tables.push({
       heading: "Analysis-process disclosures",
       headers: ["Disclosure", "Detail"],
-      rows: k.processDisclosures.map((gap) => [gapLabel(gap), shortReason(displayProse(gap.reason, gap.key))]),
+      rows: k.processDisclosures.map((gap) => [gapLabel(gap), shortReason(plainFieldNames(displayProse(gap.reason, gap.key)))]),
       note: "How the analysis passes ran and what verification found; they are not missing data.",
     });
   }

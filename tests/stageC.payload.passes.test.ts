@@ -1185,7 +1185,7 @@ describe("payload determinism + provenance", () => {
       "fairValue (frozen record)",
       "suppressed 4f53cda18c2baa0c",
       "notes 2e5b1aca5def94d8",
-      "gaps 2e53f185952ca7ee", // D-261: named gaps for missing score operands; D-296: one reason in words; financial subtrees unchanged.
+      "gaps 55759089d59a1f4a", // D-261: named gaps for missing score operands; D-296: one reason in words; D-300: the typed valuation.dcf.taxOperands entry (vendor-only tax-rate operands); financial subtrees unchanged.
     ];
     expect(digests(buildInputs())).toEqual(expected);
     expect(digests(buildFreshInputs())).toEqual(expected);
@@ -1311,7 +1311,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.111.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
+    expect(first.payloadVersion).toBe("1.112.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -3046,7 +3046,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.98.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
+    expect(report.meta.specVersion).toBe("1.99.0"); // D-296-D-299: reader wording at the producers, record-bound segment names
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
