@@ -217,7 +217,7 @@ const GAP_READERS = {
   },
   /**
    * G5, `temporaryEquityUnknownAt` (`stageB/seniorClaims.ts`): a temporary-equity enrichment refusal that
-   * leaves a bridge date's claim unknown. The SEC-silent sentence (no current writer; R2's legacy row)
+   * leaves a bridge date's claim unknown. The SEC-silent sentence (no current writer; legacy reports only)
    * says the period holds none and does not pass.
    */
   temporaryEquityEnrichmentRefused: {
