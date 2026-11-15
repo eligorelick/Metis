@@ -198,12 +198,14 @@ describe("D-299 (R38): a segment row's name is the record's own", () => {
       rows: [{ member: "country:US", label: "United States", values: [600, 500], childOf: null }, { member: "x:OtherMember", label: "Other", values: [12, 600], childOf: null }],
       total: [612, 1100], priorPresentation: [], derivedCells: 0, residualCells: 0 }] } } } as never;
     const empty = record({});
-    expect(boundSegmentName({ name: "US region", revenue: { value: 600, period: "2026-07-26", currency: "USD" } }, empty, filed)).toBe("United States (quarter ended 2026-07-26)");
-    expect(boundSegmentName({ name: "Other", revenue: { value: 600, period: "2026-04-26", currency: "USD" } }, empty, filed)).toBe("Other (quarter ended 2026-04-26)");
+    expect(boundSegmentName({ name: "US region", revenue: { value: 600, period: "2026-07-26", currency: "USD" } }, empty, filed, "geographic")).toBe("United States (quarter ended 2026-07-26)");
+    expect(boundSegmentName({ name: "Other", revenue: { value: 600, period: "2026-04-26", currency: "USD" } }, empty, filed, "geographic")).toBe("Other (quarter ended 2026-04-26)");
+    // Control (review): a product row never takes a label from the geographic axis.
+    expect(boundSegmentName({ name: "Cloud", revenue: { value: 600, period: "2026-07-26", currency: "USD" } }, empty, filed, "product")).toBe(UNBOUND_SEGMENT_NAME);
     // Controls: a quarter the table does not hold, another currency, or no period.
-    expect(boundSegmentName({ name: "US", revenue: { value: 600, period: "2026-10-25", currency: "USD" } }, empty, filed)).toBe(UNBOUND_SEGMENT_NAME);
-    expect(boundSegmentName({ name: "US", revenue: { value: 600, period: "2026-07-26", currency: "EUR" } }, empty, filed)).toBe(UNBOUND_SEGMENT_NAME);
-    expect(boundSegmentName({ name: "US", revenue: { value: 600 } }, empty, filed)).toBe(UNBOUND_SEGMENT_NAME);
+    expect(boundSegmentName({ name: "US", revenue: { value: 600, period: "2026-10-25", currency: "USD" } }, empty, filed, "geographic")).toBe(UNBOUND_SEGMENT_NAME);
+    expect(boundSegmentName({ name: "US", revenue: { value: 600, period: "2026-07-26", currency: "EUR" } }, empty, filed, "geographic")).toBe(UNBOUND_SEGMENT_NAME);
+    expect(boundSegmentName({ name: "US", revenue: { value: 600 } }, empty, filed, "geographic")).toBe(UNBOUND_SEGMENT_NAME);
   });
   it("withholds the name with no single matching entry, another period or another currency (controls)", () => {
     const tie = record({ North: 50, South: 50 });

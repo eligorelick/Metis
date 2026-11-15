@@ -4519,6 +4519,7 @@ export function boundSegmentName(
   row: { name: string; revenue: { value: number; period?: string | null; currency?: string | null } },
   res: DataBundle["segmentation"]["product"] | undefined,
   filedQuarters?: NonNullable<DataBundle["edgar"]>["quarterlySegments"],
+  kind: "product" | "geographic" = "product",
 ): string {
   const value = row.revenue.value;
   if (typeof value !== "number" || !Number.isFinite(value)) return UNBOUND_SEGMENT_NAME;
@@ -4538,7 +4539,9 @@ export function boundSegmentName(
   // The filed quarterly segment table (D-277's code-built member labels): the label
   // of the one cell at the row's quarter end, named with that quarter.
   if (filedQuarters?.ok && period !== null) {
-    const cells = filedQuarters.value.data.axes.flatMap(axis =>
+    // Only the row's own kind of axis: geography rows read the geographic axis, product rows the others.
+    const ownAxis = (axis: string): boolean => (axis === "srt:StatementGeographicalAxis") === (kind === "geographic");
+    const cells = filedQuarters.value.data.axes.filter(axis => ownAxis(axis.axis)).flatMap(axis =>
       row.revenue.currency != null && axis.currency !== row.revenue.currency ? [] :
       axis.quarters.flatMap((quarter, index) => quarter.end === period
         ? axis.rows.filter(segment => agrees(segment.values[index])).map(segment => `${segment.label} (quarter ended ${quarter.end})`) : []));
@@ -4570,7 +4573,7 @@ export function applySegmentShares(
       sharePct: share(value, geographicTotal.total),
       shareWithheldReason: geographicTotal.reason,
     }))
-    : business.segments.geographic.map(row => ({ ...row, name: boundSegmentName(row, primary, bundle?.edgar?.quarterlySegments), sharePct: share(row.revenue.value, geographicTotal.total), shareWithheldReason: geographicTotal.reason }));
+    : business.segments.geographic.map(row => ({ ...row, name: boundSegmentName(row, primary, bundle?.edgar?.quarterlySegments, "geographic"), sharePct: share(row.revenue.value, geographicTotal.total), shareWithheldReason: geographicTotal.reason }));
   return {
     ...business,
     segments: {
