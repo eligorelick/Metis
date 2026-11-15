@@ -26,9 +26,13 @@ link (pipeline-owned; the prompt text is unchanged). Before verification, a stat
 re-cited to the one payload article of that feed and date when exactly one exists and has a link: its citation names
 the publisher, title and link, and is registered so it verifies as the feed tag did. Otherwise (two or more articles
 that day, none, or no link) the statement is removed and a `removed` log entry says why. No title, wording or near
-date is matched. A list item left with no statements in a list that needs one (a catalyst's or risk's reasoning, a
-development's facts, a moat or product-line claim list) is removed with it; a model-written flag row whose source is a
-whole feed is removed. A saved report's bare feed tag reads "News feed (no single article identified)" (read time).
+date is matched. A removed statement is never restored (review round 1, lead decision). A list item left with no
+statements in a list the report schema requires to be non-empty (a catalyst's or risk's reasoning, a development's
+facts, a management action's action, a product line's or competitor line's claims) is removed with it, or the
+container itself when it is not a list item; any other list (a moat's reasoning, a development's judgment, the brief's
+"what they sell") may become empty and the reader shows its existing absence state. A model-written flag row whose
+source is a whole feed is removed. A saved report's bare feed tag reads "News feed (no single article identified)"
+(read time).
 
 **Before and after (same-report check, main c06ee7a5, 33 panel cases).** No panel date held exactly one article, so
 every feed-cited statement was removed: JPM #64 6, LLY #65 3, LLY #63 11, META 1, NVDA 1, TSM #66 15 (statements
@@ -36,13 +40,15 @@ and one TSM technical flag); the reports' `fmp:news` citations go from NVDA 1, J
 Among them are the audited K2 and K7 (the LLY Hims development and its judgment). Data-only cases are unchanged (they
 carry no model statements). The removed statements were news paraphrases, not filed facts; no figure changes.
 
-**Version.** Pipeline `stage-c-1.6.48`; report spec 1.93.0 (shared with D-282..D-284). Payload stays 1.106.0: the
-model's payload text is byte-identical (golden `payload.txt` unchanged in all 33 cases); the frozen Stage C payload
-record gains only `$.payload.news.articles` (refresh-log entry D-285).
+**Version.** Pipeline `stage-c-1.6.50`; report spec 1.95.0 (shared with D-282..D-284). This rule leaves the model's
+payload text byte-identical; the frozen Stage C payload record gains `$.payload.news.articles` (refresh-log entries
+D-285 and, after the merge of main a020ac44, D-282).
 
 **Tests.** `tests/d282.statementMarks.test.ts`: one article re-cited with publisher, title and link; two articles on
 the date and an article without a link removed, with the emptied catalyst; controls (a filing citation and a web
 citation) untouched; the verify pass logs the removal and verifies the re-cited statement against its article id.
+Review round 1: a saved single-statement catalyst is removed and nothing is restored; a product line and a management
+action whose required statements all go are dropped, while a moat item and an action whose optional lists empty stay.
 
 **Limits.** Feed rows the payload did not show (sampled out or past the budget) cannot be cited. A date with several
 articles drops a possibly correct statement; that is the cost of no fuzzy binding.
@@ -96,11 +102,13 @@ claim's figure is now "untraced" instead of value-matched.
 
 ## D-282 - Plain marks on every surface; a conflict is never shown as fact (2026-11-14)
 
-P18, P19 and P22 (release items R1, R2, R3; findings A1, A3, A14, K8). Revises D-264's legend. Owners:
+P12, P18, P19 and P22 (release items R1, R2, R3, R10; findings A1, A3, A14, K8, K19, K24). Revises D-264's legend. Owners:
 `src/report/verificationMarks.ts` (legend, mark words, `claimTag`, figure conflicts), `src/report/presentation.ts`
 (`withModelProseMarks`, `citedMark`), `src/report/readerPreparation.ts` (step order), `src/pipeline/stageC/provenance.ts`
 (`matchProvenanceRecord`) and `src/pipeline/stageC/claimEvidence.ts` (`valueConflictAtRecordDate`, called from the
-verify pass).
+verify pass); for coverage (R10) `src/pipeline/stageB/capital.ts` (`coverageOperandsUnverified`), the statement
+mapping in `src/pipeline/compute.ts`, `src/pipeline/stageB/currentCapital.ts`, `src/edgar/financialEnrichment.ts`
+(`admitFiledInterestExpense`) and payload registration in `src/pipeline/stageC/payload.ts`.
 
 **Rules.**
 1. *Legend and marks.* The top of every AI-written report says what each mark means: validated = code checked it
@@ -110,39 +118,62 @@ verify pass).
    reads "[not confirmed]" instead of carrying no mark.
 2. *Model-written paragraphs.* The verdict paragraph, each grade's one-line reason and interpretation (grade strip and
    sections), debate resolutions, reverse-DCF and market-share narratives, the technical read (momentum, levels,
-   relative strength), scenario commentary and model-written conditions, and macro relevance lines end with
-   "[not confirmed]" on the app, Markdown and print surfaces. Code-written text (data-only reports, modeled-condition
+   relative strength), scenario commentary and model-written conditions, macro relevance lines, and (review round 1)
+   every quality and technical flag of an AI-written report end with "[not confirmed]" on the app, Markdown and print
+   surfaces. An AI-written report's flags all come from the judge output (the assembly copies them); code-written
+   flags exist only in data-only reports, which are not marked. Titles, dates and ratings the AI chose (a catalyst's
+   or risk's title, a development's date, a severity, direction or probability) are short labels in their own table
+   cells; the legend says they carry no mark and are not checked by code. Code-written text (data-only reports, modeled-condition
    lines, the code-built trend line) is not marked. Read time only (P21): saved reports get the marks too.
 3. *Contradicted statements.* A FACT or ESTIMATE whose check found a value conflict is shown under a CONTRADICTED tag,
    never under the bold FACT or ESTIMATE tag. Its stored label and log entry are unchanged.
 4. *Table figures.* A model figure that does not equal its record at stored precision reads "not confirmed" in the
    Cited column (it read "untraced"; the app showed only a dot), and one whose value conflicts with its record reads
    "contradicted".
-5. *Value before date.* The id, unit, currency and period pin one record. A figure or claim whose cited date also
-   differs is now read for its value: if it differs from the record even at its own stated rounding (P19's
-   display-rounding rule, half a unit of the last stated decimal; no new tolerance), it is a value conflict
-   (contradicted). An equal or correctly rounded value with another date stays a date mismatch (unverified).
+5. *Value before date, in the same window only.* The id, unit, currency and period pin one record. A figure or
+   claim whose cited date also differs is read for its value only when the same measurement window is established:
+   the record names its window (a period or period context) and the figure states a period of its own (a number's
+   own period, before the verify pass fills an unstated one from the record; a claim's period words). Then, if it
+   differs from the record even at its own stated rounding (P19's display-rounding rule, half a unit of the last
+   stated decimal; no new tolerance), it is a value conflict (contradicted). Otherwise, and for an equal or
+   correctly rounded value, it stays a date mismatch ("not confirmed"). Review round 1: without that rule an annual
+   figure was compared with a newer trailing-twelve-month record (META FY2025 FCF 46.109B, after-SBC FCF 25.682B,
+   coverage 71.4815x read "contradicted").
+6. *Coverage operands (R10, lead decision).* EBIT interest coverage carries a typed qualification derived from its
+   exact operands in the capital calculation owner: EBIT is established when the selected operating income is the
+   filed or reconciled one (`us-gaap/OperatingIncomeLoss` or the complete reconciliation), interest expense when the
+   filed amount replaced the vendor's or the vendor's agrees with exact-period filed evidence (the agreement is now
+   recorded as `interestExpenseAgreement`; before, agreement left no trace). A TTM operand is established when all
+   four quarters are, or when the exact filed window supplies it. The annual result carries
+   `interestCoverage.unverifiedOperands` and current capital `interestCoverageUnverifiedOperands`; the value is
+   unchanged and shown, but payload registration records the figure as the existing `payload-unestablished` kind
+   (no new status word), so no number citing it can verify.
 
-**Before and after (same-report check, main c06ee7a5, 33 cases: 25 data-only, 8 fixed-analyst).** Stage B and the
-payload text are byte-identical in every case. The 25 data-only cases change only in the report and pipeline stamps
-(no legend, no marks: their text is code-written). Fixed-analyst reports replay stored analyst text against current
-figures (L13):
+**Before and after (same-report check, review round 1: main a020ac44 against this branch, 33 cases: 25 data-only,
+8 fixed-analyst).** The payload text changes only in its version line in every case. Stage B changes only by the new
+coverage qualification field, in the cases whose coverage operands filings do not establish: annual coverage DIS
+(interest), NVO, TSM and XOM (both), O (EBIT); current coverage CAT, DIS, DUK, LLY, PLD (interest), META and XOM
+(both). No figure changes, and no model value moves (`golden:value-check`). Fixed-analyst reports replay stored
+analyst text against current figures (L13):
 
-| Case | validated statements | contradicted statements | contradicted figures | CONTRADICTED tags | paragraph and cell marks |
+| Case | validated statements | contradicted statements | contradicted figures | validated figures | statements removed (D-285) |
 |---|---|---|---|---|---|
-| AMZN | 35 -> 35 | 2 -> 3 (reverse-DCF 58.9% against the record's 50.73%) | 7 -> 10 (DCF $116.12 against $124.18, reverse-DCF 58.9%, grid maximum, ROIC/WACC drift) | 3 | 77 |
-| META | 44 -> 44 | 0 -> 0 | 9 -> 12 | 0 | 79 |
-| MU | 37 -> 37 | 13 -> 13 | 2 -> 5 (DCF $5,000.09 against $3,981.13, and drift) | 10 | 88 |
-| NVDA | 34 -> 34 | 3 -> 4 | 1 -> 3 | 4 | 75 |
-| JPM #64 | 33 -> 33 | 0 -> 0 | 0 -> 0 | 0 | 219 |
-| LLY #65 | 111 -> 111 | 0 -> 0 | 0 -> 0 | 0 | 162 |
-| LLY #63 | 77 -> 77 | 2 -> 2 | 22 -> 22 | 1 | 169 |
-| TSM #66 | 32 -> 32 | 1 -> 1 | 0 -> 0 | 1 | 180 |
+| AMZN | 35 -> 35 | 2 -> 2 | 5 -> 5 | 275 -> 275 | 8 -> 8 |
+| META | 44 -> 44 | 0 -> 0 | 9 -> 9 | 108 -> 107 (TTM coverage 38.97x) | 2 -> 3 |
+| MU | 37 -> 37 | 13 -> 13 | 2 -> 2 | 251 -> 251 | 2 -> 2 |
+| NVDA | 34 -> 34 | 3 -> 3 | 1 -> 1 | 269 -> 269 | 3 -> 4 |
+| JPM #64 | 33 -> 33 | 0 -> 0 | 0 -> 0 | 153 -> 153 | 3 -> 9 |
+| LLY #65 | 111 -> 108 (the three "coverage ... was 27.3x" statements) | 0 -> 0 | 0 -> 0 | 330 -> 326 (27.3x, four places) | 3 -> 6 |
+| LLY #63 | 77 -> 77 | 2 -> 2 | 22 -> 22 | 173 -> 172 (27.3x) | 2 -> 13 |
+| TSM #66 | 32 -> 32 | 1 -> 1 | 0 -> 0 | 283 -> 280 (annual coverage 156.5x, three places) | 2 -> 17 |
 
-No statement gains "validated"; the confirmed-statement counts are unchanged in every case. The new contradicted
-figures are model key-number and table values whose stored value differs from the current record (replay drift, or
-the model's own wrong number such as AMZN's $116.12) that the date-first check had called "untraced". META's P/E
-29.7x (record 23.8x) and TSM's 324.0x (no record; D-280 withholds it) read "not confirmed".
+Every lost "validated" is an interest coverage figure or a statement of it, now "not confirmed" with the cause
+`gap-source-number` (R10; K19 for LLY). With the window rule (5), no wrong-date figure or statement in the panel is
+called contradicted: the round-1 additions (AMZN DCF $116.12 and reverse-DCF 58.9%, MU DCF, META FY2025 FCF,
+after-SBC FCF and coverage) were annual or undated figures against records of another window and read
+"not confirmed" again. Every AI-written report's quality and technical flags now end with "[not confirmed]"
+(for example AMZN's accrual reading and JPM's K24 "gain's tax effect is not in the filings reviewed"). The 25
+data-only cases change only in the stamps and the Stage B field above.
 
 **Test revisions (reworded or stricter only).** Mark words in `tests/report.claimStatusMarks`,
 `report.companyMarketAnalysis`, `stageC.multiClaimReasoning` and `stageC.claimEvidence.sourcePeriods`; Cited-cell
@@ -151,21 +182,24 @@ words in `report.export.printHtml`, `report.history.export`, `report.periodStatu
 `report.readerPreparation`; the reader export digests in the `stageC.multiClaimReasoning` snapshot (the audit digest is
 unchanged). Each still asserts the exact mark or cell; the claim-status test now also asserts that the logged
 validated and contradicted claims carry exactly their marks on every surface and that no old status word appears.
+Review round 1: `tests/report.claimStatusMarks` pins exact counts again (23 statement marks on Markdown and print,
+24 in the app, 37 with table cells) and the same claims on every surface; the one documented difference is a
+catalyst's reasoning, one table cell under one mark on Markdown and print and a marked statement list in the app.
+`tests/d282.statementMarks` replaces the date-override tests with annual-against-TTM and undated controls and adds the
+flag surfaces; `tests/d282.coverageOperands` and `tests/stageC.payload.passes` cover annual and TTM coverage, fully
+established and partially unverified, at Stage B and at registration. In `tests/stageC.payload.passes` the fixture's
+vendor-only coverage is now the one expected unconfirmed pipeline number (exactly that source and cause), and the
+Stage B capital digest still pins every other capital byte.
 
-**Version.** Report spec 1.93.0 (with D-283..D-285); pipeline `stage-c-1.6.48` (D-285); payload, Stage B and score
-bands unchanged. Stamp checklist: the METHODOLOGY declared-versions sentence, `npm run sample:build`,
-`npm run freeze:refresh` (stagec-payload under D-285, audit-fixture stamps under D-282), the CHANGELOG header and the
-pins in `tests/report.versionStamps`, `tests/jobRunner` and `tests/stageC.payload.passes`.
+**Version.** Report spec 1.95.0 (with D-283..D-285), payload 1.109.0 (coverage registration), Stage B
+`STAGE_B_2026_11_COMPLETE_RATIO_INPUTS_82` (coverage qualification), pipeline `stage-c-1.6.50` (D-285); score bands
+unchanged. Stamp checklist: the METHODOLOGY declared-versions sentence, `npm run sample:build`, `npm run freeze:refresh`
+(stagec-payload and audit-fixture under D-282), the CHANGELOG header and the pins in `tests/report.versionStamps`,
+`tests/jobRunner` and `tests/stageC.payload.passes`.
 
-**Accuracy check.** 25 cases, 328 match / 17 mismatch / 120 gap / 70 not-established: every figure as expected (run
-with the panel branch's accuracy files, restored afterwards).
+**Accuracy check.** 25 cases, 330 match / 14 mismatch / 121 gap / 70 not-established: every figure as expected.
 
 **Not done here (lead decision).**
-- R10 / K19: LLY's TTM interest coverage 27.3x still reads "[validated]" while its quarterly interest operands are
-  "kept unverified". Inheriting that qualification needs a typed operand qualification carried from enrichment (the
-  vendor interest rows have no `fieldProvenance`) through Stage B current capital into the provenance record, so the
-  verifier can refuse validation (P12). That is a Stage B and record change, not a verifier rule; left for a separate
-  package.
 - K40 (TSM "range brackets 58.6%") and K28 (JPM "bull, base and bear values are the grid"): both are JUDGMENT
   statements, covered by the legend's judgment line. The range is not stated in the sentence and the scenario claim
   names no record, so a check would have to read meaning from words; none is added.

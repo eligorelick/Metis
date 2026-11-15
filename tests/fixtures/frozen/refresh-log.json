@@ -4250,7 +4250,7 @@
     "date": "2026-11-15",
     "target": "stagec-payload",
     "decision": "D-282",
-    "reason": "R10 review round 1: an interest coverage whose EBIT or interest expense filings do not establish registers as an unestablished citation instead of a numeric record (payload 1.109.0); the news section keeps its D-285 article identities",
+    "reason": "R10 review round 1: an interest coverage whose EBIT or interest expense filings do not establish registers its printed tag as an unestablished citation instead of a numeric record (payload 1.109.0); the news section keeps its D-285 article identities",
     "scope": [
       "$.payloadVersion",
       "$.fingerprint",
@@ -4264,25 +4264,19 @@
       "$.payload.news.articles"
     ],
     "beforeSha256": "ba85dd43040f794d6085aebdc2bd8905b6be5f3f8b94f8241e9e5cb4cf66f88e",
-    "afterSha256": "b083178cbbcf98fd0e854969d0759b4473049a8619154458a44da092efa53daf",
-    "changedLeaves": 2900,
+    "afterSha256": "5c3b4e0be7045e30f91a83368cd8e49e6e75e6a1eb21ca6d100d44b5f495771c",
+    "changedLeaves": 2919,
     "changedPaths": [
       "$.payloadVersion",
       "$.fingerprint",
-      "$.summary.promptBytes",
       "$.summary.promptFnv1a32",
       "$.summary.provenanceCount",
       "$.summary.provenanceHash",
       "$.summary.provenanceIdsHash",
       "$.summary.citationCount",
       "$.summary.citationHash",
-      "$.prompt.bytes",
       "$.prompt.sha256",
       "$.prompt.sections[0].sha256",
-      "$.prompt.sections[4].bytes",
-      "$.prompt.sections[4].sha256",
-      "$.prompt.sections[6].bytes",
-      "$.prompt.sections[6].sha256",
       "$.provenanceRegistry[43].id",
       "$.provenanceRegistry[43].label",
       "$.provenanceRegistry[43].value",
@@ -4466,7 +4460,13 @@
       "$.provenanceRegistry[81].id",
       "$.provenanceRegistry[81].label",
       "$.provenanceRegistry[81].value",
-      "$.provenanceRegistry[81].origin"
+      "$.provenanceRegistry[81].origin",
+      "$.provenanceRegistry[82].id",
+      "$.provenanceRegistry[82].label",
+      "$.provenanceRegistry[82].value",
+      "$.provenanceRegistry[82].period",
+      "$.provenanceRegistry[82].fiscalPeriod",
+      "$.provenanceRegistry[82].asOf"
     ]
   },
   {

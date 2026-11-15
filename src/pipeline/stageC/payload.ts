@@ -3479,7 +3479,12 @@ function attachProvenanceRegistry(
       });
     };
     // D-282: a ratio whose operands are not established is shown, never verifiable.
+    // It keeps the semantic tag it would print as a number, so the prompt is
+    // unchanged and a claim citing that tag reads its cause, not an unknown source.
     if (figure.operandsUnestablished !== undefined && figure.operandsUnestablished.length > 0) {
+      const id = uniqueId(`${prefix}.${semanticSlug(figure.label)}`);
+      figure.provenanceId = id;
+      registerCitation(id, shownAsOf, figure.source, "payload-unestablished");
       unestablished(false);
       return;
     }

@@ -2000,12 +2000,15 @@ describe("payload budget helpers", () => {
       expect(partial.payload.provenanceRegistry!.some((record) => record.origin === id || record.id === id)).toBe(false);
       expect(partial.payload.citationRegistry).toEqual(expect.arrayContaining([expect.objectContaining({ id, kind: "payload-unestablished" })]));
     }
-    // The value stays displayed: the figure row keeps its label and value and
-    // prints the source tag, as every unestablished row does.
+    // The value stays displayed and the model's row is byte-identical (label, value and printed tag); the printed
+    // tag itself registers unestablished, so a claim citing it reads gap-source-number, never unknown-source.
     const row = (payload: typeof full.payload, source: string) => payload.computed.flatMap((section) => section.figures).find((figure) => figure.source === source);
     for (const source of ["computed.capital.interestCoverage", "computed.capital.current.interestCoverage"]) {
-      expect(row(partial.payload, source)).toMatchObject({ label: row(full.payload, source)!.label, value: row(full.payload, source)!.value });
-      expect(formatFigure(row(partial.payload, source)!)).toContain(`[${source}`);
+      expect(formatFigure(row(partial.payload, source)!)).toBe(formatFigure(row(full.payload, source)!));
+      const tag = row(partial.payload, source)!.provenanceId!;
+      expect(tag).not.toBe(source);
+      expect(partial.payload.citationRegistry).toEqual(expect.arrayContaining([expect.objectContaining({ id: tag, kind: "payload-unestablished", origin: source })]));
+      expect(partial.payload.provenanceRegistry!.some((record) => record.id === tag)).toBe(false);
     }
   });
 

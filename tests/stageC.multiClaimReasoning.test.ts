@@ -65,6 +65,20 @@ describe("catalyst and risk reasoning compatibility", () => {
     expect(outputs.print).toContain(`<em>(${esc(SCORE_BANDS_READER_NOTE)})</em>`);
     outputs.markdown = outputs.markdown.replace(`_(${markdownProse(SCORE_BANDS_READER_NOTE)})_`, `_(bands ${markdownProse(bands)})_`);
     outputs.print = outputs.print.replace(`<em>(${esc(SCORE_BANDS_READER_NOTE)})</em>`, `<em>(bands ${esc(bands)})</em>`);
+    // D-282 review round 1: the legend gains one sentence about unmarked AI labels; check it, then remove it.
+    const labelsSentence = " Titles, dates and ratings the AI chose (such as a risk's severity) carry no mark and are not checked by code.";
+    for (const key of ["markdown", "print"] as const) {
+      const shown = key === "markdown" ? markdownProse(labelsSentence) : esc(labelsSentence);
+      expect(outputs[key]).toContain(shown);
+      outputs[key] = outputs[key].replace(shown, "");
+      // The fixture's one quality and one technicals flag are model-written: each now ends with the mark.
+      for (const flag of ["quality flags text", "technicals flags text"]) {
+        const text = `SYNTHETIC demonstration text for ${flag}; it describes fictional inputs and is not a current market observation.`;
+        const marked = key === "markdown" ? `${text} \\[not confirmed\\]` : `${esc(text)} [not confirmed]`;
+        expect(outputs[key]).toContain(marked);
+        outputs[key] = outputs[key].replace(marked, key === "markdown" ? text : esc(text));
+      }
+    }
     expect(Object.fromEntries(Object.entries(outputs).map(([key, value]) => [key, createHash("sha256").update(value).digest("hex")]))).toMatchSnapshot();
   });
 

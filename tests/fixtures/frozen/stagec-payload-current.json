@@ -1,19 +1,19 @@
 {
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
   "payloadVersion": "1.109.0",
-  "fingerprint": "1.109.0:b15c37df",
-  "summary": {"promptBytes": 187244, "promptFnv1a32": "b15c37df", "provenanceCount": 547, "provenanceHash": "693836f4", "provenanceIdsHash": "596aaa95", "citationCount": 90, "citationHash": "8b5ddc51", "computedFigureLabelHash": "0212433e", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "44d35352"},
+  "fingerprint": "1.109.0:6bab5404",
+  "summary": {"promptBytes": 187251, "promptFnv1a32": "6bab5404", "provenanceCount": 547, "provenanceHash": "693836f4", "provenanceIdsHash": "596aaa95", "citationCount": 92, "citationHash": "0598d06e", "computedFigureLabelHash": "0212433e", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "44d35352"},
   "prompt": {
-    "bytes": 187244,
-    "sha256": "508489cc8f13818c6cd1f2dd91418fa80be2a82edba32e44e7e21addb0789327",
+    "bytes": 187251,
+    "sha256": "e15e45430ae62dea4c6006551faaf44cac254316c0b37a9618623779c2c2a457",
     "sections": [
       {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "62521d47966b62e724a634d2e58741935ed55502df8ee8264b43fda4faef70e3"},
       {"heading": "## Quote", "bytes": 520, "sha256": "5146e60fd664d5a82bbbf06b3413303e1136d43422948e7ad1e8c645380d4026"},
       {"heading": "## Growth & margins (computed)", "bytes": 2984, "sha256": "0a99f8d4e346e47a0c3816bac522e18117123512e830df57a2ae624db2407749"},
       {"heading": "## Returns (computed)", "bytes": 4582, "sha256": "a86fc8e32c22c9e7afaced0707f457d1454604f5192c00cc0508647660ae2125"},
-      {"heading": "## Capital & cash (computed)", "bytes": 3603, "sha256": "c617b66d4a8a70fe22fe26ea947437010aa9e9702ceba148c4a60beab7191583"},
+      {"heading": "## Capital & cash (computed)", "bytes": 3609, "sha256": "6599bf014c4c99d1bb71c08b9cf96341e7f48ceba152a9aec566937e0822e76b"},
       {"heading": "## Forensics (computed)", "bytes": 7550, "sha256": "b095b7c9f1c177c8ea279e726ca3f459a5a43bf43be2442d0a7673a408ac67e3"},
-      {"heading": "## Current capital (computed)", "bytes": 3649, "sha256": "dc6d0952eb5d2cba1df8a6abf8b315b32de4f3883b541b73465664098c359dc1"},
+      {"heading": "## Current capital (computed)", "bytes": 3650, "sha256": "3abbe62565f67b2a22b3c906adb43c44608406627f74b729cbe049715d1a7d60"},
       {"heading": "## Technicals (computed)", "bytes": 724, "sha256": "40dd858706c2c8da597fde1c4e8ab3a3d12ec2a769e7ae410fb67df65a53edbc"},
       {"heading": "## Valuation (computed)", "bytes": 14219, "sha256": "c659156f39ee3fbcd29835f87737129927504b8706aa24e3e91aa12b89d175eb"},
       {"heading": "## Comparable peers (computed)", "bytes": 3081, "sha256": "0ce53c8cbc3555ef50d3ad2f0f04baa6980ad7cefb7a14aba74181780766f348"},
@@ -5732,6 +5732,7 @@
   ],
   "citationRegistry": [
     {"id": "computed.returns.roicVsWacc", "kind": "payload-gap", "asOf": "2025-09-27", "origin": "computed.returns.roicVsWacc"},
+    {"id": "computed.capital-cash.interest-coverage", "kind": "payload-unestablished", "asOf": "2025-09-27", "origin": "computed.capital.interestCoverage"},
     {"id": "computed.capital.interestCoverage", "kind": "payload-unestablished", "asOf": "2025-09-27", "origin": "computed.capital.interestCoverage"},
     {"id": "computed.capital.dilution", "kind": "payload-gap", "asOf": "2025-09-27", "origin": "computed.capital.dilution"},
     {"id": "computed.capital.buybackPriceAnalysis", "kind": "payload-gap", "asOf": "2025-09-27", "origin": "computed.capital.buybackPriceAnalysis"},
@@ -5753,6 +5754,7 @@
     {"id": "computed.forensics.accruals.definition", "kind": "payload-text", "asOf": "2025-09-27", "origin": "computed.forensics.accruals.definition"},
     {"id": "computed.forensics.accruals.band", "kind": "payload-text", "asOf": "2025-09-27", "origin": "computed.forensics.accruals.band"},
     {"id": "computed.forensics.accruals.scaler", "kind": "payload-text", "asOf": "2025-09-27", "origin": "computed.forensics.accruals.scaler"},
+    {"id": "computed.current-capital.interest-coverage", "kind": "payload-unestablished", "asOf": "2026-03-28", "origin": "computed.capital.current.interestCoverage"},
     {"id": "computed.capital.current.interestCoverage", "kind": "payload-unestablished", "asOf": "2026-03-28", "origin": "computed.capital.current.interestCoverage"},
     {"id": "computed.capital.current.fcfConversionBeforeSbc", "kind": "payload-gap", "asOf": "2026-03-28", "origin": "computed.capital.current.fcfConversionBeforeSbc"},
     {"id": "computed.capital.current.sbcPctOfFcf", "kind": "payload-gap", "asOf": "2026-03-28", "origin": "computed.capital.current.sbcPctOfFcf"},
@@ -5978,7 +5980,8 @@
             "asOf": "2025-09-27",
             "operandsUnestablished": ["ebit", "interestExpense"],
             "currency": null,
-            "period": null
+            "period": null,
+            "provenanceId": "computed.capital-cash.interest-coverage"
           },
           {"label": "SBC, cash-flow add-back / revenue", "value": 2.8834994148899105, "unit": "%", "source": "computed.capital.sbc", "asOf": "2025-09-27", "currency": null, "period": null, "provenanceId": "computed.capital-cash.sbc-cash-flow-add-back-revenue"},
           {"label": "SBC, cash-flow add-back / FCF", "value": 11.214953271028037, "unit": "%", "source": "computed.capital.sbc", "asOf": "2025-09-27", "currency": null, "period": null, "provenanceId": "computed.capital-cash.sbc-cash-flow-add-back-fcf"},
@@ -6115,7 +6118,8 @@
             "operandsUnestablished": ["ebit", "interestExpense"],
             "source": "computed.capital.current.interestCoverage",
             "asOf": "2026-03-28",
-            "period": "ttm: 2025-03-29 to 2026-03-28"
+            "period": "ttm: 2025-03-29 to 2026-03-28",
+            "provenanceId": "computed.current-capital.interest-coverage"
           },
           {
             "label": "fcf conversion before sbc",
