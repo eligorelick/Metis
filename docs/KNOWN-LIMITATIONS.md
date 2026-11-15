@@ -80,7 +80,7 @@ All panel checks. Inputs are private, and not-established figures mean the check
 
 ## L20: AI copies of figures
 
-Analyst reports. When the AI's key-number table repeats a figure that code also computes, both rows print: the code row and, beside it, the AI's copy with its own verification mark. They are not merged, so a copy that disagrees with the record stays visible as not confirmed or contradicted.
+Analyst reports. An AI copy of a code-computed figure can appear alongside the code row with its own verification mark. Rows merge only when their value, metric, period, unit, currency, date and verification mark agree. Unconfirmed or contradicted copies remain visible. The same AI figure can also carry different marks in prose and tables; those marks are not yet unified.
 
 ## L21: App evidence details
 
@@ -100,7 +100,9 @@ Bank tangible common equity (TCE) and return on tangible equity (ROTE) can use p
 
 The ROIC minus fiscal-year-end WACC spread pairs annual observed ROIC with a fiscal-year-end market-based discount rate: this hybrid basis is labelled rather than presented as a filed ratio. Saved text and the terminal-return switch are described above.
 
-Where the filed tax provision and pre-tax income for the trailing window are proven, the effective tax rate is computed from them (D-307); otherwise the provider rate is used and labelled. The observed effective rate is applied as the debt tax shield for every company, including REITs; whether that is the right input for a REIT is an open owner decision.
+When trailing tax operands are established from filings, the effective tax rate uses those filed amounts (D-307). Otherwise the code may use a labelled provider rate or statement-based fallback. Non-positive pre-tax income receives a disclosed zero tax shield; missing required inputs can withhold WACC. The debt tax-shield rate is subject to disclosed clamps. REITs use the same rules; whether their observed effective tax rate is the right tax-shield input remains an open owner decision.
+
+Foreign-filer reports can still show domestic 8-K item-filter wording beside the 6-K notice.
 
 Further debt-evidence sharing, typed refusal-reader migration, shortening reports, checking wording across saved reports, and reconciling business-word inventories remain deferred. Following successor registrants, parsing 6-K interim statements and typed ADS-member facts, evidence-loss scoring and terminal-return smoothing also remain deferred. These are not promised capabilities.
 
