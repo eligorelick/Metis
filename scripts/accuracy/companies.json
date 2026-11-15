@@ -934,6 +934,372 @@
           "why": "VKTX's only borrowing line is its convertible notes: in the 10-Q for 2026-09-30 (0001193125-26-436432) LiabilitiesNoncurrent 254,670k is ConvertibleLongTermNotesPayable 250,656k + the noncurrent operating lease liability 4,014k"
         }
       }
+    },
+    {
+      "ticker": "LLY",
+      "case": "lly-data-only",
+      "cik": 59478,
+      "currency": "USD",
+      "overrides": {
+        "capex.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "PaymentsToAcquireOtherPropertyPlantAndEquipment"
+            ]
+          },
+          "why": "LLY tags its cash-flow line Purchases of property and equipment as PaymentsToAcquireOtherPropertyPlantAndEquipment (checked in 10-K 0000059478-26-000013: the fiscal 2025 value is the line the report names); it tags neither default capital-spending element"
+        },
+        "capex.ttm": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "PaymentsToAcquireOtherPropertyPlantAndEquipment"
+            ]
+          },
+          "why": "LLY tags its cash-flow line Purchases of property and equipment as PaymentsToAcquireOtherPropertyPlantAndEquipment (checked in 10-K 0000059478-26-000013: the fiscal 2025 value is the line the report names); it tags neither default capital-spending element"
+        },
+        "fcf.fy": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "operating cash flow",
+                "sign": 1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "NetCashProvidedByUsedInOperatingActivities"
+                  ]
+                }
+              },
+              {
+                "role": "capital spending",
+                "sign": -1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "PaymentsToAcquireOtherPropertyPlantAndEquipment"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "LLY tags its cash-flow line Purchases of property and equipment as PaymentsToAcquireOtherPropertyPlantAndEquipment (checked in 10-K 0000059478-26-000013: the fiscal 2025 value is the line the report names); it tags neither default capital-spending element"
+        },
+        "fcf.ttm": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "operating cash flow",
+                "sign": 1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "NetCashProvidedByUsedInOperatingActivities"
+                  ]
+                }
+              },
+              {
+                "role": "capital spending",
+                "sign": -1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "PaymentsToAcquireOtherPropertyPlantAndEquipment"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "LLY tags its cash-flow line Purchases of property and equipment as PaymentsToAcquireOtherPropertyPlantAndEquipment (checked in 10-K 0000059478-26-000013: the fiscal 2025 value is the line the report names); it tags neither default capital-spending element"
+        }
+      }
+    },
+    {
+      "ticker": "WMT",
+      "case": "wmt-data-only",
+      "cik": 104169,
+      "currency": "USD"
+    },
+    {
+      "ticker": "XOM",
+      "case": "xom-data-only",
+      "cik": 34088,
+      "currency": "USD"
+    },
+    {
+      "ticker": "CAT",
+      "case": "cat-data-only",
+      "cik": 18230,
+      "currency": "USD"
+    },
+    {
+      "ticker": "KO",
+      "case": "ko-data-only",
+      "cik": 21344,
+      "currency": "USD"
+    },
+    {
+      "ticker": "UNH",
+      "case": "unh-data-only",
+      "cik": 731766,
+      "currency": "USD"
+    },
+    {
+      "ticker": "DIS",
+      "case": "dis-data-only",
+      "cik": 1744489,
+      "currency": "USD"
+    },
+    {
+      "ticker": "UNP",
+      "case": "unp-data-only",
+      "cik": 100885,
+      "currency": "USD"
+    },
+    {
+      "ticker": "BAC",
+      "case": "bac-data-only",
+      "cik": 70858,
+      "currency": "USD",
+      "overrides": {
+        "fv.openingBookValue": {
+          "recipe": {
+            "op": "none",
+            "note": "tangible common equity is a BAC non-GAAP measure (MD&A), not an XBRL line. From the 10-Q filed 2026-10-30 (0000070858-26-000548): StockholdersEquity 296,749M less Goodwill 69,021M and IntangibleAssetsNetExcludingGoodwill 1,800M are tagged at 2026-09-30, but preferred stock is not tagged at that instant (and the deferred-tax offsets BAC also removes are not tagged), so the filed TCE is not established"
+          },
+          "why": "bank tangible common equity"
+        }
+      }
+    },
+    {
+      "ticker": "MET",
+      "case": "met-data-only",
+      "cik": 1099219,
+      "currency": "USD"
+    },
+    {
+      "ticker": "PLD",
+      "case": "pld-data-only",
+      "cik": 1045609,
+      "currency": "USD",
+      "instanceFilings": [
+        {
+          "accn": "0001193125-26-323746",
+          "why": "SEC companyfacts carries no facts from PLD's 10-Q for 2026-06-30 (checked 2026-11-14)"
+        },
+        {
+          "accn": "0001193125-26-436160",
+          "why": "SEC companyfacts carries no facts from PLD's 10-Q for 2026-09-30 (checked 2026-11-14)"
+        }
+      ]
+    },
+    {
+      "ticker": "NVO",
+      "case": "nvo-data-only",
+      "cik": 353278,
+      "currency": "DKK",
+      "overrides": {
+        "revenue.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:Revenue"
+            ]
+          },
+          "why": "IFRS filer: NVO's 2025 20-F (0000353278-26-000012) tags total net sales as Revenue"
+        },
+        "operatingIncome.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:ProfitLossFromOperatingActivities"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "netIncome.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:ProfitLoss",
+              "ifrs-full:ProfitLossAttributableToOwnersOfParent"
+            ]
+          },
+          "why": "IFRS filer: consolidated profit (D-238), the line the cash-flow statement starts from; the parent's line only where the filing states no other"
+        },
+        "epsDiluted.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:DilutedEarningsLossPerShare"
+            ],
+            "unit": "DKK/shares"
+          },
+          "why": "IFRS filer; the report states EPS per B share (1 ADS = 1 B share, so no ADS scaling)"
+        },
+        "dilutedShares.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:AdjustedWeightedAverageShares"
+            ],
+            "unit": "shares"
+          },
+          "why": "IFRS filer: weighted average shares adjusted for dilution"
+        },
+        "capex.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "fcf.fy": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "operating cash flow",
+                "sign": 1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "ifrs-full:CashFlowsFromUsedInOperatingActivities"
+                  ]
+                }
+              },
+              {
+                "role": "capital spending",
+                "sign": -1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "operatingIncome.ttm": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "netIncome.ttm": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "operatingCashFlow.ttm": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "capex.ttm": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fcf.ttm": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "cashAndShortTermInvestments.latest": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "operatingLeases.latest": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read; IFRS 16 also has no operating/finance lease split"
+          },
+          "why": "6-K without XBRL"
+        },
+        "financeLeases.latest": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read; IFRS 16 also has no operating/finance lease split"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.startRevenue": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.taxRate": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.dilutedShares": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.netDebt": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.minorityInterest": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.preferred": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.nonOperatingInvestments": {
+          "recipe": {
+            "op": "none",
+            "note": "the period ends 2026-09-30, after NVO's 2025 Form 20-F; its interim reports are Form 6-K without XBRL (SEC companyfacts carries no NVO facts filed after the 20-F, checked 2026-11-14); not read"
+          },
+          "why": "6-K without XBRL"
+        }
+      }
     }
   ]
 }
