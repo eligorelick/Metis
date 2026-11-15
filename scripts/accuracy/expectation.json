@@ -2243,11 +2243,10 @@
     {
       "case": "xom-data-only",
       "figure": "netIncome.fy",
-      "status": "mismatch",
-      "valueSha256": "d07073074d2d393c",
-      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
-      "cause": "Metis error",
-      "note": "The free-cash-flow series holds consolidated profit by definition (D-212, D-238); the report shows the parent line NetIncomeLoss 28,844M instead of ProfitLoss 29,764M (10-K 0000034088-26-000045, FY2025), so non-controlling interests are left out."
+      "status": "match",
+      "valueSha256": null,
+      "note": "D-286: FY2025 consolidated ProfitLoss 29,764M (10-K 0000034088-26-000045) supplies cash-flow conversion; the parent-only NetIncomeLoss is not that denominator.",
+      "changeReason": "D-286..D-290: filed historical consolidated profit replaces parent scope; incomplete combined liquidity is withheld; reviewed fiscal WACC pairing and explicit evidence labels."
     },
     {
       "case": "xom-data-only",
@@ -2287,11 +2286,10 @@
     {
       "case": "xom-data-only",
       "figure": "netIncome.ttm",
-      "status": "mismatch",
-      "valueSha256": "d07073074d2d393c",
-      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
-      "cause": "Metis error",
-      "note": "As netIncome.fy: the current-capital window shows the parent line NetIncomeLoss where consolidated ProfitLoss 29,764M is defined. The window itself ends at FY2025 because the report read no 2026 quarter (XOM became a successor registrant, CIK 2115436, Form 8-K12B 2026-07-01)."
+      "status": "match",
+      "valueSha256": null,
+      "note": "D-286: the retained trailing window ends at FY2025 and now uses consolidated ProfitLoss 29,764M (10-K 0000034088-26-000045). This correction does not extend successor-registrant filing coverage.",
+      "changeReason": "D-286..D-290: filed historical consolidated profit replaces parent scope; incomplete combined liquidity is withheld; reviewed fiscal WACC pairing and explicit evidence labels."
     },
     {
       "case": "xom-data-only",
@@ -3582,11 +3580,10 @@
     {
       "case": "pld-data-only",
       "figure": "cashAndShortTermInvestments.latest",
-      "status": "mismatch",
-      "valueSha256": "4b5e7fa3c108fa18",
-      "changeReason": "Release panel: 12 companies added (baseline at c06ee7a5)",
-      "cause": "vendor value shown",
-      "note": "Equals CashAndCashEquivalentsAtCarryingValue 2,273.497M alone; the 10-Q 0001193125-26-436160 also tags ShortTermInvestments 1,000M at 2026-09-30 (consolidated context at 2026-09-30, decimals -6, with a matching 2026 purchase of short-term investments), which the report leaves out. Needs a look: if the line is on the balance sheet, the report omits it."
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "note": "D-287: combined liquidity at 2026-09-30 is withheld. The 10-Q 0001193125-26-436160 tags cash 2,273.497M and ShortTermInvestments 1,000M, but presentation scope and separation are not established.",
+      "changeReason": "D-286..D-290: filed historical consolidated profit replaces parent scope; incomplete combined liquidity is withheld; reviewed fiscal WACC pairing and explicit evidence labels."
     },
     {
       "case": "pld-data-only",

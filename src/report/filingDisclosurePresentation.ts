@@ -122,7 +122,7 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
  * basis). They are read beside the trend, never under management guidance.
  */
 export function isQuarterlyTrendNote(note: string): boolean {
-  return /^Quarterly (?:(?:income|cash-flow) trend: |trend left out: |trend history stops before |cash-flow amounts for |operating cash flow for )/.test(note) ||
+  return note.startsWith("Vendor interim figures:") || /^Quarterly (?:(?:income|cash-flow) trend: |trend left out: |trend history stops before |cash-flow amounts for |operating cash flow for )/.test(note) ||
     /^Operating (?:income and operating margin|expenses) for \d{4}-\d{2}-\d{2} withheld: /.test(note) ||
     note.startsWith("Operating expenses not shown for ") ||
     note.startsWith("Operating expenses are the provider's subtotal");

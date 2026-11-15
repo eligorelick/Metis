@@ -34,14 +34,16 @@ describe('D-261 final owner policy',()=>{
   expect(a.gaps.map(g=>g.reason).join(' ')).toContain('AvailableForSaleSecuritiesDebtSecuritiesCurrent');
   expect(a.gaps.map(g=>g.reason).join(' ')).toContain(accn);
  });
- it.each([false,true])('preserves main-admitted liquidity despite an unadmitted investment observation (%s)', dimensional=>{
-  const row={...balance,cashAndCashEquivalents:50*M,shortTermInvestments:0,cashAndShortTermInvestments:50*M};
+ it.each([false,true])('D-287 withholds an unproved combined total beside an investment observation (%s)', dimensional=>{
+  const row:FmpBalanceSheetRow={...balance,cashAndCashEquivalents:50*M,shortTermInvestments:0,cashAndShortTermInvestments:50*M};
   const section={accession:accn,form:'10-K',filingDate:'2026-02-01',reportDate:end,
    documentUrl:'https://www.sec.gov/Archives/edgar/data/1/'+accn.replaceAll('-','')+'/example.htm',
    text:'Fair Value December 31, 2025 Short-term investments: Available-for-sale debt securities 500',
    statementsText:'',chars:100,sectionName:'tenKNotes',method:'toc-anchor'} as ExtractedSection;
   const out=admitBalanceCash(row,facts(!dimensional),'annual',observed,dimensional?[section]:[]);
-  expect(out.row).toEqual(row);expect(out.gaps).toEqual([]);
+  expect(out.row.cashAndShortTermInvestments).toBeNull();
+    expect(out.row.fieldConflicts?.cashAndShortTermInvestments).toMatchObject({usable:false,cause:"liquidity-not-established"});
+    expect(out.gaps.some(g=>g.reason.includes("investment scope"))).toBe(true);
  });
  it('preserves the main restricted-inclusive reconciliation and its investment component',()=>{
   const f=facts(false);f.facts['us-gaap']!.CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents={units:{USD:[fact(70*M)]}};

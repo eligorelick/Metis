@@ -689,7 +689,7 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
               p.start !== undefined && p.val === vendorValue && proof!.filings.some(f => f.accn === p.accn && f.filed === p.filed));
           });
         if (!rounding || otherPeriod) {
-          const reason = `${label} for ${date} corrected from vendor ${vendorValue} to filed ${filerValue}; exact ${proof!.periodStart} through ${date} ${proof!.unit}` +
+          const reason = `${label} for ${date} corrected from vendor ${vendorValue} to ${isEps && reconciliation.isAdr === true && reconciliation.ordinarySharesPerQuotedUnit !== 1 ? "derived (ordinary EPS times ADS ratio)" : "filed"} ${filerValue}; exact ${proof!.periodStart} through ${date} ${proof!.unit}` +
             (otherPeriod ? "; vendor count matches a different filed year-to-date period" : "; discrepancy exceeds rounding") +
             (reconciliation.isAdr === true ? `; native currency, ${reconciliation.ordinarySharesPerQuotedUnit} ordinary shares per ADS` : "");
           copy ??= { ...row };

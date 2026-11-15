@@ -1,3 +1,4 @@
+import { unavailableLiquidityTable } from "@/report/presentation";
 import { OFFICE_CONTEXT_LINK, GUIDANCE_CONTEXT_LINK } from "@/report/executiveDecisions";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { reverseDcfValueText, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
@@ -957,7 +958,7 @@ export function BalanceSheetSection({
           </SubBlock>
         ))}
       </div>
-      <ExtraAuditTables tables={filingDisclosureTables(report.filingDisclosures, "balanceSheet")} />
+      <ExtraAuditTables tables={[...unavailableLiquidityTable(balanceSheet.debtProfile.commentary), ...filingDisclosureTables(report.filingDisclosures, "balanceSheet")]} />
       <SubBlock label="capital allocation record">
         <ClaimList claims={balanceSheet.capitalAllocation} />
       </SubBlock>

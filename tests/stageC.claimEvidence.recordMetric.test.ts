@@ -95,19 +95,20 @@ it("AI-502 pins every percentage-point record in the synthetic helper payload", 
  const { assembleContextPayload } = await import("@/pipeline/stageC/payload");
  const bundle = withFixtureQuoteDay(completeCurrencyBundle({ debt: 300 }), "2026-03-31");
  const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
+ expect(payload.provenanceRegistry!.some(r=>r.id === "computed.returns.roic-wacc-spread")).toBe(false);
+ expect(payload.provenanceRegistry!.some(r=>r.id === "computed.scores.quality.roicVsWaccSpread")).toBe(false); // D-288: dates differ
  const kinds = Object.fromEntries(payload.provenanceRegistry!.filter(r => r.unit === "percentage-points" || r.unit === "percentage-points-per-year").map(r => [r.id, isDeltaRecord(r)]));
  expect(kinds).toEqual({
   "computed.growth-margins.gross-margin-slope": true,
   "computed.growth-margins.operating-margin-slope": true,
   "computed.growth-margins.net-margin-slope": true,
   "computed.growth-margins.revenue-accel-yoy-3y-cagr": false,
-  "computed.returns.roic-wacc-spread": false,
+
   "computed.capital-cash.capex-revenue-slope": true,
   "computed.forensics.absolute-cash-flow-versus-balance-sheet-accrual-divergence": false,
   "computed.forensics.accruals.divergence": false,
   "computed.scores.fundamentals.operatingMarginSlope": true,
   "computed.scores.valuation.reverseImpliedVsAchievable": false,
-  "computed.scores.quality.roicVsWaccSpread": false
 });
 });
 

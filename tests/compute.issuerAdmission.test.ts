@@ -1,4 +1,7 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import * as commonEarningsOwner from "@/pipeline/commonEarnings";
+import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
+import { statementIssuerFacts } from "@/edgar/issuerFacts";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import { buildDataBundle } from "@/pipeline/dataBundle";
@@ -185,4 +188,57 @@ describe("adjacent companyfacts readers enforce the same issuer boundary", () =>
     const multiple = runStageB(bundle).valuation.multiples?.multiples.find(m => m.key === "priceToFfo");
     expect(multiple?.current).toBeCloseTo(confirmed ? 10000 / (100 + 50) : 10000 / (150 + 50));
   });
+});
+
+
+describe("D-286 statement issuer evidence", () => {
+  it("selects retained predecessor facts only for a row explicitly naming that issuer", () => {
+    const bundle = completeCurrencyBundle({});
+    const own = { cik: 1, entityName: "Successor", facts: {} };
+    withIssuerFacts(bundle, own);
+    const prior = { cik: 2, entityName: "Predecessor", facts: {} };
+    bundle.edgar!.predecessor = { cik10: "0000000002", facts: prior, name: "Predecessor", endpoint: "https://data.sec.gov/", fetchedAt: bundle.builtAt,
+      via: { form: "8-K12B", filed: "2025-01-01", accession: "0000000001-25-000001", successorFormAccession: "0000000001-25-000002" } } as NonNullable<typeof bundle.edgar>["predecessor"];
+    expect(statementIssuerFacts(bundle.symbol, bundle.edgar, "0000000002", bundle.builtAt)).toBe(prior);
+    expect(statementIssuerFacts(bundle.symbol, bundle.edgar, "0000000001", bundle.builtAt)).toBe(own);
+    expect(statementIssuerFacts(bundle.symbol, bundle.edgar, "0000000003", bundle.builtAt)).toBeNull();
+    bundle.edgar!.predecessor!.fetchedAt = "2099-01-01";
+    expect(statementIssuerFacts(bundle.symbol, bundle.edgar, "0000000002", bundle.builtAt)).toBeNull();
+  });
+});
+
+
+it("D-286 changes predecessor profit scope without reopening unrelated cash flows", () => {
+  const bundle = completeCurrencyBundle({});
+  withIssuerFacts(bundle, { cik: 1, entityName: "Successor", facts: {} });
+  const point = { start: "2025-01-01", end: "2025-12-31", fp: "FY", fy: 2025, form: "10-K", filed: "2026-02-01", accn: "0000000002-26-000001" };
+  const prior = { cik: 2, entityName: "Predecessor", facts: { "us-gaap": {
+    ProfitLoss: { units: { USD: [{ ...point, val: 10e6 }] } }, NetIncomeLoss: { units: { USD: [{ ...point, val: 9e6 }] } },
+    NetCashProvidedByUsedInInvestingActivities: { units: { USD: [{ ...point, val: -4e6 }] } },
+  } } };
+  bundle.edgar!.predecessor = { cik10: "0000000002", facts: prior, name: "Predecessor", endpoint: "https://data.sec.gov/", fetchedAt: bundle.builtAt,
+    via: { form: "8-K12B", filed: "2026-02-01", accession: "0000000001-26-000001", successorFormAccession: "0000000001-26-000002" } } as NonNullable<typeof bundle.edgar>["predecessor"];
+  if (!bundle.statements.cashflowAnnual.ok) throw Error("fixture");
+  Object.assign(bundle.statements.cashflowAnnual.value.data.rows[0]!, { cik: "2", date: "2025-12-31", reportedCurrency: "USD", netIncome: 9e6, netCashProvidedByInvestingActivities: -3e6 });
+  const result = withCashFlowSbcBasis(bundle);
+  if (!result.statements.cashflowAnnual.ok) throw Error("fixture");
+  expect(result.statements.cashflowAnnual.value.data.rows[0]!.netIncome).toBe(10e6);
+  expect(result.statements.cashflowAnnual.value.data.rows[0]!.netCashProvidedByInvestingActivities).toBe(-3e6);
+});
+
+
+it("D-286 review: predecessor supplementation carries its own observed timestamp", () => {
+  const bundle=completeCurrencyBundle({});
+  withIssuerFacts(bundle,{cik:1,entityName:"Successor",facts:{}});
+  const prior={cik:2,entityName:"Predecessor",facts:{}};
+  const fetchedAt="2026-03-01T00:00:00.000Z";
+  bundle.edgar!.predecessor={cik10:"0000000002",facts:prior,name:"Predecessor",endpoint:"https://data.sec.gov/",fetchedAt,
+    via:{form:"8-K12B",filed:"2025-01-01",accession:"0000000001-25-000001",successorFormAccession:"0000000001-25-000002"}};
+  if(!bundle.statements.incomeAnnual.ok)throw Error("fixture");
+  bundle.statements.incomeAnnual.value.data.rows.forEach(row=>{row.cik="2";});
+  const spy=vi.spyOn(commonEarningsOwner,"supplementCommonEarnings");
+  try {
+    runStageB(bundle);
+    expect(spy.mock.calls.some(call=>call[2]===prior && call[4]===fetchedAt)).toBe(true);
+  } finally { spy.mockRestore(); }
 });

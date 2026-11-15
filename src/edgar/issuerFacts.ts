@@ -38,3 +38,16 @@ export function admittedIssuerFacts(symbol: string, edgar: IssuerFactsInput | un
     severity: "warn",
   } };
 }
+
+/** D-286 (P5): historical rows may name the retained predecessor itself.
+ * This establishes that row's issuer only; it never proves successor continuity.
+ */
+export function statementIssuerFacts(symbol: string, edgar: EdgarBundle | undefined, rowCik: unknown, observedAt: string): CompanyFacts | null {
+  const own = confirmedIssuerFacts(symbol, edgar);
+  if (!own || rowCik == null || cik(rowCik) === cik(own.cik)) return own;
+  const prior = edgar?.predecessor;
+  const observed = (value: string | null) => value !== null && Number.isFinite(Date.parse(value)) && Date.parse(value) <= Date.parse(observedAt);
+  return prior && cik(rowCik) === cik(prior.cik10) && cik(prior.facts.cik) === cik(prior.cik10) &&
+    observed(prior.fetchedAt) && observed(prior.via.filed) && prior.via.accession !== "" && prior.via.successorFormAccession !== ""
+    ? prior.facts : null;
+}

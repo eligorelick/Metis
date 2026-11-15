@@ -384,6 +384,19 @@ function compactGuidanceRange(sentence: string, period: FiscalPeriod | null): Gu
 }
 
 /**
+ * D-289: replay the prose parser that admitted a retained item. A compact
+ * item's period was established by its enclosing dated outlook heading;
+ * the bullet itself need not contain an expectation verb. Recognize the
+ * admitted compact range shape and retain its explicit period-conflict
+ * refusal. Other sentence items still use the sentence grammar.
+ */
+export function reparseGuidanceItem(item: GuidanceItem): GuidanceItem[] {
+  return COMPACT_GUIDANCE_RANGE.test(item.sentence) && !EXPECTATION_VERB.test(item.sentence)
+    ? compactGuidanceRange(item.sentence, item.period)
+    : parseGuidanceSentence(item.sentence, item.period);
+}
+
+/**
  * Read one guidance sentence. Values come only from the clause after the
  * expectation verb, cut before "inclusive of" / "excluding" asides, so an
  * included SBC amount is never read as the guided figure.
