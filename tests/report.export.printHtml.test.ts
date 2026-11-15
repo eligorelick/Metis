@@ -321,7 +321,7 @@ describe("reportToPrintBody — optional sections absent", () => {
     expect(body).not.toContain('title="unverified"');
     expect(body).not.toContain('title="verified"');
     expect(body).not.toContain(">unverified<");
-    expect(body).toContain("<td>untraced</td>");
+    expect(body).toContain("<td>not confirmed</td>");
   });
 
   it("labels the traced-number column 'Cited' (citation coverage), never 'Verified'", () => {

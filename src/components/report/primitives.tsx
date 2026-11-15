@@ -33,14 +33,14 @@ import type {
   SourcedClaim,
   TracedNumber,
 } from "@/report/schema";
-import { claimCitation, displayClaimText, displayConfidence, displayProse, figureRows, figureValueText, repeatedClaimsNote, SCENARIO_TARGET_UNAVAILABLE_TEXT, scenarioWeightView, seeAlsoText, withoutRepeatedClaims, withoutTabled, type ScenarioWeightView } from "@/report/presentation";
+import { citedMark, claimCitation, displayClaimText, displayConfidence, displayProse, figureRows, figureValueText, repeatedClaimsNote, SCENARIO_TARGET_UNAVAILABLE_TEXT, scenarioWeightView, seeAlsoText, withoutRepeatedClaims, withoutTabled, type ScenarioWeightView } from "@/report/presentation";
 import {
   unitLabel,
   numericCitationTraceLabel,
   tracedPeriodLabel,
 } from "@/report/format";
 import { ClaimLabelChip, ClaimText } from "./ClaimText";
-import { claimStatusMarkText, figureCitationStatus, isComputedFigure } from "@/report/verificationMarks";
+import { claimStatusMarkText, claimTag, figureCitationStatus, isComputedFigure, isContradictedFigure } from "@/report/verificationMarks";
 import { GRADE_SURFACE_BY_KEY } from "@/report/surfaceManifest";
 import { evidenceAttributes } from "./evidenceIdentity";
 
@@ -131,7 +131,7 @@ export function ClaimReasoning({ reasoning }: { reasoning: SourcedClaim | Source
       {shown.map((claim, index) => (
         <span key={index} {...evidenceAttributes("claim", claim)}>
           {index > 0 && " "}
-          <ClaimLabelChip label={claim.label} />{" "}{displayClaimText(claim)}{" "}
+          <ClaimLabelChip label={claimTag(claim)} />{" "}{displayClaimText(claim)}{" "}
           <span className="claim-source mono text-[10px] text-faint" title={claim.source}>({claimCitation(claim)})</span>
           {claimStatusMarkText(claim) && <span className="claim-status mono ml-1 text-[10px] text-muted">{claimStatusMarkText(claim)}</span>}
         </span>
@@ -176,13 +176,15 @@ export function VerificationDot({ n }: { n: TracedNumber }) {
     );
   }
   if (n.verified === false) {
+    // D-282 (P19): the same visible words as the exports' Cited column.
+    const mark = citedMark(n);
     return (
       <span
-        className="mono text-[10px] text-warn"
+        className={`mono text-[10px] ${isContradictedFigure(n) ? "text-neg" : "text-warn"}`}
         title={`${numericCitationTraceLabel(n.verified)}${n.verificationNote ? ` · ${n.verificationNote}` : ""}`}
-        aria-label={numericCitationTraceLabel(n.verified)}
+        aria-label={mark}
       >
-        ●
+        {mark}
       </span>
     );
   }

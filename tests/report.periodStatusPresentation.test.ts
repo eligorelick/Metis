@@ -102,7 +102,7 @@ describe("measurement periods and failed numeric traces", () => {
   it.each(surfaces)("labels a supplied citation that failed numeric matching as untraced in $name", ({ name, render }) => {
     const output = render(reportWithPeriods());
     const metricRow = rowWithin(output, "PERIOD-GROWTH-Q2");
-    expect(metricRow).toContain(name === "live" ? 'aria-label="untraced"' : "untraced");
+    expect(metricRow).toContain(name === "live" ? 'aria-label="not confirmed"' : "not confirmed");
     expect(metricRow).not.toContain("uncited");
     // D-62: the verification log is in the audit export.
     const logRow = rowWithin(reportToAuditMarkdown(reportWithPeriods()), "PERIOD-AUDIT-LOG");

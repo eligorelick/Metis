@@ -102,7 +102,7 @@ describe("company market and competitor claims", () => {
     for (const output of surfaces(checked)) {
       expect(output).toContain("[validated]");
       expect(output).toContain("[contradicted]");
-      expect(output).toContain("[qualitative]");
+      expect(output).toContain("[not confirmed]");
     }
   });
 });

@@ -61,7 +61,7 @@ describe("source quantity temporal association", () => {
       meta: { ...sample.meta, provenanceCoverage: verified.coverage },
       appendix: { ...sample.appendix, verificationLog: verified.log, provenanceCoverage: verified.coverage } })));
     indexVerificationMarks(report);
-    const mark = helper.status === "validated" ? "validated" : helper.status === "contradicted" ? "contradicted" : "unverified";
+    const mark = helper.status === "validated" ? "validated" : helper.status === "contradicted" ? "contradicted" : "not confirmed";
     expect(claimStatusMarkText(report.business.whatTheySell[0]!)).toBe(`[${mark}]`);
     const html = reportToPrintHtml(report);
     expect(html).toContain(claim);
