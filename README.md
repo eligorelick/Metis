@@ -109,7 +109,7 @@ The verification pass makes no model call. It reports two results side by side; 
 
 ### Cost of Claude API analysis
 
-Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. These are neither measured prices nor spending caps; set `METIS_MAX_JOB_COST_USD` and `METIS_MAX_ROLLING_COST_USD` to cap spend.
+Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. The ~$3.42 illustration uses a synthetic fixture, while the $16-28 estimates in REPORT-COSTS reprice measured sign-in totals without cache pricing; neither is a quote. These are neither measured prices nor spending caps; set `METIS_MAX_JOB_COST_USD` and `METIS_MAX_ROLLING_COST_USD` to cap spend.
 
 See [report costs and times](docs/REPORT-COSTS.md) for measured sign-in runs and a separately labelled API estimate.
 

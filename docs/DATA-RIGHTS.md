@@ -117,7 +117,8 @@ account terms, data-use settings and content policies. Its authorization does
 not grant rights to transmit another vendor's data to it. Claude analyst web
 search can introduce additional source material governed by the originating
 site's rights; successful observed URLs establish citation evidence, not a
-license. Claude Code sign-in analysts can use WebSearch and WebFetch during research.
+license. Claude Code sign-in analysts can use WebSearch and WebFetch during research
+(WebFetch only on the allowlist described in [Privacy](PRIVACY.md)).
 Claude writers and the judge are tool-free; ChatGPT writers and judges use supplied
 evidence without additional web search. [Privacy](PRIVACY.md) describes transmission and local credentials;
 [AI usage](CLAUDE-USAGE.md) describes execution and billing.

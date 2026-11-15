@@ -1,6 +1,6 @@
 # Known limitations
 
-Release documentation reviewed 2026-11-15 against build `2602994b`. Missing evidence is disclosed rather than filled in. These limits apply beyond the named examples wherever the same evidence shape occurs.
+Release documentation reviewed 2026-11-15 against build `5a503eec`. Missing evidence is disclosed rather than filled in. These limits apply beyond the named examples wherever the same evidence shape occurs.
 
 ## L1: Web claims
 
@@ -40,7 +40,7 @@ Large company payloads can exceed smaller models' context windows. The run is re
 
 ## L10: Sign-in web access
 
-Claude sign-in research uses exact issuer hosts. DNS and port restrictions have residual limitations; the privacy guide describes the access boundary.
+Claude sign-in WebFetch can read fixed regulator, statistics and exchange domains (including their subdomains), plus the issuer's own host exactly (never its subdomains). WebSearch is unrestricted. A public name resolving to a private address is not detected. See [Privacy](PRIVACY.md) for the allowlist and local action limits.
 
 ## L11: Successor registrants
 
@@ -56,7 +56,7 @@ Offline replays can pair stored analyst text with newer figures. Conflicts are m
 
 ## L14: Terminal return switch
 
-The terminal-return convention switches after four observed above-hurdle years. LLY exposes a discrete model-value change at this boundary; it is a house assumption, not a filing-proven valuation. Smoothing is deferred pending an owner decision.
+The terminal-return convention switches after four observed above-hurdle years. LLY exposes a discrete model-value change of about +$77 per share at this boundary; it is a house assumption, not a filing-proven valuation. Smoothing is deferred pending an owner decision.
 
 ## L15: Conservative verification
 
@@ -80,7 +80,13 @@ All panel checks. Inputs are private, and not-established figures mean the check
 
 ## Additional release decisions and deferred work
 
-Vendor qualifications use labels and separate gaps; there is no new typed vendor-qualification code in 1.0. Provider revenue may represent a provider revenue line rather than the filed total (R12); the report labels that basis alongside the filed total. Feed citations are removed when no single article supports the claim. Saved text and the terminal-return switch are described above.
+Vendor qualifications use labels and separate gaps; there is no new typed vendor-qualification code in 1.0. Provider revenue may represent a provider revenue line rather than the filed total (R12); the report labels that basis alongside the filed total.
+
+At generation, a statement citing the whole news feed is removed when no single article is identified. Saved reports instead show "News feed (no single article identified)" at read time.
+
+Bank tangible common equity (TCE) and return on tangible equity (ROTE) can use provider goodwill/intangible fields that have not been checked against a filing; the report labels this basis.
+
+The ROIC minus fiscal-year-end WACC spread pairs annual observed ROIC with a fiscal-year-end market-based discount rate: this hybrid basis is labelled rather than presented as a filed ratio. Saved text and the terminal-return switch are described above.
 
 Further debt-evidence sharing, typed refusal-reader migration, shortening reports, checking wording across saved reports, and reconciling business-word inventories remain deferred. Following successor registrants, parsing 6-K interim statements and typed ADS-member facts, evidence-loss scoring and terminal-return smoothing also remain deferred. These are not promised capabilities.
 

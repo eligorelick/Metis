@@ -321,7 +321,7 @@ infrastructure; they do not automatically tune or approve production grades.
 
 ## Retired README observations
 
-These paragraphs were retired on 2026-11-15. The six API dollar examples below have no located receipt and are unverified history, not current cost guidance. The sign-in paragraph predates the three November 14 reports.
+The cost paragraph below was retired on 2026-11-15. The sign-in paragraph is preserved here as historical context and remains in README as dated integration evidence, followed there by the newer three-report measurement link. The six API dollar examples below have no located receipt and are unverified history, not current cost guidance. The sign-in paragraph predates the three November 14 reports.
 
 Connections have offline test coverage, and complete reports have run live through a ChatGPT connection. One complete report has run live through a Claude Code subscription connection (one company, 2026-11-12, Claude Code 2.1.322, model alias `default`, which the CLI reported as `claude-opus-5-5`): every pass finished and $0 API cost was recorded. One run is not a guarantee: subscription usage limits apply and Metis cannot read them, the CLI does not report the effort it used, and that run predates analyst web research on this route (D-269).
 

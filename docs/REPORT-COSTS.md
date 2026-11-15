@@ -6,9 +6,9 @@ Recorded 2026-11-14 (local date). These are observations of earlier builds, not 
 
 Reports #64 JPM, #65 LLY and #66 TSM were generated on build `17c791d2` (stored report inputs and pass artifacts measured 2026-11-14). Requested Opus 5.5/high; analyst telemetry observed Opus 5.5 and Haiku 5.5, synthesis Opus 5.5. Applied effort was not established. Each report recorded $0 API spend and consumed subscription usage, whose monetary value and remaining allowance Metis cannot measure.
 
-Elapsed time runs from job creation to verify settlement. Pass intervals include overhead; the first includes data collection. LLY includes its failed synthesis and successful retry. Token totals are CLI telemetry, not an API invoice.
+Elapsed time runs from job creation to verify settlement. Pass intervals include overhead; the first includes data collection. LLY includes its failed synthesis and successful retry. Token totals are CLI telemetry, not an API invoice. The CLI total combines uncached input, cache reads and cache writes; the recorded total does not split these categories.
 
-| Report/pass | Input tokens | Output tokens | Searches | Settle UTC | Interval seconds |
+| Report/pass | Input tokens (incl. cache reads/writes) | Output tokens | Searches | Settle UTC | Interval seconds |
 |---|---:|---:|---:|---|---:|
 | LLY bull | 1,628,356 | 40,376 | 8 | 2026-11-14T21:17:43.341Z | 328.322 |
 | LLY bear | 1,620,935 | 40,922 | 8 | 2026-11-14T21:23:27.758Z | 344.417 |
@@ -24,17 +24,17 @@ Elapsed time runs from job creation to verify settlement. Pass intervals include
 | TSM synthesize | 668,108 | 133,834 | 0 | 2026-11-14T22:14:34.148Z | 1064.170 |
 | TSM verify | 0 | 0 | 0 | 2026-11-14T22:14:38.826Z | 4.678 |
 
-| Report | Total input tokens | Total output tokens | Total minutes | Hypothetical Claude API estimate |
+| Report | Total input tokens (incl. cache reads/writes) | Total output tokens | Total minutes | Hypothetical Claude API estimate |
 |---|---:|---:|---:|---:|
 | JPM | 4,132,445 | 233,699 | 32.64 | $21.36 |
 | LLY | 5,450,156 | 306,022 | 40.33 | $28.08 |
 | TSM | 2,932,582 | 213,344 | 28.00 | $16.16 |
 
-API estimates computed on 2026-11-15 for build `2602994b`, using registry snapshot 2026-11-13: all input tokens at Opus 5.5 $4/million, output at $20/million, plus 16 searches. Formula: (input tokens ? 4 + output tokens ? 20) / 1,000,000 + 16 ? 0.01. No caching discount assumed; failed-attempt tokens included. This reprices mixed-model CLI telemetry as all-Opus API traffic: actual API token accounting, cache usage, research and retries can differ. API elapsed time is not measured. The generated README table uses a separate synthetic fixture, not these measured reports.
+API estimates computed on 2026-11-15 for build `2602994b`, using registry snapshot 2026-11-13: all input tokens at Opus 5.5 $4/million, output at $20/million, plus 16 searches. Formula: (input tokens × 4 + output tokens × 20) / 1,000,000 + 16 × 0.01. All combined input is priced at the uncached rate; failed-attempt tokens are included. This estimate is neither an upper nor a lower bound and likely overstates cache-heavy passes. This reprices mixed-model CLI telemetry as all-Opus API traffic: actual API token accounting, cache usage, research and retries can differ. API elapsed time is not measured. The generated README table uses a separate synthetic fixture, not these measured reports.
 
 ## Data-only
 
-Twelve panel captures on 2026-11-14 local date, build `c06ee7a5`, recorded $0 AI spend and skipped all AI passes. Times below run from job creation to the final job update, read from the check database; they include collection and computation. They are not estimates for other companies or machines.
+The twelve companies below were added to the panel on 2026-11-14 and captured one at a time on one machine; cache state was not controlled. Twelve panel captures on 2026-11-14 local date, build `c06ee7a5`, recorded $0 AI spend and skipped all AI passes. Times below run from job creation to the final job update, read from the check database; they include collection and computation. They are not estimates for other companies or machines.
 
 | Company | Seconds |
 |---|---:|
