@@ -111,6 +111,19 @@ export const CLAIM_STATUS_WORDS: Readonly<Record<ClaimStatusMark, string>> = {
   contradicted: "contradicted",
 };
 
+/**
+ * D-302 (P21, P22): a read-time copy of a claim with reader wording in place of
+ * its stored text. The copy keeps the original's verification mark; the stored
+ * claim, its text and the log are unchanged.
+ */
+export function withReaderText(claim: SourcedClaim, text: string): SourcedClaim {
+  if (text === claim.text) return claim;
+  const copy = { ...claim, text };
+  const mark = marks.get(claim);
+  if (mark !== undefined) marks.set(copy, mark);
+  return copy;
+}
+
 /** The compact text form, e.g. "[validated]" or "[not confirmed]". */
 export function claimStatusMarkText(claim: SourcedClaim): string | null {
   const mark = marks.get(claim);

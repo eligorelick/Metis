@@ -205,6 +205,8 @@ const PHRASE_FIXES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\byear one\b/gi, "year-one"],
   [/\bstock based\b/gi, "stock-based"],
   [/\b(short|long) term\b/gi, "$1-term"],
+  // D-301 (R29): the statement field "cashSti" is cash and short-term investments.
+  [/\bcash sti\b/gi, "cash and short-term investments"],
   [/\b(gross margin|operating expenses|operating margin|tax rate|diluted EPS) (GAAP|non-GAAP)\b/g, "$2 $1"],
   [/\bfree cash flow operating cash flow less capex\b/gi, "FCF, operating cash flow less capex,"],
   // FIGR extra-high audit: statement-row ids ("capex-negative") read as the outflow they record.
@@ -684,9 +686,9 @@ export function dedupeFigureRows(rows: readonly FigureRow[], seen: Map<string, F
       FIGURE_METRIC_ALIASES.get(entry.trace.sourceId ?? entry.trace.source) === alias &&
       (entry.trace.sourceId ?? entry.trace.source) !== (row.trace.sourceId ?? row.trace.source) &&
       entry.value === row.value && entry.trace.unit === row.trace.unit &&
-      (entry.trace.currency === row.trace.currency || isRatioAsPercent(row.trace.source)) && entry.asOf === row.asOf &&
+      (sameCurrencyBasis(entry.trace, row.trace) || isRatioAsPercent(row.trace.source)) && entry.asOf === row.asOf &&
       entry.trace.periodContext === undefined && row.trace.periodContext === undefined &&
-      (entry.period === row.period || entry.period === null && row.period === row.asOf || row.period === null && entry.period === entry.asOf));
+      (entry.period === row.period || entry.period === null && periodEndsAt(row.period, row.asOf) || row.period === null && periodEndsAt(entry.period, entry.asOf)));
     if (prior || compatible) {
       if (compatible && compatible.period === null && row.period !== null) Object.assign(compatible, row);
       continue;
@@ -696,6 +698,25 @@ export function dedupeFigureRows(rows: readonly FigureRow[], seen: Map<string, F
     out.push(copy);
   }
   return out;
+}
+
+/**
+ * D-301 (P13, P22; R29): a unitless ratio records "no currency" as null on one
+ * registered id and omits it on the other; both mean the figure has no currency.
+ * A currency amount still needs the same recorded currency.
+ */
+function sameCurrencyBasis(a: Pick<TracedNumber, "currency" | "unit">, b: Pick<TracedNumber, "currency" | "unit">): boolean {
+  return a.currency === b.currency || (a.unit === b.unit && !/currency/i.test(a.unit) && (a.currency ?? null) === null && (b.currency ?? null) === null);
+}
+
+/**
+ * D-264, extended by D-301: an alias copy that omits its period stands for the
+ * period the other copy states only when that period is the shared as-of date
+ * or a window ending on it ("ttm: 2025-08-29 to 2026-09-03" at 2026-09-03).
+ */
+function periodEndsAt(period: string | null, asOf: string | null): boolean {
+  if (period === null || asOf === null) return false;
+  return period === asOf || period.endsWith(` to ${asOf}`);
 }
 
 export function figureRows(numbers: readonly TracedNumber[], seen?: Map<string, FigureRow>): FigureRow[] {
@@ -1082,18 +1103,25 @@ export function repeatedClaimsNote(homes: readonly string[]): string | null {
  * ======================================================================== */
 
 export const BUSINESS_BRIEF_HEADING = "Business in brief";
-/** A part with no verified support says so in one line. */
-export const BRIEF_PART_NOT_ESTABLISHED = "Not established from verified sources.";
+/**
+ * D-303 (P19, P22; R36): what an empty part says. It describes this report, never
+ * the sources: a part whose answering fields hold no statement is not covered
+ * here; a part whose statements did not qualify points to them, with their marks.
+ */
+export const BRIEF_PART_NOT_COVERED = "Not covered in this report.";
+export const BRIEF_PART_NOT_SHOWN = "Not in the brief: the report's statements on this appear, with their marks, in the sections below.";
 /** Printed once instead of five empty parts. */
-export const BRIEF_NOT_ESTABLISHED = "No part of the business brief is established from verified sources: no statement about the business passed verification.";
+export const BRIEF_NOT_ESTABLISHED = "No part of the business brief can be filled: no statement about the business in this report is confirmed or cited to its source.";
 /** The most claims one part prints, so the brief stays short. */
 export const BRIEF_CLAIMS_PER_PART = 1;
 
 export interface BusinessBriefPart {
   key: "sells" | "buyers" | "wins" | "next" | "risks";
   heading: string;
-  /** Verified claims only, each keeping its own citation; empty means not established. */
+  /** Verified claims only, each keeping its own citation. */
   claims: readonly SourcedClaim[];
+  /** D-303: the line an empty part prints (not covered, or covered only below). */
+  empty: string;
 }
 
 /**
@@ -1160,8 +1188,8 @@ function briefClaims(options: { descriptive: boolean }, ...sources: readonly (re
  * D-273 (P22): the five-part brief that opens the verdict, assembled by code
  * from the business fields in a fixed order (the D-271 field first, then the
  * older field that holds the same story). Call after the report's verification
- * marks are indexed (prepareReportForSurface does it); with no marks every
- * part is not established.
+ * marks are indexed (prepareReportForSurface does it); with no marks no
+ * part is filled.
  */
 export function businessBrief(report: Pick<Report, "business" | "competitive" | "catalystsRisks">): BusinessBriefPart[] {
   const b = report.business;
@@ -1173,12 +1201,16 @@ export function businessBrief(report: Pick<Report, "business" | "competitive" | 
   // suppliers", "Protection and competition") instead of an interpretation.
   const moats = [...c.moatAssessment].filter(m => m.strength !== "none").sort((x, y) => MOAT_RANK[x.strength] - MOAT_RANK[y.strength]);
   const risks = [...report.catalystsRisks.risks].sort((x, y) => (SEVERITY_RANK[x.severity] ?? 3) - (SEVERITY_RANK[y.severity] ?? 3));
+  const part = (key: BusinessBriefPart["key"], heading: string, descriptive: boolean, ...fields: readonly (readonly SourcedClaim[])[]): BusinessBriefPart => ({
+    key, heading, claims: briefClaims({ descriptive }, ...fields),
+    empty: fields.some(field => field.length > 0) ? BRIEF_PART_NOT_SHOWN : BRIEF_PART_NOT_COVERED,
+  });
   return [
-    { key: "sells", heading: "What it sells", claims: briefClaims({ descriptive: true }, (b.products ?? []).flatMap(item => item.claims), b.whatTheySell) },
-    { key: "buyers", heading: "Customers and suppliers", claims: briefClaims({ descriptive: true }, b.customersAndSuppliers ?? []) },
-    { key: "wins", heading: "Protection and competition", claims: briefClaims({ descriptive: true }, b.protection ?? [], moats.flatMap(m => m.reasoning)) },
-    { key: "next", heading: "What is next", claims: briefClaims({ descriptive: false }, b.whatIsComing ?? []) },
-    { key: "risks", heading: "What could break it", claims: briefClaims({ descriptive: false }, risks.flatMap(item => reasoningClaims(item.reasoning)), b.concentrationRisks) },
+    part("sells", "What it sells", true, (b.products ?? []).flatMap(item => item.claims), b.whatTheySell),
+    part("buyers", "Customers and suppliers", true, b.customersAndSuppliers ?? []),
+    part("wins", "Protection and competition", true, b.protection ?? [], moats.flatMap(m => m.reasoning)),
+    part("next", "What is next", false, b.whatIsComing ?? []),
+    part("risks", "What could break it", false, risks.flatMap(item => reasoningClaims(item.reasoning)), b.concentrationRisks),
   ];
 }
 
@@ -1675,7 +1707,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     // evidence share and the band thresholds beside the figure.
     rows.push({ label: "Composite grade", value: compositeText(scores), note: compositeNote(scores) });
   }
-  return rows;
+  // D-301 (P22; R29): a recorded caveat's raw base-unit amounts ("pre-tax income 174926000000") read in the shared number format.
+  return rows.map(row => row.note ? { ...row, note: compactLongIntegers(row.note) } : row);
 }
 
 /**
@@ -2503,6 +2536,40 @@ export function manifestEntryLabel(gap: ManifestEntry, issuer: string | null): s
   return gapLabel({ key: gapGroupKey(gap, issuer), fields: [gap.field] });
 }
 
+/**
+ * D-301 (P22; R29): the one map from statement field identifiers to the words a
+ * reader sees. A recorded reason that lists fields ("eps, epsDiluted") reads
+ * "basic EPS, diluted EPS" in the body; the audit export keeps the identifiers.
+ */
+export const READER_FIELD_LABELS: Readonly<Record<string, string>> = {
+  eps: "basic EPS", epsDiluted: "diluted EPS", weightedAverageShsOut: "basic weighted share count", weightedAverageShsOutDil: "diluted weighted share count",
+  costOfRevenue: "cost of revenue", grossProfit: "gross profit", operatingExpenses: "operating expenses", operatingIncome: "operating income",
+  interestExpense: "interest expense", totalOtherIncomeExpensesNet: "total other income and expense", incomeBeforeTax: "pre-tax income",
+  incomeTaxExpense: "income tax expense", netIncome: "net income", netIncomeFromContinuingOperations: "net income from continuing operations",
+  netIncomeFromDiscontinuedOperations: "net income from discontinued operations", netIncomeAvailableToCommon: "net income available to common shareholders",
+  bottomLineNetIncome: "bottom-line net income", ebitda: "EBITDA",
+  cashAndCashEquivalents: "cash and cash equivalents", shortTermInvestments: "short-term investments", cashAndShortTermInvestments: "cash and short-term investments",
+  longTermInvestments: "long-term investments", intangibleAssets: "intangible assets", shortTermDebt: "short-term debt", longTermDebt: "long-term debt",
+  totalDebt: "total debt", netDebt: "net debt", capitalLeaseObligations: "lease obligations", operatingLeaseLiability: "operating lease liability",
+  financeLeaseLiability: "finance lease liability", totalEquity: "total equity", totalStockholdersEquity: "stockholders' equity",
+  preferredCapital: "preferred capital", temporaryEquity: "temporary equity", temporaryEquityAttributableToParent: "temporary equity attributable to the parent",
+  temporaryEquityAttributableToNoncontrollingInterest: "temporary equity attributable to noncontrolling interests",
+  operatingCashFlow: "operating cash flow", netCashProvidedByOperatingActivities: "net cash from operating activities",
+  netCashProvidedByInvestingActivities: "net cash from investing activities", netCashProvidedByFinancingActivities: "net cash from financing activities",
+  capitalExpenditure: "capital expenditure", investmentsInPropertyPlantAndEquipment: "investment in property, plant and equipment",
+  depreciationAndAmortization: "depreciation and amortization", changeInWorkingCapital: "change in working capital", acquisitionsNet: "net acquisitions",
+  commonStockIssuance: "share issuance", commonStockRepurchased: "share repurchases", netDividendsPaid: "net dividends paid",
+  commonDividendsPaid: "common dividends paid", preferredDividendsPaid: "preferred dividends paid", stockBasedCompensation: "stock-based compensation",
+  financeLeasePrincipalPayments: "finance-lease principal payments", interestPaid: "interest paid", marketCap: "market cap",
+};
+
+const READER_FIELD_PATTERN = new RegExp(`(?<![\\w./:@-])(${Object.keys(READER_FIELD_LABELS).sort((a, b) => b.length - a.length).join("|")})(?![\\w/(@-]|\\.\\w)`, "g");
+
+/** Statement field identifiers in a recorded reason, in plain words (D-301). */
+export function plainFieldNames(text: string): string {
+  return text.replace(READER_FIELD_PATTERN, (name: string) => READER_FIELD_LABELS[name] ?? name);
+}
+
 /** A long manifest reason cut at a sentence or clause near 320 characters; the audit export keeps it whole. */
 function shortReason(reason: string): string {
   const limit = 320;
@@ -2527,14 +2594,14 @@ export function dataGapTables(c: Pick<ReportCompletenessPresentation, "classific
     tables.push({
       heading: "Data warnings and critical gaps",
       headers: ["Gap", "Severity", "Reason"],
-      rows: data.map((gap) => [gapLabel(gap), gap.severity, `${shortReason(displayProse(gap.reason, gap.key))}${gap.fields.length > 1 ? ` (${gap.fields.length} manifest entries)` : ""}`]),
+      rows: data.map((gap) => [gapLabel(gap), gap.severity, `${shortReason(plainFieldNames(displayProse(gap.reason, gap.key)))}${gap.fields.length > 1 ? ` (${gap.fields.length} manifest entries)` : ""}`]),
     });
   }
   if (k.processDisclosures.length > 0) {
     tables.push({
       heading: "Analysis-process disclosures",
       headers: ["Disclosure", "Detail"],
-      rows: k.processDisclosures.map((gap) => [gapLabel(gap), shortReason(displayProse(gap.reason, gap.key))]),
+      rows: k.processDisclosures.map((gap) => [gapLabel(gap), shortReason(plainFieldNames(displayProse(gap.reason, gap.key)))]),
       note: "How the analysis passes ran and what verification found; they are not missing data.",
     });
   }

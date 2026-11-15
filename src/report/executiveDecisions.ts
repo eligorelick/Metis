@@ -1,6 +1,7 @@
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { isFilingOrTranscriptSource } from "@/pipeline/stageC/consistency";
 import type { Executive, Leadership, ManagementAction, SourcedClaim, VerificationLogEntry } from "@/report/schema";
+import { withReaderText } from "@/report/verificationMarks";
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { PeriodContextSchema } from "@/types/periodContext";
 
@@ -236,7 +237,26 @@ export function executiveCardClaims(e: Executive, claims: SourcedClaim[], shared
   const eligible = e.grade === "not-assessed" && e.credibilityGrade === "not-assessed" ? claims.filter(c => c.label === "FACT") : claims;
   // Exact company-action duplicates remain in the shared chronology and audit.
   return eligible.filter(c => !sharedCompanyClaims.some(shared => shared.text === c.text && shared.label === c.label &&
-    citationSourceId(shared) === citationSourceId(c) && shared.asOf === c.asOf));
+    citationSourceId(shared) === citationSourceId(c) && shared.asOf === c.asOf)).map(c => withReaderText(c, companyRecordText(e.name, c.text)));
+}
+
+/** Reader wording that opens a company figure stated during an officer's tenure (D-302). */
+export const COMPANY_RECORD_PREFIX = "Company record during this tenure: ";
+
+/**
+ * D-302 (P18, P22; R35): a card statement written "<Officer name>: operating
+ * cash flow ... was ..." reads as the person's own figure. The prefix is the
+ * card's officer (every word of it is a word of the card's name, at least two
+ * words), so it is replaced by the company-record wording; the figure, its
+ * citation and its mark are unchanged. Any other statement is left as written.
+ */
+export function companyRecordText(officerName: string, text: string): string {
+  const match = /^([^:\n]{3,80}):\s+(\S[\s\S]*)$/.exec(text);
+  if (!match) return text;
+  const words = (value: string) => value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+  const name = new Set(words(officerName));
+  const prefix = words(match[1]!);
+  return prefix.length >= 2 && prefix.every(word => name.has(word)) ? `${COMPANY_RECORD_PREFIX}${match[2]!}` : text;
 }
 
 /** Read-time context only: retains original claims and never changes a saved grade or verification mark. */

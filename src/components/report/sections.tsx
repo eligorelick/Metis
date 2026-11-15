@@ -35,7 +35,6 @@ import {
   businessStoryBlocks,
   BUSINESS_BRIEF_HEADING,
   BRIEF_NOT_ESTABLISHED,
-  BRIEF_PART_NOT_ESTABLISHED,
   businessBrief,
   assessmentLine,
   auditExportPath,
@@ -531,7 +530,7 @@ export function BusinessBriefBlock({ report }: { report: Report }) {
         {none ? <p className="text-[11px] text-faint">{BRIEF_NOT_ESTABLISHED}</p> : parts.map(part => (
           <div key={part.key}>
             <div className="text-[11px] font-semibold text-fg">{part.heading}</div>
-            <ClaimList claims={part.claims} empty={BRIEF_PART_NOT_ESTABLISHED} repeats="show" />
+            <ClaimList claims={part.claims} empty={part.empty} repeats="show" />
           </div>
         ))}
       </div>

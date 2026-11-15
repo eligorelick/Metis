@@ -69,6 +69,23 @@ function filingLabel(ref: FilingRef): string {
   return `${ref.form}${ref.exhibit ? ` ${ref.exhibit}` : ""} filed ${ref.filingDate} (${ref.accession})`;
 }
 
+/**
+ * D-301 (P22; R29): one filing that states the same issuer free cash flow for
+ * the same period in two exhibits (an earnings release and its CFO commentary)
+ * is one figure, shown once with both exhibits named. Rows from different
+ * filings, periods or values are never merged.
+ */
+function issuerFcfRows(rows: FilingDisclosures["freeCashFlow"]): Array<{ row: FilingDisclosures["freeCashFlow"][number]; exhibits: string[] }> {
+  const out: Array<{ row: FilingDisclosures["freeCashFlow"][number]; exhibits: string[] }> = [];
+  for (const row of rows) {
+    const same = out.find(({ row: kept }) => kept.source.accession === row.source.accession && kept.source.form === row.source.form &&
+      kept.source.filingDate === row.source.filingDate && kept.periodEnd === row.periodEnd && kept.months === row.months && kept.value === row.value);
+    if (same === undefined) out.push({ row, exhibits: row.source.exhibit ? [row.source.exhibit] : [] });
+    else if (row.source.exhibit && !same.exhibits.includes(row.source.exhibit)) same.exhibits.push(row.source.exhibit);
+  }
+  return out;
+}
+
 function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
   if (d.guidance !== null && d.guidance.rows.length > 0) {
@@ -177,10 +194,10 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
   const fcf = d.freeCashFlow;
   const cr = d.capitalReturn;
   if (fcf.length > 0 || cr !== null || d.dividends) {
-    const rows: string[][] = fcf.map((f) => [
+    const rows: string[][] = issuerFcfRows(fcf).map(({ row: f, exhibits }) => [
       `Free cash flow (issuer definition), ${f.months === 3 ? "quarter" : `${f.months} months`} ended ${f.periodEnd}`,
       money(f.value, d.currency),
-      filingLabel(f.source),
+      filingLabel({ ...f.source, exhibit: exhibits.length > 1 ? `${exhibits.slice(0, -1).join(", ")} and ${exhibits.at(-1)}` : f.source.exhibit }),
     ]);
     if (cr !== null) {
       const src = filingLabel(cr.source);
