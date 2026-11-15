@@ -204,6 +204,15 @@ describe("golden:value-check", () => {
     expect(status).toBe(1);
   });
 
+  it("fails when either run has no cases (an empty panel checks nothing)", () => {
+    const empty = runCheck({}, { ...control });
+    expect(empty.stderr).toContain("the before run has no cases");
+    expect(empty.status).toBe(1);
+    const emptyAfter = runCheck({ ...control }, {});
+    expect(emptyAfter.stderr).toContain("the after run has no cases");
+    expect(emptyAfter.status).toBe(1);
+  });
+
   it("refuses an approval without a reason", () => {
     const { status, stderr } = runCheck({ ...control }, { ...control }, [{ case: "beta-data-only", decision: "D-900", reason: " " }]);
     expect(stderr).toContain("malformed value-move approval");

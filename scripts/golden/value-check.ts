@@ -153,6 +153,8 @@ export function checkValueMoves(
       throw new Error(`malformed value-move approval ${JSON.stringify(approval)}: case, decision and a reason are required`);
     }
   }
+  // An empty run checks nothing; it must never pass as "no value moved" (D-291).
+  if (before.size === 0 || after.size === 0) throw new Error(`the ${before.size === 0 ? "before" : "after"} run has no cases; nothing can be checked`);
   const used = new Set<ValueMoveApproval>();
   const rows: ValueMoveRow[] = [];
   const ids = [...new Set([...before.keys(), ...after.keys()])];
