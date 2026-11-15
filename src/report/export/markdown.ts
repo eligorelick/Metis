@@ -2,6 +2,7 @@ import { unavailableLiquidityTable } from "@/report/presentation";
 import { claimTag, FACT_STATUS_LEGEND, hasFactStatusMarks } from "@/report/verificationMarks";
 import { OFFICE_CONTEXT_LINK, GUIDANCE_CONTEXT_LINK } from "@/report/executiveDecisions";
 import { prepareReportForSurface } from "@/report/readerPreparation";
+import { supportBlock } from "@/report/supportLevel";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
 import { AI_BLOCK_CAPTION, isModelWrittenReport, macroDisplayRows, plainFigureReaderNote, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
@@ -84,7 +85,6 @@ import {
   businessStoryBlocks,
   BUSINESS_BRIEF_HEADING,
   BRIEF_NOT_ESTABLISHED,
-  BRIEF_PART_NOT_ESTABLISHED,
   businessBrief,
   scenarioReaderLists,
   SEPARATE_CONDITIONS_HEADING,
@@ -394,6 +394,12 @@ function renderHeader(report: Report): string {
   ].join("\n");
 }
 
+/** D-300 (R40): the support level and the confirmed share, near the top of the report. */
+function renderSupportBlock(report: Report): string {
+  const block = supportBlock(report, isModelWrittenReport(report));
+  return [`### ${block.heading}`, "", ...block.rows.map(([label, text]) => `- **${label}:** ${markdownListItem(text)}`), "", `_${markdownProse(block.note)}_`].join("\n");
+}
+
 /** The page-1 key-data box (audit P1-12); rows without inputs are omitted. */
 function renderKeyData(report: Report): string {
   const rows = keyDataRows(report);
@@ -437,7 +443,7 @@ function renderBusinessBrief(report: Report): string[] {
   const parts = businessBrief(report);
   if (parts.every(part => part.claims.length === 0)) return [`### ${BUSINESS_BRIEF_HEADING}`, "", markdownProse(BRIEF_NOT_ESTABLISHED), ""];
   return [`### ${BUSINESS_BRIEF_HEADING}`, "", ...parts.map(part => `- **${part.heading}:** ${part.claims.length === 0
-    ? markdownListItem(BRIEF_PART_NOT_ESTABLISHED)
+    ? markdownListItem(part.empty)
     : part.claims.map(c => `${markdownListItem(displayClaimText(c))} _(${markdownProse(claimCitation(c))})_${statusMarkSuffix(c)}`).join(" ")}`), ""];
 }
 
@@ -1082,6 +1088,7 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
     newerResultsBanner(report.filingDisclosures) ? blockquote(newerResultsBanner(report.filingDisclosures)!, "Newer results not reflected.") : "",
     newerFilingBanner(report.filingDisclosures) ? blockquote(newerFilingBanner(report.filingDisclosures)!, "Newer filing not reflected.") : "",
     hasFactStatusMarks(report) ? markdownProse(FACT_STATUS_LEGEND) : "",
+    renderSupportBlock(report),
     renderKeyData(report),
     // D-273 (P22): sections follow the shared manifest order, as in print and the app.
     ...REPORT_SECTION_MANIFEST.flatMap((section): string[] => {
