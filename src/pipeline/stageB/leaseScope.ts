@@ -126,6 +126,19 @@ export const LEASE_DEBT_LABELS: Readonly<Record<string, string>> = {
   financeLeases: "Recorded finance-lease observation",
 };
 
+/** D-294 review: inclusion is an attestation about the total's filed composition, not a lease observation. */
+export function debtCompositionDefinition(row: LeaseScopeRow | null | undefined): string | null {
+  const p = row?.fieldProvenance?.totalDebt;
+  if (!p || p.source !== "edgar" || !row?.date || !validAmount(row.totalDebt) || p.periodEnd !== row.date || p.periodStart != null ||
+      !row.reportedCurrency || p.unit !== row.reportedCurrency || !p.filings?.length ||
+      new Set(p.filings.map(f => f.accn)).size !== 1 || row.fieldConflicts?.totalDebt?.usable === false) return null;
+  if (p.tags.includes("us-gaap/OperatingLeaseLiability") || p.tags.includes("us-gaap/OperatingLeaseLiabilityCurrent") && p.tags.includes("us-gaap/OperatingLeaseLiabilityNoncurrent")) return "includes operating leases in the filed debt composition";
+  if (p.tags.some(t => /^us-gaap\/OperatingLeaseLiability(?:Current|Noncurrent)$/.test(t))) return "includes a filed operating-lease portion; full lease treatment is not established";
+  const borrowingTags = new Set([...tagsFor("shortTermBorrowings"),...tagsFor("longTermDebt"),"us-gaap/LongTermDebtNoncurrent","us-gaap/DebtCurrent","us-gaap/CommercialPaper"].map(t => t.includes("/") ? t : `us-gaap/${t}`));
+  if (p.tags.every(t=>borrowingTags.has(t)) && p.tags.includes("us-gaap/LongTermDebtNoncurrent") && p.tags.includes("us-gaap/DebtCurrent")) return "filed borrowing components exclude operating leases";
+  return null;
+}
+
 /** The caller supplies the adjustment its existing calculation actually made. */
 export function leaseEvidenceNote(row: LeaseScopeRow | null | undefined, action?: { removed: number | null; result?: number | null }): string {
   const e = classifyLeaseEvidence(row);
@@ -143,7 +156,9 @@ export function leaseEvidenceNote(row: LeaseScopeRow | null | undefined, action?
   const allUnverified = e.operating.coverage === "unverified" && e.finance.coverage === "unverified" && e.combined.coverage === "unverified";
   const scope = allUnverified ? "Operating, finance and combined lease coverage is unverified."
     : `${components}. Combined lease coverage is ${e.combined.coverage}${e.combined.verifiedZero ? "; both filed components and the compatible combined observation are exactly zero" : ""}.`;
-  const debtScope = e.operating.coverage === "complete" || e.finance.coverage === "complete" ? " Debt inclusion is not independently established." : "";
+  const composition = debtCompositionDefinition(row);
+  const debtScope = composition ? ` Debt composition: ${composition}.`
+    : e.operating.coverage === "complete" || e.finance.coverage === "complete" ? " Lease treatment is not established from the filing." : "";
   return `${displayDate}: ${observation}${scope}${debtScope}${applied}`;
 }
 

@@ -1374,11 +1374,21 @@ export function computeCapital(
 
 /** D-292 (P13, P20): describe the retained filed spending family without changing it. */
 export function capexDefinition(tags: readonly string[]): string | null {
-  return tags.some(tag => /Intangible/i.test(tag))
-    ? "cash spending on property, plant and equipment plus intangible assets; standardized FCF deducts this combined spending" : null;
+  if (tags.some(tag => /Intangible/i.test(tag))) return tags.some(tag => /PropertyPlantAndEquipment/i.test(tag))
+    ? "cash spending on property, plant and equipment plus intangible assets; standardized FCF deducts this combined spending"
+    : "cash spending on intangible assets only; standardized FCF deducts this spending";
+  if (tags.length === 1 && ["ifrs-full/PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities", "us-gaap/PaymentsToAcquirePropertyPlantAndEquipment"].includes(tags[0]!))
+    return "cash spending on property, plant and equipment only; standardized FCF deducts this spending";
+  return null;
 }
 
+export function sharedCapexDefinition(definitions: readonly (string | null | undefined)[]): string {
+  if (definitions.length === 0 || definitions.some(d => !d)) return "Cash-spending definition is not established for every period in this measure.";
+  return new Set(definitions).size === 1 ? definitions[0]! : "Cash-spending definitions differ across periods; see the annual rows.";
+}
 export const CAPEX_DEFINITION_FAMILIES = [
   ["ifrs-full/PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities", "ifrs-full/PurchaseOfIntangibleAssetsClassifiedAsInvestingActivities"],
   ["us-gaap/PaymentsToAcquirePropertyPlantAndEquipment", "us-gaap/PaymentsToAcquireIntangibleAssets"],
+  ["ifrs-full/PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"],
+  ["us-gaap/PaymentsToAcquirePropertyPlantAndEquipment"],
 ] as const;

@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.94.0** and
+Current source declares application **0.1.0**, report spec **1.95.0** and
 payload **1.108.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -29,7 +29,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Model-value move check and the LLY trace (P16, P17, P27, D-281, D-291) (2026-11-14)
 
-- D-292..D-295 (P3/P7/P8/P13/P15/P18/P20/P22): disclose combined PP&E/intangible spending, filed investment/liquidity and redeemable-minority scope, period-specific debt lease basis, ADS-equivalent counts and the model tangible-capital convention across report surfaces. Figures and scoring remain unchanged. R12's exact annual revenue-line definition remains an open release blocker pending retained filed proof.
+- D-292..D-295 (P3/P7/P8/P13/P15/P18/P20/P22): disclose combined PP&E/intangible spending, filed investment/liquidity and redeemable-minority scope, period-specific debt lease basis, ADS-equivalent counts and the model tangible-capital convention across report surfaces. Figures and scoring remain unchanged. Unreconciled annual provider revenue is distinguished from the captured filed total under the lead's R12 decision.
 
 - New `npm run golden:value-check BEFORE AFTER`: prints every golden case's model value before and after with its percentage move, and fails when a value moves more than 10% either way (the owner's limit), appears, disappears or changes unit, unless an approval names a decision entry that names the company (D-291, R43). Documented beside golden:diff in docs/OPERATIONS.md.
 - D-281 records the exact bridge of the Eli Lilly model value from 518.37 (#63) to 739.34 (#65): +143.71 from the D-260/D-267 date-consistency correction, +77.11 from the four-year terminal-return rule after D-268 admitted FY2025's return, +0.15 from the September short-term investments; zero residual, no remaining error (R42). The terminal-return switch is a disclosed house convention.

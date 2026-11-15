@@ -3370,9 +3370,10 @@ export function removeVerifierOwnedRequestFields<T>(schema: T): T {
       ) {
         delete props.verified;
         delete props.verificationNote;
+        delete props.definition;
         if (Array.isArray(obj.required)) {
           obj.required = (obj.required as string[]).filter(
-            (key) => key !== "verified" && key !== "verificationNote",
+            (key) => key !== "verified" && key !== "verificationNote" && key !== "definition",
           );
         }
       }

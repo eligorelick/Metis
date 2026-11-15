@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "cac252e2a3906df034d44b4cfab197cd5051c05bdaf7da68d8f950c0fb28258c",
+  "projectionSha256": "e20f759614e7ebf9c5bb56562c60da777fafa4cadee8d3311bc96cf6d90463cb",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
     "stageB": {
@@ -2095,7 +2095,7 @@
         "symbol": "DEMO",
         "companyName": "Thesis Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
-        "specVersion": "1.94.0",
+        "specVersion": "1.95.0",
         "model": "synthetic-fixture",
         "pipelineVersion": "audit-fixture-comparison",
         "evidenceContract": "EVIDENCE_CONTRACT_1",
@@ -2519,7 +2519,7 @@
           ],
           "numbers": [
             {"value": -0.29, "unit": "x", "source": "computed.capital.netDebtToEbitda", "asOf": "2025-12-31", "verified": true},
-            {"value": 1200000000, "unit": "currency", "currency": "USD", "period": "2025-12-31", "sourceId": "computed.capital.current.debtBridge.totalDebtIncludingLeases", "source": "computed.capital.current.debtBridge.totalDebtIncludingLeases", "asOf": "2025-12-31", "verified": true},
+            {"value": 1200000000, "unit": "currency", "currency": "USD", "period": "2025-12-31", "sourceId": "computed.capital.current.debtBridge.totalDebtIncludingLeases", "source": "computed.capital.current.debtBridge.totalDebtIncludingLeases", "asOf": "2025-12-31", "verified": true, "definition": "lease treatment not established from the filing"},
             {"value": 2500000000, "unit": "currency", "currency": "USD", "period": "2025-12-31", "sourceId": "computed.capital.current.debtBridge.cashAndShortTermInvestments", "source": "computed.capital.current.debtBridge.cashAndShortTermInvestments", "asOf": "2025-12-31", "verified": true},
             {"value": -1300000000, "unit": "currency", "currency": "USD", "period": "2025-12-31", "sourceId": "computed.capital.current.debtBridge.netDebtIncludingLeases", "source": "computed.capital.current.debtBridge.netDebtIncludingLeases", "asOf": "2025-12-31", "verified": true}
           ]
@@ -2537,10 +2537,40 @@
           "numbers": [
             {"value": 16.67, "unit": "x", "source": "computed.capital.interestCoverage", "asOf": "2025-12-31", "verified": true},
             {"value": 2400000000, "unit": "currency", "currency": "USD", "period": "annual: 2025-01-01 to 2025-12-31", "sourceId": "computed.capital.current.cashBridge.operatingCashFlow", "source": "computed.capital.current.cashBridge.operatingCashFlow", "asOf": "2025-12-31", "verified": true},
-            {"value": -600000000, "unit": "currency", "currency": "USD", "period": "annual: 2025-01-01 to 2025-12-31", "sourceId": "computed.capital.current.cashBridge.cashCapitalExpenditure", "source": "computed.capital.current.cashBridge.cashCapitalExpenditure", "asOf": "2025-12-31", "verified": true},
-            {"value": 1800000000, "unit": "currency", "currency": "USD", "period": "annual: 2025-01-01 to 2025-12-31", "sourceId": "computed.capital.current.cashBridge.standardizedFcf", "source": "computed.capital.current.cashBridge.standardizedFcf", "asOf": "2025-12-31", "verified": true},
+            {
+              "value": -600000000,
+              "unit": "currency",
+              "currency": "USD",
+              "period": "annual: 2025-01-01 to 2025-12-31",
+              "sourceId": "computed.capital.current.cashBridge.cashCapitalExpenditure",
+              "source": "computed.capital.current.cashBridge.cashCapitalExpenditure",
+              "asOf": "2025-12-31",
+              "verified": true,
+              "definition": "Cash-spending definition is not established for this period."
+            },
+            {
+              "value": 1800000000,
+              "unit": "currency",
+              "currency": "USD",
+              "period": "annual: 2025-01-01 to 2025-12-31",
+              "sourceId": "computed.capital.current.cashBridge.standardizedFcf",
+              "source": "computed.capital.current.cashBridge.standardizedFcf",
+              "asOf": "2025-12-31",
+              "verified": true,
+              "definition": "Cash-spending definition is not established for this period."
+            },
             {"value": 250000000, "unit": "currency", "currency": "USD", "period": "annual: 2025-01-01 to 2025-12-31", "sourceId": "computed.capital.current.cashBridge.stockBasedCompensation", "source": "computed.capital.current.cashBridge.stockBasedCompensation", "asOf": "2025-12-31", "verified": true},
-            {"value": 1550000000, "unit": "currency", "currency": "USD", "period": "annual: 2025-01-01 to 2025-12-31", "sourceId": "computed.capital.current.cashBridge.afterSbcStandardizedFcf", "source": "computed.capital.current.cashBridge.afterSbcStandardizedFcf", "asOf": "2025-12-31", "verified": true},
+            {
+              "value": 1550000000,
+              "unit": "currency",
+              "currency": "USD",
+              "period": "annual: 2025-01-01 to 2025-12-31",
+              "sourceId": "computed.capital.current.cashBridge.afterSbcStandardizedFcf",
+              "source": "computed.capital.current.cashBridge.afterSbcStandardizedFcf",
+              "asOf": "2025-12-31",
+              "verified": true,
+              "definition": "Cash-spending definition is not established for this period."
+            },
             {"value": -0.4642857142857143, "unit": "x", "currency": null, "period": "annual: 2025-01-01 to 2025-12-31", "sourceId": "computed.capital.current.netDebtToEbitda", "source": "computed.capital.current.netDebtToEbitda", "asOf": "2025-12-31", "verified": true},
             {"value": 16.666666666666668, "unit": "x", "currency": null, "period": "annual: 2025-01-01 to 2025-12-31", "sourceId": "computed.capital.current.interestCoverage", "source": "computed.capital.current.interestCoverage", "asOf": "2025-12-31", "verified": true},
             {"value": 1.0285714285714285, "unit": "x", "currency": null, "period": "annual: 2025-01-01 to 2025-12-31", "sourceId": "computed.capital.current.fcfConversionBeforeSbc", "source": "computed.capital.current.fcfConversionBeforeSbc", "asOf": "2025-12-31", "verified": true},

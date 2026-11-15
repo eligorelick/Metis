@@ -56,7 +56,7 @@ describe("D-292 figure definitions from filed families", () => {
   it("names combined tangible/intangible spending, including foreign concepts, and leaves PP&E alone unchanged", () => {
     expect(capexDefinition(["ifrs-full/PurchaseOfPropertyPlantAndEquipmentAndIntangibleAssets"])).toContain("property, plant and equipment plus intangible assets");
     expect(capexDefinition(["issuer/PaymentsToAcquireIntangibleAssets"])).toContain("intangible assets");
-    expect(capexDefinition(["us-gaap/PaymentsToAcquirePropertyPlantAndEquipment"])).toBeNull();
+    expect(capexDefinition(["us-gaap/PaymentsToAcquirePropertyPlantAndEquipment"])).toContain("property, plant and equipment only");
   });
   it("names the admitted investment family without claiming complete coverage", () => {
     expect(investmentDefinition(["us-gaap/LongTermInvestmentsAndReceivablesNet"])).toContain("advances and long-term receivables");
@@ -70,14 +70,14 @@ describe("D-292 figure definitions from filed families", () => {
     expect(liquidityDefinition(["us-gaap/CashCashEquivalentsAndShortTermInvestments"])).toBeNull();
   });
   it("prints a code-owned definition beside a figure and states the model bank convention", () => {
-    expect(figureRow({value:10,unit:"currency",source:"computed.capital.capexIntensity",asOf:null,verified:true,definition:"property, plant and equipment plus intangible assets"}).label).toContain("property, plant and equipment plus intangible assets");
-    expect(MODEL_TANGIBLE_COMMON_BASIS).toContain("mortgage servicing rights");
-    expect(MODEL_TANGIBLE_COMMON_BASIS).toContain("diluted shares");
+    expect(figureRow({value:10,unit:"currency",source:"computed.capital.capexIntensity",asOf:null,verified:true,definition:"property, plant and equipment plus intangible assets"}).trace.definition).toContain("property, plant and equipment plus intangible assets");
+    expect(MODEL_TANGIBLE_COMMON_BASIS).toContain("provider's goodwill and intangible-asset fields");
+    expect(MODEL_TANGIBLE_COMMON_BASIS).toContain("not checked against the filing");
   });
 });
 
 import { filedDefinitionMatches, type CompanyFacts } from "@/edgar/xbrl";
-import { debtDefinition } from "@/pipeline/stageB/netDebt";
+import { debtCompositionDefinition } from "@/pipeline/stageB/leaseScope";
 import { applyFigureDefinitions } from "@/report/financialDiagnostics";
 import type { DataBundle } from "@/pipeline/types";
 import { valuationAuditTables } from "@/report/auditTables";
@@ -97,16 +97,18 @@ describe("D-293/294 definition identity and bridge rendering", () => {
     expect(filedDefinitionMatches(facts(),"USD","2025-12-31",23,"2026-03-01",[["ifrs-full/PPE","ifrs-full/Intangible"]],true)).toEqual([]);
   });
   it("states debt scope from affirmative tags, and does not infer exclusions from a vendor zero", () => {
-    expect(debtDefinition(["us-gaap/OperatingLeaseLiabilityCurrent"])).toBe("includes operating leases");
-    expect(debtDefinition(["us-gaap/LongTermDebtNoncurrent","us-gaap/DebtCurrent"])).toContain("operating leases excluded");
-    expect(debtDefinition([])).toContain("not independently established");
+    const row = {date:"2025-12-31",reportedCurrency:"USD",totalDebt:30,fieldProvenance:{totalDebt:{source:"edgar",unit:"USD",periodEnd:"2025-12-31",periodStart:null,filings:[{accn:"one"}],tags:["us-gaap/OperatingLeaseLiabilityCurrent","us-gaap/OperatingLeaseLiabilityNoncurrent"]}}};
+    expect(debtCompositionDefinition(row)).toContain("includes operating leases");
+    expect(debtCompositionDefinition({...row,fieldProvenance:undefined})).toBeNull();
+    expect(debtCompositionDefinition({...row,date:"2026-01-01"})).toBeNull();
+    expect(debtCompositionDefinition({...row,fieldProvenance:{totalDebt:{...row.fieldProvenance.totalDebt,tags:["us-gaap/LongTermDebt"]}}})).toBeNull();
   });
   it("labels each debt history row from its source period, preserving values and report schema", () => {
     const r = report();
     r.balanceSheet.debtProfile.numbers = [{value:23,unit:"currency",source:"payload.statements.balance-sheet-annual.2025-12-31.total-debt",asOf:"2026-09-30",verified:true}];
     const b = {symbol:"TEST",builtAt:"2026-11-01",statements:Object.fromEntries(["balanceAnnual","balanceQuarterly","incomeAnnual","incomeQuarterly","cashflowAnnual","cashflowQuarterly"].map(k=>[k,{ok:true,value:{data:{rows:k === "balanceAnnual" ? [{date:"2025-12-31",totalDebt:23,fieldProvenance:{totalDebt:{tags:["us-gaap/OperatingLeaseLiabilityCurrent"]}}}] : []}}}]))} as unknown as DataBundle;
     applyFigureDefinitions(r,b);
-    expect(figureRow(r.balanceSheet.debtProfile.numbers[0]!).label).toContain("includes operating leases");
+    expect(figureRow(r.balanceSheet.debtProfile.numbers[0]!).trace.definition).toBe("lease treatment not established from the filing");
     expect(r.balanceSheet.debtProfile.numbers[0]!.value).toBe(23);
     expect(ReportSchema.safeParse(r).success).toBe(true);
   });
@@ -130,5 +132,120 @@ it("keeps definition decoration out of provisional numeric verification (D-295)"
   const provisional=applyFinancialDiagnostics(r,{} as ComputedMetrics,bundle,{pendingVerification:true});
   expect(provisional.fundamentals.returns[0]!.label).toBe("Return on tangible common equity");
   expect(provisional.fundamentals.returns[0]!.values[0]!.value.definition).toBeUndefined();
-  expect(applyFinancialDiagnostics(r,{} as ComputedMetrics,bundle).fundamentals.returns[0]!.label).toContain("Model tangible common equity");
+  expect(applyFinancialDiagnostics(r,{} as ComputedMetrics,bundle).fundamentals.returns[0]!.values[0]!.value.definition).toContain("Model tangible equity");
+});
+
+import { sharedCapexDefinition } from "@/pipeline/stageB/capital";
+import { annualRevenueDefinition } from "@/pipeline/stageB/valuation";
+import { normalizeJudgeOutput } from "@/pipeline/stageC/passes";
+import { analystCaseToJsonSchema, judgeOutputToJsonSchema } from "@/report/schema";
+import { leaseEvidenceNote } from "@/pipeline/stageB/leaseScope";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { TracedStat } from "@/components/report/primitives";
+import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToPrintHtml } from "@/report/export/printHtml";
+
+describe("D-292..D-295 review: definitions are bounded, pipeline-owned presentation", () => {
+  const emptyBundle = {symbol:"TEST",builtAt:"2026-11-01"} as DataBundle;
+  it("accepts legacy bundles without statements and leaves the scoring object unchanged, including aliases", () => {
+    const r=report();
+    const before=structuredClone(r.scores);
+    applyFigureDefinitions(r,emptyBundle);
+    expect(r.scores).toEqual(before);
+    expect(ReportSchema.safeParse(r).success).toBe(true);
+  });
+  it("removes numeric definitions from every model-facing wire schema and strips attempted model definitions", () => {
+    const walk=(o:unknown):void => {
+      if (!o || typeof o !== "object") return;
+      const obj=o as Record<string,unknown>;
+      if (obj.properties && typeof obj.properties === "object") {
+        const p=obj.properties as Record<string,unknown>;
+        if ("value" in p && "unit" in p && "source" in p) expect(p).not.toHaveProperty("definition");
+      }
+      Object.values(obj).forEach(walk);
+    };
+    walk(judgeOutputToJsonSchema()); walk(analystCaseToJsonSchema());
+    const n={value:1,unit:"USD",source:"computed.test",asOf:null,definition:"model invented this"};
+    expect(normalizeJudgeOutput({fundamentals:{graded:{keyNumbers:[n]}}})).not.toHaveProperty("fundamentals.graded.keyNumbers[0].definition");
+  });
+  it("does not describe a combined investment inventory as equity-method only", () => {
+    const mixed=investmentDefinition(["us-gaap/EquityMethodInvestments","us-gaap/AvailableForSaleSecuritiesDebtSecuritiesNoncurrent","us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount"]);
+    expect(mixed).toContain("noncurrent debt securities"); expect(mixed).toContain("nonmarketable equity securities"); expect(mixed).not.toContain("only");
+    expect(investmentDefinition(["us-gaap/EquityMethodInvestments"])).toContain("only");
+  });
+  it("attaches the short provider-field convention to the exact tangible TTM source, never common-equity ROE or intangible assets", () => {
+    const r=report();
+    const num=(source:string)=>({value:23,unit:"%",source,asOf:"2025-12-31",verified:true});
+    r.balanceSheet.coverage.numbers=[num("computed.returns.commonReturnTtm"),num("computed.returns.intangibleAssets")];
+    const original=structuredClone(r);
+    applyFigureDefinitions(r,emptyBundle,{returns:{commonReturnTtm:{basis:"tangible-common-equity"}}} as ComputedMetrics);
+    expect(r.balanceSheet.coverage.numbers[0]!.definition).toBe(MODEL_TANGIBLE_COMMON_BASIS);
+    expect(r.balanceSheet.coverage.numbers[1]!.definition).toBeUndefined();
+    applyFigureDefinitions(original,emptyBundle,{returns:{commonReturnTtm:{basis:"common-equity"}}} as ComputedMetrics);
+    expect(original.balanceSheet.coverage.numbers[0]!.definition).toBeUndefined();
+    expect(MODEL_TANGIBLE_COMMON_BASIS).not.toMatch(/mortgage|deferred-tax|diluted|bank/i);
+  });
+  it("uses one proven definition only for uniform periods, and discloses mixed and unproved histories", () => {
+    const combined=capexDefinition(["ifrs-full/PurchaseOfPropertyPlantAndEquipmentAndIntangibleAssets"]);
+    const ppe=capexDefinition(["ifrs-full/PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"]);
+    expect(sharedCapexDefinition([combined,combined])).toBe(combined);
+    expect(sharedCapexDefinition([combined,ppe])).toContain("differ across periods");
+    expect(sharedCapexDefinition([combined,null])).toContain("not established for every period");
+  });
+  it("keeps producer labels and renders a separate wrapping definition on app, Markdown and print", () => {
+    const n={value:10,unit:"currency",source:"computed.current-capital.total-debt-including-leases",asOf:null,verified:true,definition:"lease treatment not established from the filing"};
+    expect(figureRow(n).label).toBe("Debt used in this report");
+    const html=renderToStaticMarkup(createElement(TracedStat,{label:figureRow(n).label,n}));
+    expect(html).toContain("block whitespace-normal break-words"); expect(html).toContain(n.definition);
+    const r=report();r.balanceSheet.debtProfile.numbers=[n];
+    expect(reportToMarkdown(r)).toContain(n.definition); expect(reportToPrintHtml(r)).toContain(n.definition);
+    expect(reportToMarkdown(r)).toContain("| Debt used in this report | ");
+  });
+  it("renders per-period definitions without concatenating into stored metric labels, and is idempotent", () => {
+    const r=report();r.fundamentals.returns=[{label:"Return on tangible common equity",values:[{period:"2025-12-31",value:{value:20,unit:"%",source:"computed.returns.rote",asOf:"2025-12-31",verified:true}}]}];
+    applyFigureDefinitions(r,emptyBundle);const once=structuredClone(r);applyFigureDefinitions(r,emptyBundle);
+    expect(r).toEqual(once);expect(r.fundamentals.returns[0]!.label).toBe("Return on tangible common equity");
+    expect(reportToMarkdown(r)).toContain(MODEL_TANGIBLE_COMMON_BASIS);
+  });
+  it("uses the same filed debt composition for the label and lease note, with unknown and wrong-period controls", () => {
+    const row={date:"2025-12-31",reportedCurrency:"USD",totalDebt:30,fieldProvenance:{totalDebt:{source:"edgar",unit:"USD",periodEnd:"2025-12-31",periodStart:null,filings:[{accn:"one"}],tags:["us-gaap/OperatingLeaseLiabilityCurrent","us-gaap/OperatingLeaseLiabilityNoncurrent"]}}};
+    expect(leaseEvidenceNote(row)).toContain(debtCompositionDefinition(row)!);
+    expect(leaseEvidenceNote(row)).not.toContain("Debt inclusion is not independently established");
+    expect(debtCompositionDefinition({...row,date:"2026-01-01"})).toBeNull();
+    expect(leaseEvidenceNote(null)).toContain("lease coverage is unverified");
+  });
+  it("labels the quote share count as well as the divisor in ADS units", () => {
+    const dcf=report().valuation.dcf;dcf.bridge={enterpriseValue:100,netDebt:10,minorityInterest:0,preferredEquity:0,equityValue:90,dilutedShares:10,presentValueExplicit:50,presentValueTerminal:50,currency:"USD",asOf:"2025-12-31",sharesOutstandingAtQuote:10,shareUnit:"ADS-equivalent"};
+    const rows=valuationAuditTables(dcf).flatMap(t=>t.rows);
+    expect(rows.find(r=>r[0]!.startsWith("Shares outstanding at the quote"))?.[0]).toContain("ADS-equivalent");
+  });
+  it("discloses an unmatched annual provider line beside the exact same-filing total, with P8, period and captured-line controls", () => {
+    const point={start:"2025-01-01",end:"2025-12-31",val:2200,accn:"one",filed:"2026-02-01",form:"10-K"};
+    const facts:CompanyFacts={cik:1,entityName:"Example",facts:{"us-gaap":{Revenues:{units:{USD:[point]}}}}};
+    const row={date:"2025-12-31",revenue:2000,reportedCurrency:"USD",filingDate:"2026-02-01"};
+    expect(annualRevenueDefinition(row,facts,"2026-11-01")).toBe("provider revenue line, not reconciled to a filed line; filed total revenues for FY2025 were 2,200 USD (10-K one)");
+    expect(annualRevenueDefinition({...row,revenue:2200.1},facts,"2026-11-01")).toBeNull();
+    expect(annualRevenueDefinition({...row,filingDate:"2026-03-01"},facts,"2026-11-01")).toBeNull();
+    facts.facts["us-gaap"]!.SalesRevenueNet={units:{USD:[{...point,val:2000}]}};
+    expect(annualRevenueDefinition(row,facts,"2026-11-01")).toBeNull();
+  });
+});
+
+import { displayClaimText } from "@/report/presentation";
+it("names the ADS basis beside a uniquely cited share-count claim without rewriting its value or verification (D-294)", () => {
+  const source="payload.statements.income-statement-annual.2025-12-31.diluted-shares";
+  const claim={text:"Diluted weighted-average shares were 5.19 billion.",label:"FACT" as const,source,asOf:"2025-12-31"};
+  const n={value:5.19e9,unit:"shares",source,asOf:"2025-12-31",verified:false,definition:"ADS-equivalent shares"};
+  expect(displayClaimText(claim,[n])).toContain(`${claim.text} [Cited share-count basis: ADS-equivalent shares.]`);
+  expect(n.verified).toBe(false);
+  expect(displayClaimText(claim,[{...n,asOf:"2024-12-31"}])).toBe(claim.text);
+});
+
+it("does not apply a latest-period definition to an ambiguous capex-family or CAGR source (D-292)", () => {
+  const r=report();
+  r.balanceSheet.capexTrajectory.numbers=[{value:10,unit:"%",source:"computed.capital.capexIntensity",asOf:"2025-12-31",period:null,verified:true}];
+  const b={symbol:"TEST",builtAt:"2026-11-01",statements:{cashflowAnnual:{ok:true,value:{data:{rows:[{date:"2025-12-31",capitalExpenditure:-10,fieldProvenance:{capitalExpenditure:{tags:["us-gaap/PaymentsToAcquirePropertyPlantAndEquipment","us-gaap/PaymentsToAcquireIntangibleAssets"]}}}]}}}}} as unknown as DataBundle;
+  applyFigureDefinitions(r,b);
+  expect(r.balanceSheet.capexTrajectory.numbers[0]!.definition).toContain("not established for every period");
 });

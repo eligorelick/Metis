@@ -539,7 +539,7 @@ export function figureValueText(n: Pick<TracedNumber, "value" | "unit" | "curren
 export function figureRow(n: TracedNumber, label?: string): FigureRow {
   const period = tracedPeriodLabel(n.period, n.periodContext).replace(/^not supplied; /, "");
   return {
-    label: `${label ?? (n.definition && /totalDebtIncludingLeases|total-debt-including-leases/.test(n.source) ? "Total debt" : metricLabel(n.source, n.unit))}${n.definition ? ` (${n.definition})` : ""}`,
+    label: label ?? metricLabel(n.source,n.unit),
     value: figureValueText(n),
     period: period === "not supplied" ? null : period,
     asOf: n.asOf,
@@ -2034,7 +2034,11 @@ export function displayProse(text: string, source?: string): string {
  * stays raw and retains the report's existing verification disclosures.
  */
 export function displayClaimText(claim: SourcedClaim, numbers: readonly TracedNumber[] = []): string {
-  const text = displayProse(claim.text, claim.source);
+  let text = displayProse(claim.text, claim.source);
+  // D-294 review: name a proved quoted-share unit beside its uniquely cited count, without validating the claim.
+  const shares = numbers.filter(n => n.source === claim.source && n.asOf === claim.asOf &&
+    (claim.sourceId === undefined || n.sourceId === claim.sourceId) && n.definition === "ADS-equivalent shares");
+  if (shares.length === 1) text += " [Cited share-count basis: ADS-equivalent shares.]";
   if (!isRatioAsPercent(claim.source) || /(?:abs|absolute)$/i.test(claim.source)) return text;
   const matches = numbers.filter(n => n.source === claim.source &&
     (claim.sourceId === undefined || n.sourceId === claim.sourceId));

@@ -1,10 +1,11 @@
+import { debtCompositionDefinition } from "@/pipeline/stageB/leaseScope";
 import { successorContinuity } from "@/edgar/successor";
 import { quotedShareUnit } from "@/pipeline/shareUnits";
 import { MINORITY_DEFINITION_FAMILIES, REDEEMABLE_MINORITY_DEFINITION } from "@/pipeline/stageB/seniorClaims";
 import { predecessorFactsFor } from "@/pipeline/stageB/debtLikeObligations";
-import { capexDefinition, CAPEX_DEFINITION_FAMILIES } from "@/pipeline/stageB/capital";
-import { liquidityDefinition, LIQUIDITY_DEFINITION_FAMILIES, debtDefinition, DEBT_DEFINITION_FAMILIES } from "@/pipeline/stageB/netDebt";
-import { investmentDefinition, INVESTMENT_DEFINITION_FAMILIES, revenueDefinition, REVENUE_DEFINITION_FAMILIES } from "@/pipeline/stageB/valuation";
+import { capexDefinition, sharedCapexDefinition, CAPEX_DEFINITION_FAMILIES } from "@/pipeline/stageB/capital";
+import { liquidityDefinition, LIQUIDITY_DEFINITION_FAMILIES } from "@/pipeline/stageB/netDebt";
+import { investmentDefinition, INVESTMENT_DEFINITION_FAMILIES, revenueDefinition, annualRevenueDefinition, REVENUE_DEFINITION_FAMILIES } from "@/pipeline/stageB/valuation";
 import { MODEL_TANGIBLE_COMMON_BASIS } from "@/pipeline/stageB/returns";
 import { filedDefinitionMatches } from "@/edgar/xbrl";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
@@ -202,78 +203,120 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
   // filing context as verification; neither trusts a model-authored reason.
   next.leadership = assessExecutiveEvidence(next.leadership,next.appendix.verificationLog ?? [],options.pendingVerification,
     options.executiveEvidence);
-  if (bundle && !options.pendingVerification) applyFigureDefinitions(next, bundle);
+  if (bundle && !options.pendingVerification) applyFigureDefinitions(next, bundle, computed);
   return next;
 }
 
 /** D-292..D-295: code-owned definitions accompany both data-only and analyst figures. */
-export function applyFigureDefinitions(report: Report, bundle: DataBundle): void {
+export function applyFigureDefinitions(report: Report, bundle: DataBundle, computed?: ComputedMetrics): void {
+  if (report.scores) report.scores = structuredClone(report.scores); // break aliases with displayed key numbers
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const predecessor = bundle.edgar?.predecessor && facts ? { ...bundle.edgar.predecessor, continuity: successorContinuity(facts,bundle.edgar.predecessor.facts) !== null } : null;
   const rows = (kind: keyof Pick<DataBundle["statements"], "incomeAnnual" | "incomeQuarterly" | "balanceAnnual" | "balanceQuarterly" | "cashflowAnnual" | "cashflowQuarterly">): FmpStatementRow[] => {
-    const result = bundle.statements[kind];
-    return result.ok ? result.value.data.rows : [];
+    const result = bundle.statements?.[kind];
+    return result?.ok ? result.value.data.rows : [];
   };
-  const income = [...rows("incomeQuarterly"), ...rows("incomeAnnual")];
-  const cashflow = [...rows("cashflowQuarterly"), ...rows("cashflowAnnual")];
+  const annualCash = rows("cashflowAnnual");
+  const income = rows("incomeAnnual");
+  const cashflow = [...rows("cashflowQuarterly"), ...annualCash];
   const balance = [...rows("balanceAnnual"), ...rows("balanceQuarterly")];
-  const definition = (row: FmpStatementRow, field: string, groups: readonly (readonly string[])[], annual = false): string[] =>
-    row.fieldProvenance?.[field]?.tags ?? filedDefinitionMatches(facts, typeof row.reportedCurrency === "string" ? row.reportedCurrency : null,
-      row.date ?? "", Number(row[field]), bundle.builtAt, groups, annual).concat(filedDefinitionMatches(
-      predecessorFactsFor(facts, bundle.edgar?.predecessor && facts ? { ...bundle.edgar.predecessor, continuity: successorContinuity(facts,bundle.edgar.predecessor.facts) !== null } : null, row.date ?? null, typeof row.reportedCurrency === "string" ? row.reportedCurrency : null, bundle.builtAt),
-      typeof row.reportedCurrency === "string" ? row.reportedCurrency : null, row.date ?? "", Number(row[field]), bundle.builtAt, groups, annual));
-  const capexByDate = new Map(cashflow.map(row => [row.date, capexDefinition(definition(row,"capitalExpenditure", CAPEX_DEFINITION_FAMILIES,true))]));
-  const revenueByDate = new Map(income.map(row => [row.date, revenueDefinition(definition(row,"revenue",REVENUE_DEFINITION_FAMILIES,true))]));
+  const predecessorFor = (row: FmpStatementRow) => predecessorFactsFor(facts, predecessor,row.date ?? null, typeof row.reportedCurrency === "string" ? row.reportedCurrency : null,bundle.builtAt);
+  const definition = (row: FmpStatementRow, field: string, groups: readonly (readonly string[])[], annual: boolean | "quarterly" = false): string[] => {
+    if (typeof row[field] !== "number") return [];
+    return row.fieldProvenance?.[field]?.tags ?? filedDefinitionMatches(facts, typeof row.reportedCurrency === "string" ? row.reportedCurrency : null,
+      row.date ?? "", Number(row[field]), bundle.builtAt, groups, annual).concat(filedDefinitionMatches(predecessorFor(row),
+      typeof row.reportedCurrency === "string" ? row.reportedCurrency : null,row.date ?? "",Number(row[field]),bundle.builtAt,groups,annual));
+  };
+  const quarterCapexByDate = new Map(rows("cashflowQuarterly").map(row => [row.date,capexDefinition(definition(row,"capitalExpenditure",CAPEX_DEFINITION_FAMILIES,"quarterly"))]));
+  const capexByDate = new Map(cashflow.map(row => [row.date, capexDefinition(definition(row,"capitalExpenditure",CAPEX_DEFINITION_FAMILIES,true))]));
+  const revenueByDate = new Map(income.map(row => [row.date, revenueDefinition(definition(row,"revenue",REVENUE_DEFINITION_FAMILIES,true)) ??
+    annualRevenueDefinition(row,facts,bundle.builtAt) ?? annualRevenueDefinition(row,predecessorFor(row),bundle.builtAt)]));
   const cashByDate = new Map(balance.map(row => [row.date, liquidityDefinition(definition(row,"cashAndShortTermInvestments",LIQUIDITY_DEFINITION_FAMILIES))]));
   const investmentsByDate = new Map(balance.map(row => [row.date, investmentDefinition(definition(row,"longTermInvestments",INVESTMENT_DEFINITION_FAMILIES))]));
+  const shareUnit = quotedShareUnit(bundle);
+  const tangibleTtm = computed?.returns?.commonReturnTtm?.basis === "tangible-common-equity";
+  const tangibleBook = report.routeMetrics?.route === "bank" || computed?.valuation?.kind === "excess-return" && computed.valuation.excessReturn.scenarioEvidence?.bookValueBasis === "tangible-common-equity";
+  const bankTangibleSources = new Set([
+    "computed.bank-capital-credit-and-funding.held-to-maturity-loss-after-tax-tangible-common-equity",
+    "computed.bank-capital-credit-and-funding.tangible-common-equity-tangible-assets",
+    "computed.bank-capital-credit-and-funding.tangible-common-equity-tangible-assets-with-held-to-maturity-losses-marked",
+  ]);
+  const capexSources = new Set(["computed.capital.capexIntensity","computed.capital.maintenanceVsGrowthCapex","computed.capital.fcf",
+    "computed.capital.fcf.beforeSbc","computed.capital.fcf.conversion","computed.capital.fcf.conversionBeforeSbc",
+    "computed.capital-cash.capex-revenue-latest","computed.capital-cash.capex-revenue-slope","computed.capital-cash.capex-d-a-latest",
+    "computed.capital-cash.latest-fcf-after-sbc-house-default","computed.growth.fcfCagrs"]);
+  const currentCapexSources = new Set(["computed.capital.current.cashBridge.cashCapitalExpenditure","computed.capital.current.cashBridge.standardizedFcf",
+    "computed.capital.current.cashBridge.afterSbcStandardizedFcf","computed.capital.current.cashBridge.leaseAdjustedFcf",
+    "computed.current-capital.cash-capital-expenditure","computed.current-capital.standardized-fcf","computed.current-capital.after-sbc-standardized-fcf","computed.current-capital.lease-adjusted-fcf"]);
+  const quarterlyFcf = /^computed\.quarterly-trend\.free-cash-flow-operating-cash-flow-less-capex-quarter-ended-\d{4}-\d{2}-\d{2}$/;
+  const capexBasis = (n: TracedNumber,date: string): string => {
+    if (currentCapexSources.has(n.source) && computed?.capital?.current?.basis === "ttm") {
+      const start = computed.capital.current.periodStart;
+      const dates = [...quarterCapexByDate.keys()].filter((d):d is string => !!d && !!start && d > start && d <= date);
+      return dates.length === 4 ? sharedCapexDefinition(dates.map(d=>quarterCapexByDate.get(d))) : sharedCapexDefinition([]);
+    }
+    if (quarterlyFcf.test(n.source) || /^payload\.statements\.cash-flow-quarterly\./.test(n.source)) return quarterCapexByDate.get(date) ?? "Cash-spending definition is not established for this period.";
+    const years = /^(\d+)y$/.exec(n.period ?? ""), average = /, (\d+)y average$/.exec(n.period ?? "");
+    if (n.source === "computed.growth.fcfCagrs" && !years ||
+        n.source === "computed.capital.maintenanceVsGrowthCapex" && !average && n.period !== "capex / D&A, latest" ||
+        n.source === "computed.capital.capexIntensity" && !/^\d{4}-\d{2}-\d{2}$/.test(n.period ?? "") &&
+          n.period !== "capex / revenue, latest" && n.period !== "capex / revenue slope") return sharedCapexDefinition([]);
+    if (years || average || n.source === "computed.capital-cash.capex-revenue-slope" || n.period === "capex / revenue slope") {
+      const annualDates = annualCash.map(r=>r.date).filter((d):d is string => !!d && d <= date).sort().reverse();
+      const dates = average ? annualDates.slice(0,Number(average[1])) : years ? annualDates.filter(d=>Number(d.slice(0,4)) >= Number(date.slice(0,4))-Number(years[1]))
+        : computed?.capital?.capexIntensity.series.map(r=>r.date) ?? annualDates.slice(0,5);
+      if (years && dates.length < Number(years[1])+1 || average && dates.length < Number(average[1])) return sharedCapexDefinition([]);
+      return sharedCapexDefinition(dates.map(d=>capexByDate.get(d)));
+    }
+    return capexByDate.get(date) ?? "Cash-spending definition is not established for this period.";
+  };
   const visit = (value: unknown): void => {
     if (!value || typeof value !== "object") return;
     const obj = value as Record<string, unknown>;
     if (typeof obj.value === "number" && typeof obj.source === "string" && typeof obj.unit === "string" && "verified" in obj) {
-      const source = obj.source, date = /(?:^|\.)(\d{4}-\d{2}-\d{2})(?:\.|$)/.exec(obj.source)?.[1] ?? (typeof obj.asOf === "string" ? obj.asOf : "");
-      delete obj.definition;
+      const n = obj as TracedNumber;
+      const source = n.source, statement = /^payload\.statements\.(income-statement|cash-flow|balance-sheet)-(annual|quarterly)\.(\d{4}-\d{2}-\d{2})\.(.+)$/.exec(source);
+      const date = statement?.[3] ?? n.asOf ?? "";
+      delete n.definition;
       const notes: string[] = [];
       const add = (text: string | null | undefined) => { if (text && !notes.includes(text)) notes.push(text); };
-      if (/capex|capitalExpenditure|freeCashFlow|fcf|maintenanceVsGrowthCapex/i.test(source)) add(capexByDate.get(date));
-      if (/revenue/i.test(source) && !/growth|cagr|margin|segment/i.test(source)) add(revenueByDate.get(date));
-      if (/cashAndShortTermInvestments|cash-and-short-term-investments|cash-sti/i.test(source)) add(cashByDate.get(date));
-      if (/longTermInvestments|long-term-investments/i.test(source)) add(investmentsByDate.get(date));
-      if (/totalDebt|total-debt/i.test(source)) {
-        const row = balance.find(r => r.date === date);
-        if (row) add(debtDefinition(definition(row,"totalDebt",DEBT_DEFINITION_FAMILIES)));
+      if (capexSources.has(source) || currentCapexSources.has(source) || quarterlyFcf.test(source) || statement?.[1] === "cash-flow" && ["capex-negative","free-cash-flow"].includes(statement[4]!)) add(capexBasis(n,date));
+      if (statement?.[1] === "income-statement" && statement[2] === "annual" && statement[4] === "revenue") add(revenueByDate.get(date));
+      if (["computed.capital.current.debtBridge.cashAndShortTermInvestments","computed.current-capital.cash-and-short-term-investments"].includes(source) || statement?.[4] === "cash-sti") add(cashByDate.get(date));
+      if (statement?.[4] === "long-term-investments") add(investmentsByDate.get(date));
+      if (["computed.capital.current.debtBridge.totalDebtIncludingLeases","computed.current-capital.total-debt-including-leases"].includes(source) || statement?.[4] === "total-debt") {
+        const row = balance.find(r=>r.date === date);
+        if (row) add(debtCompositionDefinition(row) ?? "lease treatment not established from the filing");
       }
-      if (/tangible|rote|return-on-tangible/i.test(source)) add(MODEL_TANGIBLE_COMMON_BASIS);
-      if (notes.length) obj.definition = notes.join("; ");
+      if (source === "computed.returns.rote" || tangibleTtm && ["computed.returns.commonReturnTtm","computed.returns.rote-trailing-four-quarters"].includes(source) || bankTangibleSources.has(source)) add(MODEL_TANGIBLE_COMMON_BASIS);
+      if (shareUnit && statement?.[1] === "income-statement" && ["diluted-shares","basic-shares","shares-outstanding"].includes(statement[4]!)) add("ADS-equivalent shares");
+      if (notes.length) n.definition = notes.join("; ");
     }
-    for (const child of Object.values(obj)) if (typeof child === "object") visit(child);
+    for (const [key,child] of Object.entries(obj)) if (key !== "scores" && typeof child === "object") visit(child);
   };
   visit(report);
-  const shareUnit = quotedShareUnit(bundle);
   if (shareUnit && report.marketData?.shares) report.marketData.shares.shareUnit = shareUnit;
-  // Series tables display one heading for many periods: retain period-specific definitions in the row label.
-  for (const row of [...report.fundamentals.fcf, ...report.fundamentals.returns, ...report.fundamentals.growthTable]) {
-    const definitions = [...new Set(row.values.map(v => v.value.definition).filter((v): v is string => !!v))];
-    if (definitions.length && !definitions.every(d => row.label.includes(d))) row.label += ` (${definitions.map(d => `${row.values.filter(v => v.value.definition === d).map(v => v.period).join(", ")}: ${d}`).join("; ")})`;
-  }
   const bridge = report.valuation.dcf.bridge;
   if (bridge) {
     if (shareUnit) bridge.shareUnit = shareUnit;
-    const balanceRow = balance.find(row => row.date === bridge.asOf);
+    const balanceRow = balance.find(row=>row.date === bridge.asOf);
     if (balanceRow && definition(balanceRow,"minorityInterest",MINORITY_DEFINITION_FAMILIES).length) bridge.minorityInterestDefinition = REDEEMABLE_MINORITY_DEFINITION;
     const investment = investmentsByDate.get(bridge.asOf ?? "");
     if (investment) for (const component of bridge.nonOperatingComponents ?? [])
       if (component.label === "long-term investments (filed carrying value)") component.label = investment;
   }
-  if (report.fairValue?.method === "excess-return") {
-    if (!report.fairValue.basis.includes(MODEL_TANGIBLE_COMMON_BASIS)) report.fairValue.basis.push(MODEL_TANGIBLE_COMMON_BASIS);
-    for (const metric of report.routeMetrics?.metrics ?? []) if (/tbv|tce|tangible|rote/i.test(`${metric.key} ${metric.label}`) && !metric.basis.includes(MODEL_TANGIBLE_COMMON_BASIS)) metric.basis += ` ${MODEL_TANGIBLE_COMMON_BASIS}`;
+  if (tangibleBook) {
+    if (report.fairValue?.method === "excess-return" && !report.fairValue.basis.includes(MODEL_TANGIBLE_COMMON_BASIS)) report.fairValue.basis.push(MODEL_TANGIBLE_COMMON_BASIS);
+    const keys = new Set(["pTbv","rote","justifiedPTbv","tangibleLeverage","htmLossToTce","markedTceRatio"]);
+    for (const metric of report.routeMetrics?.metrics ?? []) if (keys.has(metric.key) && !metric.basis.includes(MODEL_TANGIBLE_COMMON_BASIS)) metric.basis += ` ${MODEL_TANGIBLE_COMMON_BASIS}`;
   }
   for (const assumption of report.valuation.dcf.assumptions) {
     if (assumption.name === "sales-to-capital" && bridge) {
       for (const text of [investmentsByDate.get(bridge.asOf ?? ""),cashByDate.get(bridge.asOf ?? "")])
         if (text && !assumption.basis.includes(text)) assumption.basis += `; ${text}`;
     }
-    if (assumption.name === "start revenue") {
-      const basis = [...revenueByDate.entries()].find(([date]) => assumption.basis.includes(date ?? ""))?.[1];
+    if (assumption.name === "start revenue" && computed?.valuation?.kind === "dcf" && computed.valuation.assumptions?.forecastPeriod?.basis === "fiscal-year") {
+      const basis = [...revenueByDate.entries()].find(([date])=>!!date && assumption.basis.includes(date))?.[1];
       if (basis && !assumption.basis.includes(basis)) assumption.basis += `; ${basis}`;
     }
   }

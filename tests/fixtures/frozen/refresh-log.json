@@ -4245,5 +4245,45 @@
       "$.projection.report.scores.aspects.quality.signals[2].windowYears",
       "$.projection.report.scores.aspects.quality.signals[2].operands[0].name"
     ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "audit-fixture",
+    "decision": "D-295",
+    "reason": "D-295 review: report 1.95.0 records the code-owned lease-treatment definition separately from producer labels; model values and verification are unchanged.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.balanceSheet.debtProfile.numbers[1].definition"
+    ],
+    "beforeSha256": "15d68fface282e8ef90742ca2128a734426db3ab46253c6c193212d755895354",
+    "afterSha256": "c5c49ee9fcfdadf420d6f9830c5022f1a94c88324f345989e5f674f87cd4dc15",
+    "changedLeaves": 3,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.balanceSheet.debtProfile.numbers[1].definition"
+    ]
+  },
+  {
+    "date": "2026-11-15",
+    "target": "audit-fixture",
+    "decision": "D-295",
+    "reason": "D-292 and D-295 review: current cash-capex and dependent standardized FCF rows explicitly disclose that the period-specific spending definition is not established; all figures stay unchanged.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.balanceSheet.coverage.numbers[2].definition",
+      "$.projection.report.balanceSheet.coverage.numbers[3].definition",
+      "$.projection.report.balanceSheet.coverage.numbers[5].definition"
+    ],
+    "beforeSha256": "c5c49ee9fcfdadf420d6f9830c5022f1a94c88324f345989e5f674f87cd4dc15",
+    "afterSha256": "1c0012566d801ca029f889a6697cb9dc27e4025364885439c477572db39d2eda",
+    "changedLeaves": 4,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.balanceSheet.coverage.numbers[2].definition",
+      "$.projection.report.balanceSheet.coverage.numbers[3].definition",
+      "$.projection.report.balanceSheet.coverage.numbers[5].definition"
+    ]
   }
 ]

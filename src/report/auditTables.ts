@@ -143,7 +143,7 @@ export function valuationAuditTables(dcf: Dcf, recordedPerShare: Dcf["perShare"]
       ...components.map((c) => c.value < 0 ? [`Less ${c.label}`, money(-c.value)] : [`Plus non-operating ${c.label}`, money(c.value)]),
       ...(b.convertibles ?? []).map(r => [`Convertible ${r.kind} (memo; inside the lines above): ${r.reading}; removed ${formatLargeNumber(r.sharesRemoved)} conversion shares; restored ${money(r.restored)} of the claim. ${r.basis}`, "\u2014"]),
       ["Common equity value",money(b.equityValue)],[`Diluted share denominator${b.shareUnit ? ` (${b.shareUnit})` : ""}`,b.dilutedShares === null ? "unavailable" : formatLargeNumber(b.dilutedShares)],
-      ...(b.sharesOutstandingAtQuote === undefined ? [] : [["Shares outstanding at the quote (market cap ÷ price; not the divisor)", formatLargeNumber(b.sharesOutstandingAtQuote)]]),
+      ...(b.sharesOutstandingAtQuote === undefined ? [] : [[`Shares outstanding at the quote (market cap ÷ price; not the divisor)${b.shareUnit ? ` (${b.shareUnit})` : ""}`, formatLargeNumber(b.sharesOutstandingAtQuote)]]),
       ...(b.valuationDate === undefined
         ? [["Valuation as of", b.asOf ?? "unavailable"]]
         : [["Value stated at (quote date)", `${b.valuationDate}${b.rollForwardFactor === undefined ? "" : ` (rolled forward from ${b.asOf ?? "the statement date"} at the WACC, × ${b.rollForwardFactor.toFixed(4)})`}`],

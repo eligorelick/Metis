@@ -678,7 +678,7 @@ export function latestFactEnd(facts: CompanyFacts, tags: string[]): string | nul
  * Never admits, replaces or rounds a figure. Duration components must share their explicit start.
  */
 export function filedDefinitionMatches(facts: CompanyFacts | null, unit: string | null, end: string, value: number,
-  cutoff: string, groups: readonly (readonly string[])[], annual = false): string[] {
+  cutoff: string, groups: readonly (readonly string[])[], annual: boolean | "quarterly" = false): string[] {
   if (!facts || !unit || !Number.isFinite(value)) return [];
   for (const tags of groups) {
     const families = tags.map(tag => {
@@ -686,7 +686,7 @@ export function filedDefinitionMatches(facts: CompanyFacts | null, unit: string 
       const c = conceptFactsSchema.safeParse(facts.facts[ns!]?.[name!]);
       return c.success ? parseFactPoints(c.data.units[unit] ?? []).filter(p => p.end === end && p.filed <= cutoff.slice(0,10) &&
         CORE_FACT_FORMS.has(p.form) && Number.isFinite(p.val) && (!annual || !!p.start &&
-          durationMatchesHint(p, "FY"))) : [];
+          durationMatchesHint(p, annual === "quarterly" ? "Q" : "FY"))) : [];
     });
     for (const first of families[0] ?? []) {
       const points = families.map(ps => ps.find(p => p.accn === first.accn && p.start === first.start));

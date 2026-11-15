@@ -393,15 +393,3 @@ export function liquidityDefinition(tags: readonly string[]): string | null {
 }
 
 export const LIQUIDITY_DEFINITION_FAMILIES = [["us-gaap/CashCashEquivalentsAndShortTermInvestments", "us-gaap/MarketableSecurities"]] as const;
-
-/** D-294: scope identity comes from filed financing components, not the provider's lease zero. */
-export const DEBT_DEFINITION_FAMILIES = [
-  ["us-gaap/LongTermDebtNoncurrent", "us-gaap/DebtCurrent", "us-gaap/CommercialPaper", "us-gaap/OperatingLeaseLiabilityCurrent", "us-gaap/OperatingLeaseLiabilityNoncurrent"],
-  ["us-gaap/LongTermDebtNoncurrent", "us-gaap/DebtCurrent", "us-gaap/CommercialPaper"],
-  ["us-gaap/LongTermDebtNoncurrent", "us-gaap/DebtCurrent"],
-] as const;
-export function debtDefinition(tags: readonly string[]): string {
-  if (tags.some(t => /OperatingLeaseLiability/.test(t))) return "includes operating leases";
-  if (tags.includes("us-gaap/LongTermDebtNoncurrent") && tags.includes("us-gaap/DebtCurrent")) return "filed borrowings; operating leases excluded";
-  return "retained debt basis; operating-lease inclusion not independently established";
-}

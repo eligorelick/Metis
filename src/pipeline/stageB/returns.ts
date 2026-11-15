@@ -2228,7 +2228,7 @@ export function computeRoicVsWaccSpread(
 }
 
 /** D-295 (P13): the model convention is distinct from issuer-adjusted tangible capital. */
-export const MODEL_TANGIBLE_COMMON_BASIS = "Model tangible common equity = parent stockholders' equity minus goodwill, other identified intangible assets and preferred stock. No separate mortgage servicing rights deduction or deferred-tax-liability add-back is made. Model tangible book per share uses diluted shares. Model ROTE divides income available to common by average opening and closing model tangible common equity (closing equity alone when opening is unavailable); issuer-adjusted tangible book and ROTCE may differ.";
+export const MODEL_TANGIBLE_COMMON_BASIS = "Model tangible equity = parent equity minus the provider's goodwill and intangible-asset fields and preferred stock; what those fields contain is not checked against the filing.";
 
 /** D-288 review: the same year-end hurdle used by terminal-return evidence. */
 export function computeFiscalRoicVsWaccSpread(roicPct: number | null, currentWaccPct: number | null, date: string | null, history: WaccHistoryResult): RoicVsWaccSpread {

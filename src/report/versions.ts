@@ -242,7 +242,8 @@
 // 1.91.0 (D-279, P4): a vendor enterprise value is shown only when its same-date balance establishes the listing currency; otherwise it is withheld with its cause.
 // 1.92.0 (D-280, P7/P10/P13): shared filed-aware TTM interest admission and typed segment-share refusals.
 // D-286-D-290 review: same-year WACC pairing, evidence-shaped vendor labels, reader-local gaps and SBC scope.
-export const REPORT_SPEC_VERSION = "1.94.0" as const;
+// D-292..D-295 review: source-bounded figure definitions and wrapping shared presentation.
+export const REPORT_SPEC_VERSION = "1.95.0" as const;
 
 /**
  * Current payload format version.

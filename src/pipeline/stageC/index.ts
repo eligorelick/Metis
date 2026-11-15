@@ -794,7 +794,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
     // persisted shape once more so no post-verification mutation can bypass the
     // report contract.
     // D-295: decorate code-owned definitions only after numeric verification.
-    if (ctx?.bundle) applyFigureDefinitions(verify.verifiedReport, ctx.bundle);
+    if (ctx?.bundle) applyFigureDefinitions(verify.verifiedReport, ctx.bundle, ctx.computed);
       const verifiedReport = applyReportAssessmentStatus(applyGradeOverrideContract(ReportSchema.parse({
       ...verify.verifiedReport,
       meta: {

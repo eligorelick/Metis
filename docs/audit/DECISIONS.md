@@ -11,7 +11,141 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-295 review correction (2026-11-15)
+
+P3, P7, P8, P13, P18, P20, P21, P22 and P27. This revises the four pre-review entries below following PR 212 round 1
+and the lead's explicit R12 and tangible-equity decisions. The numbers, admission policy, score graph and verification
+outcomes are not changed. Report spec moves from 1.94.0 on merged main a020ac44636c80ff3e844a3803afbe946ec1cb13 to
+1.95.0: the new contract records code-owned figure definitions and displays their period/evidence limits.
+
+1. **CI/schema ownership:** absent statement collections are empty. Definition is removed from all model-facing
+   numeric request schemas and discarded from numeric model output. The persisted optional field remains readable.
+   Displayed key-number aliases are detached from `report.scores`; the score object is neither visited nor changed.
+2. **Investment scope:** 'equity-method investments only' requires a singleton admitted tag set. Mixed inventories
+   name the actual classes, with an explicit generic component when its class is not mapped. AMZN's combined
+   nonmarketable-equity/equity-method line is no longer described as equity-method only; KO's singleton still is.
+3. **Tangible equity, lead decision:** use 'Model tangible equity = parent equity minus the provider's goodwill and
+   intangible-asset fields and preferred stock; what those fields contain is not checked against the filing.' The
+   previous MSR, deferred-tax and blanket diluted-share claims are withdrawn; their contents were not established.
+4. **Applicability:** the convention is attached only to exact tangible-return/capital sources and a typed tangible
+   book basis. Common-equity insurer/mortgage-REIT ROE does not receive a tangible definition. Industrial return rows
+   use only the short field construction when that exact metric actually is tangible; no bank-method paragraph.
+5. **Exact identities:** `computed.returns.commonReturnTtm` and its registered trailing alias read the producer's
+   tangible/common basis. The matcher never infers tangible equity from a substring such as 'intangible'. JPM's
+   trailing figure now has the short definition; PGR's common-equity TTM control does not.
+6. **Shares:** the quote-count bridge row and filed annual diluted-share traces both name ADS-equivalent units when
+   the share-units owner proves that basis. A uniquely cited share-count claim may show the same code-owned unit in
+   a separate reader note; the original claim/verification state is unchanged. This covers both TSM panel inputs.
+7. **Spending windows:** include PP&E-only identities as well as PP&E plus intangible purchases. Each annual/quarter
+   row carries its own definition or says it is not established. A CAGR, average, slope or TTM measure names one
+   definition only if every input period has that same proved definition; mixed/unproved windows say so. TSM 2024
+   is PP&E-only, 2022/2023/2025 are combined, and 2021 remains unestablished. No annual identity is applied to a quarter.
+8. **Dossier visibility:** a definition is a wrapping line beside the figure, rather than part of a truncated label.
+   Markdown/print tables render the same typed field in a Definition column, including period-by-period series.
+9. **Debt wording:** retain the producer's caption, including D-234's 'Debt used in this report'. The added unknown
+   definition is 'lease treatment not established from the filing'. No decision to rename that producer caption is
+   made; the earlier W2 override is withdrawn.
+10. **Versions/fixtures:** merged main first; update the methodology sentence, CHANGELOG header, report stamp pins,
+    sample build and narrow freeze records. No current numerical expectation is broadened or skipped.
+11. **Lease composition:** one lease-scope owner describes both the figure and its note from the same admitted
+    same-period/currency/single-filing total-debt provenance. An observed lease liability alone does not attest that
+    debt includes it. UNP's actual composed-debt proof now appears consistently in its label basis and its lease note.
+12. **Presentation:** stop concatenating definitions into stored metric labels. Shared renderers compose typed
+    definitions beside the original labels. Existing valuation assumption/route-metric basis strings still receive
+    idempotent producer text because they are already the typed basis surface; adding another parallel representation
+    there would duplicate that owner. Investment component captions are assigned once, not repeatedly appended.
+
+**R12, lead decision implemented:** the annual revenue owner checks the same filed annual window, currency, filing
+and P8 comparison. If the provider revenue differs from Revenues and no captured line reproduces it, DCF start
+revenue and any displayed annual revenue trace say 'provider revenue line, not reconciled to a filed line; filed total
+revenues for FY<year> were <amount> (<form> <accession>)'. This does not rename it as sales without captured proof,
+replace the provider value, or withhold an otherwise admitted number. XOM FY2025 now cites Revenues from 10-K
+0000034088-26-000045 beside its unreconciled provider line; no company condition exists. R12 is no longer left as an
+unlabelled open item.
+
+Intentional fixture/assertion revisions (none removed or weakened to hide a failure): PP&E-only now asserts its
+explicit identity rather than null; bank wording tests assert the lead's provider-field uncertainty rather than
+unsupported MSR/DTL/divisor claims; debt tests require full source-period/currency/filing context, with absent and
+wrong-period controls; label tests require the unchanged producer caption plus separately rendered definition.
+The DEMO audit freeze records the new spec and four optional definition fields, with exact changed paths in
+`tests/fixtures/frozen/refresh-log.json`. The multi-claim presentation snapshot changes only its audit digest
+29932cfd6509f871de8ab79ff69a8cba06db2f81beb3c8cf3d39948620a47398 ->
+51b393aa18a46983eed73fea6a183c2999e82cf7d0ec6e29dd7399a30937f7fc: its audit inventory includes the code-owned definition
+field. Markdown, print and UI snapshot hashes remain pinned unchanged. Historical cutoffs/fixtures stay frozen.
+The separate Stage C payload freeze and arithmetic-subtree hashes remain unchanged for their synthetic fixture.
+
+Review-round validation against a020ac44636c80ff3e844a3803afbe946ec1cb13: the required changed selection ran once
+(675 files, 17,292 passing assertions and three failures). The three were the newly moved job-runner spec pin and
+an invalid `shortTermDebt` tag-registry key in the sparse debt helper; the key is corrected to the existing
+`shortTermBorrowings` family. Complete reruns of jobRunner, financialEnrichment, foreignCurrency.translation and the
+new definition regressions pass (392 tests). No test was skipped or loosened to hide those failures. TypeScript and
+touched-file ESLint pass. Final 33-case golden/value/accuracy results and per-company label changes follow below.
+
+Final replay: all 33 cases against the merged main above are schema-valid. All financial numeric/boolean leaves,
+complete score objects, verification rates/coverage/checks and verification outcome/status sequences are unchanged.
+The reviewed delta is 1,000 report leaves (stamp/typed definitions/captions/bases/qualifier text), 174 Stage B text
+leaves (shared lease-composition notes) and their rendered/payload copies. Three verification-log claim strings change
+only because they copy code-owned debt commentary; their outcome/status does not change. Golden diff approves exactly
+221 changed files and 29 payload-fingerprint fields, with no other difference. Model-value check passes all 33 cases
+with no move. Accuracy remains the merged-main expectation: 330 match, 14 mismatch, 121 gap and 70 not-established
+across 535 figures/25 companies; no expectation update. The final output set is byte-identical to the reviewed replay
+on all 231 report/Stage B/payload artifacts. The final 25-test definition suite also passes, including the absent-window
+control: an ambiguous capex/CAGR family can never inherit the latest year's definition. The final fixture/schema/version
+subset passes 239 tests.
+
+Current before/after keys below supersede the pre-review table. Producer captions stay unchanged except the explicitly
+named investment component; a typed Definition column/wrapping line supplies the basis beside each figure:
+C-combined = generic spending -> PP&E plus intangible purchases; C-PPE = generic spending -> PP&E-only purchases;
+C-unproved = unqualified/unestablished scope -> period definition explicitly not established; C-mixed = blanket latest
+scope -> differing input-period definitions. T = unqualified tangible metric -> the short provider-field construction
+and its unchecked composition. D-in/D-out = generic debt -> proved included/excluded operating-lease composition;
+D-unproved = generic debt -> 'lease treatment not established from the filing'. I-combined = generic/incorrectly
+single-class investments -> the actual combined filed classes; I-equity = generic investments -> equity-method only
+on a singleton tag set; I-broad = generic investments -> investments, advances and receivables. L = generic cash subtotal
+-> issuer subtotal plus marketable securities. N = generic minority deduction -> equity and redeemable NCI. A = generic
+share count -> ADS-equivalent basis. R12 = unlabelled annual revenue difference -> provider line unreconciled to a filed
+line, with the exact same-filing annual Revenues observation and citation. A missing key means the figure is not shown
+or the existing caption already describes that class; no new metric is created.
+
+| Case | Before/after wording keys |
+|---|---|
+| amzn-data-only | C-unproved, D-in, I-combined, T |
+| amzn-fixed-analyst | C-unproved, D-in, I-combined |
+| bac-data-only | T |
+| cat-data-only | C-PPE, C-unproved, D-unproved, T |
+| dis-data-only | C-PPE, C-unproved, D-unproved, T |
+| duk-data-only | C-PPE, C-unproved, D-unproved, T |
+| figr-data-only | C-unproved, D-unproved, T |
+| jpm-data-only | T |
+| jpm64-fixed-analyst | D-unproved, T |
+| ko-data-only | C-PPE, C-unproved, D-unproved, I-equity, L |
+| lly-data-only | C-unproved, D-unproved, T |
+| lly63-fixed-analyst | C-unproved, D-in, D-unproved |
+| lly65-fixed-analyst | C-unproved, D-in, D-unproved |
+| met-data-only | T |
+| meta-data-only | C-PPE, C-unproved, D-unproved, T |
+| meta-fixed-analyst | C-PPE, C-unproved, D-unproved |
+| mu-data-only | C-PPE, C-unproved, D-unproved, T |
+| mu-fixed-analyst | C-PPE, D-unproved |
+| nvda-data-only | C-unproved, D-unproved, T |
+| nvda-fixed-analyst | C-unproved, D-unproved |
+| nvo-data-only | A, C-combined, C-unproved, D-unproved, T |
+| o-data-only | C-unproved, D-unproved, T |
+| pgr-data-only | C-PPE, T |
+| pld-data-only | C-unproved, T |
+| qcom-data-only | C-unproved, D-unproved, T |
+| rivn-data-only | C-PPE, C-unproved, T |
+| tsm-data-only | A, C-PPE, C-combined, C-mixed, C-unproved, D-unproved |
+| tsm66-fixed-analyst | A, C-PPE, C-combined, C-unproved, D-unproved |
+| unh-data-only | C-PPE, C-unproved, D-unproved, N |
+| unp-data-only | C-PPE, C-unproved, D-in, T |
+| vktx-data-only | D-unproved, T |
+| wmt-data-only | C-PPE, C-unproved, D-unproved, T |
+| xom-data-only | C-PPE, C-unproved, D-unproved, I-broad, R12 |
+
 ## D-295 - Publish the model tangible-capital definition beside its figures (2026-11-14)
+
+Revised by [D-295 review correction](#d-295-review-correction-2026-11-15). The original entry below records the pre-review implementation.
 
 P13, P18, P20 and P22; release R18. The returns owner now names the actual model definition: parent stockholders'
 equity less goodwill, other identified intangible assets and preferred stock; no separate mortgage-servicing-rights
@@ -29,6 +163,8 @@ basis disclosure to existing arithmetic, without changing the model or the inter
 
 ## D-294 - State debt scope by source period and quoted-share units beside counts (2026-11-14)
 
+Revised by [D-295 review correction](#d-295-review-correction-2026-11-15). The original entry below records the pre-review implementation.
+
 P3, P7, P13, P20 and P22; R16 and R17. The net-debt owner supplies debt-definition wording from retained filed
 financing components. An operating-lease tag in admitted total-debt evidence names inclusion; same-filing borrowing
 components that reproduce the retained amount name exclusion. Otherwise inclusion is explicitly unestablished.
@@ -44,6 +180,8 @@ Ordinary-share counts retain their existing labels. No ratio, share count or div
 
 ## D-293 - Name filed investment, liquidity and minority-claim scope (2026-11-14)
 
+Revised by [D-295 review correction](#d-295-review-correction-2026-11-15). The original entry below records the pre-review implementation.
+
 P5, P7, P13, P15, P20 and P22; R13, R14 and R15. Filed-family identities describe the retained amount; they never
 admit or replace it. Valuation owns the investment-family label, net debt the combined-liquidity label, and senior
 claims the combined minority-interest label. Shared diagnostics carry those definitions into figure rows, DCF
@@ -57,7 +195,7 @@ MarketableSecurities is a wider family than the issuer's similarly named subtota
 retained combined claim (2026-09-30, 10-Q 0000731766-26-000266). The existing successor-continuity owner bounds use
 of predecessor facts. AMZN's admitted equity-method-only family receives the same label; no issuer condition exists.
 
-**R12 remains open.** An exact SalesAndOtherOperatingRevenue provenance tag now has a plain definition label, but the
+**Historical pre-review state (superseded by the lead decision above): R12 remained open.** An exact SalesAndOtherOperatingRevenue provenance tag now has a plain definition label, but the
 XOM frozen snapshot has no exact annual sales-line fact/proof. Its predecessor facts establish the broader Revenues
 line; the retained segment table names sales and other operating revenue for quarterly windows only. Numeric
 inequality or a different quarter cannot prove the annual line's definition. No guessed relabel, annual/quarter
@@ -66,6 +204,8 @@ the exact annual filed line through the evidence owner before closing it. This P
 the independently retained numerical model merely to conceal the unresolved definition.
 
 ## D-292 - Identify combined PP&E and intangible cash spending (2026-11-14)
+
+Revised by [D-295 review correction](#d-295-review-correction-2026-11-15). The original entry below records the pre-review implementation.
 
 P7, P8, P13, P20 and P22; R11. Capital owns the combined-spending definition. A disclosure identity checks admitted
 field tags or same-issuer, same-currency, same-end, same-start, same-filing PP&E and intangible purchase components,

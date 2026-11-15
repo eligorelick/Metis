@@ -254,9 +254,10 @@ function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNum
 }
 
 function figureTable(rows: readonly FigureRow[], metricHeader = "Metric"): string {
+  const defined = rows.some(r => r.trace.definition);
   return bodyTable(
-    [metricHeader, "Value", "Period", "As of", "Cited"],
-    rows.map((r) => [r.label, r.value, r.period ?? DASH, r.asOf ?? DASH, r.cited]),
+    [metricHeader, "Value", "Period", "As of", "Cited", ...(defined ? ["Definition"] : [])],
+    rows.map((r) => [r.label, r.value, r.period ?? DASH, r.asOf ?? DASH, r.cited, ...(defined ? [r.trace.definition ?? DASH] : [])]),
     ["Cited"],
   );
 }
@@ -304,6 +305,7 @@ function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRo
  * the period cell only when it adds information the period label lacks.
  */
 function metricRowsTable(rows: readonly MetricRow[]): string {
+  const defined = rows.some(r => r.values.some(v => v.value.definition));
   const body: string[][] = [];
   for (const row of rows) {
     for (const v of row.values) {
@@ -315,10 +317,11 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
         figureValueText(v.value),
         v.value.asOf ?? DASH,
         citedMark(v.value),
+        ...(defined ? [v.value.definition ?? DASH] : []),
       ]);
     }
   }
-  return bodyTable(["Metric", "Period", "Value", "As of", "Cited"], body, ["Cited"]);
+  return bodyTable(["Metric", "Period", "Value", "As of", "Cited", ...(defined ? ["Definition"] : [])], body, ["Cited"]);
 }
 
 /** Segment rows (product/geographic) as name / revenue / share. */
