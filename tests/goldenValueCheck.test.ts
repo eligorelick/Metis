@@ -188,7 +188,7 @@ describe("golden:value-check", () => {
       { "acme-data-only": { symbol: "ACME", fairValue: null, status: "error" } });
     expect(error.stdout).toContain("FAIL: did not run in the after folder");
     expect(error.status).toBe(1);
-    const added = runCheck({}, { "acme-data-only": { symbol: "ACME", fairValue: current(100) } });
+    const added = runCheck({ ...control }, { ...control, "acme-data-only": { symbol: "ACME", fairValue: current(100) } });
     expect(added.stdout).toContain("| acme-data-only | ACME | not in run | 100 USD/share | — | FAIL: case only in the after run");
     expect(added.status).toBe(1);
     // A withheld case omitted from one run is not mistaken for a case withheld in both.
