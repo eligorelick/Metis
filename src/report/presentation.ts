@@ -185,7 +185,7 @@ import {
 } from "@/report/format";
 import type { ManifestEntry } from "@/types/core";
 import { BUSINESS_STORY_HEADING, productLineNamingClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
-import { claimStatusMark } from "@/report/verificationMarks";
+import { claimStatusMark, claimTag } from "@/report/verificationMarks";
 import { companyRecordClaim, executiveCardClaims, executiveOfficeContext, executiveTenureText } from "@/report/executiveDecisions";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { findDirectionWords } from "@/pipeline/stageC/consistency";
@@ -1008,12 +1008,12 @@ const claimHomes = new WeakMap<object, string>();
 const echoIndexed = new WeakSet<object>();
 
 /**
- * Review round 1: the identity keeps the whole citation (the stored source and
- * source id) and its resolved date, so the same words cited to a different
- * filing or date are a different statement and print in both places.
+ * D-311: identity follows the displayed words, whole displayed citation and
+ * date, label and mark. Redundant saved citation fields do not create another
+ * visible statement; different displayed citations, dates or marks do.
  */
 export function claimEchoKey(claim: SourcedClaim): string {
-  return [claim.label, displayClaimText(claim).trim().replace(/\s+/g, " "), claimCitation(claim),
+  return [claimTag(claim), displayClaimText(claim).trim().replace(/\s+/g, " "), claimCitation(claim),
     claimStatusMark(claim) ?? ""].join("\u0000");
 }
 
@@ -2611,6 +2611,9 @@ export const READER_FIELD_LABELS: Readonly<Record<string, string>> = {
   ShortTermBorrowings: "short-term borrowings", ShareBasedCompensation: "share-based compensation",
   OperatingLeaseLiability: "operating lease liability", FinanceLeaseLiability: "finance lease liability",
   InterestExpenseDeposits: "interest expense on deposits", PremiumsEarnedNet: "net premiums earned",
+  EarningsPerShareBasic: "basic earnings per share", EarningsPerShareDiluted: "diluted earnings per share",
+  AssetImpairmentCharges: "asset impairment charges", OtherUnderwritingExpense: "other underwriting expense",
+  EntityCommonStockSharesOutstanding: "common shares outstanding",
   NonUsMember: "non-US", EuropeMember: "Europe", InventoryWriteDown: "inventory write-down",
   reportedCurrency: "reporting currency",
   FinancingReceivableAllowanceForCreditLossExcludingAccruedInterest: "allowance for credit losses on loans (excluding accrued interest)",
@@ -2641,7 +2644,7 @@ const READER_FIELD_PATTERN = new RegExp(`(?<![\\w./:@-])(${Object.keys(READER_FI
 /** Statement field identifiers in a recorded reason, in plain words (D-301). */
 export function plainFieldNames(text: string): string {
   return text
-    .replace(/\bus-gaap[:/]([A-Za-z][A-Za-z0-9]*)\b/g,
+    .replace(/\b(?:us-gaap|dei)[:/]([A-Za-z][A-Za-z0-9]*)\b/g,
       (_all, tag: string) => READER_FIELD_LABELS[tag] ?? segmentWords(tag).join(" "))
     .replace(/has reportedCurrency ([A-Z]{3}) and is not proven USD; the raw \$([\d,]+) pre-revenue threshold was not evaluated/g,
       "has revenue currency $1; the USD $2 pre-revenue threshold was not assessed")

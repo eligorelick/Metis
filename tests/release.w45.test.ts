@@ -220,6 +220,19 @@ describe("support level (D-300, R40)", () => {
     expect(split.confirmed).toBe(same.confirmed);
   });
 
+  it("identifies contradicted statements by their displayed tag (D-311)", () => {
+    const report = loadTask28Fixture();
+    report.appendix.verificationLog = [];
+    report.business.whatTheySell = [fact("Pump revenue was $1 billion.")];
+    report.business.concentrationRisks = [fact("Pump revenue was $1 billion.")];
+    logEntry(report, "business.whatTheySell[0]", "contradicted");
+    logEntry(report, "business.concentrationRisks[0]", "contradicted");
+    const before = confirmedStatementShare(prepareReportForSurface(ReportSchema.parse(report), "markdown").report);
+    report.business.concentrationRisks[0]!.label = "ESTIMATE";
+    // Both surfaces call these CONTRADICTED, so the hidden original tag is not another visible statement.
+    expect(confirmedStatementShare(prepareReportForSurface(ReportSchema.parse(report), "markdown").report)).toEqual(before);
+  });
+
   it("counts only statements a reader surface prints: grade-strip reasoning is not printed (control)", () => {
     const report = loadTask28Fixture();
     const shownBefore = confirmedStatementShare(prepareReportForSurface(ReportSchema.parse(report), "markdown").report);
@@ -342,7 +355,7 @@ describe("one figure shown once (D-301, R29)", () => {
       .toBe("4 field(s) in 1 vendor row(s) (2021-12-31 … 2021-12-31; basic EPS, diluted EPS, basic weighted share count, diluted weighted share count) withheld");
     expect(plainFieldNames("Vendor flows kept unverified for 2016-12-31: depreciationAndAmortization, changeInWorkingCapital."))
       .toBe("Vendor flows kept unverified for 2016-12-31: depreciation and amortization, change in working capital.");
-    expect(plainFieldNames("us-gaap/EarningsPerShareDiluted")).toBe("earnings per share diluted"); // D-312: filed elements read plainly.
+    expect(plainFieldNames("us-gaap/EarningsPerShareDiluted")).toBe("diluted earnings per share"); // D-312: filed elements read plainly.
     for (const kept of [ "computed.capital.current.netDebt", "fmp:netDebt", "statements.netDebt.cashBasis", "The EPS rose."]) expect(plainFieldNames(kept)).toBe(kept);
   });
 
