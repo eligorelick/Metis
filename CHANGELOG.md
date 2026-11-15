@@ -27,6 +27,11 @@ original versions and bytes; source merge does not deploy or publish a release.
 - An empty business-brief part says "Not covered in this report." or points to the report's own marked statements, never that sources lack the fact (D-303).
 - Review round 1: tax-rate operands that agree with the filed earnings family now carry the filed proof, so the "Tax rate operands: vendor data" label leaves 13 panel valuations (it stays on 6-K filers and the successor issuer); the support level reads every grade qualification and a typed `valuation.dcf.taxOperands` entry, and missing evidence never yields full support; duplicate rows merge only on equal traced values; the confirmed count counts a validated and a contradicted copy apart; the whole-brief notice prints only when the brief's fields are empty; README screenshots retaken from the renamed sample in the current layout (D-300..D-303).
 - Report 1.98.0, payload 1.111.0, Stage B `STAGE_B_2026_11_TAX_OPERAND_EVIDENCE_84`, pipeline `stage-c-1.6.52`; no figure changes.
+
+## Unreleased - Current release documentation (P20, P24, W7) (2026-11-15)
+
+- R45-R47, R49-R51: correct sign-in web research and speed claims; publish dated route measurements, current validation and limitations; archive validation history. No calculation or stamp changes.
+
 ## Unreleased - Reader wording at the producers (D-296-D-299) (2026-11-14)
 
 - Data-only reports say "This report was built without an AI connection, so no AI analysis ran." instead of naming the API-key variable; the saved model label is "none (no AI connection)" (D-296).

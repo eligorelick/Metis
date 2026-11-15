@@ -113,3 +113,7 @@ open items, deferred work, owner choices or known limits recorded nowhere else.
 The executed plans, earlier audit records and handover notes retired by the
 [2026-09-06 codebase audit](internal/superpowers/audits/2026-09-06-full-codebase-audit.md) were removed before this
 index existed; they remain in the repository's git history.
+
+## Validation history
+
+[Earlier validation milestones](archive/VALIDATION-HISTORY.md) preserve the former validation-status page. Current evidence is summarized in [validation status](VALIDATION-STATUS.md).
