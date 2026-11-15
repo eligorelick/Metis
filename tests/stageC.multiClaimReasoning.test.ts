@@ -42,7 +42,7 @@ describe("catalyst and risk reasoning compatibility", () => {
     expect(verified.log.filter(entry => entry.evidenceKind === "factual-claim").map(entry => entry.path)).toEqual(["catalysts[0].reasoning", "risks[0].reasoning"]);
     report.appendix.verificationLog = verified.log.map(entry => ({ ...entry, path: `catalystsRisks.${entry.path}` }));
     indexVerificationMarks(report);
-    expect(claimStatusMarkText(report.catalystsRisks.catalysts[0]!.reasoning as SourcedClaim)).toBe("[unverified]");
+    expect(claimStatusMarkText(report.catalystsRisks.catalysts[0]!.reasoning as SourcedClaim)).toBe("[not confirmed]");
     const beforeExports = JSON.stringify(report.catalystsRisks);
     const outputs = {
       ui: renderToStaticMarkup(createElement(CatalystsRisksPanel, { catalystsRisks: report.catalystsRisks })),
@@ -132,14 +132,16 @@ describe("catalyst and risk reasoning compatibility", () => {
     indexVerificationMarks(report);
     const ui = renderToStaticMarkup(createElement(CatalystsRisksPanel, { catalystsRisks: report.catalystsRisks }));
     expect(ui).toMatch(/<p[^>]*class="[^"]*claim-paragraph/);
-    for (const rendered of [ui, reportToMarkdown(report), reportToPrintBody(report), reportToAuditMarkdown(report)]) {
+    const audit = reportToAuditMarkdown(report);
+    for (const rendered of [ui, reportToMarkdown(report), reportToPrintBody(report), audit]) {
       const output = rendered.replace(/\\([\[\]])/g, "$1");
       expect(output).toContain(fact.text);
       expect(output).toContain(second.text);
       expect(output).toContain(judgment.text);
       expect(output).toContain(fact.source);
       expect(output).toContain(second.source);
-      expect(output).toContain("[unverified]");
+      // D-282: reader surfaces print the plain mark; the audit export keeps the log's own status notes.
+      expect(output).toContain(rendered === audit ? "[unverified]" : "[not confirmed]");
     }
   });
 
@@ -163,10 +165,13 @@ describe("catalyst and risk reasoning compatibility", () => {
           const path = `catalystsRisks.${key}[${i}].reasoning[${j}]`;
           expectedPaths.push(path);
           expect(verified.log.find(entry => entry.path === path && entry.claim === claim.text)).toBeDefined();
-          expect(claimStatusMarkText(claim)).toBe(claim.label === "JUDGMENT" ? null : "[unverified]");
+          expect(claimStatusMarkText(claim)).toBe(claim.label === "JUDGMENT" ? null : "[not confirmed]");
         });
       });
     }
-    expect(verified.log.filter(entry => entry.path?.startsWith("catalystsRisks.") && !entry.check).map(entry => entry.path)).toEqual(expectedPaths);
+    // D-285: a statement citing the whole news feed, with no single payload article for its date, is removed and logged as removed.
+    const removed = verified.log.filter(entry => entry.path?.startsWith("catalystsRisks.") && entry.outcome === "removed");
+    for (const entry of removed) expect(entry.note).toContain("cites the whole news feed");
+    expect(verified.log.filter(entry => entry.path?.startsWith("catalystsRisks.") && !entry.check && entry.outcome !== "removed").map(entry => entry.path)).toEqual(expectedPaths);
   });
 });

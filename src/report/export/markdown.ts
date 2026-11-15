@@ -1,4 +1,4 @@
-import { FACT_STATUS_LEGEND, hasFactStatusMarks } from "@/report/verificationMarks";
+import { claimTag, FACT_STATUS_LEGEND, hasFactStatusMarks } from "@/report/verificationMarks";
 import { OFFICE_CONTEXT_LINK, GUIDANCE_CONTEXT_LINK } from "@/report/executiveDecisions";
 import { prepareReportForSurface } from "@/report/readerPreparation";
 import { recordedValuationTrace } from "@/report/fairValueText";
@@ -247,7 +247,7 @@ function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNum
   const { shown, homes } = withoutRepeatedClaims(claims);
   const note = repeatedClaimsNote(homes);
   return [
-    ...shown.map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayClaimText(c, numbers))} _(${markdownProse(claimCitation(c))})_${statusMarkSuffix(c)}`),
+    ...shown.map((c) => `- **[${markdownListItem(claimTag(c))}]** ${markdownListItem(displayClaimText(c, numbers))} _(${markdownProse(claimCitation(c))})_${statusMarkSuffix(c)}`),
     ...(note ? [`- _${markdownListItem(note)}_`] : []),
   ].join("\n");
 }

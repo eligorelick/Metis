@@ -164,7 +164,9 @@ export function readProseQuantities(text: string): readonly Quantity[] {
 export interface PlainFigureText { source: string; text: string }
 interface PlainValue { value: number; unit: CanonicalUnit; currency: string | null; step?: number; fraction?: boolean; source?: string }
 type PlainReading = { label: string; tokens: string[] };
-export interface PlainFigureIndex { values: PlainValue[]; readings: Map<NumericProvenanceRecord, PlainReading[]> }
+/** D-284: a figure a code record's own label states as one of its parameters ("cost of equity 8.6%" in a grid cell's label). */
+interface LabelParameter { value: number; unit: CanonicalUnit; tokens: string[]; source: string }
+export interface PlainFigureIndex { values: PlainValue[]; readings: Map<NumericProvenanceRecord, PlainReading[]>; parameters?: LabelParameter[] }
 export interface PlainFigureResult {
   figure: string;
   outcome: "confirmed" | "contradiction" | "not-found" | "value-match";
@@ -224,7 +226,27 @@ export function buildPlainFigureIndex(registry: readonly NumericProvenanceRecord
       if (value) values.push({ ...value, source });
     }
   }
-  return { values, readings: new Map(registry.map(r => [r, labelReadings(r).map(label => ({ label, tokens: metricTokens(label, ignore).filter(w => !w.startsWith("window")) }))])) };
+  // D-284 (P19, A5): a sensitivity-grid cell's label names the parameters it was computed at. Those stated
+  // parameters are code-owned figures too, so prose quoting one ("an 8.6% cost of equity" for a grid column)
+  // is read against them before a headline record of the same metric can call it a conflict.
+  const parameters: LabelParameter[] = [];
+  for (const record of registry) {
+    if (!record.label) continue;
+    const all = quantities(record.label);
+    for (const q of all) {
+      if (q.unit !== "percent" && q.unit !== "ratio" && q.unit !== "percentage-points") continue;
+      const tokens = metricTokens(context(record.label, q, all).own, ignore, { loose: true }).filter(w => !w.startsWith("window"));
+      if (tokens.length > 0) parameters.push({ value: q.value, unit: q.unit, tokens, source: record.id });
+    }
+  }
+  return { values, readings: new Map(registry.map(r => [r, labelReadings(r).map(label => ({ label, tokens: metricTokens(label, ignore).filter(w => !w.startsWith("window")) }))])), parameters };
+}
+
+/** D-284: a code record's label states this figure, for the metric the figure's own description names. */
+function labelParameterFor(q: Quantity, words: readonly string[], index: PlainFigureIndex): LabelParameter | undefined {
+  if (words.length === 0) return undefined;
+  return index.parameters?.find(p => p.unit === q.unit && equalValue(q, p.value) &&
+    p.tokens.every(token => words.some(word => namesMetric([word], [token]))));
 }
 
 function valueFound(q: PlainValue, values: readonly PlainValue[]): PlainValue | undefined {
@@ -369,6 +391,10 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
     // A candidate dropped above still made the set ambiguous, so it never lets the rest confirm.
     if (first && !qualifiedConflict && bindings.every(b => equalValue({ ...q, value: first.display }, b.display))) {
       if (bindings.every(b => b.supported) || equalValue(q, first.display)) return { figure, outcome: "confirmed", source: first.record.id };
+      // D-284: a figure equal to a parameter a code record's label states for the same metric is that record's
+      // figure, not a conflict with the headline one; its context stays unconfirmed (value match, never confirmed).
+      const parameter = labelParameterFor(q, words, options.index);
+      if (parameter) return { figure, outcome: "value-match", source: parameter.source };
       return { figure, outcome: "contradiction", source: first.record.id, recorded: displayedPlainValue(q, first.display, first.record.currency) };
     }
     const value = plainValue(lookup, frame ? { ...own, own: frame.label } : lookup !== q ? { ...own, own: own.label } : own, options.reportingCurrency);
@@ -376,6 +402,8 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
     // elsewhere, even the same metric for another period, would print as the unmarked "value matched" and hide
     // a real conflict, so the figure is reported as not matched (P19: doubt means unverified).
     const matched = value && !qualifiedConflict ? valueFound(value, options.index.values) : undefined;
+    const parameter = matched || qualifiedConflict || lookup !== q ? undefined : labelParameterFor(q, words, options.index);
+    if (parameter) return { figure, outcome: "value-match", source: parameter.source };
     return { figure, outcome: matched ? "value-match" : "not-found", ...(matched?.source ? { source: matched.source } : {}) };
   });
 }
@@ -1809,6 +1837,22 @@ function annualProducerFiscalLabel(record: NumericProvenanceRecord, registry: re
 
 // Section-independent: marketStructure and competitors receive the same
 // source-bound numeric checks as every other SourcedClaim.
+/**
+ * D-282 (P19, A1): a FACT or ESTIMATE whose cited date differs from the one
+ * record its id names is still read against that record at the record's own
+ * date. Only a value conflict is returned (the claim is contradicted); any other
+ * outcome leaves the date mismatch, so the claim stays unverified and is never
+ * validated by this reading.
+ */
+export function valueConflictAtRecordDate(claim: SourcedClaim, options: Parameters<typeof validateClaimNumericSupport>[1]): ClaimNumericSupport | null {
+  const record = options.record;
+  if (record === undefined) return null;
+  const result = validateClaimNumericSupport({ ...claim, asOf: record.asOf }, options);
+  return result.status === "contradicted" && result.reason === "value-mismatch"
+    ? { ...result, note: `cited date differs from the record's ${record.asOf}, and ${result.note}` }
+    : null;
+}
+
 export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   record?: NumericProvenanceRecord;
   excerpts: readonly TextExcerpt[];

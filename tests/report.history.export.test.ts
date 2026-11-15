@@ -463,13 +463,13 @@ describe("reportToMarkdown", () => {
     expect(audit).toContain("0/0 (n/a — no items)");
   });
 
-  it("marks untraced numbers with a bare 'untraced' cell, never 'unverified' (audit #2)", () => {
+  it("marks untraced numbers with a bare 'not confirmed' cell (D-282), never 'unverified' (audit #2)", () => {
     // Citation coverage is provenance, not correctness — the per-number table
     // mark must not present a status of "unverified". (The verification-log NOTE
     // may still read "[unverified] ..." as the flag reason; that is an
     // explanation, not a status claim, so it is deliberately not matched here.)
     expect(md).not.toMatch(/\|\s*unverified\s*\|/);
-    expect(md).toMatch(/\|\s*untraced\s*\|/);
+    expect(md).toMatch(/\|\s*not confirmed\s*\|/);
   });
 
   it("has no unresolved [object Object] or [object … ] artifacts", () => {

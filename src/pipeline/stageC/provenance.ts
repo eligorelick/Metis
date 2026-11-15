@@ -527,6 +527,17 @@ export function recordEstablishesInterval(supplied: string, record: NumericProve
     : parsed?.success === true && record.period === interval[2];
 }
 
+/**
+ * D-282: the record, rounded to the decimals the figure itself states, is not
+ * the figure. Half a unit of that last stated decimal is the most a faithful
+ * rounding can move it (the same bound as the stored-precision check below).
+ */
+function differsAtStatedRounding(stated: number, recorded: number): boolean {
+  const decimals = /\.(\d+)$/.exec(String(stated))?.[1]?.length ?? 0;
+  const bound = 0.5 * 10 ** -decimals;
+  return Math.abs(recorded - stated) > bound + 1e-9 * Math.max(1, Math.abs(recorded), Math.abs(stated));
+}
+
 /** Match every numeric dimension against the exact named registry record. */
 export function matchProvenanceRecord(
   candidate: ProvenanceCandidate,
@@ -546,10 +557,6 @@ export function matchProvenanceRecord(
       record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? null)))) {
     return { ok: false, reason: "period-mismatch", record };
   }
-  if (record.asOf !== candidate.asOf) {
-    return { ok: false, reason: "date-mismatch", record };
-  }
-
   // Half a unit of the last displayed decimal — the largest error a faithful
   // rounding can carry. A tie (a fifth decimal of exactly 5 against a 4-dp
   // rendering) sits ON the bound, and binary float noise in the subtraction
@@ -557,7 +564,17 @@ export function matchProvenanceRecord(
   // is relative and ~1e-9, far below any display precision the registry uses.
   const tolerance = 0.5 * 10 ** -record.displayPrecision;
   const slack = 1e-9 * Math.max(1, Math.abs(record.value), Math.abs(candidate.value));
-  if (Math.abs(record.value - candidate.value) > tolerance + slack) {
+  const differs = Math.abs(record.value - candidate.value) > tolerance + slack;
+  // D-282 (P19, A1): the id, unit, currency and period already pin the one
+  // record, so a wrong cited date no longer hides a value conflict with it. The
+  // figure is contradicted when it differs from the record even at its own
+  // stated rounding (P19's display-rounding rule: 116.12 against 124.18); a
+  // figure that is the record rounded (10.5 against 10.4683) with another date
+  // stays a date mismatch (unverified), as before.
+  if (record.asOf !== candidate.asOf) {
+    return { ok: false, reason: differs && differsAtStatedRounding(candidate.value, record.value) ? "value-mismatch" : "date-mismatch", record };
+  }
+  if (differs) {
     return { ok: false, reason: "value-mismatch", record };
   }
   return { ok: true, record };

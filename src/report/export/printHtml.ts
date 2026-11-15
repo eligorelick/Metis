@@ -12,7 +12,7 @@ import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { claimReasoning as sharedClaimReasoning, type ClaimReasoningMarkup, num, tracedValue } from "@/report/export/readerFormat";
-import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures } from "@/report/verificationMarks";
+import { claimStatusMarkText, claimTag, COMPUTED_MARK_LEGEND, hasComputedFigures } from "@/report/verificationMarks";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
  * full {@link Report}. This is the dependency-free path to a PDF: the browser
@@ -335,7 +335,7 @@ function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNum
   const { shown, homes } = withoutRepeatedClaims(claims);
   const note = repeatedClaimsNote(homes);
   return `<ul class="claims">${shown
-    .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${esc(displayClaimText(c, numbers))} <span class="src">${citationHtml(c)}</span>${statusMark(c)}</li>`)
+    .map((c) => `<li><span class="label ${claimTag(c).toLowerCase()}">${esc(claimTag(c))}</span> ${esc(displayClaimText(c, numbers))} <span class="src">${citationHtml(c)}</span>${statusMark(c)}</li>`)
     .join("")}${note ? `<li class="faint">${esc(note)}</li>` : ""}</ul>`;
 }
 

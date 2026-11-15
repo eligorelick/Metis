@@ -18,6 +18,8 @@ const computedFigures = new WeakSet<object>();
 const computedReports = new WeakSet<object>();
 const indexed = new WeakSet<object>();
 const factReports = new WeakSet<object>();
+/** D-282: figures whose own verification entry records a value conflict. */
+const contradictedFigures = new WeakSet<object>();
 
 function markFor(entry: VerificationLogEntry): ClaimStatusMark {
   const status = displayedValidationStatus(entry);
@@ -64,11 +66,32 @@ export function indexVerificationMarks(report: Report): void {
   // history.ts isDataOnly reads the same marker, but that module imports the database.
   if (report.appendix.missingData.some((gap) => gap.field === "analysis.llm") && indexComputedFigures(report)) computedReports.add(report);
   for (const entry of report.appendix.verificationLog ?? []) {
+    // D-282: a figure whose own log entry found a value conflict is marked contradicted where it is shown.
+    if (entry.evidenceKind === "number" && entry.check === undefined && entry.path !== undefined && displayedValidationStatus(entry) === "contradicted") {
+      const figure = resolvePath(report, entry.path);
+      if (figure !== null && typeof figure === "object" && typeof (figure as Partial<TracedNumber>).value === "number") contradictedFigures.add(figure);
+      continue;
+    }
     // A removed entry (an earnings-reference guard row, a withheld legacy claim) marks nothing.
     if (!isCountedClaimEntry(entry, "factual-claim") || entry.path === undefined) continue;
     const node = resolvePath(report, entry.path);
     if (node !== null && typeof node === "object" && (node as Partial<SourcedClaim>).text === entry.claim) { marks.set(node, markFor(entry)); factReports.add(report); }
   }
+  // D-282 (P19): in a report the AI wrote, a FACT or ESTIMATE statement with no
+  // check entry of its own (written after the check, or its entry removed) was
+  // not confirmed by code, and says so rather than carrying no mark.
+  if (factReports.has(report)) markUncheckedStatements(report);
+}
+
+function markUncheckedStatements(node: unknown): void {
+  if (node === null || typeof node !== "object") return;
+  if (Array.isArray(node)) { for (const child of node) markUncheckedStatements(child); return; }
+  const claim = node as Partial<SourcedClaim>;
+  if (typeof claim.text === "string" && (claim.label === "FACT" || claim.label === "ESTIMATE") && typeof claim.source === "string") {
+    if (!marks.has(node)) marks.set(node, "unverified");
+    return;
+  }
+  for (const [key, value] of Object.entries(node)) if (key !== "appendix" && key !== "meta") markUncheckedStatements(value);
 }
 
 /** The claim's indexed status, or undefined when no factual-claim entry marks it. */
@@ -76,10 +99,39 @@ export function claimStatusMark(claim: SourcedClaim): ClaimStatusMark | undefine
   return marks.get(claim);
 }
 
-/** The compact text form, e.g. "[validated]". */
+/**
+ * D-282 (P19, P22): the words a reader sees for each status. "unverified" and
+ * "qualitative" are both statements code did not check against a record, so
+ * both read "not confirmed"; the legend says what that means.
+ */
+export const CLAIM_STATUS_WORDS: Readonly<Record<ClaimStatusMark, string>> = {
+  validated: "validated",
+  unverified: "not confirmed",
+  qualitative: "not confirmed",
+  contradicted: "contradicted",
+};
+
+/** The compact text form, e.g. "[validated]" or "[not confirmed]". */
 export function claimStatusMarkText(claim: SourcedClaim): string | null {
   const mark = marks.get(claim);
-  return mark === undefined ? null : `[${mark}]`;
+  return mark === undefined ? null : `[${CLAIM_STATUS_WORDS[mark]}]`;
+}
+
+/** The tag a reader sees in front of a claim: a contradicted statement never reads as FACT or ESTIMATE. */
+export type ClaimTag = SourcedClaim["label"] | "CONTRADICTED";
+
+/**
+ * D-282 (P19, A3): a statement code found in conflict with its record is shown
+ * under a CONTRADICTED tag, never under the FACT or ESTIMATE tag that would
+ * present it as a fact. Its own label stays in the stored report and the audit.
+ */
+export function claimTag(claim: SourcedClaim): ClaimTag {
+  return marks.get(claim) === "contradicted" && claim.label !== "JUDGMENT" ? "CONTRADICTED" : claim.label;
+}
+
+/** A traced figure's indexed conflict: its log entry found a value conflict with its record (D-282). */
+export function isContradictedFigure(n: TracedNumber): boolean {
+  return contradictedFigures.has(n);
 }
 
 /**
@@ -108,8 +160,12 @@ export function figureCitationStatus(n: TracedNumber): string {
   return n.verified === true && isComputedFigure(n) ? "computed (no citation check ran)" : numericCitationTraceLabel(n.verified);
 }
 
-/** D-264: citation coverage and numerical matching answer different questions. */
-export const FACT_STATUS_LEGEND = 'Fact tags: validated means the number was matched to its record by code; unverified means it has a citation but was not matched by code; qualitative means no number to match; contradicted means it conflicts with its record. Citation coverage counts traceable figures, not validated claims.';
+/**
+ * D-264, revised by D-282 (P19, P22): what each mark means, in plain words, at
+ * the top of every report the AI wrote. Citation coverage and numerical
+ * matching still answer different questions.
+ */
+export const FACT_STATUS_LEGEND = "How to read the marks. [validated]: code checked the statement's figures against the record it cites. [not confirmed]: written by the AI and not checked by code; it may be wrong. A JUDGMENT tag: the AI's opinion; facts inside it are not checked. [contradicted] or a CONTRADICTED tag: code found a conflict with the record, so do not rely on it. A mark at the end of a paragraph or table cell covers all of it. A citation shows where a statement points, not that it is correct. Citation coverage counts traceable figures, not validated claims.";
 
 /** Show the legend only when this report has factual status tags to explain. */
 export function hasFactStatusMarks(report: Report): boolean {

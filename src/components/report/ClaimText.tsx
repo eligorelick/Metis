@@ -12,20 +12,20 @@
  */
 
 import { Badge, type Tone } from "@/components/ui";
-import type { ClaimLabel } from "@/types/core";
 import type { SourcedClaim, TracedNumber } from "@/report/schema";
-import { claimStatusMarkText } from "@/report/verificationMarks";
+import { claimStatusMarkText, claimTag, type ClaimTag } from "@/report/verificationMarks";
 import { displayClaimText, sourceLabel } from "@/report/presentation";
 import { evidenceAttributes } from "./evidenceIdentity";
 
-const LABEL_TONE: Record<ClaimLabel, Tone> = {
+const LABEL_TONE: Record<ClaimTag, Tone> = {
   FACT: "muted",
   ESTIMATE: "accent",
   JUDGMENT: "warn",
+  CONTRADICTED: "neg",
 };
 
-/** The FACT/ESTIMATE/JUDGMENT tag chip. */
-export function ClaimLabelChip({ label }: { label: ClaimLabel }) {
+/** The FACT/ESTIMATE/JUDGMENT tag chip, or CONTRADICTED for a statement in conflict with its record (D-282). */
+export function ClaimLabelChip({ label }: { label: ClaimTag }) {
   return <Badge tone={LABEL_TONE[label]}>{label}</Badge>;
 }
 
@@ -82,7 +82,7 @@ export function ClaimText({
     <details {...evidenceAttributes("claim", claim)} className={`report-claim group flex flex-col gap-1 ${className ?? ""}`}>
       <summary className="flex cursor-pointer list-none items-start gap-2 [&::-webkit-details-marker]:hidden">
         <span className="claim-label mt-px shrink-0">
-          <ClaimLabelChip label={claim.label} />
+          <ClaimLabelChip label={claimTag(claim)} />
         </span>
         <span className="claim-text min-w-0 flex-1 text-[12px] leading-snug text-fg">
           {/* D-67: registry ids under reader labels, figures at reader precision. */}
