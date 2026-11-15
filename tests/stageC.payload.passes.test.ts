@@ -1153,6 +1153,11 @@ describe("payload determinism + provenance", () => {
       expect([coverage.unverifiedOperands, current.interestCoverageUnverifiedOperands]).toEqual([["ebit", "interestExpense"], ["ebit", "interestExpense"]]);
       delete coverage.unverifiedOperands;
       delete current.interestCoverageUnverifiedOperands;
+      // D-295: corrected-row debt wording is metadata; keep all preceding capital bytes pinned.
+      const debtBridge = { ...(current.debtBridge as Record<string, unknown>) };
+      expect(debtBridge.debtDefinition).toBe("lease treatment not established from the filing");
+      delete debtBridge.debtDefinition;
+      current.debtBridge = debtBridge;
       priorCapital.interestCoverage = coverage;
       priorCapital.current = current;
       expect(sha256Text(JSON.stringify(priorCapital)).slice(0,16)).toBe("345abeca6e98de5e");
@@ -1167,7 +1172,7 @@ describe("payload determinism + provenance", () => {
       "degradation f591b71ec31aefa2",
       "growth 3b108cfa32943129",
       "returns 5837ec4162747280",
-      "capital 345a2ead5990f0ce", // D-272 cashDividendPayout and D-282 coverage qualification are new; preceding capital hash asserted above.
+      "capital 558caa799b53c2e4", // D-295 adds corrected-row debtDefinition; preceding capital bytes remain pinned above.
       "forensics 0d59d3ffecb6f45c",
       "technicals 0d0c7b3f39a71e07",
       "valuation (frozen record)",
@@ -3040,7 +3045,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.95.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations, coverage operands
+    expect(report.meta.specVersion).toBe("1.96.0"); // D-282..D-285: statement marks, value-first conflicts, feed citations, coverage operands
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

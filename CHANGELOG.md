@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.95.0** and
+Current source declares application **0.1.0**, report spec **1.96.0** and
 payload **1.109.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -17,6 +17,12 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Corrected debt composition and complete ADS labels (P3, P18, P22, D-294/D-295) (2026-11-15)
+
+- The current debt definition travels with Stage B's corrected balance result, beside the lease note; a raw provider row cannot override a rebuilt filed composition. Synthetic regressions distinguish current aliases, a different raw total, and a different date.
+- Provider share-count rows retain the ADS basis even when class scope is unverified or limited; the code-owned diluted/basic share-gap note names its established ADS basis. Ordinary counts retain their wording.
+- Report spec 1.96.0 follows W1's 1.95.0; payload 1.109.0, Stage B `_82` and pipeline stage-c-1.6.50 remain W1's current versions. No arithmetic or admission rule changes.
 
 ## Unreleased - Statement marks, value-first conflicts, feed citations and coverage operands (P12, P18, P19, P20, P22, D-282..D-285) (2026-11-14)
 

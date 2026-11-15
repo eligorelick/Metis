@@ -249,3 +249,75 @@ it("does not apply a latest-period definition to an ambiguous capex-family or CA
   applyFigureDefinitions(r,b);
   expect(r.balanceSheet.capexTrajectory.numbers[0]!.definition).toContain("not established for every period");
 });
+
+import { keyDataRows, consensusTables } from "@/report/presentation";
+it("uses Stage B's rebuilt debt composition, without lending its basis to a different raw amount (D-295)", () => {
+  const date = "2026-06-30";
+  const corrected = {date, reportedCurrency:"USD", totalDebt:45, cashAndShortTermInvestments:5,
+    fieldProvenance:{totalDebt:{source:"edgar",unit:"USD",periodEnd:date,periodStart:null,filings:[{accn:"synthetic-rebuild"}],
+      tags:["us-gaap/OperatingLeaseLiabilityCurrent","us-gaap/OperatingLeaseLiabilityNoncurrent"]}}};
+  const c = attachCurrentCapital(computeCapital([],[],[],[],{price:null}), {
+    income:{date,revenue:100,netIncome:10}, cashFlow:{date,operatingCashFlow:20,capitalExpenditure:-5}, balance:corrected, currency:"USD"});
+  const bundle = {symbol:"TEST",builtAt:"2026-11-01",statements:Object.fromEntries(
+    ["balanceAnnual","balanceQuarterly","incomeAnnual","incomeQuarterly","cashflowAnnual","cashflowQuarterly"].map(k=>[k,{ok:true,value:{data:{rows:k==="balanceQuarterly" ? [{date,reportedCurrency:"USD",totalDebt:30}] : []}}}]))} as unknown as DataBundle;
+  const r=report();
+  r.balanceSheet.debtProfile.numbers=[
+    ...["computed.capital.current.debtBridge.totalDebtIncludingLeases","computed.current-capital.total-debt-including-leases"].map(source=>({source,value:45,unit:"currency",asOf:date,verified:true})),
+    {source:`payload.statements.balance-sheet-quarterly.${date}.total-debt`,value:30,unit:"currency",asOf:date,verified:true},
+    {source:"computed.current-capital.total-debt-including-leases",value:45,unit:"currency",asOf:"2025-12-31",verified:true}];
+  applyFigureDefinitions(r,bundle,{capital:c} as ComputedMetrics);
+  const [bridge,alias,raw,stale]=r.balanceSheet.debtProfile.numbers;
+  expect(bridge!.definition).toBe("includes operating leases in the filed debt composition");
+  expect(alias!.definition).toBe(bridge!.definition);
+  expect(c.current!.debtBridge.leaseEvidenceNote).toContain(bridge!.definition!);
+  expect(raw!.definition).toBe("lease treatment not established from the filing");
+  expect(stale!.definition).toBeUndefined();
+  expect(r.balanceSheet.debtProfile.numbers.map(n=>n.value)).toEqual([45,45,30,45]);
+});
+
+it("keeps ADS units on provider scope branches and dilution notes, with ordinary and no-scope controls (D-294)", () => {
+  const r=report();
+  r.marketData = {version:"1",currency:"USD",estimateCurrency:null,estimateCurrencyBasis:null,quote:null,shares:null,enterpriseValue:null,estimates:[],estimatesAsOf:null,priceTarget:null,gradeCounts:null,shortInterest:null};
+  r.marketData.shares={outstanding:100,float:null,freeFloatPct:null,asOf:"2025-12-31",shareUnit:"ADS-equivalent"};
+  r.valuation.marketValueScope={status:"unresolved"} as NonNullable<typeof r.valuation.marketValueScope>;
+  expect(keyDataRows(r).find(row=>row.label.startsWith("Provider shares"))?.label).toBe("Provider shares (scope unverified) (ADS-equivalent)");
+  r.valuation.marketValueScope={status:"resolved",multiClass:true} as NonNullable<typeof r.valuation.marketValueScope>;
+  expect(consensusTables(r).flatMap(t=>t.rows).find(row=>row[0]!.startsWith("Provider shares"))?.[0]).toBe("Provider shares (quoted class only) (ADS-equivalent)");
+  delete r.valuation.marketValueScope;
+  expect(keyDataRows(r).find(row=>row.label.startsWith("Shares outstanding"))?.label).toContain("ADS-equivalent");
+  delete r.marketData.shares.shareUnit;
+  expect(keyDataRows(r).find(row=>row.label.startsWith("Shares outstanding"))?.label).toBe("Shares outstanding");
+  const inc=[{date:"2025-12-31",revenue:100,weightedAverageShsOut:100,weightedAverageShsOutDil:105}];
+  const ads=computeCapital(inc,[],[],[],{price:null},{shareUnit:"ADS-equivalent"});
+  const ordinary=computeCapital(inc,[],[],[],{price:null});
+  expect(ads.dilution.note).toContain("diluted 105 vs basic 100 ADS-equivalent shares");
+  expect(ordinary.dilution.note).toContain("diluted 105 vs basic 100 shares");
+  expect(ordinary.dilution.note).not.toContain("ADS");
+});
+
+import { runStageB } from "@/pipeline/compute";
+import { completeCurrencyBundle, M } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
+it("labels the actual Stage B debt rebuild from filed borrowings and complete leases (D-295)", () => {
+  const date="2026-03-31", filed="2026-05-01", accn="0000000042-26-000001";
+  const concept=(val:number)=>({units:{USD:[{end:date,val:val*M,filed,accn,form:"10-Q"}]}});
+  const facts:CompanyFacts={cik:42,entityName:"Synthetic manufacturer",facts:{"us-gaap":{
+    LongTermDebtCurrent:concept(4),LongTermDebtNoncurrent:concept(100),
+    OperatingLeaseLiability:concept(20),OperatingLeaseLiabilityCurrent:concept(2),OperatingLeaseLiabilityNoncurrent:concept(18),
+    FinanceLeaseLiabilityCurrent:concept(1),FinanceLeaseLiabilityNoncurrent:concept(5)}}};
+  const bundle=withIssuerFacts(completeCurrencyBundle({symbol:"TEST",siblingQuarterCurrencies:["USD","USD","USD","USD"]}),facts);
+  if (!bundle.statements.balanceQuarterly.ok) throw Error("fixture");
+  const raw=bundle.statements.balanceQuarterly.value.data.rows[0]!;
+  Object.assign(raw,{date,cik:"0000000042",reportedCurrency:"USD",filingDate:filed,shortTermDebt:4*M,longTermDebt:100*M,
+    capitalLeaseObligations:20*M,totalDebt:124*M,netDebt:114*M,cashAndCashEquivalents:10*M,cashAndShortTermInvestments:10*M});
+  delete raw.operatingLeaseLiability;delete raw.financeLeaseLiability;delete raw.fieldProvenance;delete raw.fieldConflicts;
+  const computed=runStageB(bundle), current=computed.capital.current!;
+  expect(current.asOf).toBe(date);
+  expect(current.debtBridge.totalDebtIncludingLeases).toBe(130*M);
+  expect(raw.totalDebt).toBe(124*M);
+  expect(raw.fieldProvenance).toBeUndefined();
+  const r=report();r.balanceSheet.debtProfile.numbers=[{value:130*M,unit:"currency",source:"computed.current-capital.total-debt-including-leases",asOf:date,verified:true}];
+  applyFigureDefinitions(r,bundle,computed);
+  expect(r.balanceSheet.debtProfile.numbers[0]!.definition).toBe("includes operating leases in the filed debt composition");
+  expect(current.debtBridge.leaseEvidenceNote).toContain(r.balanceSheet.debtProfile.numbers[0]!.definition!);
+});

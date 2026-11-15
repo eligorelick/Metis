@@ -285,8 +285,14 @@ export function applyFigureDefinitions(report: Report, bundle: DataBundle, compu
       if (["computed.capital.current.debtBridge.cashAndShortTermInvestments","computed.current-capital.cash-and-short-term-investments"].includes(source) || statement?.[4] === "cash-sti") add(cashByDate.get(date));
       if (statement?.[4] === "long-term-investments") add(investmentsByDate.get(date));
       if (["computed.capital.current.debtBridge.totalDebtIncludingLeases","computed.current-capital.total-debt-including-leases"].includes(source) || statement?.[4] === "total-debt") {
-        const row = balance.find(r=>r.date === date);
-        if (row) add(debtCompositionDefinition(row) ?? "lease treatment not established from the filing");
+        const current = computed?.capital?.current;
+        const currentSource = source === "computed.capital.current.debtBridge.totalDebtIncludingLeases" || source === "computed.current-capital.total-debt-including-leases";
+        if (currentSource && current?.asOf === date && current.debtBridge.totalDebtIncludingLeases === n.value) {
+          add(current.debtBridge.debtDefinition ?? "lease treatment not established from the filing");
+        } else {
+          const row = balance.find(r=>r.date === date && r.totalDebt === n.value);
+          if (row) add(debtCompositionDefinition(row) ?? "lease treatment not established from the filing");
+        }
       }
       if (source === "computed.returns.rote" || tangibleTtm && ["computed.returns.commonReturnTtm","computed.returns.rote-trailing-four-quarters"].includes(source) || bankTangibleSources.has(source)) add(MODEL_TANGIBLE_COMMON_BASIS);
       if (shareUnit && statement?.[1] === "income-statement" && ["diluted-shares","basic-shares","shares-outstanding"].includes(statement[4]!)) add("ADS-equivalent shares");

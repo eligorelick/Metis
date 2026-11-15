@@ -138,6 +138,8 @@ export interface QuoteInput {
  * number that is off by the FX rate or the ADS ratio.
  */
 export interface CapitalOptions {
+  /** Share basis established by the filer-share-unit resolver, after conversion. */
+  shareUnit?: "ADS-equivalent" | null;
   /** Issuer-admitted, retained facts only; used to identify conversion windows. */
   companyFacts?: CompanyFacts | null;
   asOf?: string;
@@ -994,7 +996,7 @@ export function computeCapital(
       note: conversionReason ?? (
         overhangPct === null
           ? `Dilution overhang unavailable: ${missing.length > 0 ? missing.join(" and ") + " not disclosed" : "no annual income statement"}.`
-          : `Weighted-average diluted/basic share gap: diluted ${fmt(diluted as number)} vs basic ${fmt(basic as number)} shares ` +
+          : `Weighted-average diluted/basic share gap: diluted ${fmt(diluted as number)} vs basic ${fmt(basic as number)} ${options.shareUnit === "ADS-equivalent" ? "ADS-equivalent shares" : "shares"} ` +
             `for the fiscal period ending ${latestInc?.date ?? "?"} — a ${fmt(overhangPct)}% gap. This period-average EPS denominator difference is not an outstanding award pool or a measure of current economic dilution. ` +
             "Antidilutive options, RSUs and convertibles are excluded from diluted EPS by the filer."),
     };

@@ -11,6 +11,57 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-295 confirmation - Corrected-row debt evidence and complete ADS basis (2026-11-15)
+
+P3, P18, P21 and P22; confirmation of PR #212. This supplements the round-one correction below.
+Owners: `stageB/currentCapital.ts` carries the debt definition from the identical admitted row used by its lease
+note and total; `financialDiagnostics.ts` prints it only for that current result's date and exact amount.
+Historical statement observations retain their own evidence. No scope is transferred from a corrected total to a
+different raw total. The immutable score graph, numerical values, admission rules and verification outcomes stay fixed.
+
+**Debt before/after.** O and FIGR's current 'Debt used in this report' rows said 'lease treatment not established from
+the filing' while the lease note said the composition included operating leases. Both now say 'includes operating
+leases in the filed debt composition'. The caption stays D-234's. O's total is the same-filing unclassified borrowing
+lines plus `OperatingLeaseLiability` and `FinanceLeaseLiability` for 2026-09-30 (10-Q 0000726728-26-000059).
+FIGR's is `LongTermDebt` plus `OperatingLeaseLiability` for 2026-06-30 (10-Q 0001628280-26-057061), excluding the
+loan-owner payables. This changes neither filed total. The synthetic manufacturer test exercises an actual Stage B
+rebuild: borrowing and complete lease facts correct a raw debt total, leaving the raw bundle untouched. A second
+fixture tests both current aliases, a different raw total and a stale date.
+
+**ADS before/after.** TSM's 'Provider shares (scope unverified)' now appends '(ADS-equivalent)'. Its code-owned
+'Weighted-average diluted/basic share gap' sentence now says 'ADS-equivalent shares' beside the counts. The same
+presentation rule covers the sibling 'Provider shares (quoted class only)' branch. The capital producer receives the
+existing proved quoted-share basis; no ADR flag alone establishes it. Ordinary-count controls retain 'shares'.
+The two TSM panel cases carry the same counts, now with their basis beside those rows and notes in the app, Markdown
+and print. NVO's data-only gap note receives the same ADS qualifier from its proved ratio; its numerical counts also
+stay fixed.
+
+**Versions and strict fixtures.** Main 570807e4 carries W1 report 1.95.0, payload 1.109.0, Stage B `_82` and pipeline
+stage-c-1.6.50. W2 is renumbered to report 1.96.0; other stamps stay W1's. The methodology sentence, changelog,
+current stamp assertions and synthetic sample move together. The audit freeze starts from W1's record and permits
+only the seven exact paths in its D-295 refresh-log entry. The capital digest asserts the new debt-definition value,
+removes only that metadata for the existing historical byte pin, and pins the entire new capital tree separately.
+The multi-claim snapshot changes only its audit hash (the optional numeric definition field); its Markdown, print
+and UI hashes stay fixed. No assertions are skipped or loosened. The forensic-observation whole-output
+pin likewise asserts the new debt-definition value before removing only that added string; both original historical
+digests stay unchanged. This is the one expected stale assertion found by the confirmation changed-test selection.
+
+**Confirmation golden evidence.** The fresh 33-case baseline is pinned to main 570807e4a659b967b27c1b4748d7d6f38e318024.
+All 33 updated cases rebuild with strict schemas. The reviewed changes are 1,002 report metadata/text leaves and 213
+Stage B text leaves, including the 33 new debt-definition fields and ADS note text in both TSM cases and NVO.
+Every numeric/boolean leaf, complete score object and verification result is identical; only three verification-log
+claim strings copy the already changed debt commentary. Exact hash approvals cover 230 changed files and 32 payload
+fingerprints: golden diff reports 262 approved changes and nothing else. Golden value-check passes all 33 with no
+model-value moves. Accuracy is unchanged: 330 match, 14 mismatch, 121 gap and 70 not-established across all 535 figures
+in 25 cases; no expectation edit. This confirmation supersedes the O/FIGR current-debt 'D-unproved' entries in the prior table with 'D-in'.
+Every other per-company label change remains the reviewed round-one table below.
+
+**Confirmation checks.** The required changed selection ran once: 676 files and 17,328 assertions passed; one old
+whole-output pin failed because of the new metadata (three pre-existing skips remain). Its explicit assertion and
+metadata-only inverse preserve both historical digests; the complete affected-file plus refusal-wording rerun passes
+14 tests. All 28 definition regressions pass, including an actual Stage B rebuilt total. TypeScript, touched-file
+ESLint and whitespace checks pass. No runtime change followed the final golden replay; no local verify/full build.
+
 ## D-285 - A whole-feed news citation names one article or the statement is removed (2026-11-14)
 
 P20 and P22 (release item R8; findings K33, A13). Owners: `src/pipeline/stageC/payload.ts` (`newsSection` keeps
