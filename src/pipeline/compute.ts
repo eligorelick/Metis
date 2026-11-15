@@ -187,9 +187,9 @@ export interface ComputedMetrics {
   scores: Scoring;
   /** Weighted forward projections (feature 1.1.0). */
   projections: Projections;
-  /** Deterministic bull/base/bear price targets (2026-07-11 checkpoint). */
+  /** Deterministic bull/base/bear price targets (P18). */
   scenarioTargets: ScenarioTargets;
-  /** Deterministic intrinsic per-share fair value (2026-07-11 DCF checkpoint). */
+  /** Deterministic intrinsic per-share fair value (P18). */
   fairValue: FairValue;
   /** Metric keys nulled by the sector policy, with the disclosing reason. */
   suppressed: SuppressedMetric[];
@@ -711,7 +711,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     .map(row=>({date:row.date,fiscalYear:row.fiscalYear,period:undefined}));
   const incomeAnnualForRevenue = revenueConflict
     ? incomeAnnual.map(row => ({ ...row, revenue: undefined, operatingIncome: undefined, nonMarginOperatingIncome: undefined })) : incomeAnnual;
-  // Review m6: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
+  // P20: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
   const balanceAdmissions: BalanceAdmission[] = [];
   // D-254 (P13): the debt family is admitted once per run by its shared preparation; Stage B presents its own row.
   const debtAdmission = debtFamilyAdmission(bundle);
@@ -779,7 +779,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   if (foreignBasis) route.notes = route.notes.map(note => note.startsWith("adr overlay applied")
     ? `adr overlay applied (profile.isAdr). ${foreignBasis.note}` : note);
 
-  // Audit 2026-10-19 O-2: debt the year's interest expense shows to be
+  // D-97: debt the year's interest expense shows to be
   // incomplete is withheld before any consumer reads it. Financial routes are
   // excluded: their interest expense funds deposits and float, not debt.
   if (!(route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage")) {
@@ -923,7 +923,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
       repurchaseExecutions: repurchaseExecutions.rows,
       companyFacts,
       asOf: bundle.builtAt,
-      // AMZN audit 2026-10-20, finding 20 (b): net debt/EBITDA on the EV's lease basis.
+      // D-99 (leverage basis): net debt/EBITDA on the EV's lease basis.
       evIncludeLeases,
     },
   );
@@ -962,7 +962,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     route: route.base,
     modelEligibilityReason,
     evIncludeLeases,
-    // D-31 / FIN-112: like the annual capital input, EBIT stays on operating income.
+    // D-31 / D-137: like the annual capital input, EBIT stays on operating income.
     // An incomplete trailing operating flow is unknown, never vendor EBIT or an annual substitute.
     income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, netIncome: consolidatedConversionIncome, operatingIncome: operatingIncomeForNonMargins(ttmInc), ebit: operatingIncomeForNonMargins(ttmInc),
       // D-282: a filed exact window or four established quarters establish the TTM interest.
@@ -1188,7 +1188,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     foreignBasis,
     revenueEligibilityReason,
     operatingDispositions: operatingDispositions.read,
-    // FIN-121: use the SAME selected routing flow, before model-currency filtering.
+    // D-137: use the SAME selected routing flow, before model-currency filtering.
     finOtherOcfExemption: route.base === "general" && !route.overlays.includes("unprofitable") &&
       ["financial services", "financial"].includes(str(profile?.sector)?.trim().toLowerCase() ?? "") &&
       (routingCashflowTtm?.operatingCashFlow ?? routingCashflowAnnual?.operatingCashFlow ?? 0) < 0,
@@ -1348,7 +1348,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     });
   }
   const asOfDay = bundle.builtAt.slice(0, 10);
-  // Audit 2026-10-22 B-13: Moody's leverage ratios on the current capital
+  // D-104: Moody's leverage ratios on the current capital
   // window and the balance sheet it pairs with.
   const utilityCredit = route.overlays.includes("regulated-utility") ? (() => {
     const current = capital.current ?? null;
@@ -1428,7 +1428,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     returns.gaps.push({ field: "returns.roicVsWacc", reason, severity: "info" });
   }
 
-  // Same point-in-time anchors as computeValuation (audit H2/M3/M4): the NEWER
+  // Same point-in-time anchors as computeValuation (P1, P2): the NEWER
   // of the latest quarterly vs annual whole rows (balance + diluted shares,
   // zero-for-undisclosed share counts treated as missing), and net debt from
   // the shared components-only resolver. Disclosures are emitted once from the
@@ -1436,7 +1436,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   const inc0Proj = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows[0];
   const projRowDate = (r: { date?: unknown } | null | undefined): string =>
     typeof r?.date === "string" ? r.date : "";
-  // FIN-404: the same divisor as the valuation block (a loss period keeps its award dilution).
+  // D-135: the same divisor as the valuation block (a loss period keeps its award dilution).
   const projDivisors = incomeDivisors(incomeQuarterly, inc0Proj, confirmedIssuerFacts(bundle.symbol, bundle.edgar));
   const sharesQProj = projDivisors.quarter.shares;
   const sharesAProj = projDivisors.annual.shares;
@@ -1511,7 +1511,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
   const projectionOutsideOwnership = [num(projectionOwnershipBalance?.minorityInterest), num(projectionOwnershipIncome?.netIncomeAttributableToNoncontrollingInterest)]
     .some(value => value !== null && value !== 0);
-  // FIN-119 (OD-1, one definition of claims senior to common): a refused temporary-equity operand, or an
+  // D-135 (one definition of claims senior to common): a refused temporary-equity operand, or an
   // admitted claim, also leaves a future common-earnings allocation unestablished. This covers a redeemable
   // NCI beside a null book NCI, which the bridge fields cannot show. An unknown (withheld) enrichment withholds nothing.
   const projectionTemporary = projectionOwnershipBalance === undefined ? null : temporaryEquityClaims({ ...temporaryEquityOperands(projectionOwnershipBalance), preferredStock: num(projectionOwnershipBalance.preferredStock) });
@@ -1556,8 +1556,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   const translatedProjectionInputs = foreignBasis ? translateProjectionInputs(projectionInputs, foreignBasis) : projectionInputs;
   const projections = computeProjections(translatedProjectionInputs);
 
-  // Deterministic bull/base/bear price targets (2026-07-11 scenario-credibility
-  // checkpoint). Reuses the SAME point-in-time anchors + ±σ construction as the
+  // Deterministic bull/base/bear price targets (P18). Reuses the SAME point-in-time anchors + ±σ construction as the
   // projection fan, so the target band and the fan agree; base IS the DCF fair
   // value. Financial routes instead stress their own common-return history
   // and persistence around the unchanged excess-return base (D-193). Missing
@@ -1579,12 +1578,11 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   const classApproximation = bundle.economicShareEvidence?.find(e => e.approximation && e.effectiveFrom <= asOfDay && (e.effectiveTo === null || e.effectiveTo > asOfDay))?.approximation;
   if (classApproximation) scenarioTargets.basis.push(classApproximation.basis);
 
-  // Deterministic intrinsic per-share fair value (2026-07-11 DCF-credibility
-  // checkpoint). Route-appropriate (FCFF DCF / excess-return), reused from
+  // Deterministic intrinsic per-share fair value (P18). Route-appropriate (FCFF DCF / excess-return), reused from
   // valueCompany — never recomputed. assembleReport overwrites the judge's
   // valuation.dcf.perShare + upsidePct from this; suppressed (never fabricated)
   // when no per-share model applies or the equity bridge is missing.
-  // Audit 2026-10-22 F-13: an available value built on substituted inputs
+  // D-111: an available value built on substituted inputs
   // carries a "degraded inputs" reason naming each substitution.
   if (classApproximation) {
     fairValue.basis.push(classApproximation.basis);
@@ -1609,14 +1607,14 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   if (isSuppressed("evEbitda")) suppress("multiples.evToEbitda", lendingCashFlow?.reason ?? `EV/EBITDA excluded for ${route.base} — enterprise value ill-defined`);
   if (isSuppressed("currentRatio")) suppress("returns.currentRatio", `current ratio not meaningful for ${route.base}`);
 
-  // Audit 2026-10-22 B-24: a results release later than every statement.
+  // D-112: a results release later than every statement.
   const newer = newerResultsRelease(bundle);
   const newerResultsGaps: ManifestEntry[] = newer === null ? [] : [{ field: "fundamentals.newerResults", severity: "warn", reason: newerResultsSentence({
     source: { form: newer.release.form ?? "8-K", accession: newer.release.accession, exhibit: null, filingDate: newer.release.filingDate, url: null },
     reportedPeriod: newer.reportedPeriod, reportedPeriodEnd: newer.reportedPeriodEnd, statementsEnd: newer.statementsEnd,
   }) }];
 
-  // Audit 2026-10-22 B-23: a 10-Q or 10-K on file that the statements do not reach.
+  // D-112: a 10-Q or 10-K on file that the statements do not reach.
   const newerFiling = newerPeriodicFiling(bundle);
   if (newerFiling !== null) newerResultsGaps.push({ field: "fundamentals.newerFiling", severity: "warn", reason: newerFilingSentence({
     source: { form: newerFiling.filing.form, accession: newerFiling.filing.accessionNumber, exhibit: null, filingDate: newerFiling.filing.filingDate, url: null },
@@ -1859,11 +1857,10 @@ function gateRunwayCurrency(
 
 /**
  * D-173. A provider's annual balance-sheet feed can trail its annual income and
- * cash-flow feeds for days after an annual report is filed (AAPL, 2026-11-02: the
- * 10-K for the year ended 2026-09-26 had reached the annual income, annual cash-flow
- * and quarterly balance-sheet feeds, while the annual balance sheet still ended at
- * 2025-09-27, so Altman, Beneish, accruals and ROIC - WACC were withheld for the
- * newest year). A balance sheet is a point-in-time statement: the quarterly row
+ * cash-flow feeds for days after an annual report is filed (the new 10-K can reach
+ * the annual income, annual cash-flow and quarterly balance-sheet feeds while the
+ * annual balance sheet still ends a year earlier, which would withhold Altman,
+ * Beneish, accruals and ROIC - WACC for the newest year). A balance sheet is a point-in-time statement: the quarterly row
  * dated exactly at the newest annual income period end is that fiscal year's
  * closing balance. Only that one date is filled, only when the annual feed has no
  * row within the forensic alignment tolerance of it (a 52/53-week alias dated a few
