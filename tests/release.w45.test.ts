@@ -123,6 +123,16 @@ describe("support level (D-300, R40)", () => {
     }
   });
 
+  it("counts only statements a reader surface prints: grade-strip reasoning is not printed (control)", () => {
+    const report = loadTask28Fixture();
+    const shownBefore = confirmedStatementShare(prepareReportForSurface(ReportSchema.parse(report), "markdown").report);
+    const strip = Object.values(report.verdict.gradeStrip).find(block => block !== undefined)!;
+    strip.reasoning = [...strip.reasoning, fact("A statement only the grade strip holds.")];
+    const after = confirmedStatementShare(prepareReportForSurface(ReportSchema.parse(report), "markdown").report);
+    expect(after.total).toBe(shownBefore.total);
+    expect(reportToMarkdown(ReportSchema.parse(report))).not.toContain("A statement only the grade strip holds.");
+  });
+
   it("never counts a figure's citation as a confirmed statement", () => {
     const report = loadTask28Fixture();
     report.appendix.verificationLog = [];
@@ -201,6 +211,20 @@ describe("company record during an officer's tenure (D-302, R35)", () => {
       .toBe(`${COMPANY_RECORD_PREFIX}operating cash flow for FY2026 was USD 10.0 billion.`);
     expect(companyRecordText("Morgan Lee Example", "Morgan Example: return on invested capital for FY2025 was 12.0%."))
       .toBe(`${COMPANY_RECORD_PREFIX}return on invested capital for FY2025 was 12.0%.`);
+  });
+
+  it("keeps the officer's name in a list that pools several officers' statements", () => {
+    expect(companyRecordText("Morgan Lee Example", "Morgan Example: free cash flow for the quarter was USD 1.0 billion.", "named"))
+      .toBe("Company record during the tenure of Morgan Example: free cash flow for the quarter was USD 1.0 billion.");
+    const report = loadTask28Fixture();
+    for (const e of report.leadership.executives) { e.grade = "not-assessed"; e.credibilityGrade = "not-assessed"; }
+    const exec = report.leadership.executives[1]!;
+    exec.evidence = { capitalAllocation: [fact(`${exec.name}: revenue for FY2025 was USD 3.000 billion.`)] };
+    for (const text of surfaces(ReportSchema.parse(report))) {
+      expect(text).toContain(`Company record during the tenure of ${exec.name}: revenue for FY2025`);
+      // Every occurrence of the officer-prefixed sentence is the company-record form.
+      expect(text.split(`${exec.name}: revenue for FY2025`).length).toBe(text.split(`tenure of ${exec.name}: revenue for FY2025`).length);
+    }
   });
 
   it("leaves other statements alone (controls: another person, a one-word label, no prefix)", () => {

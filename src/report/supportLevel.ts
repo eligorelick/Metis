@@ -136,8 +136,8 @@ export function supportLevelText(view: SupportLevel): string {
 
 export interface ConfirmedShare { confirmed: number; total: number }
 
-/** Containers the reader surfaces do not print (they are audit-export material). */
-const AUDIT_ONLY_KEYS = new Set(["appendix", "meta", "auditValuation"]);
+/** Containers the reader surfaces do not print: audit-export material and the grade strip's reasoning (the strip shows grades and one-line reasons). */
+const AUDIT_ONLY_KEYS = new Set(["appendix", "meta", "auditValuation", "gradeStrip"]);
 
 function isTaggedStatement(node: unknown): node is SourcedClaim {
   const claim = node as Partial<SourcedClaim>;

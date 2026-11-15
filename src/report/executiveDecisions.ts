@@ -250,13 +250,15 @@ export const COMPANY_RECORD_PREFIX = "Company record during this tenure: ";
  * words), so it is replaced by the company-record wording; the figure, its
  * citation and its mark are unchanged. Any other statement is left as written.
  */
-export function companyRecordText(officerName: string, text: string): string {
+export function companyRecordText(officerName: string, text: string, form: "card" | "named" = "card"): string {
   const match = /^([^:\n]{3,80}):\s+(\S[\s\S]*)$/.exec(text);
   if (!match) return text;
   const words = (value: string) => value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
   const name = new Set(words(officerName));
   const prefix = words(match[1]!);
-  return prefix.length >= 2 && prefix.every(word => name.has(word)) ? `${COMPANY_RECORD_PREFIX}${match[2]!}` : text;
+  if (prefix.length < 2 || !prefix.every(word => name.has(word))) return text;
+  // A list that pools several officers keeps the name, so each line still says whose tenure it is.
+  return form === "card" ? `${COMPANY_RECORD_PREFIX}${match[2]!}` : `Company record during the tenure of ${match[1]!.trim()}: ${match[2]!}`;
 }
 
 /** Read-time context only: retains original claims and never changes a saved grade or verification mark. */
