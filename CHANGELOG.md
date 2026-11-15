@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - W3 review corrections (D-286-D-290)
 
+- Revalidate compact guidance through its original compact-range parser and retained dated outlook, preserving valid next-period revenue anchors while withholding unreadable or conflicting ranges (D-289).
 - Pair fiscal ROIC with the same fiscal-year WACC history point, retaining current beta, equity risk premium and weights; missing inputs and missing history state their own cause.
 - Label vendor interim periods from the retained 6-K/no-quarter-XBRL shape; separate ADS precision from cash-flow and interim notes. The requested vendor-unverified grade reason has no existing P12 code and remains pending a lead decision; the incorrect financial-evidence-blocked assignment is removed.
 - Quarterly captions carry the vendor limitation. A withheld combined-liquidity total has an Unavailable row and reason in app, Markdown and print. FCF series disclose periods where SBC was not deducted.

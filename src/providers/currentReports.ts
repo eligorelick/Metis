@@ -29,7 +29,7 @@ import {
   parseCapitalReturn,
   parseCommitmentTables,
   parseGuidance,
-  parseGuidanceSentence,
+  reparseGuidanceItem,
   releaseEvidenceTables,
   parseIssuerFreeCashFlow,
   parseNonGaapBasisNote,
@@ -367,7 +367,7 @@ export function revalidateGuidance<T extends { guidance: IssuerGuidance | null }
   const items = guidance.items.flatMap(item => {
     // Tables retain bounded cell/header spans; their structural parser owns those rows.
     if (item.span && item.headerSpan) return [item];
-    const parsed = parseGuidanceSentence(item.sentence, item.period).filter(candidate =>
+    const parsed = reparseGuidanceItem(item).filter(candidate =>
       candidate.metric === item.metric && candidate.basis === item.basis && candidate.unit === item.unit && candidate.period.label === item.period.label);
     if (parsed.length !== 1) { rejected.push(item.sentence); return []; }
     return parsed;
