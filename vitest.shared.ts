@@ -124,6 +124,13 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/companyJobIdentity.ts",
   "src/pipeline/jobArtifacts.ts",
   "src/pipeline/jobRunner.ts",
+  // Split out of jobRunner.ts with no output change: the same runner code, one module per responsibility.
+  "src/pipeline/jobPassContract.ts",
+  "src/pipeline/jobStepProgress.ts",
+  "src/pipeline/jobFailures.ts",
+  "src/pipeline/jobSettlement.ts",
+  "src/pipeline/jobCostLedger.ts",
+  "src/pipeline/jobRunOutcome.ts",
   "src/pipeline/sectionLimits.ts",
   "src/pipeline/jobStore.ts",
   "src/pipeline/jobScheduler.ts",
