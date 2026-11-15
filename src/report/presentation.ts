@@ -650,19 +650,12 @@ const FIGURE_METRIC_ALIASES = new Map(FIGURE_ALIAS_GROUPS.flatMap((group) =>
   group.map((source): [string, string] => [source, group[0]!])));
 
 /**
- * D-301 review round 1 (P13): the value an alias copy is compared at. The context payload hands the
- * analysts every figure at four decimals (`round` in `src/pipeline/stageC/payload.ts`), so an analyst's
- * key number is the code figure at that transport precision. The comparison is exact at that precision,
- * not a band: 0.1821 is the transported 0.18213677..., while 937.21 and 937.24 stay two figures.
- */
-export function aliasComparableValue(value: number): number {
-  return Number(value.toFixed(4));
-}
-
-/**
- * Exact source duplicates, or a known alias with the same underlying value and measurement basis.
- * D-301 review round 1 (P13): equal display text is not equal figures (937.21 and 937.24 both print
- * "937.2x"), so the alias identity keys on the traced value at the payload's transport precision.
+ * The identities a figure row is deduplicated on: its exact source, or a registered metric alias.
+ * D-301 review round 2 (lead decision, P1/P13/P19/P22): rows merge only when every part is identical:
+ * the underlying traced value (never its display text or a rounding of it), the metric (the same source
+ * or a registered alias of it), the stated window and period context, the unit, currency and as-of date,
+ * and the verification mark. A window is never inferred from an end date, and a failed mark is never
+ * dropped: a contradicted or unconfirmed copy is a different row from a checked one.
  */
 function figureIdentities(row: FigureRow): string[] {
   const n = row.trace;
@@ -670,11 +663,11 @@ function figureIdentities(row: FigureRow): string[] {
   const context = p === undefined ? null : p.kind === "instant"
     ? [p.kind, p.at, p.basis ?? null, p.fiscalLabel ?? null]
     : [p.kind, p.start, p.end, p.basis ?? null, p.fiscalLabel ?? null];
-  const basis = [n.unit, n.currency ?? null, n.asOf, n.period ?? null, context];
+  const basis = [n.unit, n.currency ?? null, n.asOf, n.period ?? null, context, row.cited];
   const source = n.sourceId ?? n.source;
   const exact = JSON.stringify(["source", source, n.value, ...basis]);
   const metric = FIGURE_METRIC_ALIASES.get(source);
-  return metric === undefined ? [exact] : [exact, JSON.stringify(["alias", metric, aliasComparableValue(n.value), ...basis])];
+  return metric === undefined ? [exact] : [exact, JSON.stringify(["alias", metric, n.value, ...basis])];
 }
 
 /**
@@ -682,56 +675,22 @@ function figureIdentities(row: FigureRow): string[] {
  * forensic battery register the same figure under two ids
  * (`computed.current-capital.*` and `computed.capital.current.*`), and the
  * report printed both. `seen` carries identities across the tables of one
- * section. The first occurrence wins. Currency and measurement metadata must
- * agree; missing metadata is not evidence that two different windows match.
- * D-264: registered aliases may omit only a period label equal to their shared
- * as-of date; keep the supplied label. A unitless ratio has no currency basis.
+ * section. The first occurrence wins; the rows it removes are identical in
+ * value, metric, window, basis and mark (`figureIdentities`), so nothing a
+ * reader could see is lost. D-301 review round 2 retires D-264's merge of an
+ * alias copy that omits its period: missing metadata is not evidence that two
+ * windows match, so such copies print as their own rows.
  */
 export function dedupeFigureRows(rows: readonly FigureRow[], seen: Map<string, FigureRow> = new Map()): FigureRow[] {
   const out: FigureRow[] = [];
   for (const row of rows) {
     const identities = figureIdentities(row);
-    const prior = identities.map((identity) => seen.get(identity)).find((entry) =>
-      entry !== undefined && (
-        (entry.trace.sourceId ?? entry.trace.source) !== (row.trace.sourceId ?? row.trace.source)
-        || entry.trace.value === row.trace.value
-      ));
-    const alias = FIGURE_METRIC_ALIASES.get(row.trace.sourceId ?? row.trace.source);
-    const compatible = alias === undefined ? undefined : out.find(entry =>
-      FIGURE_METRIC_ALIASES.get(entry.trace.sourceId ?? entry.trace.source) === alias &&
-      (entry.trace.sourceId ?? entry.trace.source) !== (row.trace.sourceId ?? row.trace.source) &&
-      aliasComparableValue(entry.trace.value) === aliasComparableValue(row.trace.value) && entry.value === row.value && entry.trace.unit === row.trace.unit &&
-      (sameCurrencyBasis(entry.trace, row.trace) || isRatioAsPercent(row.trace.source)) && entry.asOf === row.asOf &&
-      entry.trace.periodContext === undefined && row.trace.periodContext === undefined &&
-      (entry.period === row.period || entry.period === null && periodEndsAt(row.period, row.asOf) || row.period === null && periodEndsAt(entry.period, entry.asOf)));
-    if (prior || compatible) {
-      if (compatible && compatible.period === null && row.period !== null) Object.assign(compatible, row);
-      continue;
-    }
+    if (identities.some((identity) => seen.has(identity))) continue;
     const copy = { ...row };
     for (const identity of identities) seen.set(identity, copy);
     out.push(copy);
   }
   return out;
-}
-
-/**
- * D-301 (P13, P22; R29): a unitless ratio records "no currency" as null on one
- * registered id and omits it on the other; both mean the figure has no currency.
- * A currency amount still needs the same recorded currency.
- */
-function sameCurrencyBasis(a: Pick<TracedNumber, "currency" | "unit">, b: Pick<TracedNumber, "currency" | "unit">): boolean {
-  return a.currency === b.currency || (a.unit === b.unit && !/currency/i.test(a.unit) && (a.currency ?? null) === null && (b.currency ?? null) === null);
-}
-
-/**
- * D-264, extended by D-301: an alias copy that omits its period stands for the
- * period the other copy states only when that period is the shared as-of date
- * or a window ending on it ("ttm: 2025-08-29 to 2026-09-03" at 2026-09-03).
- */
-function periodEndsAt(period: string | null, asOf: string | null): boolean {
-  if (period === null || asOf === null) return false;
-  return period === asOf || period.endsWith(` to ${asOf}`);
 }
 
 export function figureRows(numbers: readonly TracedNumber[], seen?: Map<string, FigureRow>): FigureRow[] {

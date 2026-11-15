@@ -239,35 +239,54 @@ describe("support level (D-300, R40)", () => {
 describe("one figure shown once (D-301, R29)", () => {
   const ratio = (source: string, extra: Partial<TracedNumber> = {}): TracedNumber => ({ value: 937.2, unit: "x", source, sourceId: source, asOf: "2026-09-03", verified: true, ...extra } as TracedNumber);
 
-  it("merges the two registered ids of one ratio when one copy omits its window ending on the shared date", () => {
-    const rows = dedupeFigureRows([
-      figureRow(ratio("computed.current-capital.interest-coverage")),
-      figureRow(ratio("computed.capital.current.interestCoverage", { currency: null, period: "ttm: 2025-08-29 to 2026-09-03" })),
-    ]);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]!.period).toBe("ttm: 2025-08-29 to 2026-09-03");
+  // Review round 2 (lead decision): strict. Rows merge only on an identical underlying value, metric (same source or
+  // registered alias), window, basis and verification mark; a window is never inferred and a failed mark never dropped.
+  const pair = (a: TracedNumber, b: TracedNumber) => dedupeFigureRows([figureRow(a), figureRow(b)]).length;
+  const accrual = (source: string, extra: Partial<TracedNumber> = {}) =>
+    ratio(source, { value: 0.1821367793673119, period: "2025-12-31", asOf: "2025-12-31", ...extra });
+
+  it("keeps a contradicted AI copy beside the checked code figure (the reviewer's repro), in either order", () => {
+    const code = figureRow(accrual("computed.forensics.accruals.cashFlowAccrualRatio"));
+    const ai = { ...figureRow(accrual("computed.forensics.accrual-ratio-cash-flow", { value: 0.18214, period: undefined, verified: false })), cited: "contradicted" };
+    expect(code.cited).toBe("✓");
+    expect(code.value).toBe(ai.value); // both print "18%"
+    for (const rows of [dedupeFigureRows([code, ai]), dedupeFigureRows([ai, code])]) {
+      expect(rows.map(row => [row.trace.value, row.cited, row.period]).sort()).toEqual(
+        [[0.1821367793673119, "✓", "2025-12-31"], [0.18214, "contradicted", null]].sort());
+    }
+    // Same value, window and basis, but a different mark: still two rows.
+    const sameValueContradicted = { ...figureRow(accrual("computed.forensics.accrual-ratio-cash-flow")), cited: "contradicted" };
+    expect(dedupeFigureRows([code, sameValueContradicted]).map(row => row.cited)).toEqual(["✓", "contradicted"]);
+    const unconfirmed = { ...figureRow(accrual("computed.forensics.accrual-ratio-cash-flow")), cited: "not confirmed" };
+    expect(dedupeFigureRows([unconfirmed, code]).map(row => row.cited)).toEqual(["not confirmed", "✓"]);
   });
 
-  it("keeps both rows when the window ends elsewhere, the values differ or the ids are not registered aliases (controls)", () => {
-    const pair = (a: TracedNumber, b: TracedNumber) => dedupeFigureRows([figureRow(a), figureRow(b)]).length;
-    expect(pair(ratio("computed.current-capital.interest-coverage"), ratio("computed.capital.current.interestCoverage", { currency: null, period: "ttm: 2025-06-01 to 2026-05-31" }))).toBe(2);
-    // Review round 1: equal display text is not an equal figure (937.21x and 937.24x both print "937.2x"),
-    // on the omitted-period path and on the alias identity alike.
-    expect(pair(ratio("computed.current-capital.interest-coverage", { value: 937.21 }), ratio("computed.capital.current.interestCoverage", { value: 937.24, currency: null, period: "ttm: 2025-08-29 to 2026-09-03" }))).toBe(2);
+  it("merges registered aliases only when value, window, basis and mark are all identical (control)", () => {
+    const rows = dedupeFigureRows([
+      figureRow(accrual("computed.forensics.accruals.cashFlowAccrualRatio")),
+      figureRow(accrual("computed.forensics.accrual-ratio-cash-flow")),
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.trace.source).toBe("computed.forensics.accruals.cashFlowAccrualRatio");
+    expect(pair(ratio("computed.current-capital.interest-coverage", { value: 937.21, period: "ttm: 2025-08-29 to 2026-09-03" }),
+      ratio("computed.capital.current.interestCoverage", { value: 937.21, period: "ttm: 2025-08-29 to 2026-09-03" }))).toBe(1);
+  });
+
+  it("never infers a window, never rounds a value and never merges different definitions (controls)", () => {
+    // An omitted window is not the window ending on the shared date (D-264's omitted-period merge is retired).
+    expect(pair(ratio("computed.current-capital.interest-coverage"), ratio("computed.capital.current.interestCoverage", { period: "ttm: 2025-08-29 to 2026-09-03" }))).toBe(2);
+    expect(pair(ratio("computed.current-capital.interest-coverage", { period: undefined }), ratio("computed.capital.current.interestCoverage", { period: "2026-09-03" }))).toBe(2);
+    expect(pair(ratio("computed.current-capital.interest-coverage"), ratio("computed.capital.current.interestCoverage", { period: "ttm: 2025-06-01 to 2026-05-31" }))).toBe(2);
+    // Equal display text is not an equal figure: 937.21x and 937.24x both print "937.2x"; a four-decimal copy is another value.
     expect(pair(ratio("computed.current-capital.interest-coverage", { value: 937.21 }), ratio("computed.capital.current.interestCoverage", { value: 937.24 }))).toBe(2);
-    expect(pair(ratio("computed.current-capital.interest-coverage", { value: 937.21 }), ratio("computed.capital.current.interestCoverage", { value: 937.21 }))).toBe(1);
-    // An analyst's key number is the code figure at the payload's four-decimal transport precision: one figure.
-    expect(pair(ratio("computed.forensics.accruals.cashFlowAccrualRatio", { value: 0.1821367793673119, period: "2025-12-31", asOf: "2025-12-31" }),
-      ratio("computed.forensics.accrual-ratio-cash-flow", { value: 0.1821, asOf: "2025-12-31" }))).toBe(1);
-    expect(pair(ratio("computed.forensics.accruals.cashFlowAccrualRatio", { value: 0.1822, period: "2025-12-31", asOf: "2025-12-31" }),
-      ratio("computed.forensics.accrual-ratio-cash-flow", { value: 0.1821, asOf: "2025-12-31" }))).toBe(2);
-    expect(pair(ratio("computed.current-capital.net-debt-to-ebitda", { value: -0.4 }), ratio("computed.capital.current.interestCoverage", { value: -0.4, currency: null, period: "ttm: 2025-08-29 to 2026-09-03" }))).toBe(2);
+    expect(pair(accrual("computed.forensics.accruals.cashFlowAccrualRatio"), accrual("computed.forensics.accrual-ratio-cash-flow", { value: 0.1821 }))).toBe(2);
+    expect(pair(ratio("computed.current-capital.net-debt-to-ebitda", { value: -0.4 }), ratio("computed.capital.current.interestCoverage", { value: -0.4 }))).toBe(2);
     // Equal values under different definitions never merge: statement total debt vs the lease-inclusive bridge.
     expect(pair({ value: 49.5e9, unit: "currency", currency: "USD", source: "payload.statements.balance-sheet-quarterly.2026-09-30.total-debt", asOf: "2026-09-30", period: "2026-09-30", verified: true } as TracedNumber,
       { value: 49.5e9, unit: "currency", currency: "USD", source: "computed.capital.current.debtBridge.totalDebtIncludingLeases", asOf: "2026-09-30", period: "2026-09-30", verified: true } as TracedNumber)).toBe(2);
-    // A currency amount still needs the same recorded currency.
+    // A currency amount needs the same recorded currency.
     expect(pair({ value: 5e9, unit: "currency", currency: "USD", source: "computed.current-capital.net-debt", asOf: "2026-09-30", verified: true } as TracedNumber,
-      { value: 5e9, unit: "currency", currency: null, source: "computed.capital.current.netDebt", asOf: "2026-09-30", period: "ttm: 2025-10-01 to 2026-09-30", verified: true } as TracedNumber)).toBe(2);
+      { value: 5e9, unit: "currency", currency: null, source: "computed.capital.current.netDebt", asOf: "2026-09-30", verified: true } as TracedNumber)).toBe(2);
   });
 
   it("labels the statement field cash-sti in plain words on every statement table", () => {

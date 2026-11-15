@@ -92,21 +92,20 @@ list: "Company record during the tenure of Mark Zuckerberg / Susan Li: ..."). Ma
 ## D-301 - One figure shown once, plain field labels and numbers, and the sample issuer's name (2026-11-15)
 
 P13, P22 and P27 (release items R29 and R39 sample part; findings K20, A7, D10). Owners: `src/report/presentation.ts`
-(`dedupeFigureRows`, `sameCurrencyBasis`, `periodEndsAt`, the `cash sti` phrase, `READER_FIELD_LABELS` /
+(`dedupeFigureRows`, `figureIdentities`, the `cash sti` phrase, `READER_FIELD_LABELS` /
 `plainFieldNames` in `dataGapTables`, `keyDataRows` notes), `src/report/filingDisclosurePresentation.ts`
 (`issuerFcfRows`), `scripts/build-sample-report.ts` and the synthetic `fixtures/fmp/*/DEMO.json`.
 
 **Rules.**
-- Registered aliases of one figure (`computed.current-capital.*` and `computed.capital.current.*`, the existing alias
-  table) merge when value, unit and as-of agree, a unitless ratio's currency is null on one id and absent on the other
-  (both mean no currency), and one copy omits its period while the other's period is the as-of date or a window ending
-  on it. The row with the stated window is kept. Review round 1 (finding 2): the merge compares the traced values, not
-  their display text (937.21x and 937.24x both print "937.2x" and stay two rows), at the context payload's
-  four-decimal transport precision (`aliasComparableValue`; `round` in `src/pipeline/stageC/payload.ts`), which is how
-  an analyst's key number 0.1821 copies the code figure 0.18213677 (AMZN, LLY, MU, NVDA accrual ratios keep one row).
-  The comparison is exact at that precision, not a band. Different values, windows ending elsewhere, different currencies on
-  an amount, and ids that are not registered aliases stay separate: equal values never merge (statement total debt
-  and the lease-inclusive bridge both stay). Extends D-264's alias period rule (marked revised).
+- Figure rows (review round 2, lead decision: strict; revises D-62's and D-264's alias merges). Two rows merge only
+  when every part is identical: the underlying traced value (never its display text and never a rounding of it), the
+  metric (the same source id, or a registered alias of it in the existing alias table), the stated window and period
+  context, the unit, currency and as-of date, and the verification mark (`figureIdentities` in `dedupeFigureRows`).
+  A window is never inferred from an end date: D-264's merge of an alias copy that omits its period is retired. A
+  failed mark is never dropped: a contradicted or unconfirmed copy prints beside a checked one. If in doubt both rows
+  print. Round 1 had compared values at the payload's four-decimal transport precision and kept the omitted-window
+  merge; the round-2 review showed that a contradicted AI copy (0.18214) of the checked accrual ratio (0.18213677)
+  then collapsed into the checked row and its contradicted mark disappeared, so both were withdrawn.
 - The statement field `cash-sti` reads "Cash and short-term investments (at <date>)". The statement line and the
   debt-bridge figure stay two rows: they are different records whose identity is not proven.
 - One issuer free-cash-flow figure that one filing (same accession, form and date) states for the same period and
@@ -123,16 +122,23 @@ P13, P22 and P27 (release items R29 and R39 sample part; findings K20, A7, D10).
   `audit-fixture`, D-301: company name leaves and the input and projection digests only), and the two input digests
   in `tests/audit.fixtureComparison.test.ts` are re-pinned.
 
-**Before and after (same-report check).** MU fixed-analyst coverage table: "Interest coverage 937.2x" and "Net debt to
-EBITDA -0.4x" each printed twice (once without a window, once with "ttm: 2025-08-29 to 2026-09-03"); now once each with
-the window. NVDA fixed-analyst: "Interest coverage 426.7x" twice, now once. NVDA (both cases): the five issuer FCF rows
+**Before and after (same-report check).** Figure rows after review round 2, against main 5a503eec: data-only cases
+do not change. In the fixed-analyst replays, 16 rows that main merged by an omitted window or a display-equal rounded
+value now print beside the code row, each an AI key number with no stated window ("—") and its own mark: AMZN 4 (net
+debt, cash and short-term investments, operating-lease observation, cash-flow accrual ratio), LLY #63 2 (cash-flow
+accrual ratio and aggregate accruals), LLY #65 1 and NVDA 3 (cash-flow accrual ratio; NVDA also debt and the
+operating-lease observation), META 1 (aggregate accruals), MU 5 (debt, cash and short-term investments, both accrual
+ratios, accrual scaler). MU's and NVDA's interest-coverage pairs print twice as on main. NVDA (both cases): the five issuer FCF rows
 of 8-K 0001045810-26-000073 printed twice (EX-99.1, EX-99.2), now five rows naming both exhibits. "Cash sti" label:
 META fixed-analyst, LLY #65 and TSM #66. Field labels in data-gap reasons: 27 cases (no figure). AMZN P/E caveat
 numbers (both AMZN cases). No figure value changes; report.json, Stage B, payload and audit export are byte-identical
 in all 33 cases.
 
-**Tests.** `tests/release.w45.test.ts` ("one figure shown once"): the alias merge and four controls (window ending
-elsewhere, different ids, equal values under different definitions, currency amount without currency), the cash-sti
+**Tests.** `tests/release.w45.test.ts` ("one figure shown once"): the round-2 reviewer's repro (a contradicted AI copy
+beside the checked accrual ratio stays a separate row in either order; same value with a different mark stays
+separate) and a control (identical copies under the two alias ids merge once), plus controls that no window is inferred,
+no value rounded and no different definition or currency merged; `tests/report.presentation.d62.test.ts` (D-62/D-264
+alias tests revised to the strict rule, each with an identical-copy control), the cash-sti
 label on two statement shapes, the exhibit merge and a different-filing control, field labels with citation controls,
 key-data caveat numbers.
 
@@ -9177,7 +9183,7 @@ Revised by D-273: the score drivers and factor-family exposure tables leave the 
 - **Extended by D-130 (round-4 conventions: comparison bases)**: a figure the source introduces with "from", "compared with", "versus", "vs." or "against" is a comparison base, and the end of a base-first move takes the move's metric. See the entry "Audit batch B2: comparison bases and the end of a base-first move".
 - **Revised by D-128 (B1 OD-3, audit 2026-10-27 AI-302-V1)**: a clause naming no period takes the excerpt's own only when it is not forward-looking. A forward-looking clause (management's expectation, outlook or guidance) inherits no period or window from the excerpt and binds only a forward-looking claim, and a result clause binds only a result claim. See the entry "The claim verifier compares the periods, windows, comparison bases and recency a claim states".
 
-## D-62 (NVDA report 34 audit, WP10 / P3 + P1-12 + P0-7 headline, 2026-10-15) Write the report for a reader; move the audit trail to its own export
+## D-62 (NVDA report 34 audit, WP10 / P3 + P1-12 + P0-7 headline, 2026-10-15) Write the report for a reader; move the audit trail to its own export (Revised by D-301)
 
 Revised by D-264: reader-only duplicate/segment presentation; original generation rules remain.
 
