@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { moneyMentions, parseGuidanceSentence, type FiscalPeriod } from "@/edgar/currentReports";
 import { buildFilingDisclosures, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
-import { buildEarningsReleaseRecord, CURRENT_REPORTS_VERSION } from "@/providers/currentReports";
+import { revalidateGuidance, buildEarningsReleaseRecord, CURRENT_REPORTS_VERSION } from "@/providers/currentReports";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
 const q = (fiscalYear: number, fiscalQuarter: 1 | 2 | 3 | 4): FiscalPeriod => ({ label: `Q${fiscalQuarter} FY${fiscalYear}`, fiscalYear, fiscalQuarter });
@@ -191,4 +191,19 @@ it.each([
 ])("AI-202-V1 keeps respectively amounts on their stated basis: %s", (sentence, gaap, nonGaap) => {
  const rows = parseGuidanceSentence(sentence as string, q(2026,3));
  expect(rows.map(r => [r.basis,r.mid])).toEqual([["gaap",gaap],["non-gaap",nonGaap]]);
+});
+
+
+describe("D-289 retained guidance admission", () => {
+  it("reparses stale values from their retained sentence", () => {
+    const sentence = "We expect our full-year 2026 tax rate to be between 15-17%.";
+    const item = parseGuidanceSentence(sentence, q(2026, 4))[0]!;
+    const record = { guidance: { period: q(2026, 4), qualifiers: [], unparsed: [], items: [{ ...item, low: -17, mid: -17, high: -17, form: "point" as const }] } };
+    expect(revalidateGuidance(record).guidance?.items[0]).toMatchObject({ low: 15, mid: 16, high: 17, form: "range" });
+  });
+  it("withholds an unparseable retained row and retains a valid control", () => {
+    const item = parseGuidanceSentence("We expect fourth quarter 2026 total revenue to be in the range of $20-25 billion.", q(2026, 4))[0]!;
+    const record = { guidance: { period: q(2026, 4), qualifiers: [], unparsed: [], items: [item, { ...item, sentence: "No numeric outlook retained." }] } };
+    expect(revalidateGuidance(record).guidance?.items).toEqual([item]);
+  });
 });

@@ -772,6 +772,13 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     // ending/current-flow filing anchor; retain every dependency in secEvidence.
     const cashField = field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash";
     const filingAnchor = cashField ? cashAmounts.cashAtEndOfPeriod ?? sec : sec;
+    // D-287 (P7): an absent filed amount cannot establish a vendor zero.
+    if (!sec && field === "stockBasedCompensation" && row[field] === 0 && proof === undefined && row.fieldConflicts?.[field]?.usable !== false) {
+      const reason = `Stock-based compensation zero at ${row.date} is not a filed amount for this exact period; undisclosed compensation is withheld.`;
+      out = { ...out, [field]: null, fieldConflicts: { ...out.fieldConflicts, [field]: { usable: false, vendorValue: 0, secValue: null, reason } } };
+      gaps.push({ field: `statements.cashflow.${row.date}.${field}`, reason, severity: "info" });
+      continue;
+    }
     if (!sec && kind === "cashflow" && typeof row[field] === "number" && Number.isFinite(row[field])) {
       keptUnverified(ctx, field, row.date!, [cashField ? CASH_MOVEMENT_TAG : tag]);
     }
@@ -1018,7 +1025,15 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
 }
 
 /** Same field admission at replay boundaries; never re-open other cash-flow scopes. */
-export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts: CompanyFacts | null, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  if (!facts) {
+    if (row.stockBasedCompensation !== 0 || row.fieldProvenance?.stockBasedCompensation || row.fieldConflicts?.stockBasedCompensation?.usable === false) return { row, gaps: [] };
+    const reason = `Stock-based compensation zero at ${row.date ?? "an undated period"} is not a filed amount for this exact period; no admitted issuer facts establish it.`;
+    return { row: { ...row, stockBasedCompensation: null, fieldConflicts: { ...row.fieldConflicts,
+      stockBasedCompensation: { usable: false, vendorValue: 0, secValue: null, reason } } },
+      gaps: [{ field: `statements.cashflow.${row.date}.stockBasedCompensation`, reason, severity: "info" }] };
+  }
+
   if (!validDay(row.date) || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") ||
     (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
   return admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "cashflow",
@@ -1028,7 +1043,7 @@ export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts:
 /** Blocking observations only: a dated primary table can refute absence without admitting its dimensional amount. */
 function investmentObservations(facts: CompanyFacts, unit: string, end: string, observedAt: string, sections: readonly ExtractedSection[]): string[] {
   const roots = tagsFor("shortTermInvestments").flatMap(tag => points(facts, tag, unit, observedAt)
-    .filter(p => p.end === end && !p.start).map(p => `us-gaap/${tag}, instant ${end}, filing ${p.accn}`));
+    .filter(p => p.end === end && !p.start && p.val > 0).map(p => `us-gaap/${tag}, instant ${end}, filing ${p.accn}`));
   for (const section of sections) {
     if (!CORE_FACT_FORMS.has(section.form ?? "") || !section.filingDate || section.filingDate > observedAt.slice(0, 10)) continue;
     try { const url = new URL(section.documentUrl); if (url.origin !== "https://www.sec.gov" ||
@@ -1056,7 +1071,7 @@ export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: Compa
   const cash = admitCashFields(leases.row, facts, row.reportedCurrency!, scope, observedAt, "balance",
     { labels: [], withheld: new Set(), unverified: new Map() });
   // Main-admitted liquidity retains its values, evidence and notes.
-  if (cash.row.cashConflictReconciled !== true) return { row: cash.row, gaps: [...leases.gaps, ...cash.gaps] };
+  if (cash.row.cashConflictReconciled !== true && !(cash.row.shortTermInvestments === 0 && cash.row.fieldProvenance?.cashAndShortTermInvestments === undefined)) return { row: cash.row, gaps: [...leases.gaps, ...cash.gaps] };
   const investments = investmentObservations(facts, row.reportedCurrency!, row.date!, observedAt, sections);
   const combinedProof = cash.row.fieldProvenance?.cashAndShortTermInvestments;
   const filedCombined = combinedProof?.source === "edgar" && typeof cash.row.cashAndShortTermInvestments === "number" &&

@@ -761,6 +761,7 @@ export interface DcfIncomeRow extends FiscalDatedRow {
   grossProfit?: number | null;
   incomeBeforeTax?: number | null;
   incomeTaxExpense?: number | null;
+  taxEvidenceBasis?: string;
 }
 
 /** Selected whole balance-sheet slice used by the DCF builder (FMP field names). */
@@ -2344,6 +2345,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       : tEff === taxTerminal
         ? `${rereadBasis ?? `${periodBasis} effective rate ${fmtNum(tEff)}%`} held flat: terminal rate is ${terminalTaxText}`
         : `${rereadBasis ?? `${periodBasis} effective rate ${fmtNum(tEff)}%`} fading to ${fmtNum(taxTerminal)}% by year ${years}: ${terminalTaxText}`;
+  const qualifiedTaxBasis = inputs.incomeTtm?.taxEvidenceBasis;
   const taxRatePath = fadePath(tEff, taxTerminal, years);
 
   // --- Sales-to-capital ------------------------------------------------------
@@ -2652,7 +2654,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     ebitMarginPath: { value: marginPath, basis: marginBasis + (ttm?.operatingBasis ? `; ${ttm.operatingBasis}` : "") +
       (inputs.operatingNormalizationBasis ? `; excludes ${inputs.operatingNormalizationBasis}` : "") },
     ...(improvingBound !== null && cappedTarget > m0 ? { improvingMarginFade: { currentPct: m0, targetPct: cappedTarget } } : {}),
-    taxRatePath: { value: taxRatePath, basis: taxBasis },
+    taxRatePath: { value: taxRatePath, basis: [taxBasis, qualifiedTaxBasis].filter(Boolean).join("; ") },
     salesToCapital: { value: s2c, basis: s2cBasis },
     terminal: {
       gTermPct: { value: gTerm, basis: gTermBasis },

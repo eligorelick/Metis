@@ -1,3 +1,4 @@
+import { statementEvidenceNotes } from "@/report/assessment";
 import { indicatedDividendYield } from "@/pipeline/shareUnits";
 import type { CapitalResult } from "@/pipeline/stageB/capital";
 import { outlookPeriodLabels } from "@/edgar/currentReports";
@@ -629,6 +630,7 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
     }
     bundle = withCashFlowSbcBasis(operatingBasis);
   }
+  notes.push(...statementEvidenceNotes(bundle));
   const normalizedIncome = normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly));
   const normalizedCash = normalizeQuarterRows(rowsOf<FmpCashFlowRow>(bundle.statements?.cashflowQuarterly));
   for (const [label, normalized] of [["income", normalizedIncome], ["cash-flow", normalizedCash]] as const) {

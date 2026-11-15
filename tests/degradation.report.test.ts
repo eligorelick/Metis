@@ -622,7 +622,7 @@ describe("data-only report (keyless / no-LLM degraded path)", () => {
     // currency now stays unknown.)
     expect(serialized).toMatch(/model: [\d.,]+ \(currency unknown\) per share\./);
     expect(serialized).not.toMatch(/model: [\d.,]+ USD per share/);
-    expect(serialized).not.toContain("against a");
+    expect(serialized.replaceAll("checked against a filing", "checked filing")).not.toContain("against a"); // D-290 source qualification is not a quote comparison
     expect(serialized).not.toContain("versus the quote");
   });
 

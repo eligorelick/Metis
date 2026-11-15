@@ -893,7 +893,7 @@ export function computeCapital(
       if (sbcVal === null) {
         gaps.push({
           field: "capital.sbc",
-          reason: "stockBasedCompensation missing on latest cash-flow row",
+          reason: "Stock-based compensation is not disclosed for the latest cash-flow period",
           severity: "info",
         });
       }

@@ -756,7 +756,7 @@ function computedSections(
     { label: "beta (final)", value: r.wacc.betaFinal, unit: "x", source: "computed.returns.wacc.beta", asOf: null },
     { label: "ROIC (latest)", value: r.roic.latestRoicPct, unit: "%", source: "computed.returns.roic", asOf: r.roic.asOf, ...fiscalYearOf(annualLabels, r.roic.series.at(-1)?.date, r.roic.asOf) },
     { label: "ROE (latest, DuPont)", value: r.dupont.latest?.roePct ?? null, unit: "%", source: "computed.returns.dupont", asOf: r.dupont.asOf, ...fiscalYearOf(annualLabels, r.dupont.latest?.date, r.dupont.asOf) },
-    { label: "ROIC − WACC spread", value: r.roicVsWacc.spreadPctPts, unit: "pp", source: "computed.returns.roicVsWacc", asOf: r.roic.asOf },
+    { label: "ROIC − fiscal-year-end WACC spread (current beta, equity risk premium and weights)", value: r.roicVsWacc.spreadPctPts, unit: "pp", source: "computed.returns.roicVsWacc", asOf: r.roicVsWacc.asOf ?? r.roic.asOf },
     // Audit 2026-10-22 C-11: the trailing return the excess-return model starts from.
     ...(r.commonReturnTtm == null ? [] : [{
       label: r.commonReturnTtm.basis === "tangible-common-equity" ? "ROTE (trailing four quarters)" : "common-equity ROE (trailing four quarters)",
@@ -781,9 +781,9 @@ function computedSections(
     // WS6 review (SHOULD-FIX 4): every free-cash-flow figure names its
     // definition. The house default subtracts SBC; the vendor convention does
     // not, and P/FCF is built on the before-SBC figure; the graded conversion is the current-capital one (AI-511).
-    { label: "latest FCF (after SBC, house default)", value: cap.fcf.latestFcf, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf", asOf: cap.asOf, ...fcfYear },
+    { label: cap.fcf.series.at(-1)?.stockBasedCompensation == null ? "latest FCF (before SBC; compensation undisclosed)" : "latest FCF (after SBC, house default)", value: cap.fcf.latestFcf, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf", asOf: cap.asOf, ...fcfYear },
     { label: "latest FCF (before SBC, vendor convention)", value: cap.fcf.latestFcfBeforeSbc, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf.beforeSbc", asOf: cap.asOf, ...fcfYear },
-    { label: "FCF conversion (latest, after SBC)", value: cap.fcf.latestConversion, unit: "x", source: "computed.capital.fcf.conversion", asOf: cap.asOf, ...fcfYear },
+    { label: cap.fcf.series.at(-1)?.stockBasedCompensation == null ? "FCF conversion (latest, before SBC; compensation undisclosed)" : "FCF conversion (latest, after SBC)", value: cap.fcf.latestConversion, unit: "x", source: "computed.capital.fcf.conversion", asOf: cap.asOf, ...fcfYear },
     { label: "FCF conversion (latest fiscal year, before SBC)", value: cap.fcf.latestConversionBeforeSbc, unit: "x", source: "computed.capital.fcf.conversionBeforeSbc", asOf: cap.asOf, ...fcfYear },
     { label: "capex/revenue (latest)", value: cap.capexIntensity.latestPct, unit: "%", source: "computed.capital.capexIntensity", asOf: cap.asOf, ...capexYear },
     { label: "capex/revenue slope", value: cap.capexIntensity.slopePctPtsPerYear, unit: "pp/yr", source: "computed.capital.capexIntensity", asOf: cap.asOf },

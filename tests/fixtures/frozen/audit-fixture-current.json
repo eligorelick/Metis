@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "4ee986308d1d7957fe0b38310e432c9474d416c5bec6f0de98c2ab01ac894089",
+  "projectionSha256": "cac252e2a3906df034d44b4cfab197cd5051c05bdaf7da68d8f950c0fb28258c",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
     "stageB": {
@@ -283,8 +283,9 @@
           "notes": ["DuPont uses average assets/equity (current and prior period) where a prior balance exists"],
           "gaps": []
         },
-        "roicVsWacc": {"spreadPctPts": 30.806856135117066, "note": "spread = ROIC 40.0641% − WACC 9.2572% (positive = returns above cost of capital)"},
+        "roicVsWacc": {"spreadPctPts": null, "note": "ROIC vs WACC spread withheld: no WACC history point for 2025-12-31; no fred:DGS10 observations supplied."},
         "notes": [
+          "ROIC vs WACC spread withheld: no WACC history point for 2025-12-31; no fred:DGS10 observations supplied.",
           "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))",
           "per-fiscal-year WACC unavailable: no fred:DGS10 observations supplied"
         ],
@@ -734,7 +735,7 @@
           },
           "taxRatePath": {
             "value": [27.083333333333332, 27.055103884372176, 27.02687443541102, 26.998644986449865, 26.97041553748871, 26.942186088527553, 26.913956639566397, 26.88572719060524, 26.857497741644085, 26.82926829268293],
-            "basis": "latest annual FY 2025-12-31 effective rate 27.08% fading to 26.83% by year 10: the company historical median 26.83%, at or above the 21% floor = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two)"
+            "basis": "latest annual FY 2025-12-31 effective rate 27.08% fading to 26.83% by year 10: the company historical median 26.83%, at or above the 21% floor = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two); Tax rate operands: vendor data, not checked against a filing"
           },
           "salesToCapital": {
             "value": 2.9761904761904763,
@@ -1315,40 +1316,18 @@
             "note": "Attractiveness vs intrinsic value: DCF upside, reverse-DCF implied vs achievable growth, and where the current multiple RANKS among the issuer's own quarters (a rank within the observed 8-20 quarter sample, not a percentile of a distribution; N is published beside every rendered rank)."
           },
           "quality": {
-            "score": 88.85,
+            "score": 87.02,
             "band": "A",
             "weightPct": 15,
-            "dataCompleteness": 0.9511111111111111,
-            "applicableCompleteness": 0.9511111111111111,
+            "dataCompleteness": 0.6011111111111112,
+            "applicableCompleteness": 0.6011111111111112,
             "drivers": [
-              {"value": 30.806856135117066, "unit": "pp", "source": "computed.scores.quality.roicVsWaccSpread", "asOf": "2025-12-31", "verified": true, "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06"},
               {"value": 1, "unit": "frac", "source": "computed.scores.quality.piotroskiF", "asOf": "2025-12-31", "verified": true, "period": "2023-12-31 to 2025-12-31"},
               {"value": 5.769922666666666, "unit": "z", "source": "computed.scores.quality.altmanZOriginalScale", "asOf": "2025-12-31", "verified": true, "period": "Balance 2025-12-31; income 2025-12-31; market cap unavailable"},
               {"value": 0.012269938650306749, "unit": "frac", "source": "computed.scores.quality.accrualsRatioAbs", "asOf": "2025-12-31", "verified": true, "period": "2024-12-31 to 2025-12-31"},
               {"value": -2.6827912496211668, "unit": "m", "source": "computed.scores.quality.beneishM", "asOf": "2025-12-31", "verified": true, "period": "2024-12-31 to 2025-12-31"}
             ],
             "signals": [
-              {
-                "id": "roicVsWaccSpread",
-                "raw": 30.806856135117066,
-                "unit": "pp",
-                "transformedScore": 92,
-                "signalWeight": 0.35,
-                "evidenceFraction": 1,
-                "effectiveCompositeWeightPct": 5.25,
-                "contributionPoints": 2.205,
-                "family": "capital-returns",
-                "asOf": "2025-12-31",
-                "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06",
-                "startDate": null,
-                "endDate": "2025-12-31",
-                "windowYears": null,
-                "fallbackReason": null,
-                "operands": [
-                  {"name": "ROIC", "value": 40.06410256410257, "source": "computed.returns.roic.latestRoicPct", "asOf": "2025-12-31"},
-                  {"name": "WACC", "value": 9.257246428985505, "source": "computed.returns.wacc.waccPct", "asOf": "2026-07-06"}
-                ]
-              },
               {
                 "id": "piotroskiF",
                 "raw": 1,
@@ -1687,17 +1666,17 @@
           }
         },
         "composite": {
-          "score": 76.37,
+          "score": 74.16,
           "band": "B",
           "weights": {"fundamentals": 20, "valuation": 20, "quality": 15, "balanceSheet": 15, "moat": 15, "leadership": 10, "technicals": 5},
-          "methodology": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 83.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+          "methodology": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 78.56% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
         },
         "bandsVersion": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE",
         "factorExposure": [
-          {"family": "capital-returns", "weightPct": 16.5, "aboveNeutralPoints": 7.12460088691796},
           {"family": "growth", "weightPct": 14.000000000000002, "aboveNeutralPoints": 2.2271840043786124},
           {"family": "valuation", "weightPct": 14, "aboveNeutralPoints": 5.76},
           {"family": "financial-strength", "weightPct": 12.352941176470589, "aboveNeutralPoints": 4.245798319327731},
+          {"family": "capital-returns", "weightPct": 11.25, "aboveNeutralPoints": 4.91960088691796},
           {"family": "profitability", "weightPct": 9.75, "aboveNeutralPoints": 2.299383843890901},
           {"family": "accounting-integrity", "weightPct": 9.016666666666667, "aboveNeutralPoints": 3.3382626280302823},
           {"family": "capital-return-policy", "weightPct": 4.545454545454545, "aboveNeutralPoints": 0.6258802167783815},
@@ -1705,9 +1684,9 @@
           {"family": "momentum-and-trend", "weightPct": 1, "aboveNeutralPoints": 0.30284603461001197}
         ],
         "assessments": {
-          "businessQuality": {"score": 77.07, "band": "B", "evidenceCompleteness": 0.9174949494949495, "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."},
+          "businessQuality": {"score": 74.13, "band": "B", "evidenceCompleteness": 0.8474949494949495, "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."},
           "valuation": {"score": 91.14, "band": "A", "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."},
-          "evidenceCompleteness": 0.8381212121212122,
+          "evidenceCompleteness": 0.7856212121212122,
           "calibration": "unbacktested-house-rules"
         },
         "qualification": {
@@ -2116,7 +2095,7 @@
         "symbol": "DEMO",
         "companyName": "Thesis Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
-        "specVersion": "1.92.0",
+        "specVersion": "1.94.0",
         "model": "synthetic-fixture",
         "pipelineVersion": "audit-fixture-comparison",
         "evidenceContract": "EVIDENCE_CONTRACT_1",
@@ -2284,10 +2263,11 @@
               {"text": "SYNTHETIC demonstration text for quality reasoning text; it describes fictional inputs and is not a current market observation.", "label": "FACT", "source": "computed.forensics.beneish", "asOf": "2025-12-31"},
               {"text": "SYNTHETIC demonstration text for quality reasoning text; it describes fictional inputs and is not a current market observation.", "label": "FACT", "source": "computed.forensics.accruals", "asOf": "2025-12-31"}
             ],
-            "confidence": "high",
+            "confidence": "medium",
             "keyNumbers": [
               {"value": -2.4, "unit": "number", "source": "computed.forensics.beneish.score", "asOf": "2025-12-31", "verified": true}
             ],
+            "confidenceCap": {"from": "high", "to": "medium", "reason": "the deterministic quality score rests on under three quarters of the inputs its route supports"},
             "gradeContract": {"version": "GRADE_OVERRIDE_1", "originalBand": "A", "proposedGrade": "A", "distance": 0, "status": "unchanged", "reason": "matches-deterministic-band"},
             "qualification": {"status": "supported", "reasons": []}
           },
@@ -2628,7 +2608,7 @@
             {
               "name": "forecast tax rate (yr1 → yrN)",
               "value": "27.1% → 26.8%",
-              "basis": "latest annual FY 2025-12-31 effective rate 27.08% fading to 26.83% by year 10: the company historical median 26.83%, at or above the 21% floor = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two); actual year-row tax rates include modeled loss carryforwards and can differ from this assumption path."
+              "basis": "latest annual FY 2025-12-31 effective rate 27.08% fading to 26.83% by year 10: the company historical median 26.83%, at or above the 21% floor = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two); Tax rate operands: vendor data, not checked against a filing; actual year-row tax rates include modeled loss carryforwards and can differ from this assumption path."
             },
             {
               "name": "sales-to-capital",
@@ -3042,7 +3022,7 @@
           "reasoning": [
             {"text": "SYNTHETIC demonstration text for graded reasoning text; it describes fictional inputs and is not a current market observation.", "label": "FACT", "source": "computed.forensics", "asOf": "2025-12-31"}
           ],
-          "confidence": "high",
+          "confidence": "medium",
           "keyNumbers": [
             {"value": -2.4, "unit": "number", "source": "computed.forensics.beneish.score", "asOf": "2025-12-31", "verified": true},
             {"value": 0.012269938650306749, "unit": "x", "currency": null, "period": "2025-12-31", "sourceId": "computed.forensics.accruals.cashFlowAccrualRatio", "source": "computed.forensics.accruals.cashFlowAccrualRatio", "asOf": "2025-12-31", "verified": true},
@@ -3060,6 +3040,7 @@
             {"value": -700000000, "unit": "currency", "currency": "USD", "period": "2025-12-31", "sourceId": "computed.forensics.accruals.operatingInvestingCashFlow", "source": "computed.forensics.accruals.operatingInvestingCashFlow", "asOf": "2025-12-31", "verified": true}
           ],
           "interpretation": "SYNTHETIC demonstration text for quality graded interpretation; it describes fictional inputs and is not a current market observation.",
+          "confidenceCap": {"from": "high", "to": "medium", "reason": "the deterministic quality score rests on under three quarters of the inputs its route supports"},
           "gradeContract": {"version": "GRADE_OVERRIDE_1", "originalBand": "A", "proposedGrade": "A", "distance": 0, "status": "unchanged", "reason": "matches-deterministic-band"},
           "qualification": {"status": "supported", "reasons": []}
         },
@@ -3903,40 +3884,18 @@
             "note": "Attractiveness vs intrinsic value: DCF upside, reverse-DCF implied vs achievable growth, and where the current multiple RANKS among the issuer's own quarters (a rank within the observed 8-20 quarter sample, not a percentile of a distribution; N is published beside every rendered rank)."
           },
           "quality": {
-            "score": 88.85,
+            "score": 87.02,
             "band": "A",
             "weightPct": 15,
-            "dataCompleteness": 0.9511111111111111,
-            "applicableCompleteness": 0.9511111111111111,
+            "dataCompleteness": 0.6011111111111112,
+            "applicableCompleteness": 0.6011111111111112,
             "drivers": [
-              {"value": 30.806856135117066, "unit": "pp", "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06", "source": "computed.scores.quality.roicVsWaccSpread", "asOf": "2025-12-31", "verified": true},
               {"value": 1, "unit": "frac", "period": "2023-12-31 to 2025-12-31", "source": "computed.scores.quality.piotroskiF", "asOf": "2025-12-31", "verified": true},
               {"value": 5.769922666666666, "unit": "z", "period": "Balance 2025-12-31; income 2025-12-31; market cap unavailable", "source": "computed.scores.quality.altmanZOriginalScale", "asOf": "2025-12-31", "verified": true},
               {"value": 0.012269938650306749, "unit": "frac", "period": "2024-12-31 to 2025-12-31", "source": "computed.scores.quality.accrualsRatioAbs", "asOf": "2025-12-31", "verified": true},
               {"value": -2.6827912496211668, "unit": "m", "period": "2024-12-31 to 2025-12-31", "source": "computed.scores.quality.beneishM", "asOf": "2025-12-31", "verified": true}
             ],
             "signals": [
-              {
-                "id": "roicVsWaccSpread",
-                "raw": 30.806856135117066,
-                "unit": "pp",
-                "transformedScore": 92,
-                "signalWeight": 0.35,
-                "evidenceFraction": 1,
-                "effectiveCompositeWeightPct": 5.25,
-                "contributionPoints": 2.205,
-                "family": "capital-returns",
-                "asOf": "2025-12-31",
-                "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06",
-                "startDate": null,
-                "endDate": "2025-12-31",
-                "windowYears": null,
-                "fallbackReason": null,
-                "operands": [
-                  {"name": "ROIC", "value": 40.06410256410257, "source": "computed.returns.roic.latestRoicPct", "asOf": "2025-12-31"},
-                  {"name": "WACC", "value": 9.257246428985505, "source": "computed.returns.wacc.waccPct", "asOf": "2026-07-06"}
-                ]
-              },
               {
                 "id": "piotroskiF",
                 "raw": 1,
@@ -4275,16 +4234,16 @@
           }
         },
         "composite": {
-          "score": 76.37,
+          "score": 74.16,
           "band": "B",
           "weights": {"fundamentals": 20, "valuation": 20, "quality": 15, "balanceSheet": 15, "moat": 15, "leadership": 10, "technicals": 5},
-          "methodology": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 83.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+          "methodology": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 78.56% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
         },
         "bandsVersion": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE",
         "assessments": {
-          "businessQuality": {"score": 77.07, "band": "B", "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum.", "evidenceCompleteness": 0.9174949494949495},
+          "businessQuality": {"score": 74.13, "band": "B", "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum.", "evidenceCompleteness": 0.8474949494949495},
           "valuation": {"score": 91.14, "band": "A", "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."},
-          "evidenceCompleteness": 0.8381212121212122,
+          "evidenceCompleteness": 0.7856212121212122,
           "calibration": "unbacktested-house-rules"
         },
         "qualification": {
@@ -4316,10 +4275,10 @@
           }
         },
         "factorExposure": [
-          {"family": "capital-returns", "weightPct": 16.5, "aboveNeutralPoints": 7.12460088691796},
           {"family": "growth", "weightPct": 14.000000000000002, "aboveNeutralPoints": 2.2271840043786124},
           {"family": "valuation", "weightPct": 14, "aboveNeutralPoints": 5.76},
           {"family": "financial-strength", "weightPct": 12.352941176470589, "aboveNeutralPoints": 4.245798319327731},
+          {"family": "capital-returns", "weightPct": 11.25, "aboveNeutralPoints": 4.91960088691796},
           {"family": "profitability", "weightPct": 9.75, "aboveNeutralPoints": 2.299383843890901},
           {"family": "accounting-integrity", "weightPct": 9.016666666666667, "aboveNeutralPoints": 3.3382626280302823},
           {"family": "capital-return-policy", "weightPct": 4.545454545454545, "aboveNeutralPoints": 0.6258802167783815},

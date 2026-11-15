@@ -33,10 +33,11 @@ describe("a (latest) computed row carries the fiscal label of its year (residual
     const p = build(completeCurrencyBundle({}));
     // The annual statement cell's two fields: the row's ISO period end and its issuer label.
     for (const id of LABELLED) expect(rec(p, id), id).toMatchObject({ period: "2025-12-31", fiscalPeriod: "FY2025", asOf: "2025-12-31" });
+    expect(rec(p, "computed.returns.roic-wacc-spread")).toBeUndefined(); // D-288: different dates cannot supply a fiscal spread
     expect(rec(p, "computed.forensics.net-operating-assets-prior")).toMatchObject({ period: "2024-12-31", fiscalPeriod: "FY2024", asOf: "2024-12-31" });   // the prior year's instant
     // Controls: windows longer than one fiscal year, mixed inputs and current-capital rows carry no label. Each record exists, so no line passes vacuously.
     for (const id of ["computed.growth-margins.gross-margin-slope", "computed.growth-margins.revenue-cagr-3y", "computed.growth-margins.latest-revenue-yoy",
-      "computed.returns.roic-wacc-spread", "computed.current-capital.fcf-conversion-before-sbc"]) {
+      "computed.current-capital.fcf-conversion-before-sbc"]) {
       expect(rec(p, id), id).toBeDefined();
       expect(rec(p, id)!.fiscalPeriod, id).toBeUndefined();
     }

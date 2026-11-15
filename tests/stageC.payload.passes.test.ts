@@ -1157,7 +1157,7 @@ describe("payload determinism + provenance", () => {
       "route 67088d486e79efec",
       "degradation f591b71ec31aefa2",
       "growth 3b108cfa32943129",
-      "returns 04acba1118ea2ecc",
+      "returns 5837ec4162747280",
       "capital 249342fbfd071cd5", // D-272: only cashDividendPayout is new; preceding capital hash asserted above.
       "forensics 0d59d3ffecb6f45c",
       "technicals 0d0c7b3f39a71e07",
@@ -1170,7 +1170,7 @@ describe("payload determinism + provenance", () => {
       "fairValue (frozen record)",
       "suppressed 4f53cda18c2baa0c",
       "notes 2e5b1aca5def94d8",
-      "gaps a35ea1ec529c528f", // D-261: named gaps for missing score operands; financial subtrees unchanged.
+      "gaps b08c0a088161e229", // D-261: named gaps for missing score operands; financial subtrees unchanged.
     ];
     expect(digests(buildInputs())).toEqual(expected);
     expect(digests(buildFreshInputs())).toEqual(expected);
@@ -1296,7 +1296,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.106.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
+    expect(first.payloadVersion).toBe("1.108.0"); // D-286-D-290 review: fiscal WACC pairing and truthful evidence labels
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2972,7 +2972,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.92.0"); // D-278: conflict notes name the record metric
+    expect(report.meta.specVersion).toBe("1.94.0"); // D-286-D-290 review: fiscal WACC pairing and truthful evidence labels
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

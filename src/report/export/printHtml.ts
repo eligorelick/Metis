@@ -1,3 +1,4 @@
+import { unavailableLiquidityTable } from "@/report/presentation";
 import { FACT_STATUS_LEGEND, hasFactStatusMarks } from "@/report/verificationMarks";
 import { OFFICE_CONTEXT_LINK, GUIDANCE_CONTEXT_LINK } from "@/report/executiveDecisions";
 import { prepareReportForSurface } from "@/report/readerPreparation";
@@ -572,7 +573,7 @@ function sectionBalanceSheet(bs: BalanceSheet, report: Report): string {
   };
   return `<section class="block">${sectionHeading("balanceSheet")}
     ${grade}
-    ${group("Debt profile", bs.debtProfile)}
+    ${group("Debt profile", bs.debtProfile)}${bodyTables(unavailableLiquidityTable(bs.debtProfile.commentary))}
     ${group("Coverage", bs.coverage)}
     ${group("Capex trajectory", bs.capexTrajectory)}
     ${bodyTables(filingDisclosureTables(report.filingDisclosures, "balanceSheet"))}

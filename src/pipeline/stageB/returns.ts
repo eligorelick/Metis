@@ -2200,12 +2200,15 @@ export function computeDupont(
 export interface RoicVsWaccSpread {
   /** ROIC − WACC in percentage points (positive = value creation). Null when either is null. */
   spreadPctPts: number | null;
+  waccPct?: number | null;
+  asOf?: string | null;
   note: string;
 }
 
 export function computeRoicVsWaccSpread(
   roicPct: number | null,
   waccPct: number | null,
+  dates?: { roic: string | null; wacc: string | null },
 ): RoicVsWaccSpread {
   if (!isFiniteNumber(roicPct) || !isFiniteNumber(waccPct)) {
     return {
@@ -2213,6 +2216,11 @@ export function computeRoicVsWaccSpread(
       note: "ROIC vs WACC spread unavailable — one or both inputs missing",
     };
   }
+  // D-288 (P1): a current hurdle is not a fiscal-year observation.
+  if (dates && (!dates.roic || !dates.wacc || dates.roic !== dates.wacc)) return {
+    spreadPctPts: null,
+    note: `ROIC vs WACC spread withheld: ROIC date ${dates.roic ?? "unavailable"} and WACC date ${dates.wacc ?? "unavailable"} are not established on one date.`,
+  };
   return {
     spreadPctPts: roicPct - waccPct,
     note: `spread = ROIC ${fmt(roicPct)}% − WACC ${fmt(waccPct)}% (positive = returns above cost of capital)`,
@@ -2221,3 +2229,13 @@ export function computeRoicVsWaccSpread(
 
 /** D-295 (P13): the model convention is distinct from issuer-adjusted tangible capital. */
 export const MODEL_TANGIBLE_COMMON_BASIS = "Model tangible common equity = parent stockholders' equity minus goodwill, other identified intangible assets and preferred stock. No separate mortgage servicing rights deduction or deferred-tax-liability add-back is made. Model tangible book per share uses diluted shares. Model ROTE divides income available to common by average opening and closing model tangible common equity (closing equity alone when opening is unavailable); issuer-adjusted tangible book and ROTCE may differ.";
+
+/** D-288 review: the same year-end hurdle used by terminal-return evidence. */
+export function computeFiscalRoicVsWaccSpread(roicPct: number | null, currentWaccPct: number | null, date: string | null, history: WaccHistoryResult): RoicVsWaccSpread {
+  if (!isFiniteNumber(roicPct) || !isFiniteNumber(currentWaccPct)) return computeRoicVsWaccSpread(roicPct, currentWaccPct);
+  const point = history.points.find(point => point.date === date);
+  if (!point || point.waccPct === null) return { spreadPctPts: null, note: `ROIC vs WACC spread withheld: no WACC history point for ${date ?? "the fiscal year"}; ${history.missing.find(point => point.date === date)?.reason ?? "a same-year hurdle is not established"}.` };
+  const spread = computeRoicVsWaccSpread(roicPct, point.waccPct);
+  return { ...spread, waccPct: point.waccPct, asOf: date,
+    note: `${spread.note}. WACC at fiscal year end: risk-free rate at that date; beta, equity risk premium and weights current. Fiscal year end ${date}; risk-free observation ${point.riskFreeAsOf}.` };
+}

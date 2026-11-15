@@ -93,6 +93,22 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
   next.balanceSheet.coverage.numbers = [...next.balanceSheet.coverage.numbers];
   next.balanceSheet.debtProfile.numbers = [...next.balanceSheet.debtProfile.numbers];
   const current = computed.capital?.current;
+  // D-287 review: the displayed historical series can contain unadjusted periods.
+  if (computed.capital?.fcf?.series.some(row => row.stockBasedCompensation === null)) {
+    for (const row of next.fundamentals.fcf) {
+      const sources = row.values.map(point => point.value.source);
+      if (sources.some(source => source === "computed.capital.fcf")) row.label = "Free cash flow (SBC deducted where disclosed; otherwise before SBC)";
+      if (sources.some(source => source === "computed.capital.fcf.conversion")) row.label = "FCF conversion (SBC deducted where disclosed; otherwise before SBC / consolidated net income)";
+    }
+  }
+  if (current && current.debtBridge.cashAndShortTermInvestments === null) {
+    const gap = computed.gaps.find(gap => gap.field.startsWith(`statements.balance.${current.asOf}.`) &&
+      (gap.field.endsWith(".shortTermInvestments") || gap.field.endsWith(".cashAndShortTermInvestments")));
+    if (gap) next.balanceSheet.debtProfile.commentary.push({ label: "JUDGMENT", asOf: current.asOf,
+      source: "computed.capital.current.debtBridge.cashAndShortTermInvestments.unavailable",
+      text: `The complete cash and short-term investment total at ${current.asOf} is not established: the admitted evidence does not prove the investment scope and its separation from cash.` });
+  }
+
   const numeric = (source: string, value: number | null | undefined, unit: string, asOf: string | null, currency: string | null = null, period: string | null = asOf): TracedNumber | null =>
     typeof value === "number" && Number.isFinite(value) ? { value, unit, currency, period, source, sourceId: source, asOf, verified: true } : null;
   const append = (target: TracedNumber[], value: TracedNumber | null) => {
