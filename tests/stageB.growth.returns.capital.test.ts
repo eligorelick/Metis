@@ -1757,3 +1757,13 @@ describe("audit 2026-09-06 — a transition period is compounded over its real s
     expect(one.note ?? "").not.toMatch(/irregular/);
   });
 });
+
+
+describe("D-288 spread dates", () => {
+  it("withholds a fiscal ROIC paired with a current WACC", () => {
+    expect(computeRoicVsWaccSpread(30, 10, { roic: "2025-12-31", wacc: "2026-10-30" }).spreadPctPts).toBeNull();
+  });
+  it("retains an explicitly aligned pair", () => {
+    expect(computeRoicVsWaccSpread(30, 10, { roic: "2025-12-31", wacc: "2025-12-31" }).spreadPctPts).toBe(20);
+  });
+});

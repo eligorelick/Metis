@@ -2206,7 +2206,13 @@ export interface RoicVsWaccSpread {
 export function computeRoicVsWaccSpread(
   roicPct: number | null,
   waccPct: number | null,
+  dates?: { roic: string | null; wacc: string | null },
 ): RoicVsWaccSpread {
+  // D-288 (P1): a current hurdle is not a fiscal-year observation.
+  if (dates && (!dates.roic || !dates.wacc || dates.roic !== dates.wacc)) return {
+    spreadPctPts: null,
+    note: `ROIC vs WACC spread withheld: ROIC date ${dates.roic ?? "unavailable"} and WACC date ${dates.wacc ?? "unavailable"} are not established on one date.`,
+  };
   if (!isFiniteNumber(roicPct) || !isFiniteNumber(waccPct)) {
     return {
       spreadPctPts: null,

@@ -1,23 +1,23 @@
 {
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
-  "payloadVersion": "1.106.0",
-  "fingerprint": "1.106.0:3cc5d542",
-  "summary": {"promptBytes": 186965, "promptFnv1a32": "3cc5d542", "provenanceCount": 552, "provenanceHash": "da9cb408", "provenanceIdsHash": "dbb79f1f", "citationCount": 87, "citationHash": "8dcf2ead", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "48e9bce7"},
+  "payloadVersion": "1.107.0",
+  "fingerprint": "1.107.0:5484560a",
+  "summary": {"promptBytes": 187018, "promptFnv1a32": "5484560a", "provenanceCount": 550, "provenanceHash": "bfbdbab5", "provenanceIdsHash": "24194465", "citationCount": 88, "citationHash": "10476af5", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "44d35352"},
   "prompt": {
-    "bytes": 186965,
-    "sha256": "ea0c2d4802fe606b5606e72438bd2f4c390d7646b27e66962deab17e9ccc9836",
+    "bytes": 187018,
+    "sha256": "2731631e5c9ebf30e205d5acfbe326705cce868e413a06882478548b67b9c2b5",
     "sections": [
-      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "9c159177a5736402e3d8a331656ad8fd111c8e82ad1322bed4c90d258d97a61a"},
+      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "44a836d707eb6e07969254c6ee259890563226c7e6292e540c8012a68f883eed"},
       {"heading": "## Quote", "bytes": 520, "sha256": "5146e60fd664d5a82bbbf06b3413303e1136d43422948e7ad1e8c645380d4026"},
       {"heading": "## Growth & margins (computed)", "bytes": 2984, "sha256": "0a99f8d4e346e47a0c3816bac522e18117123512e830df57a2ae624db2407749"},
-      {"heading": "## Returns (computed)", "bytes": 4404, "sha256": "e6a3241a0880a89b297438994c04127838cbf59b682e8fe516005210afaba4e7"},
+      {"heading": "## Returns (computed)", "bytes": 4391, "sha256": "fa67739d9c23dd8162cf833873d990bbf9223365b06ce104097c66cf68f158e8"},
       {"heading": "## Capital & cash (computed)", "bytes": 3609, "sha256": "6599bf014c4c99d1bb71c08b9cf96341e7f48ceba152a9aec566937e0822e76b"},
       {"heading": "## Forensics (computed)", "bytes": 7550, "sha256": "b095b7c9f1c177c8ea279e726ca3f459a5a43bf43be2442d0a7673a408ac67e3"},
       {"heading": "## Current capital (computed)", "bytes": 3650, "sha256": "3abbe62565f67b2a22b3c906adb43c44608406627f74b729cbe049715d1a7d60"},
       {"heading": "## Technicals (computed)", "bytes": 724, "sha256": "40dd858706c2c8da597fde1c4e8ab3a3d12ec2a769e7ae410fb67df65a53edbc"},
-      {"heading": "## Valuation (computed)", "bytes": 14154, "sha256": "d084343d346a5419f34c5d9895d0d2348eca936a2db87a2350df8a79657d13ba"},
+      {"heading": "## Valuation (computed)", "bytes": 14219, "sha256": "c659156f39ee3fbcd29835f87737129927504b8706aa24e3e91aa12b89d175eb"},
       {"heading": "## Comparable peers (computed)", "bytes": 3081, "sha256": "0ce53c8cbc3555ef50d3ad2f0f04baa6980ad7cefb7a14aba74181780766f348"},
-      {"heading": "## Deterministic aspect scores (computed — ANCHOR your A–F letter grades to these bands; justify any deviation)", "bytes": 3118, "sha256": "051e2094a397d46015e636e5f3189588e2f4024bcf370c26813dd8328664280b"},
+      {"heading": "## Deterministic aspect scores (computed — ANCHOR your A–F letter grades to these bands; justify any deviation)", "bytes": 3119, "sha256": "4749c6577740ffe8c7d34780c319d69c6ebd31eb4cec95340c79ea04bcf473eb"},
       {"heading": "## Weighted projections (computed — 5y forward, fixed display weights 0.25/0.5/0.25 bull/base/bear; ESTIMATE, interpret — never restate as fact)", "bytes": 7366, "sha256": "27a84fed3209427b01571ad9da72aa4c1072b4ed784d3f93f7900be3f87a5484"},
       {"heading": "## Deterministic scenario interpretation", "bytes": 1643, "sha256": "501ff93a094dd64f232014295387c1360ed0764f27fc0ac20ba9e2f81be3e0e4"},
       {"heading": "## Peer screen exclusions and collection notes (untrusted provider data)", "bytes": 252, "sha256": "89f1353f778dadb6cdd1f9ea358b7c7c3b9fce7a62f26ef0a2cc2e937dbc68f2"},
@@ -516,39 +516,17 @@
           "note": "Attractiveness vs intrinsic value: DCF upside, reverse-DCF implied vs achievable growth, and where the current multiple RANKS among the issuer's own quarters (a rank within the observed 8-20 quarter sample, not a percentile of a distribution; N is published beside every rendered rank)."
         },
         "quality": {
-          "score": 83.28,
+          "score": 76.35,
           "band": "B",
           "weightPct": 15,
-          "dataCompleteness": 0.7911111111111111,
-          "applicableCompleteness": 0.7911111111111111,
+          "dataCompleteness": 0.4411111111111111,
+          "applicableCompleteness": 0.4411111111111111,
           "drivers": [
-            {"value": 96.0436791480647, "unit": "pp", "source": "computed.scores.quality.roicVsWaccSpread", "asOf": "2025-09-27", "verified": true, "period": "ROIC period end 2025-09-27; WACC observation 2026-07-05"},
             {"value": 0.8571428571428571, "unit": "frac", "source": "computed.scores.quality.piotroskiF", "asOf": "2025-09-27", "verified": true, "period": "2023-09-30 to 2025-09-27"},
             {"value": 0.05748339795017466, "unit": "frac", "source": "computed.scores.quality.accrualsRatioAbs", "asOf": "2025-09-27", "verified": true, "period": "2024-09-28 to 2025-09-27"},
             {"value": -2.493099720367271, "unit": "m", "source": "computed.scores.quality.beneishM", "asOf": "2025-09-27", "verified": true, "period": "2024-09-28 to 2025-09-27"}
           ],
           "signals": [
-            {
-              "id": "roicVsWaccSpread",
-              "raw": 96.0436791480647,
-              "unit": "pp",
-              "transformedScore": 92,
-              "signalWeight": 0.35,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 5.25,
-              "contributionPoints": 2.205,
-              "family": "capital-returns",
-              "asOf": "2025-09-27",
-              "period": "ROIC period end 2025-09-27; WACC observation 2026-07-05",
-              "startDate": null,
-              "endDate": "2025-09-27",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {"name": "ROIC", "value": 105.00113682333176, "source": "computed.returns.roic.latestRoicPct", "asOf": "2025-09-27"},
-                {"name": "WACC", "value": 8.957457675267067, "source": "computed.returns.wacc.waccPct", "asOf": "2026-07-05"}
-              ]
-            },
             {
               "id": "piotroskiF",
               "raw": 0.8571428571428571,
@@ -800,32 +778,37 @@
         }
       },
       "composite": {
-        "score": 58.6,
+        "score": 56.39,
         "band": "C",
         "weights": {"fundamentals": 20, "valuation": 20, "quality": 15, "balanceSheet": 15, "moat": 15, "leadership": 10, "technicals": 5},
-        "methodology": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 74.24% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+        "methodology": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 68.99% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
       },
       "bandsVersion": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE",
       "factorExposure": [
-        {"family": "capital-returns", "weightPct": 16.5, "aboveNeutralPoints": 7.2675},
         {"family": "growth", "weightPct": 14.000000000000002, "aboveNeutralPoints": -1.2636817172602972},
         {"family": "valuation", "weightPct": 14, "aboveNeutralPoints": -4.408855784613389},
+        {"family": "capital-returns", "weightPct": 11.25, "aboveNeutralPoints": 5.0625},
         {"family": "profitability", "weightPct": 9.75, "aboveNeutralPoints": 1.1447869646421545},
         {"family": "financial-strength", "weightPct": 8.823529411764707, "aboveNeutralPoints": 3.004547247773094},
         {"family": "accounting-integrity", "weightPct": 6.616666666666666, "aboveNeutralPoints": 1.743699755287882},
         {"family": "capital-return-policy", "weightPct": 4.545454545454545, "aboveNeutralPoints": 1.1070374225538597}
       ],
       "assessments": {
-        "businessQuality": {"score": 67.34, "band": "C", "evidenceCompleteness": 0.8031420083184789, "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."},
+        "businessQuality": {"score": 64.4, "band": "C", "evidenceCompleteness": 0.7331420083184789, "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."},
         "valuation": {"score": 18.51, "band": "F", "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."},
-        "evidenceCompleteness": 0.7423565062388592,
+        "evidenceCompleteness": 0.6898565062388592,
         "calibration": "unbacktested-house-rules"
       },
       "qualification": {
         "aspects": {
           "fundamentals": {"status": "supported", "reasons": []},
           "valuation": {"status": "supported", "reasons": []},
-          "quality": {"status": "supported", "reasons": []},
+          "quality": {
+            "status": "provisional",
+            "reasons": [
+              {"code": "limited-applicable-evidence", "aspect": "quality", "field": "scores.aspects.quality", "detail": "Quality has limited evidence (score 76/100 on 44.1% of signals)."}
+            ]
+          },
           "balanceSheet": {"status": "supported", "reasons": []},
           "moat": {"status": "supported", "reasons": []},
           "leadership": {
@@ -844,6 +827,7 @@
         "composite": {
           "status": "provisional",
           "reasons": [
+            {"code": "limited-applicable-evidence", "aspect": "quality", "field": "scores.aspects.quality", "detail": "Quality has limited evidence (score 76/100 on 44.1% of signals)."},
             {"code": "limited-applicable-evidence", "aspect": "leadership", "field": "scores.aspects.leadership", "detail": "Leadership has limited evidence (score 74/100 on one signal, 45.5% of signals)."},
             {"code": "missing-applicable-aspect", "aspect": "technicals", "field": "scores.aspects.technicals", "detail": "Technicals has no route-applicable score evidence."}
           ]
@@ -1979,7 +1963,7 @@
         },
         "taxRatePath": {
           "value": [15.151515151515152, 15.801346801346803, 16.451178451178453, 17.1010101010101, 17.75084175084175, 18.4006734006734, 19.050505050505052, 19.7003367003367, 20.35016835016835, 21],
-          "basis": "TTM effective rate 15.15% fading to 21% by year 10: the company historical median 14.72% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule D-58: the terminal rate converges toward the marginal rate)"
+          "basis": "TTM effective rate 15.15% fading to 21% by year 10: the company historical median 14.72% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule D-58: the terminal rate converges toward the marginal rate); Tax rate operands: vendor data, not checked against a filing"
         },
         "salesToCapital": {"value": 3.8962264150943398, "basis": "TTM revenue / invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments, quarter balance as of 2026-03-28; consolidated total equity including NCI; NCI is not added again)"},
         "terminal": {
@@ -2508,7 +2492,6 @@
     {"id": "computed.returns.beta-final", "label": "beta (final)", "kind": "computed", "value": 1.1333333333333333, "unit": "ratio", "currency": null, "period": null, "asOf": "2026-07-06", "origin": "computed.returns.wacc.beta", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
     {"id": "computed.returns.roic-latest", "label": "ROIC (latest)", "kind": "computed", "value": 105.00113682333176, "unit": "percent", "currency": null, "period": "2025-09-27", "fiscalPeriod": "FY2025", "asOf": "2025-09-27", "origin": "computed.returns.roic", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
     {"id": "computed.returns.roe-latest-dupont", "label": "ROE (latest, DuPont)", "kind": "computed", "value": 183.69823698236982, "unit": "percent", "currency": null, "period": "2025-09-27", "fiscalPeriod": "FY2025", "asOf": "2025-09-27", "origin": "computed.returns.dupont", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
-    {"id": "computed.returns.roic-wacc-spread", "label": "ROIC − WACC spread", "kind": "computed", "value": 96.0436791480647, "unit": "percentage-points", "currency": null, "period": null, "asOf": "2025-09-27", "origin": "computed.returns.roicVsWacc", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
     {
       "id": "computed.capital-cash.latest-fcf-after-sbc-house-default",
       "label": "latest FCF (after SBC, house default)",
@@ -3347,7 +3330,7 @@
     {"id": "computed.valuation.evtosales-current", "label": "evToSales (current)", "kind": "computed", "value": 7.738498789346247, "unit": "ratio", "currency": null, "period": null, "asOf": "2026-07-06", "origin": "computed.valuation.multiples.evToSales", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
     {"id": "computed.valuation.pricetofcf-current", "label": "priceToFcf (current)", "kind": "computed", "value": 27.72887323943662, "unit": "ratio", "currency": null, "period": null, "asOf": "2026-07-06", "origin": "computed.valuation.multiples.priceToFcf", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
     {"id": "computed.valuation.pricetobook-current", "label": "priceToBook (current)", "kind": "computed", "value": 52.5, "unit": "ratio", "currency": null, "period": null, "asOf": "2026-07-06", "origin": "computed.valuation.multiples.priceToBook", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
-    {"id": "computed.deterministic-aspect-scores.composite-score", "label": "COMPOSITE score", "kind": "computed", "value": 58.6, "unit": "score", "currency": null, "period": null, "asOf": "2026-07-06", "origin": "computed.scores.composite", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
+    {"id": "computed.deterministic-aspect-scores.composite-score", "label": "COMPOSITE score", "kind": "computed", "value": 56.39, "unit": "score", "currency": null, "period": null, "asOf": "2026-07-06", "origin": "computed.scores.composite", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
     {"id": "computed.deterministic-aspect-scores.fundamentals-score", "label": "fundamentals score", "kind": "computed", "value": 46.39, "unit": "score", "currency": null, "period": null, "asOf": "2026-07-06", "origin": "computed.scores.fundamentals", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
     {
       "id": "computed.deterministic-aspect-scores.fundamentals-evidence-completeness",
@@ -3378,12 +3361,12 @@
       "formulaVersion": "stage-b-v1",
       "displayPrecision": 4
     },
-    {"id": "computed.deterministic-aspect-scores.quality-score", "label": "quality score", "kind": "computed", "value": 83.28, "unit": "score", "currency": null, "period": null, "asOf": "2026-07-06", "origin": "computed.scores.quality", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
+    {"id": "computed.deterministic-aspect-scores.quality-score", "label": "quality score", "kind": "computed", "value": 76.35, "unit": "score", "currency": null, "period": null, "asOf": "2026-07-06", "origin": "computed.scores.quality", "formulaVersion": "stage-b-v1", "displayPrecision": 4},
     {
       "id": "computed.deterministic-aspect-scores.quality-evidence-completeness",
       "label": "quality evidence completeness",
       "kind": "computed",
-      "value": 0.7911111111111111,
+      "value": 0.4411111111111111,
       "unit": "ratio",
       "unitScale": "fraction",
       "currency": null,
@@ -5757,18 +5740,6 @@
       "formulaVersion": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE",
       "displayPrecision": 4
     },
-    {
-      "id": "computed.scores.quality.roicVsWaccSpread",
-      "kind": "computed",
-      "value": 96.0436791480647,
-      "unit": "percentage-points",
-      "currency": null,
-      "period": "ROIC period end 2025-09-27; WACC observation 2026-07-05",
-      "asOf": "2025-09-27",
-      "origin": "computed.scores.quality.roicVsWaccSpread",
-      "formulaVersion": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE",
-      "displayPrecision": 4
-    },
     {"id": "computed.scores.quality.piotroskiF", "kind": "computed", "value": 0.8571428571428571, "unit": "ratio", "currency": null, "period": "2023-09-30 to 2025-09-27", "asOf": "2025-09-27", "origin": "computed.scores.quality.piotroskiF", "formulaVersion": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE", "displayPrecision": 4},
     {"id": "computed.scores.quality.accrualsRatioAbs", "kind": "computed", "value": 0.05748339795017466, "unit": "ratio", "currency": null, "period": "2024-09-28 to 2025-09-27", "asOf": "2025-09-27", "origin": "computed.scores.quality.accrualsRatioAbs", "formulaVersion": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE", "displayPrecision": 4},
     {"id": "computed.scores.quality.beneishM", "kind": "computed", "value": -2.493099720367271, "unit": "index", "currency": null, "period": "2024-09-28 to 2025-09-27", "asOf": "2025-09-27", "origin": "computed.scores.quality.beneishM", "formulaVersion": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE", "displayPrecision": 4},
@@ -5802,6 +5773,7 @@
     }
   ],
   "citationRegistry": [
+    {"id": "computed.returns.roicVsWacc", "kind": "payload-gap", "asOf": "2025-09-27", "origin": "computed.returns.roicVsWacc"},
     {"id": "computed.capital.dilution", "kind": "payload-gap", "asOf": "2025-09-27", "origin": "computed.capital.dilution"},
     {"id": "computed.capital.buybackPriceAnalysis", "kind": "payload-gap", "asOf": "2025-09-27", "origin": "computed.capital.buybackPriceAnalysis"},
     {"id": "computed.capital.buybackPriceAnalysis.timingPct", "kind": "payload-gap", "asOf": "2025-09-27", "origin": "computed.capital.buybackPriceAnalysis.timingPct"},
@@ -5909,7 +5881,7 @@
     {"id": "fmp:key-executives", "kind": "payload-text", "asOf": null, "origin": "fmp:key-executives"}
   ],
   "payload": {
-    "payloadVersion": "1.106.0",
+    "payloadVersion": "1.107.0",
     "symbol": "AAPL",
     "companyName": "Apple Inc.",
     "route": {"base": "general", "overlays": [], "sector": "Technology", "industry": "Consumer Electronics"},
@@ -6004,7 +5976,7 @@
           {"label": "beta (final)", "value": 1.1333333333333333, "unit": "x", "source": "computed.returns.wacc.beta", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.returns.beta-final"},
           {"label": "ROIC (latest)", "value": 105.00113682333176, "unit": "%", "source": "computed.returns.roic", "asOf": "2025-09-27", "period": "2025-09-27", "fiscalPeriod": "FY2025", "currency": null, "provenanceId": "computed.returns.roic-latest"},
           {"label": "ROE (latest, DuPont)", "value": 183.69823698236982, "unit": "%", "source": "computed.returns.dupont", "asOf": "2025-09-27", "period": "2025-09-27", "fiscalPeriod": "FY2025", "currency": null, "provenanceId": "computed.returns.roe-latest-dupont"},
-          {"label": "ROIC − WACC spread", "value": 96.0436791480647, "unit": "pp", "source": "computed.returns.roicVsWacc", "asOf": "2025-09-27", "currency": null, "period": null, "provenanceId": "computed.returns.roic-wacc-spread"}
+          {"label": "ROIC − WACC spread", "value": null, "unit": "pp", "source": "computed.returns.roicVsWacc", "asOf": "2025-09-27", "currency": null, "period": null}
         ],
         "notes": [
           "Blume adjustment: beta_adj = 0.667·raw + 0.333 (the Bloomberg 2/3–1/3 weighting, research §7.1)",
@@ -6398,7 +6370,7 @@
           "DCF equity bridge: EV − net debt − minority interest − preferred equity. 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
           "DCF terminal transition: FCFF 162.79B in year 10 becomes 140.66B in year 11 (-13.6%): reinvestment moves from 2.62% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 93.23%) to 17.91% (terminal growth 2.5% / terminal ROIC 13.96%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure).",
           "NET_DEBT_V3: net debt 46000000000 as of 2026-03-28; totalDebt 98000000000, cashAndShortTermInvestments 52000000000",
-          "Provisional: Leadership has limited evidence (score 74/100 on one signal, 45.5% of signals). Technicals has no route-applicable score evidence.",
+          "Provisional: Quality has limited evidence (score 76/100 on 44.1% of signals). Leadership has limited evidence (score 74/100 on one signal, 45.5% of signals). Technicals has no route-applicable score evidence.",
           "peTtm: price / epsDiluted (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum. Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 15,000M); the market-cap multiples sit on the 15,000M shares the quoted market cap implies, and the diluted count is within 0.1% of that count.",
           "evToEbitda: EV / (operatingIncome + D&A), TTM-computed — vendor ebitda field not trusted. 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 3,196,000,000,000; EV on retained debt basis 3,196,000,000,000. Balance basis: latest quarterly balance sheet 2026-03-28. Share basis: market cap is the quote price × the 15,000M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 15,000M), within 0.1% of that count.",
           "evToSales: EV / revenue (TTM). 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 3,196,000,000,000; EV on retained debt basis 3,196,000,000,000. Share basis: market cap is the quote price × the 15,000M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 15,000M), within 0.1% of that count.",
@@ -6426,14 +6398,14 @@
       {
         "title": "Deterministic aspect scores (computed — ANCHOR your A–F letter grades to these bands; justify any deviation)",
         "figures": [
-          {"label": "COMPOSITE score", "value": 58.6, "unit": "0-100", "source": "computed.scores.composite", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.composite-score"},
+          {"label": "COMPOSITE score", "value": 56.39, "unit": "0-100", "source": "computed.scores.composite", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.composite-score"},
           {"label": "COMPOSITE grade", "value": "C", "unit": "", "source": "computed.scores.composite", "asOf": null, "currency": null, "period": null},
           {"label": "fundamentals score", "value": 46.39, "unit": "0-100 (grade D, neutral 45–55)", "source": "computed.scores.fundamentals", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.fundamentals-score"},
           {"label": "fundamentals evidence completeness", "value": 1, "unit": "fraction", "source": "computed.scores.fundamentals.dataCompleteness", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.fundamentals-evidence-completeness"},
           {"label": "valuation score", "value": 18.51, "unit": "0-100 (grade F)", "source": "computed.scores.valuation", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.valuation-score"},
           {"label": "valuation evidence completeness", "value": 0.7, "unit": "fraction", "source": "computed.scores.valuation.dataCompleteness", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.valuation-evidence-completeness"},
-          {"label": "quality score", "value": 83.28, "unit": "0-100 (grade B)", "source": "computed.scores.quality", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.quality-score"},
-          {"label": "quality evidence completeness", "value": 0.7911111111111111, "unit": "fraction", "source": "computed.scores.quality.dataCompleteness", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.quality-evidence-completeness"},
+          {"label": "quality score", "value": 76.35, "unit": "0-100 (grade B)", "source": "computed.scores.quality", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.quality-score"},
+          {"label": "quality evidence completeness", "value": 0.4411111111111111, "unit": "fraction", "source": "computed.scores.quality.dataCompleteness", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.quality-evidence-completeness"},
           {"label": "balanceSheet score", "value": 84.05, "unit": "0-100 (grade B)", "source": "computed.scores.balanceSheet", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.balancesheet-score"},
           {"label": "balanceSheet evidence completeness", "value": 0.5882352941176471, "unit": "fraction", "source": "computed.scores.balanceSheet.dataCompleteness", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.balancesheet-evidence-completeness"},
           {"label": "moat score", "value": 87.77, "unit": "0-100 (grade A)", "source": "computed.scores.moat", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.moat-score"},
@@ -6444,7 +6416,7 @@
           {"label": "technicals evidence completeness", "value": 0, "unit": "fraction", "source": "computed.scores.technicals.dataCompleteness", "asOf": "2026-07-06", "currency": null, "period": null, "provenanceId": "computed.deterministic-aspect-scores.technicals-evidence-completeness"}
         ],
         "notes": [
-          "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 74.24% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+          "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 68.99% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
           "band table: SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE (A ≥85, B ≥70, C ≥55, D ≥40, F below 40; 45–55 neutral: a 45–55 score is the neutral prior, neither weak nor strong)",
           "The leadership score is a capital-stewardship proxy: repurchase timing (the price actually paid against the same fiscal year's average price) and annualized weighted-average diluted common-share change. That share measure is not net economic dilution. Management quality, guidance execution and governance are not inputs to it; a leadership grade that rests on them is a judgment beyond the band and must say so, not cite the band as support."
         ]

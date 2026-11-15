@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.92.0** and
-payload **1.106.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.93.0** and
+payload **1.107.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,15 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Figure admission and explicit evidence limitations (D-286-D-290)
+
+- R20: historical issuer CIK selects its retained profit evidence; consolidated profit supplies cash-flow conversion, including successor/predecessor histories (P5/P8).
+- R21/R22: incomplete combined liquidity and unproved SBC zeros become disclosed gaps (P7/P10).
+- R23: fiscal ROIC/current WACC spreads are withheld when their dates differ (P1/P13).
+- R19/R24-R26: disclose vendor tax operands, foreign interim/framework limits and derived ADS precision at the affected report surfaces (P3/P12/P20).
+- R27: retained guidance sentences are reparsed when building reports, correcting frozen negative-point range parses (P9/P21).
+- Report 1.93.0, payload 1.107.0, Stage B `STAGE_B_2026_11_COMPLETE_RATIO_INPUTS_80`, pipeline `stage-c-1.6.48`; score bands unchanged.
 
 ## Unreleased - Vendor EV currency and filing identifiers (P4, P22, D-279) (2026-11-14)
 

@@ -29,6 +29,7 @@ import {
   parseCapitalReturn,
   parseCommitmentTables,
   parseGuidance,
+  parseGuidanceSentence,
   releaseEvidenceTables,
   parseIssuerFreeCashFlow,
   parseNonGaapBasisNote,
@@ -358,6 +359,22 @@ function earningsFilings(filings: readonly EdgarFiling[], today: string, notes: 
  * filing, so it goes before the first dated release filed no later than it,
  * never below every dated release.
  */
+/** D-289 (P9, P21): re-read retained passages, never trust frozen parser output. */
+export function revalidateGuidance<T extends { guidance: IssuerGuidance | null }>(record: T): T {
+  if (!record.guidance) return record;
+  const guidance = record.guidance;
+  const rejected: string[] = [];
+  const items = guidance.items.flatMap(item => {
+    // Tables retain bounded cell/header spans; their structural parser owns those rows.
+    if (item.span && item.headerSpan) return [item];
+    const parsed = parseGuidanceSentence(item.sentence, item.period).filter(candidate =>
+      candidate.metric === item.metric && candidate.basis === item.basis && candidate.unit === item.unit && candidate.period.label === item.period.label);
+    if (parsed.length !== 1) { rejected.push(item.sentence); return []; }
+    return parsed;
+  });
+  return { ...record, guidance: { ...guidance, items, unparsed: [...new Set([...guidance.unparsed, ...rejected])] } };
+}
+
 export function orderedEarningsReleases(records: readonly EarningsReleaseRecord[]): EarningsReleaseRecord[] {
   const fiscalOrder = (record: EarningsReleaseRecord): number | null => record.reported.fiscal === null ? null
     : record.reported.fiscal.fiscalYear * 4 + (record.reported.fiscal.fiscalQuarter ?? 4);
@@ -378,7 +395,7 @@ export function orderedEarningsReleases(records: readonly EarningsReleaseRecord[
     while (next < undated.length && byFiling(undated[next]!, record) <= 0) ordered.push(undated[next++]!);
     ordered.push(record);
   }
-  return [...ordered, ...undated.slice(next)];
+  return [...ordered, ...undated.slice(next)].map(revalidateGuidance);
 }
 
 /**

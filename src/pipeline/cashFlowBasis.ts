@@ -1,13 +1,26 @@
 import type { DataBundle } from "./types";
-import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { statementIssuerFacts, confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { admitFiledStatementFlows, admitStockCompensation, admitBalanceCash, admitQuarterlyCapex, admitFiledCapitalExpenditure, admitCashFlowNetIncome, admitZeroCapex, readmitFiledOperatingCashFlow, zeroCapexEntries, type ZeroCapexRefusal } from "@/edgar/financialEnrichment";
 import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 import { conflictCauseMatches } from "@/edgar/refusalCauseRead";
 
 /** Reapply SBC, annual cash-flow net income (D-231), the cash-capex zero rule (D-239), the filed operating cash flow of a reconciled statement (D-252) and same-filing cash admission without modifying the snapshot. */
 export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
+  if (!bundle.statements) return bundle;
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
-  if (!facts) return bundle;
+  if (!facts) {
+    const gaps = [...bundle.gaps];
+    const family = (key: "cashflowAnnual" | "cashflowQuarterly") => {
+      const input = bundle.statements[key];
+      if (!input.ok) return input;
+      const rows = input.value.data.rows.map(row => {
+        const admitted = admitStockCompensation(row, null, key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
+        gaps.push(...admitted.gaps); return admitted.row;
+      });
+      return { ...input, value: { ...input.value, data: { ...input.value.data, rows } } };
+    };
+    return { ...bundle, statements: { ...bundle.statements, cashflowAnnual: family("cashflowAnnual"), cashflowQuarterly: family("cashflowQuarterly") }, gaps };
+  }
   const gaps = [...bundle.gaps];
   const superseded = new Map<string, string>();
   const zeroCapex: ZeroCapexRefusal[] = [];
@@ -16,12 +29,13 @@ export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
     const input = bundle.statements[key];
     if (!input.ok) return input;
     const rows = input.value.data.rows.map(row => {
+      const rowFacts = statementIssuerFacts(bundle.symbol, bundle.edgar, row.cik, bundle.builtAt) ?? facts;
       const flows = admitFiledStatementFlows(row, facts, "cashflow", key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
       gaps.push(...flows.gaps);
       for (const [field, prior] of Object.entries(row.fieldConflicts ?? {}))
         if (prior.usable === false && flows.row.fieldConflicts?.[field]?.usable === true)
           superseded.set(`statements.cashflow.${row.date}.${field}`, prior.reason);
-      const sbc = admitStockCompensation(flows.row, facts, key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
+      const sbc = admitStockCompensation(flows.row, rowFacts, key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
       gaps.push(...sbc.gaps);
       // D-239 (P7, P10): a provider zero for capital spending stands only as a filed zero for the row's own period.
       const filedCapex = admitFiledCapitalExpenditure(sbc.row, facts, key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
@@ -37,7 +51,8 @@ export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
         gaps.push(...operating.gaps);
         if (operating.superseded !== null) superseded.set(`statements.cashflow.${row.date}.operatingCashFlow`, operating.superseded);
         // D-231 (P8): the row's net income against the filer's own profit for that fiscal year.
-        const profit = admitCashFlowNetIncome(operating.row, facts, annualIncome.find(income => income.date === row.date), bundle.builtAt);
+        const profitFacts = statementIssuerFacts(bundle.symbol, bundle.edgar, row.cik, bundle.builtAt);
+        const profit = admitCashFlowNetIncome(operating.row, profitFacts ?? facts, annualIncome.find(income => income.date === row.date), bundle.builtAt);
         gaps.push(...profit.gaps);
         return profit.row;
       }

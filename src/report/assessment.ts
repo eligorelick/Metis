@@ -1,3 +1,4 @@
+import type { DataBundle } from "@/pipeline/types";
 import { ScoreAspectSchema, type AspectScore, type GradeBlock, type GradeQualification, type Report, type Scoring, type ScoreAspect, type ValuationUse } from "@/report/schema";
 import type { ManifestEntry } from "@/types/core";
 import type { WaccOperatingEvidence } from "@/pipeline/stageB/returns";
@@ -240,6 +241,21 @@ export type FinancialEvidenceQualification = {
   field: string; detail: string; affectedAspects: ScoreAspect[];
 };
 
+/** D-290 (P12): one qualification shared by the calculation and statement tables. */
+export function statementEvidenceNotes(bundle: DataBundle): string[] {
+  const notes: string[] = [];
+  const profile = bundle.profile?.ok ? bundle.profile.value.data.rows[0] : null;
+  const facts = bundle.edgar?.companyFacts;
+  const foreign = profile?.isAdr === true && facts?.ok && Object.keys(facts.value.data.facts["ifrs-full"] ?? {}).length > 0;
+  const quarters = bundle.statements?.incomeQuarterly;
+  if (foreign && quarters?.ok && quarters.value.data.rows.some(row => row.source !== "edgar" && !row.fieldProvenance?.revenue)) notes.push(
+    "Foreign interim figures: vendor data, not checked against a filing. Annual and interim accounting-framework compatibility is not established; TTM and derived fourth-quarter figures combining those series share that limitation.");
+  const derivedAds = [bundle.statements?.incomeAnnual, bundle.statements?.incomeQuarterly].some(input => input?.ok && input.value.data.rows.some(row =>
+    ["eps", "epsDiluted"].some(field => (row.fieldProvenance?.[field]?.shareUnitConversion?.ordinarySharesPerQuotedUnit ?? 1) !== 1)));
+  if (derivedAds) notes.push("ADS EPS is derived (ordinary EPS times ADS ratio); rounded ordinary EPS does not establish the exact filed ADS amount.");
+  return notes;
+}
+
 export function financialEvidenceQualifications(gaps: readonly ManifestEntry[], operatingEvidence: WaccOperatingEvidence | null): FinancialEvidenceQualification[] {
   const affected: Record<string, ScoreAspect[]> = {
     statements: ["fundamentals", "valuation", "quality", "balanceSheet"], returns: ["valuation", "quality"],
@@ -249,7 +265,7 @@ export function financialEvidenceQualifications(gaps: readonly ManifestEntry[], 
   for (const gap of gaps) {
     if (gap.field.endsWith(".cashBasis")) result.push({ code: "cash-only-liquidity", field: gap.field, detail: gap.reason, affectedAspects: ["valuation", "quality", "moat", "balanceSheet"] });
     const aspects = affected[gap.field.split(".")[0]!];
-    if (gap.severity === "critical" && gap.expected !== true && aspects) result.push({
+    if ((gap.severity === "critical" || gap.field === "statements.foreignInterim") && gap.expected !== true && aspects) result.push({
       code: "financial-evidence-blocked", field: gap.field, detail: gap.reason, affectedAspects: aspects,
     });
   }

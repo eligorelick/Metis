@@ -67,7 +67,7 @@ describe("release currency in the earnings window (audit 2026-10-22 B-27)", () =
 
   it("names both currencies when the guide is printed in another one", () => {
     const { bundle, release } = windowBundle();
-    for (const item of release.guidance?.items ?? []) if (item.metric === "revenue") item.symbol = "€";
+    for (const item of release.guidance?.items ?? []) if (item.metric === "revenue") { item.symbol = "€"; item.sentence = item.sentence.replaceAll("$", "€"); }
     const notes = buildFilingDisclosures(bundle)!.notes.join(" ");
     expect(notes).toMatch(/Q3 FY2027 revenue printed in "€" was left out: that currency \(EUR\) is not the statements' \(USD\)/);
   });

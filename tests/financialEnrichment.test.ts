@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { admitBalanceCash, enrichFinancialFields } from "@/edgar/financialEnrichment";
+import { admitStockCompensation, admitBalanceCash, enrichFinancialFields } from "@/edgar/financialEnrichment";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
@@ -260,4 +260,37 @@ describe("SEC field enrichment of existing vendor statements", () => {
     const out = enrichFinancialFields(sourced([{ date: "2026-12-31", reportedCurrency: "USD" }]), sourced<FmpCashFlowRow>([]), facts({ OperatingLeaseLiability: [point(30, { end: "2026-12-31" })] }), "quarter", observedAt);
     expect(out.balance.ok && out.balance.value.data.rows[0]).not.toHaveProperty("operatingLeaseLiability");
   });
+});
+
+
+describe("D-287 SBC zero admission", () => {
+  it.each(["annual", "quarter"] as const)("withholds an unproved %s vendor zero", scope => {
+    const row = { date: "2026-06-30", reportedCurrency: "USD", stockBasedCompensation: 0 };
+    const out = admitStockCompensation(row, facts({}), scope, observedAt);
+    expect(out.row.stockBasedCompensation).toBeNull();
+    expect(out.gaps[0]?.reason).toMatch(/zero.*not.*fil/i);
+  });
+  it("retains a nonzero unverified observation", () => {
+    const row = { date: "2026-06-30", reportedCurrency: "USD", stockBasedCompensation: 12 };
+    expect(admitStockCompensation(row, facts({}), "quarter", observedAt).row.stockBasedCompensation).toBe(12);
+  });
+  it("retains a directly filed quarter zero", () => {
+    const row = { date: "2026-06-30", reportedCurrency: "USD", stockBasedCompensation: 0 };
+    expect(admitStockCompensation(row, facts({ ShareBasedCompensation: [point(0, { start: "2026-04-01" })] }), "quarter", observedAt).row.stockBasedCompensation).toBe(0);
+  });
+});
+
+
+describe("D-287 incomplete liquidity", () => {
+  it("withholds a cash-only combined total beside a filed investment witness", () => {
+    const row = { date: "2026-06-30", reportedCurrency: "USD", cashAndCashEquivalents: 50e6, shortTermInvestments: 0, cashAndShortTermInvestments: 50e6 };
+    const out = admitBalanceCash(row, facts({ CashAndCashEquivalentsAtCarryingValue: [point(50e6)], ShortTermInvestments: [point(20e6)] }), "quarter", observedAt);
+    expect(out.row.cashAndShortTermInvestments).toBeNull();
+    expect(out.gaps.some(g => /investment scope/.test(g.reason))).toBe(true);
+  });
+});
+
+
+it("D-287 withholds an SBC zero even when issuer facts are unavailable", () => {
+  expect(admitStockCompensation({ date: "2026-06-30", stockBasedCompensation: 0 }, null, "quarter", observedAt).row.stockBasedCompensation).toBeNull();
 });

@@ -166,7 +166,7 @@ describe("filing disclosures statement integrity", () => {
     // An explicit US$ label is direct currency evidence, independent of the old CAD statement.
     for (const fact of release.freeCashFlow) fact.symbol = "US$";
     for (const fact of release.reconciliation ?? []) fact.symbol = "US$";
-    for (const item of release.guidance?.items ?? []) if (item.symbol === "$") item.symbol = "US$";
+    for (const item of release.guidance?.items ?? []) if (item.symbol === "$") { item.symbol = "US$"; item.sentence = item.sentence.replaceAll("$", "US$"); }
     if (release.capitalReturn.returned) release.capitalReturn.returned.symbol = "US$";
     release.workingCapital!.receivablesSymbol = "US$";
     const explicit = buildFilingDisclosures(bundle)!;
@@ -232,6 +232,7 @@ describe("filing disclosures statement integrity", () => {
     expect(buildFilingDisclosures(bundle)!.guidanceChecks.some((c) => c.metric === "revenue")).toBe(false);
     const revenueGuide = prior.guidance!.items.find((i) => i.metric === "revenue")!;
     revenueGuide.symbol = "US$";
+    revenueGuide.sentence = `We expect first quarter 2026 revenue to be in the range of US$${revenueGuide.low / 1e9}-US$${revenueGuide.high / 1e9} billion.`;
     expect(buildFilingDisclosures(bundle)!.guidanceChecks.find((c) => c.metric === "revenue")?.actual).toBe(NVDA_QUARTER * M);
   });
 

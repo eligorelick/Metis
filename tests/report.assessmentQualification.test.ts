@@ -1,3 +1,4 @@
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
 import { describe, expect, it } from "vitest";
 import * as assessment from "@/report/assessment";
 import { runStageB } from "@/pipeline/compute";
@@ -106,4 +107,36 @@ describe("deterministic score-neutral qualification", () => {
     expect(assessment.gradeDisplayLabel(view.verdict.gradeStrip.valuation)).toContain("Qualification unknown");
     expect(view.scores?.composite).toEqual(report.scores.composite); expect(JSON.stringify(report)).toBe(before);
   });
+});
+
+
+describe("D-290 foreign statement qualifications", () => {
+  it("labels unverified foreign interim figures and propagates the limitation", () => {
+    const bundle = completeCurrencyBundle({});
+    withIssuerFacts(bundle, { cik: 1, entityName: "Foreign", facts: { "ifrs-full": { Revenue: { units: {} } } } });
+    if (!bundle.profile.ok) throw Error("fixture");
+    bundle.profile.value.data.rows[0]!.isAdr = true;
+    expect(assessment.statementEvidenceNotes(bundle).join(" ")).toContain("vendor data, not checked against a filing");
+    const gap = { field: "statements.foreignInterim", reason: assessment.statementEvidenceNotes(bundle).join(" "), severity: "info" as const };
+    expect(assessment.financialEvidenceQualifications([gap], null)[0]?.affectedAspects).toContain("quality");
+  });
+  it("does not label a domestic control as foreign interim", () => {
+    expect(assessment.statementEvidenceNotes(completeCurrencyBundle({}))).toEqual([]);
+  });
+});
+
+
+it("D-290 labels a converted ordinary EPS as derived ADS precision", () => {
+  const bundle = completeCurrencyBundle({});
+  if (!bundle.statements.incomeAnnual.ok) throw Error("fixture");
+  const row = bundle.statements.incomeAnnual.value.data.rows[0]!;
+  row.fieldProvenance = { epsDiluted: { source: "edgar", unit: "TWD/shares", periodStart: "2025-01-01", periodEnd: "2025-12-31", observedAt: bundle.builtAt,
+    tags: ["ifrs-full/DilutedEarningsLossPerShare"], filings: [], shareUnitConversion: { ordinarySharesPerQuotedUnit: 5, sourceIds: ["filing"] } } };
+  expect(assessment.statementEvidenceNotes(bundle).join(" ")).toContain("derived (ordinary EPS times ADS ratio)");
+});
+
+it("D-290 carries the vendor tax operand limitation into the valuation assumption", () => {
+  const computed = runStageB(completeCurrencyBundle({}));
+  if (computed.valuation.kind !== "dcf" || !computed.valuation.assumptions) throw Error("fixture");
+  expect(computed.valuation.assumptions.taxRatePath.basis).toContain("vendor data, not checked against a filing");
 });
