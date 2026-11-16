@@ -139,11 +139,12 @@ function fixtureTreeSha256(root: string): string {
   return hash.digest("hex");
 }
 
-/** Restore exactly the authorized first-party metadata, never dependency fields. */
+/** Restore exactly the authorized first-party metadata (name, license, version), never dependency fields. */
 function comparisonLockBlob(source: string): string {
   const lock = JSON.parse(source) as {
     name: string;
-    packages: Record<string, { name?: string; license?: string }>;
+    version?: string;
+    packages: Record<string, { name?: string; license?: string; version?: string }>;
   };
   if (lock.name !== "metis" || lock.packages[""]?.name !== "metis") {
     throw new Error("unexpected canonical package-lock branding metadata");
@@ -160,6 +161,13 @@ function comparisonLockBlob(source: string): string {
   lock.packages[""].name = "thesis";
   // Historical comparison metadata only; current license terms stay in LICENSE.
   lock.packages[""].license = "MIT";
+  // The application's own version (1.0.0 at release) is first-party metadata, not the dependency tree; the
+  // projection was frozen at 0.1.0 (P27).
+  if (typeof lock.version !== "string" || lock.packages[""]?.version !== lock.version) {
+    throw new Error("unexpected canonical package-lock first-party version metadata");
+  }
+  lock.version = "0.1.0";
+  lock.packages[""].version = "0.1.0";
   return execFileSync("git", ["hash-object", "--stdin", "--path=package-lock.json"], {
     cwd: ROOT,
     encoding: "utf8",

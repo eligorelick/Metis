@@ -1,6 +1,6 @@
 # Known limitations
 
-Release documentation reviewed 2026-11-15 against build `3c0dbffe`. Missing evidence is disclosed rather than filled in. These limits apply beyond the named examples wherever the same evidence shape occurs.
+Release documentation reviewed 2026-11-15 against build `2a8690be`. Missing evidence is disclosed rather than filled in. These limits apply beyond the named examples wherever the same evidence shape occurs.
 
 ## L1: Web claims
 

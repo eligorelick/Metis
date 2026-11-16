@@ -151,6 +151,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/KNOWN-LIMITATIONS.md",
   "docs/REPORT-COSTS.md",
   "docs/ARCHITECTURE.md",
+  "docs/RELEASE-NOTES-1.0.0.md",
   "docs/archive/VALIDATION-HISTORY.md",
   "docs/internal/superpowers/specs/2026-10-27-audit-remediation-decisions.md",
   "docs/internal/superpowers/specs/2026-10-30-qcom-report-53-audit-design.md",
