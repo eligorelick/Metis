@@ -32,7 +32,7 @@ data, on your own computer. This is the first release meant for general use.
   by hand against the release checks; the
   problems that check found were fixed before release.
 - The full test suite passes on Linux and Windows, a fresh clone installs and shows the sample report on both, the
-  dependency audit is clean, and a secret scan of the full history found no secrets.
+  dependency audit is clean, and a secret scan of the full history found no secrets (its few hits were all false positives).
 
 See [validation status](https://github.com/eligorelick/Metis/blob/v1.0.0/docs/VALIDATION-STATUS.md) for the counts and [known limitations](https://github.com/eligorelick/Metis/blob/v1.0.0/docs/KNOWN-LIMITATIONS.md) for
 everything that is missing or partial.
@@ -47,8 +47,8 @@ everything that is missing or partial.
 - **Foreign filers'** interim figures come from the data provider and are labelled, because Form 6-K statements are not
   parsed yet.
 - **Reports saved before 1.0** keep their original text. Some fixes apply when they are read; others need a new report.
-- **Cost and time.** A full report through a Claude sign-in took about 30-40 minutes and roughly 3-5.5 million input
-  tokens (including cached ones) and 0.2-0.3 million output tokens in our measurements. Priced as Claude API traffic at
+- **Cost and time.** A full report through a Claude sign-in took 28-40 minutes and 2.9-5.5 million input
+  tokens (including cached ones) and 0.21-0.31 million output tokens in our six measurements. Priced as Claude API traffic at
   list prices with all input uncached, that usage would be roughly $16-28 per report. A data-only report took under a minute in our measurements and uses no AI. See
   [report costs](https://github.com/eligorelick/Metis/blob/v1.0.0/docs/REPORT-COSTS.md).
 - Metis gives no investment advice. Grades and scenario prices are model outputs from the disclosed data and
