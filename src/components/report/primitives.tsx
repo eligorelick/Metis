@@ -33,7 +33,7 @@ import type {
   SourcedClaim,
   TracedNumber,
 } from "@/report/schema";
-import { citedMark, claimCitation, displayClaimText, displayConfidence, displayProse, figureRows, figureValueText, repeatedClaimsNote, SCENARIO_TARGET_UNAVAILABLE_TEXT, scenarioWeightView, seeAlsoText, withoutRepeatedClaims, withoutTabled, type ScenarioWeightView } from "@/report/presentation";
+import { citedMark, claimCitation, claimSourceTitle, displayClaimText, displayConfidence, displayProse, figureRows, figureValueText, repeatedClaimsNote, SCENARIO_TARGET_UNAVAILABLE_TEXT, scenarioWeightView, seeAlsoText, withoutRepeatedClaims, withoutTabled, type ScenarioWeightView } from "@/report/presentation";
 import {
   unitLabel,
   numericCitationTraceLabel,
@@ -132,7 +132,7 @@ export function ClaimReasoning({ reasoning }: { reasoning: SourcedClaim | Source
         <span key={index} {...evidenceAttributes("claim", claim)}>
           {index > 0 && " "}
           <ClaimLabelChip label={claimTag(claim)} />{" "}{displayClaimText(claim)}{" "}
-          <span className="claim-source mono text-[10px] text-faint" title={claim.source}>({claimCitation(claim)})</span>
+          <span className="claim-source mono text-[10px] text-faint" title={claimSourceTitle(claim)}>({claimCitation(claim)})</span>
           {claimStatusMarkText(claim) && <span className="claim-status mono ml-1 text-[10px] text-muted">{claimStatusMarkText(claim)}</span>}
         </span>
       ))}

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ReportView } from "@/components/report/ReportView";
+import { ClaimReasoning } from "@/components/report/primitives";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
@@ -27,6 +28,7 @@ describe("reader labels for registry ids", () => {
     "manifest.evidenceCoverage.edgar:40-F notes governance",
     "payload..unregistered",
     "computed..missing",
+    "computed.valuation NOTE",
   ])("D-313: hides malformed registry citation %s at read time, retaining the audit", (source) => {
     expect(sourceLabel(source)).toBe("Unresolved citation (no matching record)");
     const report = loadTask28Fixture();
@@ -35,12 +37,43 @@ describe("reader labels for registry ids", () => {
     report.appendix.verificationLog = [{ path: "leadership.executives[0].reasoning[0]", claim: claim.text,
       source, outcome: "unverified", validationStatus: "unchecked", traceKind: "untraced", reason: "unknown-source" }];
     const stored = JSON.stringify(report);
-    for (const reader of [reportToMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(ReportView, { report }))]) {
+    const app = renderToStaticMarkup(createElement(ReportView, { report }));
+    const reasoning = renderToStaticMarkup(createElement(ClaimReasoning, { reasoning: [claim] }));
+    for (const reader of [reportToMarkdown(report), reportToPrintBody(report), app]) {
       expect(reader).toContain("Unresolved citation (no matching record)");
       expect(reader.replace(/<[^>]+>/g, "")).not.toContain(source);
     }
+    for (const markup of [app, reasoning]) {
+      expect(markup).not.toContain(`title="${source}`);
+      expect(markup).toContain('title="Unresolved citation (no matching record)');
+    }
     expect(reportToAuditMarkdown(report)).toContain(source);
     expect(report.appendix.verificationLog[0]!.reason).toBe("unknown-source");
+    expect(JSON.stringify(report)).toBe(stored);
+  });
+
+  it.each([
+    ["computed.growth.margins.net · 2025-12-31", "Net · 2025-12-31"],
+    ["computed.valuation.multiples.peTtm · 2026-07-07; computed.valuation.multiples.priceToBook · 2026-07-07", "Pe TTM · 2026-07-07; Price to book · 2026-07-07"],
+    ["computed.capital.fcf / computed.runway", "FCF; Runway"],
+    ["computed.capital.fcf & computed.runway", "FCF; Runway"],
+    ["computed.capital.fcf; fred:DGS10", "FCF; FRED DGS10"],
+    ["computed.valuation NOTE; computed.capital.fcf", "FCF"],
+    ["[computed.capital.fcf · 2025-12-31], [computed.runway]", "FCF · 2025-12-31; Runway"],
+    ["[computed.capital.fcf] + [computed.runway]", "FCF; Runway"],
+    ["computed.capital.fcf · computed.runway", "FCF; Runway"],
+    ["computed.returns.wacc · 2025-06-30/2026-07-10", "WACC · 2025-06-30/2026-07-10"],
+  ])("D-313: preserves legacy spec-1.1.0 citation records in %s", (source, expected) => {
+    const report = loadTask28Fixture();
+    report.meta.specVersion = "1.1.0";
+    const claim = { label: "FACT" as const, text: "Legacy record citation.", source, asOf: null };
+    report.leadership.executives[0]!.reasoning = [claim];
+    const stored = JSON.stringify(report);
+    expect(sourceLabel(source)).toBe(expected);
+    for (const reader of [reportToMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(ReportView, { report }))]) {
+      expect(reader).not.toContain("Unresolved citation (no matching record)");
+      expect(reader.replace(/<[^>]+>/g, "")).toContain(expected);
+    }
     expect(JSON.stringify(report)).toBe(stored);
   });
 

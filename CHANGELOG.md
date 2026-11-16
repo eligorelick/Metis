@@ -21,6 +21,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 ## Unreleased — Unresolved AI citation labels (P21, P22, D-313)
 
 - Saved and new report readers show "Unresolved citation (no matching record)" for malformed registry-like AI citations. Markdown, print and the app share the rule; audit exports retain raw sources and verification outcomes. Figures and version stamps are unchanged.
+- Legacy dated and multi-record citations are parsed before applying that guard, preserving record labels and date text. Both app claim hover paths share the guard, with explicit title-leak regression checks.
 
 ## Unreleased — Step 4 report blockers (D-310..D-312)
 
