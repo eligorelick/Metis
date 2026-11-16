@@ -14,7 +14,7 @@
 import { Badge, type Tone } from "@/components/ui";
 import type { SourcedClaim, TracedNumber } from "@/report/schema";
 import { claimStatusMarkText, claimTag, type ClaimTag } from "@/report/verificationMarks";
-import { displayClaimText, sourceLabel } from "@/report/presentation";
+import { claimSourceTitle, displayClaimText, isUnresolvedRegistryCitation, sourceLabel } from "@/report/presentation";
 import { evidenceAttributes } from "./evidenceIdentity";
 
 const LABEL_TONE: Record<ClaimTag, Tone> = {
@@ -45,7 +45,7 @@ function Provenance({
           when it differs from it; an absent id is not printed as "n/a". */}
       <span className="break-all">
         <span className="text-muted">source</span> {sourceLabel(source)}
-        {sourceLabel(source) !== source && <span className="ml-1">({source})</span>}
+        {sourceLabel(source) !== source && !isUnresolvedRegistryCitation(source) && <span className="ml-1">({source})</span>}
       </span>
       {sourceId && sourceId !== source && (
         <span className="break-all">
@@ -89,7 +89,7 @@ export function ClaimText({
           {displayClaimText(claim, numbers)}{" "}
           <span
             className="claim-source mono align-baseline text-[10px] text-faint group-hover:text-accent"
-            title={`${claim.source}${claim.asOf ? ` · as of ${claim.asOf}` : ""}`}
+            title={`${claimSourceTitle(claim)}${claim.asOf ? ` · as of ${claim.asOf}` : ""}`}
           >
             <span className="group-open:hidden">›src</span>
             <span className="hidden group-open:inline">‹src</span>

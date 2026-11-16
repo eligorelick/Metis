@@ -1,4 +1,5 @@
 import { MODEL_TANGIBLE_COMMON_BASIS } from "@/pipeline/stageB/returns";
+import { parseCitationRef } from "@/pipeline/stageC/citations";
 import type { ReportAuditTable } from "@/report/auditTables";
 import { qualifiedGradeLabel } from "@/report/assessment";
 import { supplementalNumericInventoryText } from "@/report/supplementalNumericAudit";
@@ -556,12 +557,53 @@ const RISK_FREE_CITATION = /^computed\.returns\.wacc\.riskFree\(([^()\s]+)\)$/;
 /** The risk-free series ids that are not `fred:<SERIES>`, read under their labels in prose. */
 const RISK_FREE_BARE_IDS = /(?<![\w/])(?:fmp:treasury-rates\.year10|fred:DGS10\.last-cached|treasury:par-yield-curve\.10yr)/g;
 
-/**
- * A reader label for a claim's citation ("edgar:10-Q item2" → "10-Q Item 2").
- * Computed and payload ids read as the figure they name; anything unknown is
- * returned verbatim.
- */
+const REGISTRY_CITATION_PREFIX = /^\[?(computed|payload|manifest)\./;
+const REGISTRY_PATH = /^(computed|payload|manifest)\.[^\s.]+(?:\.[^\s.]+)*$/;
+
+/** D-313: legacy sources can hold dated references or a list of references. */
+function registryCitationRefs(source: string) {
+  // Bracketed comma/plus lists and middle-dot lists also occur in saved 1.1.0
+  // reports. A dot before a record name is a list separator, not an as-of date.
+  return source.split(/;|&| \/ |(?<=\])\s*(?:,|\+)\s*(?=\[)| · (?=[A-Za-z][\w-]*[.:])/).flatMap(part => {
+    const ref = parseCitationRef(part);
+    // Mixed legacy lists also contain ordinary provider references. Keep those
+    // under their existing source labels rather than dropping their provenance.
+    if (ref && (REGISTRY_PATH.test(ref.sourceId) || /^(edgar|sec|fred|news|fmp|finnhub|pipeline):/.test(ref.sourceId))) {
+      return [{ sourceId: ref.sourceId, dateLabel: ref.asOf }];
+    }
+    // A saved source can show two dates separated by a slash. Parse each with
+    // the canonical parser; retain the original date text without choosing one
+    // as the record's as-of date or changing verification metadata.
+    const [id, dates, ...extra] = part.trim().replace(/^\[(.*)\]$/, "$1").split(" · ");
+    const dateParts = dates?.split("/");
+    const bare = id ? parseCitationRef(id) : null;
+    if (extra.length === 0 && bare && REGISTRY_PATH.test(bare.sourceId)
+      && dateParts?.length === 2 && dateParts.every(date => parseCitationRef(`${bare.sourceId} · ${date}`)?.asOf)) {
+      return [{ sourceId: bare.sourceId, dateLabel: dates! }];
+    }
+    return [];
+  });
+}
+
+/** Test the parsed legacy references before declaring a registry citation unresolved. */
+export function isUnresolvedRegistryCitation(source: string): boolean {
+  return REGISTRY_CITATION_PREFIX.test(source.trim()) && registryCitationRefs(source).length === 0;
+}
+
+/** Shared claim hover text; raw unresolved references remain in audit metadata only. */
+export function claimSourceTitle(claim: Pick<SourcedClaim, "source">): string {
+  return isUnresolvedRegistryCitation(claim.source) ? sourceLabel(claim.source) : claim.source;
+}
+
+/** Label a citation for readers, preserving ordinary publisher/source names. */
 export function sourceLabel(source: string): string {
+  if (REGISTRY_CITATION_PREFIX.test(source.trim())) {
+    const refs = registryCitationRefs(source);
+    if (refs.length === 0) return "AI citation not resolved to a record";
+    if (refs.length !== 1 || refs[0]!.sourceId !== source) {
+      return refs.map(ref => `${sourceLabel(ref.sourceId)}${ref.dateLabel ? ` · ${ref.dateLabel}` : ""}`).join("; ");
+    }
+  }
   const item = /^edgar:(10-K|10-Q|20-F|40-F|DEF 14A)\s+item\s*([0-9A-Za-z]+)$/i.exec(source);
   if (item) return `${item[1]!.toUpperCase()} Item ${item[2]!.toUpperCase()}`;
   const exhibit = /^edgar:(8-K|6-K|10-K|10-Q)\s+(EX-[0-9.]+)$/i.exec(source);

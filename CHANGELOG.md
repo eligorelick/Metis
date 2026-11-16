@@ -22,6 +22,11 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 The application version is now 1.0.0; report spec 1.102.0, payload 1.113.0 and the other stamps are unchanged by this entry. Plain-English release notes: [docs/RELEASE-NOTES-1.0.0.md](docs/RELEASE-NOTES-1.0.0.md). The release contains every entry below; entries headed Unreleased were merged before the version was set. Validation for this build is in [validation status](docs/VALIDATION-STATUS.md), what is missing or partial in [known limitations](docs/KNOWN-LIMITATIONS.md), and measured report costs in [report costs](docs/REPORT-COSTS.md).
 
+## Unreleased — Unresolved AI citation labels (P21, P22, D-313)
+
+- Saved and new report readers show "AI citation not resolved to a record" for malformed registry-like AI citations. Markdown, print and the app share the rule; audit exports retain raw sources and verification outcomes. Figures and version stamps are unchanged.
+- Legacy dated and multi-record citations are parsed before applying that guard, preserving record labels and date text. Both app claim hover paths share the guard, with explicit title-leak regression checks.
+
 ## Unreleased — Step 4 report blockers (D-310..D-312)
 
 - P1/P11/P22: support limitations name the historical annual capital period from calculation-owned records, never provider-envelope dates; absent/conflicting dates explicitly remain unrecorded. Historical missing-SBC refusals are dated from the admitted FCF series, or omitted when current after-SBC FCF is shown. The separate financial-asset add-back qualification remains.
