@@ -1,5 +1,13 @@
 import { reverseDcfValueText } from "@/report/presentation";
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { ReportView } from "@/components/report/ReportView";
+import { ClaimReasoning } from "@/components/report/primitives";
+import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToPrintBody } from "@/report/export/printHtml";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
+import { loadTask28Fixture } from "./helpers/task28Report";
 
 import {
   annualSegmentHeading,
@@ -15,6 +23,66 @@ import {
 // D-62 reader labels for registry ids, checked against the ids the NVDA
 // integration report actually cites (data/recovery/nvda-integration-20261015).
 describe("reader labels for registry ids", () => {
+  it.each([
+    "computed.returns.unregistered notes",
+    "manifest.evidenceCoverage.edgar:40-F notes governance",
+    "payload..unregistered",
+    "computed..missing",
+    "computed.valuation NOTE",
+  ])("D-313: hides malformed registry citation %s at read time, retaining the audit", (source) => {
+    expect(sourceLabel(source)).toBe("AI citation not resolved to a record");
+    const report = loadTask28Fixture();
+    const claim = { label: "JUDGMENT" as const, text: "The retained evidence is incomplete.", source, asOf: "2026-01-01" };
+    report.leadership.executives[0]!.reasoning = [claim];
+    report.appendix.verificationLog = [{ path: "leadership.executives[0].reasoning[0]", claim: claim.text,
+      source, outcome: "unverified", validationStatus: "unchecked", traceKind: "untraced", reason: "unknown-source" }];
+    const stored = JSON.stringify(report);
+    const app = renderToStaticMarkup(createElement(ReportView, { report }));
+    const reasoning = renderToStaticMarkup(createElement(ClaimReasoning, { reasoning: [claim] }));
+    for (const reader of [reportToMarkdown(report), reportToPrintBody(report), app]) {
+      expect(reader).toContain("AI citation not resolved to a record");
+      expect(reader.replace(/<[^>]+>/g, "")).not.toContain(source);
+    }
+    for (const markup of [app, reasoning]) {
+      expect(markup).not.toContain(`title="${source}`);
+      expect(markup).toContain('title="AI citation not resolved to a record');
+    }
+    expect(reportToAuditMarkdown(report)).toContain(source);
+    expect(report.appendix.verificationLog[0]!.reason).toBe("unknown-source");
+    expect(JSON.stringify(report)).toBe(stored);
+  });
+
+  it.each([
+    ["computed.growth.margins.net · 2025-12-31", "Net · 2025-12-31"],
+    ["computed.valuation.multiples.peTtm · 2026-07-07; computed.valuation.multiples.priceToBook · 2026-07-07", "Pe TTM · 2026-07-07; Price to book · 2026-07-07"],
+    ["computed.capital.fcf / computed.runway", "FCF; Runway"],
+    ["computed.capital.fcf & computed.runway", "FCF; Runway"],
+    ["computed.capital.fcf; fred:DGS10", "FCF; FRED DGS10"],
+    ["computed.valuation NOTE; computed.capital.fcf", "FCF"],
+    ["[computed.capital.fcf · 2025-12-31], [computed.runway]", "FCF · 2025-12-31; Runway"],
+    ["[computed.capital.fcf] + [computed.runway]", "FCF; Runway"],
+    ["computed.capital.fcf · computed.runway", "FCF; Runway"],
+    ["computed.returns.wacc · 2025-06-30/2026-07-10", "WACC · 2025-06-30/2026-07-10"],
+  ])("D-313: preserves legacy spec-1.1.0 citation records in %s", (source, expected) => {
+    const report = loadTask28Fixture();
+    report.meta.specVersion = "1.1.0";
+    const claim = { label: "FACT" as const, text: "Legacy record citation.", source, asOf: null };
+    report.leadership.executives[0]!.reasoning = [claim];
+    const stored = JSON.stringify(report);
+    expect(sourceLabel(source)).toBe(expected);
+    for (const reader of [reportToMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(ReportView, { report }))]) {
+      expect(reader).not.toContain("AI citation not resolved to a record");
+      expect(reader.replace(/<[^>]+>/g, "")).toContain(expected);
+    }
+    expect(JSON.stringify(report)).toBe(stored);
+  });
+
+  it("D-313: preserves valid gap citations and ordinary source labels", () => {
+    expect(sourceLabel("manifest.returns.roic")).toBe("Data-gap record: returns ROIC");
+    expect(sourceLabel("edgar:10-Q item2")).toBe("10-Q Item 2");
+    expect(sourceLabel("news: Example Publisher: Article title")).toBe("Example Publisher: Article title");
+    expect(sourceLabel("Example Publisher")).toBe("Example Publisher");
+  });
   it.each([
     ["computed.weighted-projections.revenue-weighted-12m-ending-2027-07-26", "Weighted revenue, 12M ending 2027-07-26"],
     ["payload.computed.projections.revenue.base.12m-ending-2027-07-26", "Base case revenue, 12M ending 2027-07-26"],

@@ -18,6 +18,11 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased — Unresolved AI citation labels (P21, P22, D-313)
+
+- Saved and new report readers show "AI citation not resolved to a record" for malformed registry-like AI citations. Markdown, print and the app share the rule; audit exports retain raw sources and verification outcomes. Figures and version stamps are unchanged.
+- Legacy dated and multi-record citations are parsed before applying that guard, preserving record labels and date text. Both app claim hover paths share the guard, with explicit title-leak regression checks.
+
 ## Unreleased — Step 4 report blockers (D-310..D-312)
 
 - P1/P11/P22: support limitations name the historical annual capital period from calculation-owned records, never provider-envelope dates; absent/conflicting dates explicitly remain unrecorded. Historical missing-SBC refusals are dated from the admitted FCF series, or omitted when current after-SBC FCF is shown. The separate financial-asset add-back qualification remains.
