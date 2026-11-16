@@ -13,6 +13,18 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 
 
+## D-313 — Unresolved registry citations use a reader label (2026-11-15)
+
+**Principles:** P21, P22; W11 / VERIFY-3 F7 / R62. Owner: `src/report/presentation.ts`.
+
+An AI citation beginning with computed., payload. or manifest. can contain prose whitespace or an empty path component and name no registry record. sourceLabel previously returned whitespace-bearing citations verbatim. At read time these malformed paths now say "Unresolved citation (no matching record)". Valid registry paths retain their existing labels; ordinary publisher names and SEC/news citations retain their existing behavior. This is a structural presentation guard, not an evidence lookup or a new verification status. The app's provenance and hover text consume the same owner rule instead of repeating the malformed source.
+
+Raw citation bytes and unknown-source / unverified / untraced classifications remain in the audit export and verification log. Saved report objects are never rewritten. No calculation, figure, evidence admission, grade or verification meaning changes; report/payload stamps stay at 1.102.0 / 1.113.0 because this is reader wording only.
+
+**Approved report changes:** SAP saved report #65 changes the citation following its governance JUDGMENT from a raw manifest path with prose to the unresolved label on Markdown, print and app/company readers. No before/after figures change for SAP or any panel company. The 33 panel cases contain no such malformed citation; no panel output changes are expected. Synthetic non-SAP computed/manifest whitespace paths and payload/computed empty components cover reader surfaces, audit retention and immutability; valid manifest, SEC, news and publisher controls remain readable.
+
+**Proof:** Against pinned main a18953a187aa386d7169c7b9b3df67724a024e18, all 33 golden cases succeeded and all 231 files were byte-identical. Value check: zero moves. Accuracy: 535 figures, 331 match / 13 expected mismatch / 121 gap / 70 not-established, every figure as expected. Production exports of SAP #65 from a scratch copy of the Step 4 rel1v database returned 200 for Markdown, print, audit, company and report pages. Compared with VERIFY-3's preserved pinned-main exports, Markdown and print differed only by the citation label; audit was byte-identical. The raw citation disappeared from visible company/report text. Stored report JSON hashes matched the source copy before and after; no report job ran and the server was stopped. Focused presentation tests: 64 passed; typecheck and touched-file lint passed; production build passed. Local proof artifacts remain untracked under tmp/w11.
+
 ## D-312 — Plain code-written reader diagnostics (2026-11-15)
 
 **Principles:** P19, P21, P22. **Owner:** `src/report/presentation.ts`, shared reader preparation and the existing filing-note/bridge table helpers. **Revises D-301's code-written vocabulary; its citation guards remain.**

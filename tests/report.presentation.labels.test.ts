@@ -1,5 +1,12 @@
 import { reverseDcfValueText } from "@/report/presentation";
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { ReportView } from "@/components/report/ReportView";
+import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToPrintBody } from "@/report/export/printHtml";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
+import { loadTask28Fixture } from "./helpers/task28Report";
 
 import {
   annualSegmentHeading,
@@ -15,6 +22,34 @@ import {
 // D-62 reader labels for registry ids, checked against the ids the NVDA
 // integration report actually cites (data/recovery/nvda-integration-20261015).
 describe("reader labels for registry ids", () => {
+  it.each([
+    "computed.returns.unregistered notes",
+    "manifest.evidenceCoverage.edgar:40-F notes governance",
+    "payload..unregistered",
+    "computed..missing",
+  ])("D-313: hides malformed registry citation %s at read time, retaining the audit", (source) => {
+    expect(sourceLabel(source)).toBe("Unresolved citation (no matching record)");
+    const report = loadTask28Fixture();
+    const claim = { label: "JUDGMENT" as const, text: "The retained evidence is incomplete.", source, asOf: "2026-01-01" };
+    report.leadership.executives[0]!.reasoning = [claim];
+    report.appendix.verificationLog = [{ path: "leadership.executives[0].reasoning[0]", claim: claim.text,
+      source, outcome: "unverified", validationStatus: "unchecked", traceKind: "untraced", reason: "unknown-source" }];
+    const stored = JSON.stringify(report);
+    for (const reader of [reportToMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(ReportView, { report }))]) {
+      expect(reader).toContain("Unresolved citation (no matching record)");
+      expect(reader.replace(/<[^>]+>/g, "")).not.toContain(source);
+    }
+    expect(reportToAuditMarkdown(report)).toContain(source);
+    expect(report.appendix.verificationLog[0]!.reason).toBe("unknown-source");
+    expect(JSON.stringify(report)).toBe(stored);
+  });
+
+  it("D-313: preserves valid gap citations and ordinary source labels", () => {
+    expect(sourceLabel("manifest.returns.roic")).toBe("Data-gap record: returns ROIC");
+    expect(sourceLabel("edgar:10-Q item2")).toBe("10-Q Item 2");
+    expect(sourceLabel("news: Example Publisher: Article title")).toBe("Example Publisher: Article title");
+    expect(sourceLabel("Example Publisher")).toBe("Example Publisher");
+  });
   it.each([
     ["computed.weighted-projections.revenue-weighted-12m-ending-2027-07-26", "Weighted revenue, 12M ending 2027-07-26"],
     ["payload.computed.projections.revenue.base.12m-ending-2027-07-26", "Base case revenue, 12M ending 2027-07-26"],

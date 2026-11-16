@@ -556,12 +556,19 @@ const RISK_FREE_CITATION = /^computed\.returns\.wacc\.riskFree\(([^()\s]+)\)$/;
 /** The risk-free series ids that are not `fred:<SERIES>`, read under their labels in prose. */
 const RISK_FREE_BARE_IDS = /(?<![\w/])(?:fmp:treasury-rates\.year10|fred:DGS10\.last-cached|treasury:par-yield-curve\.10yr)/g;
 
-/**
- * A reader label for a claim's citation ("edgar:10-Q item2" → "10-Q Item 2").
- * Computed and payload ids read as the figure they name; anything unknown is
- * returned verbatim.
- */
+/** Whether a model-typed registry citation fails the registry path shape. */
+export function isUnresolvedRegistryCitation(source: string): boolean {
+  // D-313 (P21, P22): model-typed registry citations can contain prose or empty
+  // path components. They name no record; keep their raw text in the audit only.
+  return /^(computed|payload|manifest)\./.test(source)
+    && !/^(computed|payload|manifest)\.[^\s.]+(?:\.[^\s.]+)*$/.test(source);
+}
+
+/** Label a citation for readers, preserving ordinary publisher/source names. */
 export function sourceLabel(source: string): string {
+  if (isUnresolvedRegistryCitation(source)) {
+    return "Unresolved citation (no matching record)";
+  }
   const item = /^edgar:(10-K|10-Q|20-F|40-F|DEF 14A)\s+item\s*([0-9A-Za-z]+)$/i.exec(source);
   if (item) return `${item[1]!.toUpperCase()} Item ${item[2]!.toUpperCase()}`;
   const exhibit = /^edgar:(8-K|6-K|10-K|10-Q)\s+(EX-[0-9.]+)$/i.exec(source);
