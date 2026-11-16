@@ -30,7 +30,7 @@ describe("reader labels for registry ids", () => {
     "computed..missing",
     "computed.valuation NOTE",
   ])("D-313: hides malformed registry citation %s at read time, retaining the audit", (source) => {
-    expect(sourceLabel(source)).toBe("Unresolved citation (no matching record)");
+    expect(sourceLabel(source)).toBe("AI citation not resolved to a record");
     const report = loadTask28Fixture();
     const claim = { label: "JUDGMENT" as const, text: "The retained evidence is incomplete.", source, asOf: "2026-01-01" };
     report.leadership.executives[0]!.reasoning = [claim];
@@ -40,12 +40,12 @@ describe("reader labels for registry ids", () => {
     const app = renderToStaticMarkup(createElement(ReportView, { report }));
     const reasoning = renderToStaticMarkup(createElement(ClaimReasoning, { reasoning: [claim] }));
     for (const reader of [reportToMarkdown(report), reportToPrintBody(report), app]) {
-      expect(reader).toContain("Unresolved citation (no matching record)");
+      expect(reader).toContain("AI citation not resolved to a record");
       expect(reader.replace(/<[^>]+>/g, "")).not.toContain(source);
     }
     for (const markup of [app, reasoning]) {
       expect(markup).not.toContain(`title="${source}`);
-      expect(markup).toContain('title="Unresolved citation (no matching record)');
+      expect(markup).toContain('title="AI citation not resolved to a record');
     }
     expect(reportToAuditMarkdown(report)).toContain(source);
     expect(report.appendix.verificationLog[0]!.reason).toBe("unknown-source");
@@ -71,7 +71,7 @@ describe("reader labels for registry ids", () => {
     const stored = JSON.stringify(report);
     expect(sourceLabel(source)).toBe(expected);
     for (const reader of [reportToMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(ReportView, { report }))]) {
-      expect(reader).not.toContain("Unresolved citation (no matching record)");
+      expect(reader).not.toContain("AI citation not resolved to a record");
       expect(reader.replace(/<[^>]+>/g, "")).toContain(expected);
     }
     expect(JSON.stringify(report)).toBe(stored);

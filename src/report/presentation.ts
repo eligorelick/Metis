@@ -599,7 +599,7 @@ export function claimSourceTitle(claim: Pick<SourcedClaim, "source">): string {
 export function sourceLabel(source: string): string {
   if (REGISTRY_CITATION_PREFIX.test(source.trim())) {
     const refs = registryCitationRefs(source);
-    if (refs.length === 0) return "Unresolved citation (no matching record)";
+    if (refs.length === 0) return "AI citation not resolved to a record";
     if (refs.length !== 1 || refs[0]!.sourceId !== source) {
       return refs.map(ref => `${sourceLabel(ref.sourceId)}${ref.dateLabel ? ` · ${ref.dateLabel}` : ""}`).join("; ");
     }
