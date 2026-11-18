@@ -4,7 +4,7 @@
 
 ![Metis equity research](public/brand/metis-lockup.svg)
 
-**Metis turns SEC filings, issuer disclosures and market data into equity research you can inspect.** It runs on your own computer, computes financial analysis in deterministic TypeScript, and can add AI bull and bear cases with a judge's synthesis. Source records, assumptions, verification results and data gaps stay alongside the report. It is built for individual investors and equity researchers reviewing US-listed companies ([brand guide](docs/BRAND.md)).
+**Newer version:** [Metis Lite](https://github.com/eligorelick/metis-lite) is the current version of Metis, a smaller rebuild in which every sentence in a report can be traced to the source passage it rests on. This repository is the first version and stays available as released. **Metis turns SEC filings, issuer disclosures and market data into equity research you can inspect.** It runs on your own computer, computes financial analysis in deterministic TypeScript, and can add AI bull and bear cases with a judge's synthesis. Source records, assumptions, verification results and data gaps stay alongside the report. It is built for individual investors and equity researchers reviewing US-listed companies ([brand guide](docs/BRAND.md)).
 
 > **Informational only — not investment advice.** Grades and price targets are model outputs from disclosed data and assumptions, not human recommendations. Market data and AI output can be delayed, incomplete, or wrong.
 
